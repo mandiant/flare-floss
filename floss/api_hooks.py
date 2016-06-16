@@ -207,12 +207,14 @@ class AllocateHeap(RtlAllocateHeapHook):
         if callname == "kernel32.LocalAlloc" or \
            callname == "kernel32.GlobalAlloc" or \
            callname == "kernel32.VirtualAlloc":
-            emu = driver
-            size = argv[0]
-            va = self._allocate_mem(emu, size)
-            callconv.execCallReturn(emu, va, len(argv))
-            return True
-        raise viv_utils.emulator_drivers.UnsupportedFunction()
+            size = argv[1]
+        elif callname == "kernel32.VirtualAllocEx":
+            size = argv[2]
+        else:
+            raise viv_utils.emulator_drivers.UnsupportedFunction()
+        va = self._allocate_mem(driver, size)
+        callconv.execCallReturn(driver, va, len(argv))
+        return True
 
 
 class MallocHeap(RtlAllocateHeapHook):
@@ -226,10 +228,9 @@ class MallocHeap(RtlAllocateHeapHook):
     def hook(self, callname, driver, callconv, api, argv):
         if callname == "msvcrt.malloc" or \
            callname == "msvcrt.calloc":
-            emu = driver
             size = argv[0]
-            va = self._allocate_mem(emu, size)
-            callconv.execCallReturn(emu, va, len(argv))
+            va = self._allocate_mem(driver, size)
+            callconv.execCallReturn(driver, va, len(argv))
             return True
         raise viv_utils.emulator_drivers.UnsupportedFunction()
 
@@ -270,7 +271,6 @@ class StrlenHook(viv_utils.emulator_drivers.Hook):
             return True
         raise viv_utils.emulator_drivers.UnsupportedFunction()
 
-
     def readStringAtRva(self, emu, rva, maxsize=None):
         """
         Borrowed from vivisect/PE/__init__.py
@@ -284,11 +284,34 @@ class StrlenHook(viv_utils.emulator_drivers.Hook):
             if maxsize and maxsize <= len(ret):
                 break
             x = emu.readMemory(rva, 1)
-            if x == '\x00' or x == None:
+            if x == '\x00' or x is None:
                 break
             ret += x
             rva += 1
         return ret
+
+
+class MemchrHook(viv_utils.emulator_drivers.Hook):
+    """
+    Hook and handle calls to memchr
+    """
+
+    def __init__(self, *args, **kwargs):
+        super(MemchrHook, self).__init__(*args, **kwargs)
+
+    def hook(self, callname, driver, callconv, api, argv):
+        if callname == "msvcrt.memchr":
+            emu = driver
+            ptr, value, num = argv
+            value = chr(value)
+            memory = emu.readMemory(ptr, num)
+            try:
+                idx = memory.index(value)
+                callconv.execCallReturn(emu, ptr + idx, len(argv))
+            except ValueError:  # substring not found
+                callconv.execCallReturn(emu, 0, len(argv))
+            return True
+        raise viv_utils.emulator_drivers.UnsupportedFunction()
 
 
 class ExitProcessHook(viv_utils.emulator_drivers.Hook):
@@ -312,6 +335,7 @@ DEFAULT_HOOKS = [
     ExitProcessHook(),
     MemcpyHook(),
     StrlenHook(),
+    MemchrHook(),
 ]
 
 

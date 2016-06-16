@@ -23,7 +23,7 @@ import plugins.library_function_plugin
 import plugins.function_meta_data_plugin
 from interfaces import DecodingRoutineIdentifier
 from decoding_manager import LocationType
-
+from base64 import b64encode
 
 floss_logger = logging.getLogger("floss")
 
@@ -127,6 +127,8 @@ def make_parser():
                       action="store_true")
     parser.add_option("-i", "--ida", dest="ida_python_file",
                       help="create an IDAPython script to annotate the decoded strings in an IDB file")
+    parser.add_option("-r", "--radare", dest="radare2_script_file",
+                          help="create a radare2 script to annotate the decoded strings in an .r2 file")
     parser.add_option("-n", "--minimum-length", dest="min_length",
                       help="minimum string length (default is %d)" % MIN_STRING_LENGTH_DEFAULT)
     parser.add_option("-p", "--plugins", dest="plugins",
@@ -357,7 +359,7 @@ def print_decoded_strings(decoded_strings, quiet=False, expert=False):
             print(tabulate.tabulate(ss, headers=["Offset", "Called At", "String"]))
 
 
-def create_script_content(sample_file_path, decoded_strings, stack_strings):
+def create_ida_script_content(sample_file_path, decoded_strings, stack_strings):
     """
     Create IDAPython script contents for IDB file annotations.
     :param sample_file_path: input file path
@@ -435,8 +437,41 @@ if __name__ == "__main__":
 """ % (len(decoded_strings) + ss_len, sample_file_path, "\n    ".join(main_commands))
     return script_content
 
+def create_r2_script_content(sample_file_path, decoded_strings, stack_strings):
+    """
+    Create r2script contents for r2 session annotations.
+    :param sample_file_path: input file path
+    :param decoded_strings: list of decoded strings ([DecodedString])
+    :param stack_strings: list of stack strings ([StackString])
+    :return: content of the r2script
+    """
+    main_commands = []
+    fvas = []
+    for ds in decoded_strings:
+        if ds.s != "":
+            sanitized_string = b64encode("\"FLOSS: %s (floss_%x)\"" % (ds.s, ds.fva))
+            if ds.characteristics["location_type"] == LocationType.GLOBAL:
+                main_commands.append("CCu base64:%s @ %d" % (sanitized_string, ds.va))
+                if ds.fva not in fvas:
+                    main_commands.append("af @ %d" % (ds.fva))
+                    main_commands.append("afn floss_%x @ %d" % (ds.fva, ds.fva))
+                    fvas.append(ds.fva)
+            else:
+                main_commands.append("CCu base64:%s @ %d" % (sanitized_string, ds.decoded_at_va))
+                if ds.fva not in fvas:
+                    main_commands.append("af @ %d" % (ds.fva))
+                    main_commands.append("afn floss_%x @ %d" % (ds.fva, ds.fva))
+                    fvas.append(ds.fva)
+    ss_len = 0
+    for ss in stack_strings:
+        if ss.s != "":
+            sanitized_string = b64encode("\"FLOSS: %s\"" % ss.s)
+            main_commands.append("Ca -0x%x base64:%s @ %d" % (ss.frame_offset, sanitized_string, ss.fva))
+            ss_len += 1
 
-def create_script(sample_file_path, ida_python_file, decoded_strings, stack_strings):
+    return "\n".join(main_commands)
+
+def create_ida_script(sample_file_path, ida_python_file, decoded_strings, stack_strings):
     """
     Create an IDAPython script to annotate an IDB file with decoded strings.
     :param sample_file_path: input file path
@@ -444,7 +479,7 @@ def create_script(sample_file_path, ida_python_file, decoded_strings, stack_stri
     :param decoded_strings: list of decoded strings ([DecodedString])
     :param stack_strings: list of stack strings ([StackString])
     """
-    script_content = create_script_content(sample_file_path, decoded_strings, stack_strings)
+    script_content = create_ida_script_content(sample_file_path, decoded_strings, stack_strings)
     ida_python_file = os.path.abspath(ida_python_file)
     with open(ida_python_file, 'wb') as f:
         try:
@@ -454,6 +489,23 @@ def create_script(sample_file_path, ida_python_file, decoded_strings, stack_stri
             raise e
     # TODO return, catch exception in main()
 
+def create_r2_script(sample_file_path, r2_script_file, decoded_strings, stack_strings):
+    """
+    Create an r2script to annotate r2 session with decoded strings.
+    :param sample_file_path: input file path
+    :param r2script_file: output file path
+    :param decoded_strings: list of decoded strings ([DecodedString])
+    :param stack_strings: list of stack strings ([StackString])
+    """
+    script_content = create_r2_script_content(sample_file_path, decoded_strings, stack_strings)
+    r2_script_file = os.path.abspath(r2_script_file)
+    with open(r2_script_file, 'wb') as f:
+        try:
+            f.write(script_content)
+            print("Wrote radare2script file to %s\n" % r2_script_file)
+        except Exception as e:
+            raise e
+    # TODO return, catch exception in main()
 
 def print_static_strings(path, min_length, quiet=False):
     """
@@ -631,7 +683,11 @@ def main(argv=None):
 
     if options.ida_python_file:
         floss_logger.info("Creating IDA script...")
-        create_script(sample_file_path, options.ida_python_file, decoded_strings, stack_strings)
+        create_ida_script(sample_file_path, options.ida_python_file, decoded_strings, stack_strings)
+
+    if options.radare2_script_file:
+        floss_logger.info("Creating r2script...")
+        create_r2_script(sample_file_path, options.radare2_script_file, decoded_strings, stack_strings)
 
     time1 = time()
     if not options.quiet:

@@ -1,0 +1,32 @@
+Test Name: test-decode-substitution-cipher
+Test Purpose: demonstrate decoding of substitution cipher
+Decoding algorithm: substitution cipher
+Input buffer location: stack
+Output buffer location: stack
+
+Decoded strings:
+    - Hello.World
+
+Source files:
+    - test-decode-substitution-cipher.c
+
+Output Files:
+    Linux:
+        32bit: bin/test-decode-substitution-cipher
+    Windows:
+        32bit: bin/test-decode-substitution-cipher.exe
+        64bit: bin/test-decode-substitution-cipher64.exe
+
+Build instructions (Windows): |
+    cl.exe test-decode-substitution-cipher.c /Febin/test-decode-substitution-cipher.exe
+
+Build instructions (Linux): |
+    clang test-decode-substitution-cipher.c -o bin/test-decode-substitution-cipher
+
+Build instructions (Cross compile for Windows on Linux): |
+    i686-w64-mingw32-clang test-decode-substitution-cipher.c -o bin/test-decode-substitution-cipher.exe
+
+Xfail:
+    - all
+    - Linux-32bit
+

@@ -10,6 +10,7 @@ __pycache__/
 # Distribution / packaging
 build/
 dist/
+floss.egg-info/
 lib/
 .cache
 
