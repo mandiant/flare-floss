@@ -7,15 +7,28 @@ ASCII_RE_4 = re.compile("([%s]{%d,})" % (ASCII_BYTE, 4))
 UNICODE_RE_4 = re.compile(b"((?:[%s]\x00){%d,})" % (ASCII_BYTE, 4))
 REPEATS = ["A", "\x00", "\xfe", "\xff"]
 
+SLICE_SIZE = 4096
 
 String = namedtuple("String", ["s", "offset"])
 
 def buf_filled_with(buf, c):
-    for i in range(len(buf)):
-        if buf[i] != c:
+    if hasattr(buf, 'count'):
+        return buf.count(c) == len(buf)
+
+    begin = 0
+    end = 0
+    while begin < len(buf):
+        end = begin + SLICE_SIZE
+        if end > len(buf):
+            end = len(buf)
+
+        if not buf[begin:end].count(c) == (end - begin):
             return False
 
+        begin = end
+
     return True
+
 
 def extract_ascii_strings(buf, n=4):
     '''
