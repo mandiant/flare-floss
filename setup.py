@@ -17,7 +17,8 @@ requirements = [
     "vivisect",
     "plugnplay",
     "viv-utils",
-    "enum34"
+    "enum34",
+    "python-idb"
 ]
 
 # this sets __version__

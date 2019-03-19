@@ -12,6 +12,7 @@ import logging
 from time import time
 from optparse import OptionParser, OptionGroup
 
+import idb
 import tabulate
 import viv_utils
 
@@ -150,6 +151,8 @@ def make_parser():
                       help="maximum number of instructions to emulate per function (default is 20000)")
     parser.add_option("--max-address-revisits", dest="max_address_revisits", type=int, default=0,
                       help="maximum number of address revisits per function (default is 0)")
+    parser.add_option("-c", "--complementary-idb", dest="complementary_idb", type="string",
+                      help="complementary pristine IDA Pro database file to aid library name resolution")
 
     shellcode_group = OptionGroup(parser, "Shellcode options", "Analyze raw binary file containing shellcode")
     shellcode_group.add_option("-s", "--shellcode", dest="is_shellcode", help="analyze shellcode",
@@ -311,12 +314,15 @@ def set_logging_levels(should_debug=False, should_verbose=False):
     # ignore messages like:
     # DEBUG: identify: suspicious MOV instruction at 0x00401017 in function 0x00401000: mov byte [edx],al
     logging.getLogger("floss.plugins.mov_plugin.MovPlugin").setLevel(log_level)
-        
+
+    logging.getLogger("idb.netnode").setLevel(logging.WARN)
+    logging.getLogger("viv_utils.idaloader").setLevel(logging.WARN)
+
 
 def set_log_config(should_debug=False, should_verbose=False):
     """
     Removes root logging handlers, and sets Floss's logging level.
-    Recomended to use if Floss is being used in a standalone script, or 
+    Recomended to use if Floss is being used in a standalone script, or
     your project doesn't have any loggers. If both parameters 'should_debug'
     and 'should_verbose' are false, the logging level will be set to ERROR.
     :param should_debug: set logging level to DEBUG
@@ -349,6 +355,14 @@ def parse_functions_option(functions_option):
     return fvas
 
 
+def validate_file_path(parser, file_path, try_help_msg=""):
+    if not os.path.exists(file_path):
+        parser.error("File '%s' does not exist\n%s" % (file_path, try_help_msg))
+    if not os.path.isfile(file_path):
+        parser.error("'%s' is not a file\n%s" % (file_path, try_help_msg))
+    return file_path
+
+
 def parse_sample_file_path(parser, args):
     """
     Return validated input file path or terminate program.
@@ -357,11 +371,7 @@ def parse_sample_file_path(parser, args):
     if len(args) != 1:
         parser.error("Please provide a valid file path\n%s" % try_help_msg)
     sample_file_path = args[0]
-    if not os.path.exists(sample_file_path):
-        parser.error("File '%s' does not exist\n%s" % (sample_file_path, try_help_msg))
-    if not os.path.isfile(sample_file_path):
-        parser.error("'%s' is not a file\n%s" % (sample_file_path, try_help_msg))
-    return sample_file_path
+    return validate_file_path(parser, sample_file_path, try_help_msg)
 
 
 def select_functions(vw, functions_option):
@@ -379,9 +389,10 @@ def select_functions(vw, functions_option):
         return workspace_functions
 
     function_vas = set(function_vas)
-    if len(function_vas - workspace_functions) > 0:
+    functions_not_found = function_vas - workspace_functions
+    if len(functions_not_found) > 0:
         raise Exception("Functions don't exist in vivisect workspace: %s" % get_str_from_func_list(
-            list(function_vas - workspace_functions)))
+            list(functions_not_found)))
 
     return function_vas
 
@@ -922,7 +933,20 @@ def print_file_meta_info(vw, selected_functions):
         floss_logger.error("Failed to print vivisect analysis information: {0}".format(e.message))
 
 
-def load_workspace(sample_file_path, save_workspace):
+def populate_function_names(vw, complementary_idb_file_path):
+    with idb.from_file(complementary_idb_file_path) as db:
+        api = idb.IDAPython(db)
+
+        for fva in api.idautils.Functions():
+            function_name = api.idc.GetFunctionName(fva)
+            if vw.isFunction(fva):
+                vw.makeName(fva, function_name)
+                floss_logger.debug('IDA Pro name imported : 0x%x:%s' % (fva, function_name))
+            else:
+                floss_logger.debug('IDA Pro name ignored  : 0x%x:%s' % (fva, function_name))
+
+
+def load_workspace(sample_file_path, complementary_idb_file_path, save_workspace):
     # inform user that getWorkspace implicitly loads saved workspace if .viv file exists
     if is_workspace_file(sample_file_path) or os.path.exists("%s.viv" % sample_file_path):
         floss_logger.info("Loading existing vivisect workspace...")
@@ -932,7 +956,16 @@ def load_workspace(sample_file_path, save_workspace):
                                         "stackstrings: PE\nYou can analyze shellcode using the -s switch. See the "
                                         "help (-h) for more information.")
         floss_logger.info("Generating vivisect workspace...")
-    return viv_utils.getWorkspace(sample_file_path, should_save=save_workspace)
+
+    vw = viv_utils.getWorkspace(sample_file_path, should_save=False)
+
+    if complementary_idb_file_path:
+        populate_function_names(vw, complementary_idb_file_path)
+
+    if save_workspace:
+        vw.saveWorkspace()
+
+    return vw
 
 
 def load_shellcode_workspace(sample_file_path, save_workspace, shellcode_ep_in, shellcode_base_in):
@@ -955,13 +988,13 @@ def load_shellcode_workspace(sample_file_path, save_workspace, shellcode_ep_in, 
                                            save_workspace, sample_file_path)
 
 
-def load_vw(sample_file_path, save_workspace, verbose, is_shellcode, shellcode_entry_point, shellcode_base):
+def load_vw(sample_file_path, complementary_idb_file_path, save_workspace, verbose, is_shellcode, shellcode_entry_point, shellcode_base):
     try:
         if not is_shellcode:
             if shellcode_entry_point or shellcode_base:
                 floss_logger.warning("Entry point and base offset only apply in conjunction with the -s switch when "
                                      "analyzing raw binary files.")
-            return load_workspace(sample_file_path, save_workspace)
+            return load_workspace(sample_file_path, complementary_idb_file_path, save_workspace)
         else:
             return load_shellcode_workspace(sample_file_path, save_workspace, shellcode_entry_point, shellcode_base)
     except LoadNotSupportedError, e:
@@ -994,6 +1027,10 @@ def main(argv=None):
     sample_file_path = parse_sample_file_path(parser, args)
     min_length = parse_min_length_option(options.min_length)
 
+    complementary_idb_file_path = options.complementary_idb
+    if complementary_idb_file_path:
+        validate_file_path(parser, complementary_idb_file_path)
+
     # expert profile settings
     if options.expert:
         options.save_workspace = True
@@ -1015,8 +1052,8 @@ def main(argv=None):
         return 1
 
     try:
-        vw = load_vw(sample_file_path, options.save_workspace, options.verbose, options.is_shellcode,
-                     options.shellcode_entry_point, options.shellcode_base)
+        vw = load_vw(sample_file_path, complementary_idb_file_path, options.save_workspace, options.verbose, options.is_shellcode,
+                     options.shellcode_entry_point, options.shellcode_base, )
     except WorkspaceLoadError:
         return 1
 
