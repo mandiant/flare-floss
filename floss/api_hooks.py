@@ -163,30 +163,38 @@ def round(i, size):
     return i + (size - (i % size))
 
 
-class RtlAllocateHeapHook(viv_utils.emulator_drivers.Hook):
+class BaseAllocatorHook(viv_utils.emulator_drivers.Hook):
     '''
-    Hook calls to RtlAllocateHeap, allocate memory in a "heap"
-     section, and return pointers to this memory.
+    A generic hook that supports unique memory allocations (not thread safe).
     The base heap address is 0x96960000.
     The max allocation size is 10 MB.
     '''
+    MAX_ALLOCATION_SIZE = 10 * 1024 * 1024
+    _heap_addr = 0x96960000  # Shared across all instances.
 
     def __init__(self, *args, **kwargs):
-        super(RtlAllocateHeapHook, self).__init__(*args, **kwargs)
-        self._heap_addr = 0x96960000
-
-    MAX_ALLOCATION_SIZE = 10 * 1024 * 1024
+        super(BaseAllocatorHook, self).__init__(*args, **kwargs)
 
     def _allocate_mem(self, emu, size):
         size = round(size, 0x1000)
         if size > self.MAX_ALLOCATION_SIZE:
             size = self.MAX_ALLOCATION_SIZE
         va = self._heap_addr
-        self.d("RtlAllocateHeap: mapping %s bytes at %s", hex(size), hex(va))
+        self.d("BaseAllocatorHook: mapping %s bytes at %s", hex(size), hex(va))
         emu.addMemoryMap(va, envi.memory.MM_RWX, "[heap allocation]", "\x00" * (size + 4))
         emu.writeMemory(va, "\x00" * size)
         self._heap_addr += size
         return va
+
+
+class RtlAllocateHeapHook(BaseAllocatorHook):
+    '''
+    Hook calls to RtlAllocateHeap, allocate memory in a "heap"
+     section, and return pointers to this memory.
+    '''
+
+    def __init__(self, *args, **kwargs):
+        super(RtlAllocateHeapHook, self).__init__(*args, **kwargs)
 
     def hook(self, callname, driver, callconv, api, argv):
         # works for kernel32.HeapAlloc
@@ -199,13 +207,13 @@ class RtlAllocateHeapHook(viv_utils.emulator_drivers.Hook):
         raise viv_utils.emulator_drivers.UnsupportedFunction()
 
 
-class AllocateHeap(RtlAllocateHeapHook):
+class AllocateHeapHook(BaseAllocatorHook):
     '''
-    Hook calls to AllocateHeap and handle them like calls to RtlAllocateHeapHook.
+    Hook calls to AllocateHeap and handle them like calls to BaseAllocatorHook.
     '''
 
     def __init__(self, *args, **kwargs):
-        super(AllocateHeap, self).__init__(*args, **kwargs)
+        super(AllocateHeapHook, self).__init__(*args, **kwargs)
 
     def hook(self, callname, driver, callconv, api, argv):
         if callname == "kernel32.LocalAlloc" or \
@@ -221,13 +229,13 @@ class AllocateHeap(RtlAllocateHeapHook):
         return True
 
 
-class MallocHeap(RtlAllocateHeapHook):
+class MallocHeapHook(BaseAllocatorHook):
     '''
-    Hook calls to malloc and handle them like calls to RtlAllocateHeapHook.
+    Hook calls to malloc.
     '''
 
     def __init__(self, *args, **kwargs):
-        super(MallocHeap, self).__init__(*args, **kwargs)
+        super(MallocHeapHook, self).__init__(*args, **kwargs)
 
     def hook(self, callname, driver, callconv, api, argv):
         if callname == "msvcrt.malloc" or \
@@ -408,8 +416,8 @@ class CriticalSectionHooks(viv_utils.emulator_drivers.Hook):
 DEFAULT_HOOKS = [
     GetProcessHeapHook(),
     RtlAllocateHeapHook(),
-    AllocateHeap(),
-    MallocHeap(),
+    AllocateHeapHook(),
+    MallocHeapHook(),
     ExitProcessHook(),
     MemcpyHook(),
     StrlenHook(),
