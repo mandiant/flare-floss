@@ -413,11 +413,27 @@ class CriticalSectionHooks(viv_utils.emulator_drivers.Hook):
             return True
 
 
+class CppNewObjectHook(BaseAllocatorHook):
+
+    def __init__(self, *args, **kwargs):
+        super(CppNewObjectHook, self).__init__(*args, **kwargs)
+
+    def hook(self, callname, driver, callconv, api, argv):
+        if callname is not None and callname.endswith("??2@YAPAXI@Z"):
+            size = argv[0]
+            va = self._allocate_mem(driver, size)
+            callconv.execCallReturn(driver, va, len(argv))
+            return True
+
+        raise viv_utils.emulator_drivers.UnsupportedFunction()
+
+
 DEFAULT_HOOKS = [
     GetProcessHeapHook(),
     RtlAllocateHeapHook(),
     AllocateHeapHook(),
     MallocHeapHook(),
+    CppNewObjectHook(),
     ExitProcessHook(),
     MemcpyHook(),
     StrlenHook(),
