@@ -12,6 +12,7 @@ class FunctionIsLibraryPlugin(plugin_object.GeneralPlugin):
     version = 1.0
 
     def identify(self, vivisect_workspace, function_vas):
+        function_vas = function_vas - set(vivisect_workspace.getEntryPoints())
         candidate_functions = {}
         for fva in function_vas:
             fname = vivisect_workspace.getName(fva)
