@@ -142,12 +142,15 @@ class GetProcessHeapHook(viv_utils.emulator_drivers.Hook):
     Hook and handle calls to GetProcessHeap, returning 0.
     '''
 
+    KERNEL32_GET_PROCESS_HEAP = "kernel32.GetProcessHeap"
+
     def hook(self, callname, emu, callconv, api, argv):
-        if callname == "kernel32.GetProcessHeap":
+        if callname == self.KERNEL32_GET_PROCESS_HEAP:
             # nop
             callconv.execCallReturn(emu, 42, len(argv))
             return True
-        raise viv_utils.emulator_drivers.UnsupportedFunction()
+
+        return None
 
 
 def round(i, size):
@@ -193,18 +196,21 @@ class RtlAllocateHeapHook(BaseAllocatorHook):
      section, and return pointers to this memory.
     '''
 
+    NTDLL_RTL_ALLOCATE_HEAP = "ntdll.RtlAllocateHeap"
+
     def __init__(self, *args, **kwargs):
         super(RtlAllocateHeapHook, self).__init__(*args, **kwargs)
 
     def hook(self, callname, driver, callconv, api, argv):
         # works for kernel32.HeapAlloc
-        if callname == "ntdll.RtlAllocateHeap":
+        if callname == self.NTDLL_RTL_ALLOCATE_HEAP:
             emu = driver
             hheap, flags, size = argv
             va = self._allocate_mem(emu, size)
             callconv.execCallReturn(emu, va, len(argv))
             return True
-        raise viv_utils.emulator_drivers.UnsupportedFunction()
+
+        return None
 
 
 class AllocateHeapHook(BaseAllocatorHook):
@@ -212,18 +218,21 @@ class AllocateHeapHook(BaseAllocatorHook):
     Hook calls to AllocateHeap and handle them like calls to BaseAllocatorHook.
     '''
 
+    KERNEL32_LOCAL_ALLOC = "kernel32.LocalAlloc"
+    KERNEL32_GLOBAL_ALLOC = "kernel32.GlobalAlloc"
+    KERNEL32_VIRTUAL_ALLOC = "kernel32.VirtualAlloc"
+    KERNEL32_VIRTUAL_ALLOC_EX = "kernel32.VirtualAllocEx"
+
     def __init__(self, *args, **kwargs):
         super(AllocateHeapHook, self).__init__(*args, **kwargs)
 
     def hook(self, callname, driver, callconv, api, argv):
-        if callname == "kernel32.LocalAlloc" or \
-           callname == "kernel32.GlobalAlloc" or \
-           callname == "kernel32.VirtualAlloc":
+        if callname in [self.KERNEL32_LOCAL_ALLOC, self.KERNEL32_GLOBAL_ALLOC, self.KERNEL32_VIRTUAL_ALLOC]:
             size = argv[1]
-        elif callname == "kernel32.VirtualAllocEx":
+        elif callname == self.KERNEL32_VIRTUAL_ALLOC_EX:
             size = argv[2]
         else:
-            raise viv_utils.emulator_drivers.UnsupportedFunction()
+            return None
         va = self._allocate_mem(driver, size)
         callconv.execCallReturn(driver, va, len(argv))
         return True
@@ -234,31 +243,40 @@ class MallocHeapHook(BaseAllocatorHook):
     Hook calls to malloc.
     '''
 
+    MALLOC = "_malloc"
+    CALLOC = "_calloc"
+    MSVCRT_MALLOC = "msvcrt.malloc"
+    MSVCRT_CALLOC = "msvcrt.calloc"
+
     def __init__(self, *args, **kwargs):
         super(MallocHeapHook, self).__init__(*args, **kwargs)
 
     def hook(self, callname, driver, callconv, api, argv):
-        if callname == "msvcrt.malloc" or \
-           callname == "msvcrt.calloc":
+        if callname in [self.MALLOC, self.MSVCRT_MALLOC]:
             size = argv[0]
-            va = self._allocate_mem(driver, size)
-            callconv.execCallReturn(driver, va, len(argv))
-            return True
-        raise viv_utils.emulator_drivers.UnsupportedFunction()
+        elif callname in [self.CALLOC, self.MSVCRT_CALLOC]:
+            size = argv[0] * argv[1]
+        else:
+            return None
+        va = self._allocate_mem(driver, size)
+        callconv.execCallReturn(driver, va, len(argv))
+        return True
 
 
 class MemcpyHook(viv_utils.emulator_drivers.Hook):
     '''
     Hook and handle calls to memcpy and memmove.
     '''
+
+    MSVCRT_MEMCPY = "msvcrt.memcpy"
+    MSVCRT_MEMMOVE = "msvcrt.memmove"
     MAX_COPY_SIZE = 1024 * 1024 * 32  # don't attempt to copy more than 32MB, or something is wrong
 
     def __init__(self, *args, **kwargs):
         super(MemcpyHook, self).__init__(*args, **kwargs)
 
     def hook(self, callname, driver, callconv, api, argv):
-        if callname == "msvcrt.memcpy" or \
-           callname == "msvcrt.memmove":
+        if callname in [self.MSVCRT_MEMCPY, self.MSVCRT_MEMMOVE]:
             emu = driver
             dst, src, count = argv
             if count > self.MAX_COPY_SIZE:
@@ -268,7 +286,8 @@ class MemcpyHook(viv_utils.emulator_drivers.Hook):
             emu.writeMemory(dst, data)
             callconv.execCallReturn(emu, 0x0, len(argv))
             return True
-        raise viv_utils.emulator_drivers.UnsupportedFunction()
+
+        return None
 
 
 def readStringAtRva(emu, rva, maxsize=None):
@@ -296,17 +315,21 @@ class StrlenHook(viv_utils.emulator_drivers.Hook):
     Hook and handle calls to strlen
     """
 
+    MSVCRT_STRLEN = "msvcrt.strlen"
+    KERNEL32_LSTRLENA = "kernel32.lstrlenA"
+
     def __init__(self, *args, **kwargs):
         super(StrlenHook, self).__init__(*args, **kwargs)
 
     def hook(self, callname, driver, callconv, api, argv):
-        if callname and callname.lower() in ["msvcrt.strlen", "kernel32.lstrlena"]:
+        if callname in [self.MSVCRT_STRLEN, self.KERNEL32_LSTRLENA]:
             emu = driver
             string_va = argv[0]
             s = readStringAtRva(emu, string_va, 256)
             callconv.execCallReturn(emu, len(s), len(argv))
             return True
-        raise viv_utils.emulator_drivers.UnsupportedFunction()
+
+        return None
 
 
 class StrnlenHook(viv_utils.emulator_drivers.Hook):
@@ -314,12 +337,13 @@ class StrnlenHook(viv_utils.emulator_drivers.Hook):
     Hook and handle calls to strnlen.
     '''
     MAX_COPY_SIZE = 1024 * 1024 * 32
+    MSVCRT_STRNLEN = "msvcrt.strnlen"
 
     def __init__(self, *args, **kwargs):
         super(StrnlenHook, self).__init__(*args, **kwargs)
 
     def hook(self, callname, driver, callconv, api, argv):
-        if callname == "msvcrt.strnlen":
+        if callname == self.MSVCRT_STRNLEN:
             emu = driver
             string_va, maxlen = argv
             if maxlen > self.MAX_COPY_SIZE:
@@ -330,7 +354,7 @@ class StrnlenHook(viv_utils.emulator_drivers.Hook):
             callconv.execCallReturn(emu, slen, len(argv))
             return True
 
-        raise viv_utils.emulator_drivers.UnsupportedFunction()
+        return None
 
 
 class StrncmpHook(viv_utils.emulator_drivers.Hook):
@@ -338,12 +362,13 @@ class StrncmpHook(viv_utils.emulator_drivers.Hook):
     Hook and handle calls to strncmp.
     '''
     MAX_COPY_SIZE = 1024 * 1024 * 32
+    MSVCRT_STRNCMP = "msvcrt.strncmp"
 
     def __init__(self, *args, **kwargs):
         super(StrncmpHook, self).__init__(*args, **kwargs)
 
     def hook(self, callname, driver, callconv, api, argv):
-        if callname == "msvcrt.strncmp":
+        if callname == self.MSVCRT_STRNCMP:
             emu = driver
             s1va, s2va, num = argv
             if num > self.MAX_COPY_SIZE:
@@ -361,7 +386,7 @@ class StrncmpHook(viv_utils.emulator_drivers.Hook):
             callconv.execCallReturn(emu, result, len(argv))
             return True
 
-        raise viv_utils.emulator_drivers.UnsupportedFunction()
+        return None
 
 
 class MemchrHook(viv_utils.emulator_drivers.Hook):
@@ -369,11 +394,13 @@ class MemchrHook(viv_utils.emulator_drivers.Hook):
     Hook and handle calls to memchr
     """
 
+    MSVCRT_MEMCHR = "msvcrt.memchr"
+
     def __init__(self, *args, **kwargs):
         super(MemchrHook, self).__init__(*args, **kwargs)
 
     def hook(self, callname, driver, callconv, api, argv):
-        if callname == "msvcrt.memchr":
+        if callname == self.MSVCRT_MEMCHR:
             emu = driver
             ptr, value, num = argv
             value = chr(value)
@@ -384,7 +411,8 @@ class MemchrHook(viv_utils.emulator_drivers.Hook):
             except ValueError:  # substring not found
                 callconv.execCallReturn(emu, 0, len(argv))
             return True
-        raise viv_utils.emulator_drivers.UnsupportedFunction()
+
+        return None
 
 
 class ExitProcessHook(viv_utils.emulator_drivers.Hook):
@@ -392,40 +420,56 @@ class ExitProcessHook(viv_utils.emulator_drivers.Hook):
     Hook calls to ExitProcess and stop emulation when these are hit.
     '''
 
+    KERNAL32_EXIT_PROCESS = "kernel32.ExitProcess"
+
     def __init__(self, *args, **kwargs):
         super(ExitProcessHook, self).__init__(*args, **kwargs)
 
     def hook(self, callname, driver, callconv, api, argv):
-        if callname == "kernel32.ExitProcess":
+        if callname == self.KERNAL32_EXIT_PROCESS:
             raise viv_utils.emulator_drivers.StopEmulation()
 
+        return None
 
-class CriticalSectionHooks(viv_utils.emulator_drivers.Hook):
+
+class InitializeCriticalSectionHook(viv_utils.emulator_drivers.Hook):
     '''
     Hook calls to:
       - InitializeCriticalSection
     '''
+
+    KERNEL32_INITIALIZE_CRITICAL_SECTION = "kernel32.InitializeCriticalSection"
+
     def hook(self, callname, emu, callconv, api, argv):
-        if callname == "kernel32.InitializeCriticalSection":
+        if callname == self.KERNEL32_INITIALIZE_CRITICAL_SECTION:
             hsection, = argv
             emu.writeMemory(hsection, "csec")
             callconv.execCallReturn(emu, 0, len(argv))
             return True
 
+        return None
+
 
 class CppNewObjectHook(BaseAllocatorHook):
+    '''
+    Hook calls to:
+      - C++ new operator
+    '''
+
+    YAPAXI_Z = "??2@YAPAXI@Z"
+    MSVCRT_YAPAXI_Z = "msvcrt.??2@YAPAXI@Z"
 
     def __init__(self, *args, **kwargs):
         super(CppNewObjectHook, self).__init__(*args, **kwargs)
 
     def hook(self, callname, driver, callconv, api, argv):
-        if callname is not None and callname.endswith("??2@YAPAXI@Z"):
+        if callname in [self.YAPAXI_Z, self.MSVCRT_YAPAXI_Z]:
             size = argv[0]
             va = self._allocate_mem(driver, size)
             callconv.execCallReturn(driver, va, len(argv))
             return True
 
-        raise viv_utils.emulator_drivers.UnsupportedFunction()
+        return None
 
 
 DEFAULT_HOOKS = [
@@ -440,7 +484,7 @@ DEFAULT_HOOKS = [
     MemchrHook(),
     StrnlenHook(),
     StrncmpHook(),
-    CriticalSectionHooks(),
+    InitializeCriticalSectionHook(),
 ]
 
 
