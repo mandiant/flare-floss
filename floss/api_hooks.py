@@ -184,8 +184,7 @@ class BaseAllocatorHook(viv_utils.emulator_drivers.Hook):
             size = self.MAX_ALLOCATION_SIZE
         va = self._heap_addr
         self.d("BaseAllocatorHook: mapping %s bytes at %s", hex(size), hex(va))
-        emu.addMemoryMap(va, envi.memory.MM_RWX, "[heap allocation]", "\x00" * (size + 4))
-        emu.writeMemory(va, "\x00" * size)
+        emu.addMemoryMap(va, envi.memory.MM_RWX, "[heap allocation]", "\x00" * size)
         self._heap_addr += size
         return va
 
