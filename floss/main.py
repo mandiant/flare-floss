@@ -941,6 +941,7 @@ def populate_function_names(vw, complementary_idb_file_path):
             function_name = api.idc.GetFunctionName(fva)
             if vw.isFunction(fva):
                 vw.makeName(fva, function_name)
+                viv_utils.set_function_name(vw, fva, function_name)
                 floss_logger.debug('IDA Pro name imported : 0x%x:%s' % (fva, function_name))
             else:
                 floss_logger.debug('IDA Pro name ignored  : 0x%x:%s' % (fva, function_name))
