@@ -218,7 +218,7 @@ def make_parser():
 def set_logging_levels(should_debug=False, should_verbose=False):
     """
     Sets the logging levels of each of Floss's loggers individually. 
-    Recomended to use if Floss is being used as a library, and your 
+    Recommended to use if Floss is being used as a library, and your
     project has its own logging set up. If both parameters 'should_debug'
     and 'should_verbose' are false, the logging level will be set to ERROR.
     :param should_debug: set logging level to DEBUG
@@ -322,7 +322,7 @@ def set_logging_levels(should_debug=False, should_verbose=False):
 def set_log_config(should_debug=False, should_verbose=False):
     """
     Removes root logging handlers, and sets Floss's logging level.
-    Recomended to use if Floss is being used in a standalone script, or
+    Recommended to use if Floss is being used in a standalone script, or
     your project doesn't have any loggers. If both parameters 'should_debug'
     and 'should_verbose' are false, the logging level will be set to ERROR.
     :param should_debug: set logging level to DEBUG
@@ -933,18 +933,26 @@ def print_file_meta_info(vw, selected_functions):
         floss_logger.error("Failed to print vivisect analysis information: {0}".format(e.message))
 
 
-def populate_function_names(vw, complementary_idb_file_path):
+def fetch_function_names_from_idb(complementary_idb_file_path):
     with idb.from_file(complementary_idb_file_path) as db:
         api = idb.IDAPython(db)
 
+        result = {}
         for fva in api.idautils.Functions():
             function_name = api.idc.GetFunctionName(fva)
-            if vw.isFunction(fva):
-                vw.makeName(fva, function_name)
-                viv_utils.set_function_name(vw, fva, function_name)
-                floss_logger.debug('IDA Pro name imported : 0x%x:%s' % (fva, function_name))
-            else:
-                floss_logger.debug('IDA Pro name ignored  : 0x%x:%s' % (fva, function_name))
+            result[fva] = function_name
+
+        return result
+
+
+def apply_function_names(vw, function_names):
+    for fva, function_name in function_names.items():
+        if vw.isFunction(fva):
+            vw.makeName(fva, function_name)
+            viv_utils.set_function_name(vw, fva, function_name)
+            floss_logger.debug('IDA Pro name imported : 0x%x:%s' % (fva, function_name))
+        else:
+            floss_logger.debug('IDA Pro name ignored  : 0x%x:%s' % (fva, function_name))
 
 
 def load_workspace(sample_file_path, complementary_idb_file_path, save_workspace):
@@ -961,7 +969,8 @@ def load_workspace(sample_file_path, complementary_idb_file_path, save_workspace
     vw = viv_utils.getWorkspace(sample_file_path, should_save=False)
 
     if complementary_idb_file_path:
-        populate_function_names(vw, complementary_idb_file_path)
+        function_names = fetch_function_names_from_idb(complementary_idb_file_path)
+        apply_function_names(vw, function_names)
 
     if save_workspace:
         vw.saveWorkspace()
@@ -1053,8 +1062,8 @@ def main(argv=None):
         return 1
 
     try:
-        vw = load_vw(sample_file_path, complementary_idb_file_path, options.save_workspace, options.verbose, options.is_shellcode,
-                     options.shellcode_entry_point, options.shellcode_base, )
+        vw = load_vw(sample_file_path, complementary_idb_file_path, options.save_workspace, options.verbose,
+                     options.is_shellcode, options.shellcode_entry_point, options.shellcode_base)
     except WorkspaceLoadError:
         return 1
 

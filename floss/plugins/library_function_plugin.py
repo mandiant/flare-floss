@@ -16,8 +16,8 @@ class FunctionIsLibraryPlugin(plugin_object.GeneralPlugin):
         candidate_functions = {}
         for fva in function_vas:
             fname = vivisect_workspace.getName(fva)
-            default_name = "sub_"
-            if fname is not None and not fname.startswith(default_name):
+            default_prefix = "sub_"
+            if fname is not None and not fname.startswith(default_prefix):
                 self.d("Identified %s at VA 0x%08X" % (fname, fva))
                 candidate_functions[fva] = True
         return candidate_functions
