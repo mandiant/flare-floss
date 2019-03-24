@@ -1,9 +1,11 @@
 # Copyright (C) 2017 FireEye, Inc. All Rights Reserved.
 
 import contextlib
+from abc import abstractmethod
 
 import envi
 import viv_utils
+from viv_utils.emulator_drivers import Hook, UnsupportedFunction
 
 
 class ApiMonitor(viv_utils.emulator_drivers.Monitor):
@@ -137,20 +139,65 @@ def popStack(emu):
     return v
 
 
-class GetProcessHeapHook(viv_utils.emulator_drivers.Hook):
+class LenientNamedHook(Hook):
+    '''
+    Lenient named hook class
+    Will accept a series of call names like:
+        malloc
+        _malloc
+        __malloc
+        mavcrt.malloc
+    '''
+
+    def __init__(self, shortnames):
+        super(LenientNamedHook, self).__init__()
+        self.shortnames = [shortname.lower() for shortname in shortnames]
+
+    def hook(self, callname, emu, callconv, api, argv):
+        if callname:
+            shortname = self.make_shortname(callname)
+            if self.accept(shortname, emu, callconv, api, argv):
+                return self.handle(shortname, emu, callconv, api, argv)
+
+        return None
+
+    def accept(self, shortname, emu, callconv, api, argv):
+        result = shortname in self.shortnames
+        if result:
+            print ("->", shortname)
+        return result
+
+    @abstractmethod
+    def handle(self, shortname, emu, callconv, api, argv):
+        raise UnsupportedFunction()
+
+    @staticmethod
+    def make_shortname(callname):
+        shortname = callname.lower()
+        dot_pos = shortname.find(".")
+        if dot_pos >= 0:
+            shortname = shortname[dot_pos:]
+
+        while shortname.startswith("_"):
+            shortname = shortname[1:]
+
+        return shortname
+
+
+class GetProcessHeapHook(LenientNamedHook):
     '''
     Hook and handle calls to GetProcessHeap, returning 0.
     '''
 
-    KERNEL32_GET_PROCESS_HEAP = "kernel32.GetProcessHeap"
+    GET_PROCESS_HEAP = "GetProcessHeap"
 
-    def hook(self, callname, emu, callconv, api, argv):
-        if callname == self.KERNEL32_GET_PROCESS_HEAP:
-            # nop
-            callconv.execCallReturn(emu, 42, len(argv))
-            return True
+    def __init__(self):
+        super(GetProcessHeapHook, self).__init__([self.GET_PROCESS_HEAP])
 
-        return None
+    def handle(self, shortname, emu, callconv, api, argv):
+        # nop
+        callconv.execCallReturn(emu, 42, len(argv))
+        return True
 
 
 def round(i, size):
@@ -166,7 +213,7 @@ def round(i, size):
     return i + (size - (i % size))
 
 
-class BaseAllocatorHook(viv_utils.emulator_drivers.Hook):
+class BaseAllocatorHook(LenientNamedHook):
     '''
     A generic hook that supports unique memory allocations (not thread safe).
     The base heap address is 0x96960000.
@@ -174,9 +221,6 @@ class BaseAllocatorHook(viv_utils.emulator_drivers.Hook):
     '''
     MAX_ALLOCATION_SIZE = 10 * 1024 * 1024
     _heap_addr = 0x96960000  # Shared across all instances.
-
-    def __init__(self, *args, **kwargs):
-        super(BaseAllocatorHook, self).__init__(*args, **kwargs)
 
     def _allocate_mem(self, emu, size):
         size = round(size, 0x1000)
@@ -189,27 +233,25 @@ class BaseAllocatorHook(viv_utils.emulator_drivers.Hook):
         return va
 
 
+# TODO: What about heap alloc/heapCreate and so on ???
 class RtlAllocateHeapHook(BaseAllocatorHook):
     '''
     Hook calls to RtlAllocateHeap, allocate memory in a "heap"
      section, and return pointers to this memory.
     '''
 
-    NTDLL_RTL_ALLOCATE_HEAP = "ntdll.RtlAllocateHeap"
+    HEAP_ALLOC = "HeapAlloc"
+    RTL_ALLOCATE_HEAP = "RtlAllocateHeap"
 
-    def __init__(self, *args, **kwargs):
-        super(RtlAllocateHeapHook, self).__init__(*args, **kwargs)
+    def __init__(self):
+        super(RtlAllocateHeapHook, self).__init__([self.HEAP_ALLOC, self.RTL_ALLOCATE_HEAP])
 
-    def hook(self, callname, driver, callconv, api, argv):
+    def handle(self, shortname, emu, callconv, api, argv):
         # works for kernel32.HeapAlloc
-        if callname == self.NTDLL_RTL_ALLOCATE_HEAP:
-            emu = driver
-            hheap, flags, size = argv
-            va = self._allocate_mem(emu, size)
-            callconv.execCallReturn(emu, va, len(argv))
-            return True
-
-        return None
+        hheap, flags, size = argv
+        va = self._allocate_mem(emu, size)
+        callconv.execCallReturn(emu, va, len(argv))
+        return True
 
 
 class AllocateHeapHook(BaseAllocatorHook):
@@ -217,23 +259,24 @@ class AllocateHeapHook(BaseAllocatorHook):
     Hook calls to AllocateHeap and handle them like calls to BaseAllocatorHook.
     '''
 
-    KERNEL32_LOCAL_ALLOC = "kernel32.LocalAlloc"
-    KERNEL32_GLOBAL_ALLOC = "kernel32.GlobalAlloc"
-    KERNEL32_VIRTUAL_ALLOC = "kernel32.VirtualAlloc"
-    KERNEL32_VIRTUAL_ALLOC_EX = "kernel32.VirtualAllocEx"
+    LOCAL_ALLOC = "LocalAlloc"
+    GLOBAL_ALLOC = "GlobalAlloc"
+    VIRTUAL_ALLOC = "VirtualAlloc"
+    VIRTUAL_ALLOC_EX = "VirtualAllocEx"
 
-    def __init__(self, *args, **kwargs):
-        super(AllocateHeapHook, self).__init__(*args, **kwargs)
+    def __init__(self):
+        super(AllocateHeapHook, self).__init__([self.LOCAL_ALLOC, self.GLOBAL_ALLOC,
+                                                self.VIRTUAL_ALLOC, self.VIRTUAL_ALLOC_EX])
 
-    def hook(self, callname, driver, callconv, api, argv):
-        if callname in [self.KERNEL32_LOCAL_ALLOC, self.KERNEL32_GLOBAL_ALLOC, self.KERNEL32_VIRTUAL_ALLOC]:
+    def handle(self, shortname, emu, callconv, api, argv):
+        if shortname in [self.LOCAL_ALLOC, self.GLOBAL_ALLOC, self.VIRTUAL_ALLOC]:
             size = argv[1]
-        elif callname == self.KERNEL32_VIRTUAL_ALLOC_EX:
+        elif shortname == self.VIRTUAL_ALLOC_EX:
             size = argv[2]
         else:
-            return None
-        va = self._allocate_mem(driver, size)
-        callconv.execCallReturn(driver, va, len(argv))
+            raise UnsupportedFunction()
+        va = self._allocate_mem(emu, size)
+        callconv.execCallReturn(emu, va, len(argv))
         return True
 
 
@@ -242,51 +285,45 @@ class MallocHeapHook(BaseAllocatorHook):
     Hook calls to malloc.
     '''
 
-    MALLOC = "_malloc"
-    CALLOC = "_calloc"
-    MSVCRT_MALLOC = "msvcrt.malloc"
-    MSVCRT_CALLOC = "msvcrt.calloc"
+    MALLOC = "malloc"
+    CALLOC = "calloc"
 
-    def __init__(self, *args, **kwargs):
-        super(MallocHeapHook, self).__init__(*args, **kwargs)
+    def __init__(self):
+        super(MallocHeapHook, self).__init__([self.MALLOC, self.CALLOC])
 
-    def hook(self, callname, driver, callconv, api, argv):
-        if callname in [self.MALLOC, self.MSVCRT_MALLOC]:
+    def handle(self, shortname, emu, callconv, api, argv):
+        if shortname == self.MALLOC:
             size = argv[0]
-        elif callname in [self.CALLOC, self.MSVCRT_CALLOC]:
+        elif shortname == self.CALLOC:
             size = argv[0] * argv[1]
         else:
-            return None
-        va = self._allocate_mem(driver, size)
-        callconv.execCallReturn(driver, va, len(argv))
+            raise UnsupportedFunction()
+        va = self._allocate_mem(emu, size)
+        callconv.execCallReturn(emu, va, len(argv))
         return True
 
 
-class MemcpyHook(viv_utils.emulator_drivers.Hook):
+class MemcpyHook(LenientNamedHook):
     '''
     Hook and handle calls to memcpy and memmove.
     '''
 
-    MSVCRT_MEMCPY = "msvcrt.memcpy"
-    MSVCRT_MEMMOVE = "msvcrt.memmove"
+    MEMCPY = "memcpy"
+    MEMMOVE = "memmove"
     MAX_COPY_SIZE = 1024 * 1024 * 32  # don't attempt to copy more than 32MB, or something is wrong
 
-    def __init__(self, *args, **kwargs):
-        super(MemcpyHook, self).__init__(*args, **kwargs)
+    def __init__(self):
+        super(MemcpyHook, self).__init__([self.MEMCPY, self.MEMMOVE])
 
-    def hook(self, callname, driver, callconv, api, argv):
-        if callname in [self.MSVCRT_MEMCPY, self.MSVCRT_MEMMOVE]:
-            emu = driver
-            dst, src, count = argv
-            if count > self.MAX_COPY_SIZE:
-                self.d('unusually large memcpy, truncating to 32MB: 0x%x', count)
-                count = self.MAX_COPY_SIZE
-            data = emu.readMemory(src, count)
-            emu.writeMemory(dst, data)
-            callconv.execCallReturn(emu, 0x0, len(argv))
-            return True
-
-        return None
+    def handle(self, shortname, emu, callconv, api, argv):
+        dst, src, count = argv
+        if count > self.MAX_COPY_SIZE:
+            self.d('unusually large memcpy, truncating to 32MB: 0x%x', count)
+            count = self.MAX_COPY_SIZE
+        data = emu.readMemory(src, count)
+        emu.writeMemory(dst, data)
+        callconv.execCallReturn(emu, 0x0, len(argv))
+        return True
 
 
 def readStringAtRva(emu, rva, maxsize=None):
@@ -309,144 +346,127 @@ def readStringAtRva(emu, rva, maxsize=None):
     return ''.join(ret)
 
 
-class StrlenHook(viv_utils.emulator_drivers.Hook):
+class StrlenHook(LenientNamedHook):
     """
     Hook and handle calls to strlen
     """
 
-    MSVCRT_STRLEN = "msvcrt.strlen"
-    KERNEL32_LSTRLENA = "kernel32.lstrlenA"
+    STRLEN = "strlen"
+    LSTRLENA = "lstrlena"
 
-    def __init__(self, *args, **kwargs):
-        super(StrlenHook, self).__init__(*args, **kwargs)
+    def __init__(self):
+        super(StrlenHook, self).__init__([self.STRLEN, self.LSTRLENA])
 
-    def hook(self, callname, driver, callconv, api, argv):
-        if callname in [self.MSVCRT_STRLEN, self.KERNEL32_LSTRLENA]:
-            emu = driver
-            string_va = argv[0]
-            s = readStringAtRva(emu, string_va, 256)
-            callconv.execCallReturn(emu, len(s), len(argv))
-            return True
-
-        return None
+    def handle(self, shortname, emu, callconv, api, argv):
+        string_va = argv[0]
+        s = readStringAtRva(emu, string_va, 256)
+        callconv.execCallReturn(emu, len(s), len(argv))
+        return True
 
 
-class StrnlenHook(viv_utils.emulator_drivers.Hook):
+class StrnlenHook(LenientNamedHook):
     '''
     Hook and handle calls to strnlen.
     '''
+
     MAX_COPY_SIZE = 1024 * 1024 * 32
-    MSVCRT_STRNLEN = "msvcrt.strnlen"
+    STRNLEN = "strnlen"
 
-    def __init__(self, *args, **kwargs):
-        super(StrnlenHook, self).__init__(*args, **kwargs)
+    def __init__(self):
+        super(StrnlenHook, self).__init__([self.STRNLEN])
 
-    def hook(self, callname, driver, callconv, api, argv):
-        if callname == self.MSVCRT_STRNLEN:
-            emu = driver
-            string_va, maxlen = argv
-            if maxlen > self.MAX_COPY_SIZE:
-                self.d('unusually large strnlen, truncating to 32MB: 0x%x', maxlen)
-                maxlen = self.MAX_COPY_SIZE
-            s = readStringAtRva(emu, string_va, maxsize=maxlen)
-            slen = len(s.partition('\x00')[0])
-            callconv.execCallReturn(emu, slen, len(argv))
-            return True
-
-        return None
+    def handle(self, shortname, emu, callconv, api, argv):
+        string_va, maxlen = argv
+        if maxlen > self.MAX_COPY_SIZE:
+            self.d('unusually large strnlen, truncating to 32MB: 0x%x', maxlen)
+            maxlen = self.MAX_COPY_SIZE
+        s = readStringAtRva(emu, string_va, maxsize=maxlen)
+        slen = len(s.partition('\x00')[0])
+        callconv.execCallReturn(emu, slen, len(argv))
+        return True
 
 
-class StrncmpHook(viv_utils.emulator_drivers.Hook):
+class StrncmpHook(LenientNamedHook):
     '''
     Hook and handle calls to strncmp.
     '''
+
     MAX_COPY_SIZE = 1024 * 1024 * 32
-    MSVCRT_STRNCMP = "msvcrt.strncmp"
+    STRNCMP = "strncmp"
 
-    def __init__(self, *args, **kwargs):
-        super(StrncmpHook, self).__init__(*args, **kwargs)
+    def __init__(self):
+        super(StrncmpHook, self).__init__([self.STRNCMP])
 
-    def hook(self, callname, driver, callconv, api, argv):
-        if callname == self.MSVCRT_STRNCMP:
-            emu = driver
-            s1va, s2va, num = argv
-            if num > self.MAX_COPY_SIZE:
-                self.d('unusually large strnlen, truncating to 32MB: 0x%x', num)
-                num = self.MAX_COPY_SIZE
+    def handle(self, shortname, emu, callconv, api, argv):
+        s1va, s2va, num = argv
+        if num > self.MAX_COPY_SIZE:
+            self.d('unusually large strnlen, truncating to 32MB: 0x%x', num)
+            num = self.MAX_COPY_SIZE
 
-            s1 = readStringAtRva(emu, s1va, maxsize=num)
-            s2 = readStringAtRva(emu, s2va, maxsize=num)
+        s1 = readStringAtRva(emu, s1va, maxsize=num)
+        s2 = readStringAtRva(emu, s2va, maxsize=num)
 
-            s1 = s1.partition('\x00')[0]
-            s2 = s2.partition('\x00')[0]
+        s1 = s1.partition('\x00')[0]
+        s2 = s2.partition('\x00')[0]
 
-            result = cmp(s1, s2)
+        result = cmp(s1, s2)
 
-            callconv.execCallReturn(emu, result, len(argv))
-            return True
-
-        return None
+        callconv.execCallReturn(emu, result, len(argv))
+        return True
 
 
-class MemchrHook(viv_utils.emulator_drivers.Hook):
+class MemchrHook(LenientNamedHook):
     """
     Hook and handle calls to memchr
     """
 
-    MSVCRT_MEMCHR = "msvcrt.memchr"
+    MEMCHR = "memchr"
 
-    def __init__(self, *args, **kwargs):
-        super(MemchrHook, self).__init__(*args, **kwargs)
+    def __init__(self):
+        super(MemchrHook, self).__init__([self.MEMCHR])
 
-    def hook(self, callname, driver, callconv, api, argv):
-        if callname == self.MSVCRT_MEMCHR:
-            emu = driver
-            ptr, value, num = argv
-            value = chr(value)
-            memory = emu.readMemory(ptr, num)
-            try:
-                idx = memory.index(value)
-                callconv.execCallReturn(emu, ptr + idx, len(argv))
-            except ValueError:  # substring not found
-                callconv.execCallReturn(emu, 0, len(argv))
-            return True
-
-        return None
+    def handle(self, shortname, emu, callconv, api, argv):
+        ptr, value, num = argv
+        value = chr(value)
+        memory = emu.readMemory(ptr, num)
+        try:
+            idx = memory.index(value)
+            callconv.execCallReturn(emu, ptr + idx, len(argv))
+        except ValueError:  # substring not found
+            callconv.execCallReturn(emu, 0, len(argv))
+        return True
 
 
-class ExitProcessHook(viv_utils.emulator_drivers.Hook):
+class ExitProcessHook(LenientNamedHook):
     '''
     Hook calls to ExitProcess and stop emulation when these are hit.
     '''
 
-    KERNAL32_EXIT_PROCESS = "kernel32.ExitProcess"
+    EXIT_PROCESS = "ExitProcess"
 
-    def __init__(self, *args, **kwargs):
-        super(ExitProcessHook, self).__init__(*args, **kwargs)
+    def __init__(self):
+        super(ExitProcessHook, self).__init__([self.EXIT_PROCESS])
 
-    def hook(self, callname, driver, callconv, api, argv):
-        if callname == self.KERNAL32_EXIT_PROCESS:
-            raise viv_utils.emulator_drivers.StopEmulation()
-
-        return None
+    def handle(self, shortname, emu, callconv, api, argv):
+        raise viv_utils.emulator_drivers.StopEmulation()
 
 
-class InitializeCriticalSectionHook(viv_utils.emulator_drivers.Hook):
+class InitializeCriticalSectionHook(LenientNamedHook):
     '''
     Hook calls to:
       - InitializeCriticalSection
     '''
 
-    KERNEL32_INITIALIZE_CRITICAL_SECTION = "kernel32.InitializeCriticalSection"
+    INITIALIZE_CRITICAL_SECTION = "InitializeCriticalSection"
 
-    def hook(self, callname, emu, callconv, api, argv):
-        if callname == self.KERNEL32_INITIALIZE_CRITICAL_SECTION:
-            hsection, = argv
-            emu.writeMemory(hsection, "csec")
-            callconv.execCallReturn(emu, 0, len(argv))
-            return True
+    def __init__(self):
+        super(InitializeCriticalSectionHook, self).__init__([self.INITIALIZE_CRITICAL_SECTION])
 
-        return None
+    def handle(self, shortname, emu, callconv, api, argv):
+        hsection, = argv
+        emu.writeMemory(hsection, "csec")  # Will be part of detected strings.. we should change this.
+        callconv.execCallReturn(emu, 0, len(argv))
+        return True
 
 
 class CppNewObjectHook(BaseAllocatorHook):
@@ -456,19 +476,15 @@ class CppNewObjectHook(BaseAllocatorHook):
     '''
 
     YAPAXI_Z = "??2@YAPAXI@Z"
-    MSVCRT_YAPAXI_Z = "msvcrt.??2@YAPAXI@Z"
 
-    def __init__(self, *args, **kwargs):
-        super(CppNewObjectHook, self).__init__(*args, **kwargs)
+    def __init__(self):
+        super(CppNewObjectHook, self).__init__([self.YAPAXI_Z])
 
-    def hook(self, callname, driver, callconv, api, argv):
-        if callname in [self.YAPAXI_Z, self.MSVCRT_YAPAXI_Z]:
-            size = argv[0]
-            va = self._allocate_mem(driver, size)
-            callconv.execCallReturn(driver, va, len(argv))
-            return True
-
-        return None
+    def handle(self, shortname, emu, callconv, api, argv):
+        size = argv[0]
+        va = self._allocate_mem(emu, size)
+        callconv.execCallReturn(emu, va, len(argv))
+        return True
 
 
 DEFAULT_HOOKS = [
