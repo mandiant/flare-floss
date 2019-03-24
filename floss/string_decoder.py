@@ -14,7 +14,7 @@ floss_logger = logging.getLogger("floss")
 
 
 def memdiff_search(bytes1, bytes2):
-    '''
+    """
     Use binary searching to find the offset of the first difference
      between two strings.
 
@@ -23,7 +23,7 @@ def memdiff_search(bytes1, bytes2):
     :type bytes1: str
     :type bytes2: str
     :rtype: int offset of the first location a and b differ, None if strings match
-    '''
+    """
 
     # Prevent infinite recursion on inputs with length of one
     half = (len(bytes1) / 2) or 1
@@ -43,7 +43,7 @@ def memdiff_search(bytes1, bytes2):
 
 
 def memdiff(bytes1, bytes2):
-    '''
+    """
     Find all differences between two input strings.
 
     :param bytes1: The original sequence of bytes
@@ -52,7 +52,7 @@ def memdiff(bytes1, bytes2):
     :type bytes2: str
     :rtype: list of (offset, length) tuples indicating locations bytes1 and
       bytes2 differ
-    '''
+    """
     # Shortcut matching inputs
     if bytes1 == bytes2:
         return []
@@ -92,7 +92,7 @@ def memdiff(bytes1, bytes2):
 
 
 def extract_decoding_contexts(vw, function, max_hits):
-    '''
+    """
     Extract the CPU and memory contexts of all calls to the given function.
     Under the hood, we brute-force emulate all code paths to extract the
      state of the stack, registers, and global memory at each call to
@@ -103,12 +103,12 @@ def extract_decoding_contexts(vw, function, max_hits):
     :param function: The address of the function whose contexts we'll find.
     :param max_hits: The maximum number of hits per address
     :rtype: Sequence[function_argument_getter.FunctionContext]
-    '''
+    """
     return get_function_contexts(vw, function, max_hits)
 
 
 def emulate_decoding_routine(vw, function_index, function, context, max_instruction_count):
-    '''
+    """
     Emulate a function with a given context and extract the CPU and
      memory contexts at interesting points during emulation.
     These "interesting points" include calls to other functions and
@@ -130,7 +130,7 @@ def emulate_decoding_routine(vw, function_index, function, context, max_instruct
     :type max_instruction_count: int
     :param max_instruction_count: The maximum number of instructions to emulate per function.
     :rtype: Sequence[decoding_manager.Delta]
-    '''
+    """
     emu = makeEmulator(vw)
     emu.setEmuSnap(context.emu_snap)
     floss_logger.debug("Emulating function at 0x%08X called at 0x%08X, return address: 0x%08X",
@@ -145,7 +145,7 @@ def emulate_decoding_routine(vw, function_index, function, context, max_instruct
 
 
 def extract_delta_bytes(delta, decoded_at_va, source_fva=0x0):
-    '''
+    """
     Extract the sequence of byte sequences that differ from before
      and after snapshots.
 
@@ -157,7 +157,7 @@ def extract_delta_bytes(delta, decoded_at_va, source_fva=0x0):
     :type source_fva: int
     :param source_fva: function VA of the decoding routine candidate
     :rtype: Sequence[DecodedString]
-    '''
+    """
     delta_bytes = []
 
     memory_snap_before = delta.pre_snap.memory
@@ -209,7 +209,7 @@ def extract_delta_bytes(delta, decoded_at_va, source_fva=0x0):
 
 
 def extract_strings(b, min_length, no_filter):
-    '''
+    """
     Extract the ASCII and UTF-16 strings from a bytestring.
 
     :type b: decoding_manager.DecodedString
@@ -219,7 +219,7 @@ def extract_strings(b, min_length, no_filter):
     :param min_length: minimum string length
     :param no_filter: do not filter decoded strings
     :rtype: Sequence[decoding_manager.DecodedString]
-    '''
+    """
     ret = []
     for s in strings.extract_ascii_strings(b.s):
         if len(s.s) > MAX_STRING_LENGTH:

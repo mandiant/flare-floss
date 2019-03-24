@@ -9,9 +9,9 @@ from viv_utils.emulator_drivers import Hook, UnsupportedFunction
 
 
 class ApiMonitor(viv_utils.emulator_drivers.Monitor):
-    '''
+    """
     The ApiMonitor observes emulation and cleans up API function returns.
-    '''
+    """
 
     def __init__(self, vw, function_index):
         viv_utils.emulator_drivers.Monitor.__init__(self, vw)
@@ -34,12 +34,12 @@ class ApiMonitor(viv_utils.emulator_drivers.Monitor):
                 self.d(str(e))
 
     def _check_return(self, emu, op):
-        '''
+        """
         Ensure that the target of the return is within the allowed set of functions.
         Do nothing, if return address is valid. If return address is invalid:
         _fix_return modifies program counter and stack pointer if a valid return address is found
         on the stack or raises an Exception if no valid return address is found.
-        '''
+        """
         function_start = self.function_index[op.va]
         return_addresses = self._get_return_vas(emu, function_start)
 
@@ -59,9 +59,9 @@ class ApiMonitor(viv_utils.emulator_drivers.Monitor):
             # TODO return?
 
     def _get_return_vas(self, emu, function_start):
-        '''
+        """
         Get the list of valid addresses to which a function should return.
-        '''
+        """
         return_vas = []
         callers = self._vw.getCallers(function_start)
         for caller in callers:
@@ -71,11 +71,11 @@ class ApiMonitor(viv_utils.emulator_drivers.Monitor):
         return return_vas
 
     def _fix_return(self, emu, return_address, return_addresses):
-        '''
+        """
         Find a valid return address from return_addresses on the stack. Adjust the stack accordingly
         or raise an Exception if no valid address is found within the search boundaries.
         Modify program counter and stack pointer, so the emulator does not return to a garbage address.
-        '''
+        """
         self.dumpStack(emu)
         NUM_ADDRESSES = 4
         pointer_size = emu.getPointerSize()
@@ -94,10 +94,10 @@ class ApiMonitor(viv_utils.emulator_drivers.Monitor):
         raise Exception("No valid return address found...")
 
     def dumpStack(self, emu):
-        '''
+        """
         Convenience debugging routine for showing
          state current state of the stack.
-        '''
+        """
         esp = emu.getStackCounter()
         stack_str = ""
         for i in xrange(16, -16, -4):
@@ -120,34 +120,34 @@ class ApiMonitor(viv_utils.emulator_drivers.Monitor):
 
 
 def pointerSize(emu):
-    '''
+    """
     Convenience method whose name might be more readable
      than fetching emu.imem_psize.
     Returns the size of a pointer in bytes for the given emulator.
     :rtype: int
-    '''
+    """
     return emu.imem_psize
 
 
 def popStack(emu):
-    '''
+    """
     Remove the element at the top of the stack.
     :rtype: int
-    '''
+    """
     v = emu.readMemoryFormat(emu.getStackCounter(), "<P")[0]
     emu.setStackCounter(emu.getStackCounter() + pointerSize(emu))
     return v
 
 
 class LenientNamedHook(Hook):
-    '''
+    """
     Lenient named hook class
     Will accept a series of call names like:
         malloc
         _malloc
         __malloc
         mavcrt.malloc
-    '''
+    """
 
     def __init__(self, shortnames):
         super(LenientNamedHook, self).__init__()
@@ -162,10 +162,7 @@ class LenientNamedHook(Hook):
         return None
 
     def accept(self, shortname, emu, callconv, api, argv):
-        result = shortname in self.shortnames
-        if result:
-            print ("->", shortname)
-        return result
+        return shortname in self.shortnames
 
     @abstractmethod
     def handle(self, shortname, emu, callconv, api, argv):
@@ -185,9 +182,9 @@ class LenientNamedHook(Hook):
 
 
 class GetProcessHeapHook(LenientNamedHook):
-    '''
+    """
     Hook and handle calls to GetProcessHeap, returning 0.
-    '''
+    """
 
     GET_PROCESS_HEAP = "GetProcessHeap"
 
@@ -201,24 +198,24 @@ class GetProcessHeapHook(LenientNamedHook):
 
 
 def round(i, size):
-    '''
+    """
     Round `i` to the nearest greater-or-equal-to multiple of `size`.
 
     :type i: int
     :type size: int
     :rtype: int
-    '''
+    """
     if i % size == 0:
         return i
     return i + (size - (i % size))
 
 
 class BaseAllocatorHook(LenientNamedHook):
-    '''
+    """
     A generic hook that supports unique memory allocations (not thread safe).
     The base heap address is 0x96960000.
     The max allocation size is 10 MB.
-    '''
+    """
     MAX_ALLOCATION_SIZE = 10 * 1024 * 1024
     _heap_addr = 0x96960000  # Shared across all instances.
 
@@ -235,10 +232,10 @@ class BaseAllocatorHook(LenientNamedHook):
 
 # TODO: What about heap alloc/heapCreate and so on ???
 class RtlAllocateHeapHook(BaseAllocatorHook):
-    '''
+    """
     Hook calls to RtlAllocateHeap, allocate memory in a "heap"
      section, and return pointers to this memory.
-    '''
+    """
 
     HEAP_ALLOC = "HeapAlloc"
     RTL_ALLOCATE_HEAP = "RtlAllocateHeap"
@@ -255,9 +252,9 @@ class RtlAllocateHeapHook(BaseAllocatorHook):
 
 
 class AllocateHeapHook(BaseAllocatorHook):
-    '''
+    """
     Hook calls to AllocateHeap and handle them like calls to BaseAllocatorHook.
-    '''
+    """
 
     LOCAL_ALLOC = "LocalAlloc"
     GLOBAL_ALLOC = "GlobalAlloc"
@@ -281,9 +278,9 @@ class AllocateHeapHook(BaseAllocatorHook):
 
 
 class MallocHeapHook(BaseAllocatorHook):
-    '''
+    """
     Hook calls to malloc.
-    '''
+    """
 
     MALLOC = "malloc"
     CALLOC = "calloc"
@@ -304,9 +301,9 @@ class MallocHeapHook(BaseAllocatorHook):
 
 
 class MemcpyHook(LenientNamedHook):
-    '''
+    """
     Hook and handle calls to memcpy and memmove.
-    '''
+    """
 
     MEMCPY = "memcpy"
     MEMMOVE = "memmove"
@@ -365,9 +362,9 @@ class StrlenHook(LenientNamedHook):
 
 
 class StrnlenHook(LenientNamedHook):
-    '''
+    """
     Hook and handle calls to strnlen.
-    '''
+    """
 
     MAX_COPY_SIZE = 1024 * 1024 * 32
     STRNLEN = "strnlen"
@@ -387,9 +384,9 @@ class StrnlenHook(LenientNamedHook):
 
 
 class StrncmpHook(LenientNamedHook):
-    '''
+    """
     Hook and handle calls to strncmp.
-    '''
+    """
 
     MAX_COPY_SIZE = 1024 * 1024 * 32
     STRNCMP = "strncmp"
@@ -438,9 +435,9 @@ class MemchrHook(LenientNamedHook):
 
 
 class ExitProcessHook(LenientNamedHook):
-    '''
+    """
     Hook calls to ExitProcess and stop emulation when these are hit.
-    '''
+    """
 
     EXIT_PROCESS = "ExitProcess"
 
@@ -452,10 +449,10 @@ class ExitProcessHook(LenientNamedHook):
 
 
 class InitializeCriticalSectionHook(LenientNamedHook):
-    '''
+    """
     Hook calls to:
       - InitializeCriticalSection
-    '''
+    """
 
     INITIALIZE_CRITICAL_SECTION = "InitializeCriticalSection"
 
@@ -470,10 +467,10 @@ class InitializeCriticalSectionHook(LenientNamedHook):
 
 
 class CppNewObjectHook(BaseAllocatorHook):
-    '''
+    """
     Hook calls to:
       - C++ new operator
-    '''
+    """
 
     YAPAXI_Z = "??2@YAPAXI@Z"
 
@@ -505,7 +502,7 @@ DEFAULT_HOOKS = [
 
 @contextlib.contextmanager
 def defaultHooks(driver):
-    '''
+    """
     Install and remove the default set of hooks to handle common functions.
 
     intended usage:
@@ -513,7 +510,7 @@ def defaultHooks(driver):
         with defaultHooks(driver):
             driver.runFunction()
             ...
-    '''
+    """
     try:
         for hook in DEFAULT_HOOKS:
             driver.add_hook(hook)

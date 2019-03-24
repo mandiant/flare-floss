@@ -6,10 +6,10 @@ import viv_utils
 
 
 class IdentificationManager(viv_utils.LoggingObject):
-    '''
+    """
     IdentificationManager runs identification plugins and computes
      the weights of their results.
-    '''
+    """
     # this defines the weight of each plugin
     # positive values mark functions likely decoding routines, while
     # negative values mark functions as not-decoding routines
@@ -89,14 +89,14 @@ class IdentificationManager(viv_utils.LoggingObject):
 
 
 def identify_decoding_functions(vw, identification_plugins, functions):
-    '''
+    """
     Identify the functions most likely to be decoding routines
      given the the indentification plugins.
 
     :param vw: The vivisect workspace that contains the given functions.
     :type identification_plugins: List[DecodingRoutineIdentifier]
     :param functions: List[int]
-    '''
+    """
     identification_manager = IdentificationManager(vw)
     identification_manager.run_plugins(identification_plugins, functions)
     identification_manager.apply_plugin_weights()

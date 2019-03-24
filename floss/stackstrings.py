@@ -187,7 +187,7 @@ def get_basic_block_ends(vw):
 
 
 def extract_stackstrings(vw, selected_functions, min_length, no_filter=False):
-    '''
+    """
     Extracts the stackstrings from functions in the given workspace.
 
     :param vw: The vivisect workspace from which to extract stackstrings.
@@ -195,7 +195,7 @@ def extract_stackstrings(vw, selected_functions, min_length, no_filter=False):
     :param min_length: minimum string length
     :param no_filter: do not filter deobfuscated stackstrings
     :rtype: Generator[StackString]
-    '''
+    """
     logger.debug('extracting stackstrings from %d functions', len(selected_functions))
     bb_ends = get_basic_block_ends(vw)
     for fva in selected_functions:

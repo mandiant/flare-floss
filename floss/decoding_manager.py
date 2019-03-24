@@ -28,9 +28,9 @@ class LocationType(Enum):
 
 
 def is_import(emu, va):
-    '''
+    """
     Return True if the given VA is that of an imported function.
-    '''
+    """
     # TODO: also check location type
     t = emu.getVivTaint(va)
     if t is None:
@@ -58,11 +58,11 @@ class MapsTooLargeError(Exception):
 
 
 def make_snapshot(emu):
-    '''
+    """
     Create a snapshot of the current CPU and memory.
 
     :rtype: Snapshot
-    '''
+    """
     if get_map_size(emu) > MAX_MAPS_SIZE:
         floss_logger.debug('emulator mapped too much memory: 0x%x', get_map_size(emu))
         raise MapsTooLargeError()
@@ -111,7 +111,7 @@ class DebugMonitor(viv_utils.emulator_drivers.Monitor):
 
 
 def emulate_function(emu, function_index, fva, return_address, max_instruction_count):
-    '''
+    """
     Emulate a function and collect snapshots at each interesting place.
     These interesting places include calls to imported API functions
      and the final state of the emulator.
@@ -136,7 +136,7 @@ def emulate_function(emu, function_index, fva, return_address, max_instruction_c
     :param max_instruction_count: The max number of instructions to emulate.
      This helps avoid unexpected infinite loops.
     :rtype: Sequence[Delta]
-    '''
+    """
     try:
         pre_snap = make_snapshot(emu)
     except MapsTooLargeError:
