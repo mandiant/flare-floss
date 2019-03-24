@@ -171,10 +171,7 @@ class LenientNamedHook(Hook):
     @staticmethod
     def make_shortname(callname):
         shortname = callname.lower()
-        dot_pos = shortname.find(".")
-        if dot_pos >= 0:
-            shortname = shortname[dot_pos:]
-
+        shortname = shortname[shortname.find(".") + 1:]  # Note that if no dot is found, it will copy whole string
         while shortname.startswith("_"):
             shortname = shortname[1:]
 
@@ -461,7 +458,7 @@ class InitializeCriticalSectionHook(LenientNamedHook):
 
     def handle(self, shortname, emu, callconv, api, argv):
         hsection, = argv
-        emu.writeMemory(hsection, "csec")  # Will be part of detected strings.. we should change this.
+        emu.writeMemory(hsection, 0xDEADBEAF)
         callconv.execCallReturn(emu, 0, len(argv))
         return True
 
