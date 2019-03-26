@@ -146,7 +146,7 @@ class LenientNamedHook(Hook):
         malloc
         _malloc
         __malloc
-        mavcrt.malloc
+        msvcrt.malloc
     """
 
     def __init__(self, shortnames):
@@ -170,8 +170,7 @@ class LenientNamedHook(Hook):
 
     @staticmethod
     def make_shortname(callname):
-        shortname = callname.lower()
-        shortname = shortname[shortname.find(".") + 1:]  # Note that if no dot is found, it will copy whole string
+        shortname = callname[callname.find(".") + 1:].lower()  # Note that if no dot is found, it will copy whole string
         while shortname.startswith("_"):
             shortname = shortname[1:]
 
