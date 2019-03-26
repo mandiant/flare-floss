@@ -468,10 +468,11 @@ class CppNewObjectHook(BaseAllocatorHook):
       - C++ new operator
     """
 
-    YAPAXI_Z = "??2@YAPAXI@Z"
+    YAPAXI_Z_32 = "??2@YAPAXI@Z"      # void * __cdecl operator new(unsigned int)
+    YAPEAX_K_Z_64 = "??2@YAPEAX_K@Z"  # void * __ptr64 __cdecl operator new(unsigned __int64)
 
     def __init__(self):
-        super(CppNewObjectHook, self).__init__([self.YAPAXI_Z])
+        super(CppNewObjectHook, self).__init__([self.YAPAXI_Z_32, self.YAPEAX_K_Z_64])
 
     def handle(self, shortname, emu, callconv, api, argv):
         size = argv[0]
