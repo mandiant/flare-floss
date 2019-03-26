@@ -933,8 +933,8 @@ def print_file_meta_info(vw, selected_functions):
         floss_logger.error("Failed to print vivisect analysis information: {0}".format(e.message))
 
 
-def fetch_function_names_from_idb(complementary_idb_file_path):
-    with idb.from_file(complementary_idb_file_path) as db:
+def fetch_function_names_from_idb(idb_file_path):
+    with idb.from_file(idb_file_path) as db:
         api = idb.IDAPython(db)
 
         result = {}
@@ -955,7 +955,7 @@ def apply_function_names(vw, function_names):
             floss_logger.debug('IDA Pro name ignored  : 0x%x:%s' % (fva, function_name))
 
 
-def load_workspace(sample_file_path, complementary_idb_file_path, save_workspace):
+def load_workspace(sample_file_path, save_workspace, idb_file_path=None):
     # inform user that getWorkspace implicitly loads saved workspace if .viv file exists
     if is_workspace_file(sample_file_path) or os.path.exists("%s.viv" % sample_file_path):
         floss_logger.info("Loading existing vivisect workspace...")
@@ -968,8 +968,8 @@ def load_workspace(sample_file_path, complementary_idb_file_path, save_workspace
 
     vw = viv_utils.getWorkspace(sample_file_path, should_save=False)
 
-    if complementary_idb_file_path:
-        function_names = fetch_function_names_from_idb(complementary_idb_file_path)
+    if idb_file_path:
+        function_names = fetch_function_names_from_idb(idb_file_path)
         apply_function_names(vw, function_names)
 
     if save_workspace:
@@ -998,13 +998,13 @@ def load_shellcode_workspace(sample_file_path, save_workspace, shellcode_ep_in, 
                                            save_workspace, sample_file_path)
 
 
-def load_vw(sample_file_path, complementary_idb_file_path, save_workspace, verbose, is_shellcode, shellcode_entry_point, shellcode_base):
+def load_vw(sample_file_path, save_workspace, verbose, is_shellcode, shellcode_entry_point, shellcode_base, idb_file_path=None):
     try:
         if not is_shellcode:
             if shellcode_entry_point or shellcode_base:
                 floss_logger.warning("Entry point and base offset only apply in conjunction with the -s switch when "
                                      "analyzing raw binary files.")
-            return load_workspace(sample_file_path, complementary_idb_file_path, save_workspace)
+            return load_workspace(sample_file_path, save_workspace, idb_file_path=idb_file_path)
         else:
             return load_shellcode_workspace(sample_file_path, save_workspace, shellcode_entry_point, shellcode_base)
     except LoadNotSupportedError, e:
@@ -1062,8 +1062,9 @@ def main(argv=None):
         return 1
 
     try:
-        vw = load_vw(sample_file_path, complementary_idb_file_path, options.save_workspace, options.verbose,
-                     options.is_shellcode, options.shellcode_entry_point, options.shellcode_base)
+        vw = load_vw(sample_file_path, options.save_workspace, options.verbose,
+                     options.is_shellcode, options.shellcode_entry_point, options.shellcode_base,
+                     idb_file_path=complementary_idb_file_path)
     except WorkspaceLoadError:
         return 1
 
