@@ -59,3 +59,7 @@ You can now run `make all` from the directory `tests/src` to build all the test 
   - create a new branch named `feature/test-decode-rot-13`,
     add and commit the Readme, Makefiles, and .c source file, and submit a PR to this repository.
 
+## Running the tests
+You can run execute the tests with:
+
+    py.test tests/src/ -v
