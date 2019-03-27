@@ -468,14 +468,20 @@ class CppNewObjectHook(BaseAllocatorHook):
       - C++ new operator
     """
 
+    ZNWJ = "Znwj"                     # operator new(unsigned int)
+    ZNAJ = "Znaj"                     # operator new[](unsigned int)
     YAPAXI_Z_32 = "??2@YAPAXI@Z"      # void * __cdecl operator new(unsigned int)
     YAPEAX_K_Z_64 = "??2@YAPEAX_K@Z"  # void * __ptr64 __cdecl operator new(unsigned __int64)
+    DEFAULT_SIZE = 0x1000
 
     def __init__(self):
-        super(CppNewObjectHook, self).__init__([self.YAPAXI_Z_32, self.YAPEAX_K_Z_64])
+        super(CppNewObjectHook, self).__init__([self.ZNWJ, self.ZNAJ, self.YAPAXI_Z_32, self.YAPEAX_K_Z_64])
 
     def handle(self, shortname, emu, callconv, api, argv):
-        size = argv[0]
+        if argv and len(argv) > 0:
+            size = argv[0]
+        else:
+            size = self.DEFAULT_SIZE  # Will allocate a default block size if vivisect failed to extract argv
         va = self._allocate_mem(emu, size)
         callconv.execCallReturn(emu, va, len(argv))
         return True
