@@ -13,10 +13,9 @@ matrix:
           python: 2.7
 
         # travis doesn't support py2.7: https://github.com/travis-ci/travis-ci/issues/2312
-
 install:
     - pip install https://github.com/williballenthin/vivisect/zipball/master
-    - pip install pyinstaller pep8
+    - pip install pyinstaller pycodestyle
     - echo "__version__ = '$(git describe --tags --always)'" > floss/version.py
     - cat floss/version.py
     - pip install -e .
@@ -25,13 +24,21 @@ install:
     - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then git clone https://github.com/tpoechtrager/wclang.git ../wclang;                              fi
     - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then pushd ../wclang; cmake -DCMAKE_INSTALL_PREFIX=/usr/local && make && sudo make install; popd; fi
     - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then pushd tests/src; make all; popd;                                                             fi
+    # Install IDA Free
+    - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then wget -nv https://out7.hex-rays.com/files/idafree70_linux.run; fi
+    - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo chmod +x idafree70_linux.run; fi
+    - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then ./idafree70_linux.run --mode unattended; fi
+    - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then export PATH=$PATH:~/idafree-7.0/; fi
+    - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then mkdir ~/.idapro; openssl aes-256-cbc -K $encrypted_a29c3fcca765_key -iv $encrypted_a29c3fcca765_iv -in tests/ida.reg.enc -out ~/.idapro/ida.reg -d; fi
+    # Generate FLOSS binary
     - pyinstaller floss.spec
 
 script:
-    - find . -name \*.py -exec pep8 --ignore=E501 {} \;
+    - find . -name \*.py -exec pycodestyle --ignore=E501 {} \;
     # haven't figured how to build wclang on osx yet, so no tests
     - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then py.test tests/src/ -v; fi
-
+    # generate idb files for all test binaries
+    - ls -al tests/src/decode-base64/bin/
 addons:
     artifacts:
         debug: true
