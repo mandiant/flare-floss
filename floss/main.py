@@ -215,9 +215,10 @@ def make_parser():
 
     return parser
 
+
 def set_logging_levels(should_debug=False, should_verbose=False):
     """
-    Sets the logging levels of each of Floss's loggers individually. 
+    Sets the logging levels of each of Floss's loggers individually.
     Recommended to use if Floss is being used as a library, and your
     project has its own logging set up. If both parameters 'should_debug'
     and 'should_verbose' are false, the logging level will be set to ERROR.
@@ -724,15 +725,15 @@ def AppendComment(ea, s):
         fn.set_comment_at(addr.address, string)
 
 def AppendLvarComment(fva, pc, s):
-    
+
     # stack var comments are not a thing in Binary Ninja so just add at top of function
     # and at location where it's used as an arg
     s = s.encode('ascii')
     fn = bv.get_function_at(fva)
-    
+
     for addr in [fva, pc]:
         string = fn.get_comment_at(addr)
-        
+
         if not string:
             string = s
         else:
@@ -747,6 +748,7 @@ print "Annotating %d strings from FLOSS for %s"
 
 """ % (len(decoded_strings) + ss_len, sample_file_path, "\n".join(main_commands))
     return script_content
+
 
 def create_r2_script_content(sample_file_path, decoded_strings, stack_strings):
     """
@@ -818,6 +820,7 @@ def create_ida_script(sample_file_path, ida_python_file, decoded_strings, stack_
             raise e
     # TODO return, catch exception in main()
 
+
 def create_binja_script(sample_file_path, binja_script_file, decoded_strings, stack_strings):
     """
     Create a Binary Ninja script to annotate a BNDB file with decoded strings.
@@ -835,6 +838,7 @@ def create_binja_script(sample_file_path, binja_script_file, decoded_strings, st
         except Exception as e:
             raise e
     # TODO return, catch exception in main()
+
 
 def create_r2_script(sample_file_path, r2_script_file, decoded_strings, stack_strings):
     """
