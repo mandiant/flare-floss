@@ -37,8 +37,7 @@ script:
     - find . -name \*.py -exec pycodestyle --ignore=E501 {} \;
     # haven't figured how to build wclang on osx yet, so no tests
     - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then py.test tests/src/ -v; fi
-    # generate idb files for all test binaries
-    - ls -al tests/src/decode-base64/bin/
+
 addons:
     artifacts:
         debug: true

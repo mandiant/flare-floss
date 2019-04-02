@@ -3,8 +3,8 @@ NAME=test-decode-to-global
 BUILDDIR=bin
 SRC=$(NAME).c
 LINUX=$(NAME)
-WINDOWS=$(NAME).exe
-WINDOWS64=$(NAME)64.exe
+WINDOWS=$(NAME)-32.exe
+WINDOWS64=$(NAME)-64.exe
 
 dir=@mkdir -p $(@D)
 
