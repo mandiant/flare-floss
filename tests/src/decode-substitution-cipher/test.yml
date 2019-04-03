@@ -14,17 +14,17 @@ Output Files:
     Linux:
         32bit: bin/test-decode-substitution-cipher
     Windows:
-        32bit: bin/test-decode-substitution-cipher.exe
-        64bit: bin/test-decode-substitution-cipher64.exe
+        32bit: bin/test-decode-substitution-cipher-32.exe
+        64bit: bin/test-decode-substitution-cipher-64.exe
 
 Build instructions (Windows): |
-    cl.exe test-decode-substitution-cipher.c /Febin/test-decode-substitution-cipher.exe
+    cl.exe test-decode-substitution-cipher.c /Febin/test-decode-substitution-cipher-32.exe
 
 Build instructions (Linux): |
     clang test-decode-substitution-cipher.c -o bin/test-decode-substitution-cipher
 
 Build instructions (Cross compile for Windows on Linux): |
-    i686-w64-mingw32-clang test-decode-substitution-cipher.c -o bin/test-decode-substitution-cipher.exe
+    i686-w64-mingw32-clang test-decode-substitution-cipher.c -o bin/test-decode-substitution-cipher-32.exe
 
 Xfail:
     - Linux-32bit

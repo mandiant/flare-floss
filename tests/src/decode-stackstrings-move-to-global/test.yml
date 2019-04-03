@@ -14,17 +14,17 @@ Output Files:
     Linux:
         32bit: bin/test-decode-stackstrings-move-to-global
     Windows:
-        32bit: bin/test-decode-stackstrings-move-to-global.exe
-        64bit: bin/test-decode-stackstrings-move-to-global.exe
+        32bit: bin/test-decode-stackstrings-move-to-global-32.exe
+        64bit: bin/test-decode-stackstrings-move-to-global-64.exe
 
 Build instructions (Windows): |
-    cl.exe test-decode-stackstrings-move-to-global.c /Febin/test-decode-stackstrings-move-to-global.exe
+    cl.exe test-decode-stackstrings-move-to-global.c /Febin/test-decode-stackstrings-move-to-global-32.exe
 
 Build instructions (Linux): |
     clang test-decode-stackstrings-move-to-global.c -o bin/test-decode-stackstrings-move-to-global
 
 Build instructions (Cross compile for Windows on Linux): |
-    i686-w64-mingw32-clang++ test-decode-stackstrings-move-to-global.c -o bin/test-decode-stackstrings-move-to-global.exe
+    i686-w64-mingw32-clang++ test-decode-stackstrings-move-to-global.c -o bin/test-decode-stackstrings-move-to-global-32.exe
 
 Xfail:
     - Linux-32bit

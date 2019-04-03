@@ -16,17 +16,17 @@ Output Files:
     Linux:
         32bit: bin/test-decode-base64
     Windows:
-        32bit: bin/test-decode-base64.exe
-        64bit: bin/test-decode-base6464.exe
+        32bit: bin/test-decode-base64-32.exe
+        64bit: bin/test-decode-base64-64.exe
 
 Build instructions (Windows): |
-    cl.exe test-decode-base64.c base64.c /Fetest-decode-base64.exe
+    cl.exe test-decode-base64.c base64.c /Fetest-decode-base64-32.exe
 
 Build instructions (Linux): |
     clang test-decode-base64.c base64.c -o test-decode-base64
 
 Build instructions (Cross compile for Windows on Linux): |
-    i686-w64-mingw32-clang++ test-decode-base64.c base64.c -o test-decode-base64.exe
+    i686-w64-mingw32-clang++ test-decode-base64.c base64.c -o test-decode-base64-32.exe
 
 Xfail:
     - Linux-32bit

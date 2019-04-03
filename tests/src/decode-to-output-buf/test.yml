@@ -14,17 +14,17 @@ Output Files:
     Linux:
         32bit: bin/test-decode-to-output-buf
     Windows:
-        32bit: bin/test-decode-to-output-buf.exe
-        64bit: bin/test-decode-to-output-buf64.exe
+        32bit: bin/test-decode-to-output-buf-32.exe
+        64bit: bin/test-decode-to-output-buf-64.exe
 
 Build instructions (Windows): |
-    cl.exe test-decode-to-output-buf.c /Febin/test-decode-to-output-buf.exe
+    cl.exe test-decode-to-output-buf.c /Febin/test-decode-to-output-buf-32.exe
 
 Build instructions (Linux): |
     clang test-decode-to-output-buf.c -o bin/test-decode-to-output-buf
 
 Build instructions (Cross compile for Windows on Linux): |
-    i686-w64-mingw32-clang test-decode-to-output-buf.c -o bin/test-decode-to-output-buf.exe
+    i686-w64-mingw32-clang test-decode-to-output-buf.c -o bin/test-decode-to-output-buf-32.exe
 
 Xfail:
     - Linux-32bit

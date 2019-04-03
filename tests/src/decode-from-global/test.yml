@@ -14,17 +14,17 @@ Output Files:
     Linux:
         32bit: bin/test-decode-from-global
     Windows:
-        32bit: bin/test-decode-from-global.exe
-        64bit: bin/test-decode-from-global64.exe
+        32bit: bin/test-decode-from-global-32.exe
+        64bit: bin/test-decode-from-global-64.exe
 
 Build instructions (Windows): |
-    cl.exe test-decode-from-global.c /Fetest-decode-from-global.exe
+    cl.exe test-decode-from-global.c /Fetest-decode-from-global-32.exe
 
 Build instructions (Linux): |
     clang test-decode-from-global.c -o test-decode-from-global
 
 Build instructions (Cross compile for Windows on Linux): |
-    i686-w64-mingw32-clang test-decode-from-global.c -o test-decode-from-global.exe
+    i686-w64-mingw32-clang test-decode-from-global.c -o test-decode-from-global-32.exe
 
 Xfail:
     - Linux-32bit

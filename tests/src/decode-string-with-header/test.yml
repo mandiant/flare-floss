@@ -14,17 +14,17 @@ Output Files:
     Linux:
         32bit: bin/test-decode-string-with-header
     Windows:
-        32bit: bin/test-decode-string-with-header.exe
-        64bit: bin/test-decode-string-with-header64.exe
+        32bit: bin/test-decode-string-with-header-32.exe
+        64bit: bin/test-decode-string-with-header-64.exe
 
 Build instructions (Windows): |
-    cl.exe test-decode-string-with-header.c /Febin/test-decode-string-with-header.exe
+    cl.exe test-decode-string-with-header.c /Febin/test-decode-string-with-header-32.exe
 
 Build instructions (Linux): |
     clang test-decode-string-with-header.c -o bin/test-decode-string-with-header
 
 Build instructions (Cross compile for Windows on Linux): |
-    i686-w64-mingw32-clang test-decode-string-with-header.c -o bin/test-decode-string-with-header.exe
+    i686-w64-mingw32-clang test-decode-string-with-header.c -o bin/test-decode-string-with-header-32.exe
 
 Xfail:
     - Linux-32bit

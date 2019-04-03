@@ -15,17 +15,17 @@ Output Files:
     Linux:
         32bit: bin/test-decode-local-stackstrings
     Windows:
-        32bit: bin/test-decode-local-stackstrings.exe
-        64bit: bin/test-decode-local-stackstrings64.exe
+        32bit: bin/test-decode-local-stackstrings-32.exe
+        64bit: bin/test-decode-local-stackstrings-64.exe
 
 Build instructions (Windows): |
-    cl.exe test-decode-local-stackstrings.c /Febin/test-decode-local-stackstrings.exe
+    cl.exe test-decode-local-stackstrings.c /Febin/test-decode-local-stackstrings-32.exe
 
 Build instructions (Linux): |
     clang test-decode-local-stackstrings.c -o bin/test-decode-local-stackstrings
 
 Build instructions (Cross compile for Windows on Linux): |
-    i686-w64-mingw32-clang++ test-decode-local-stackstrings.c -o bin/test-decode-decode-stackstrings.exe
+    i686-w64-mingw32-clang++ test-decode-local-stackstrings.c -o bin/test-decode-decode-stackstrings-32.exe
 
 Xfail:
     - Linux-32bit

@@ -14,18 +14,18 @@ Output Files:
     Linux:
         32bit: bin/test-decode-global-stackstrings
     Windows:
-        32bit: bin/test-decode-global-stackstrings.exe
-        64bit: bin/test-decode-global-stackstrings64.exe
+        32bit: bin/test-decode-global-stackstrings-32.exe
+        64bit: bin/test-decode-global-stackstrings-64.exe
 
 
 Build instructions (Windows): |
-    cl.exe test-decode-global-stackstrings.c /Febin/test-decode-global-stackstrings.exe
+    cl.exe test-decode-global-stackstrings.c /Febin/test-decode-global-stackstrings-32.exe
 
 Build instructions (Linux): |
     clang test-decode-global-stackstrings.c -o bin/test-decode-global-stackstrings
 
 Build instructions (Cross compile for Windows on Linux): |
-    i686-w64-mingw32-clang test-decode-global-stackstrings.c -o bin/test-decode-decode-stackstrings.exe
+    i686-w64-mingw32-clang test-decode-global-stackstrings.c -o bin/test-decode-decode-stackstrings-32.exe
 
 Xfail:
     - all

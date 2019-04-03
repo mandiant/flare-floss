@@ -14,17 +14,17 @@ Output Files:
     Linux:
         32bit: bin/test-decode-to-heap
     Windows:
-        32bit: bin/test-decode-to-heap.exe
-        64bit: bin/test-decode-to-heap64.exe
+        32bit: bin/test-decode-to-heap-32.exe
+        64bit: bin/test-decode-to-heap-64.exe
 
 Build instructions (Windows): |
-    cl.exe test-decode-to-heap.c /Febin/test-decode-to-heap.exe
+    cl.exe test-decode-to-heap.c /Febin/test-decode-to-heap-32.exe
 
 Build instructions (Linux): |
     clang test-decode-to-heap.c -o bin/test-decode-to-heap
 
 Build instructions (Cross compile for Windows on Linux): |
-    i686-w64-mingw32-clang test-decode-to-heap.c -o bin/test-decode-to-heap.exe
+    i686-w64-mingw32-clang test-decode-to-heap.c -o bin/test-decode-to-heap-32.exe
 
 Xfail:
     - Linux-32bit

@@ -15,17 +15,17 @@ Output Files:
     Linux:
         32bit: bin/test-decode-split-stackstrings
     Windows:
-        32bit: bin/test-decode-split-stackstrings.exe
-        64bit: bin/test-decode-split-stackstrings64.exe
+        32bit: bin/test-decode-split-stackstrings-32.exe
+        64bit: bin/test-decode-split-stackstrings-64.exe
 
 Build instructions (Windows): |
-    cl.exe test-decode-split-stackstrings.c /Febin/test-decode-split-stackstrings.exe
+    cl.exe test-decode-split-stackstrings.c /Febin/test-decode-split-stackstrings-32.exe
 
 Build instructions (Linux): |
     clang test-decode-split-stackstrings.c -o bin/test-decode-split-stackstrings
 
 Build instructions (Cross compile for Windows on Linux): |
-    i686-w64-mingw32-clang++ test-decode-split-stackstrings.c -o bin/test-decode-split-stackstrings.exe
+    i686-w64-mingw32-clang++ test-decode-split-stackstrings.c -o bin/test-decode-split-stackstrings-32.exe
 
 Xfail:
     - Linux-32bit

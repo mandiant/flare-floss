@@ -14,17 +14,17 @@ Output Files:
     Linux:
         32bit: bin/test-decode-rc4
     Windows:
-        32bit: bin/test-decode-rc4.exe
-        64bit: bin/test-decode-rc464.exe
+        32bit: bin/test-decode-rc4-32.exe
+        64bit: bin/test-decode-rc4-64.exe
 
 Build instructions (Windows): |
-    cl.exe test-decode-rc4.c /Febin/test-decode-rc4.exe
+    cl.exe test-decode-rc4.c /Febin/test-decode-rc4-32.exe
 
 Build instructions (Linux): |
     clang test-decode-rc4.c -o bin/test-decode-rc4
 
 Build instructions (Cross compile for Windows on Linux): |
-    i686-w64-mingw32-clang test-decode-rc4.c -o bin/test-decode-rc4.exe
+    i686-w64-mingw32-clang test-decode-rc4.c -o bin/test-decode-rc4-32.exe
 
 Xfail:
     - Linux-32bit

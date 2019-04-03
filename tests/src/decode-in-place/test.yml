@@ -14,17 +14,17 @@ Output Files:
     Linux:
         32bit: bin/test-decode-in-place
     Windows:
-        32bit: bin/test-decode-in-place.exe
-        64bit: bin/test-decode-in-place64.exe
+        32bit: bin/test-decode-in-place-32.exe
+        64bit: bin/test-decode-in-place-64.exe
 
 Build instructions (Windows): |
-    cl.exe test-decode-in-place.c /Febin/test-decode-in-place.exe
+    cl.exe test-decode-in-place.c /Febin/test-decode-in-place-32.exe
 
 Build instructions (Linux): |
     clang test-decode-in-place.c -o bin/test-decode-in-place
 
 Build instructions (Cross compile for Windows on Linux): |
-    i686-w64-mingw32-clang test-decode-in-place.c -o bin/test-decode-in-place.exe
+    i686-w64-mingw32-clang test-decode-in-place.c -o bin/test-decode-in-place-32.exe
 
 Xfail:
     - Linux-32bit

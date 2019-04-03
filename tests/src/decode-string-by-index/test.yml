@@ -15,20 +15,17 @@ Output Files:
     Linux:
         32bit: eg. bin/test-decode-string-by-index
     Windows:
-        32bit: eg. bin/test-decode-string-by-index.exe
-        64bit: eg. bin/test-decode-string-by-index64.exe
+        32bit: eg. bin/test-decode-string-by-index-32.exe
+        64bit: eg. bin/test-decode-string-by-index-64.exe
 
 Build instructions (Windows): |
-    eg. rm test-decode-string-by-index.exe
-    eg. cl.exe test-decode-string-by-index.c /Febin/test-decode-string-by-index.exe
+    cl.exe test-decode-string-by-index.c /Febin/test-decode-string-by-index-32.exe
 
 Build instructions (Linux): |
-    eg. rm test-decode-string-by-index
-    eg. clang test-decode-string-by-index.c -o bin/test-decode-string-by-index
+    clang test-decode-string-by-index.c -o bin/test-decode-string-by-index
 
 Build instructions (Cross compile for Windows on Linux): |
-    eg. rm test-decode-string-by-index.exe
-    eg. i686-w64-mingw32-clang test-decode-string-by-index.c -o bin/test-decode-string-by-index.exe
+    i686-w64-mingw32-clang test-decode-string-by-index.c -o bin/test-decode-string-by-index-32.exe
 
 Xfail:
     - Linux-32bit

@@ -14,17 +14,17 @@ Output Files:
     Linux:
         32bit: bin/test-decode-single-byte-xor
     Windows:
-        32bit: bin/test-decode-single-byte-xor.exe
-        64bit: bin/test-decode-single-byte-xor64.exe
+        32bit: bin/test-decode-single-byte-xor-32.exe
+        64bit: bin/test-decode-single-byte-xor-64.exe
 
 Build instructions (Windows): |
-    cl.exe test-decode-single-byte-xor.c /Febin/test-decode-single-byte-xor.exe
+    cl.exe test-decode-single-byte-xor.c /Febin/test-decode-single-byte-xor-32.exe
 
 Build instructions (Linux): |
     clang test-decode-single-byte-xor.c -o bin/test-decode-single-byte-xor
 
 Build instructions (Cross compile for Windows on Linux): |
-    i686-w64-mingw32-clang test-decode-single-byte-xor.c -o bin/test-decode-single-byte-xor.exe
+    i686-w64-mingw32-clang test-decode-single-byte-xor.c -o bin/test-decode-single-byte-xor-32.exe
 
 Xfail:
     - Linux-32bit
