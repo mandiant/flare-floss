@@ -15,7 +15,6 @@ matrix:
         # travis doesn't support py2.7: https://github.com/travis-ci/travis-ci/issues/2312
 install:
     - pip install https://github.com/williballenthin/vivisect/zipball/master
-    - pip uninstall vivisect-vstruct-wb
     - pip install https://github.com/williballenthin/vivisect-vstruct/zipball/master
     - pip install pyinstaller pycodestyle
     - echo "__version__ = '$(git describe --tags --always)'" > floss/version.py
