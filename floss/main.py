@@ -569,16 +569,13 @@ def create_x64dbg_database_content(sample_file_path, imagebase, decoded_strings)
             sanitized_string = sanitize_string_for_script(ds.s)
             if ds.characteristics["location_type"] == LocationType.GLOBAL:
                 rva = hex(ds.va - imagebase)
-                try:
-                    processed[rva] += "\t" + sanitized_string
-                except:
-                    processed[rva] = "FLOSS: " + sanitized_string
             else:
                 rva = hex(ds.decoded_at_va - imagebase)
-                try:
-                    processed[rva] += "\t" + sanitized_string
-                except:
-                    processed[rva] = "FLOSS: " + sanitized_string
+
+            if not processed[rva]:
+                processed[rva] = "FLOSS: " + sanitized_string
+            else:
+                processed[rva] += "\t" + sanitized_string
 
     for i in processed.keys():
         comment = {
