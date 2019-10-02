@@ -4,6 +4,7 @@
 
 from __future__ import print_function
 import os
+import re
 import sys
 import mmap
 import json
@@ -41,6 +42,16 @@ MAX_FILE_SIZE = 16 * MEGABYTE
 SUPPORTED_FILE_MAGIC = set(["MZ"])
 
 MIN_STRING_LENGTH_DEFAULT = 4
+
+WINDOWS_FILES = ['KERNEL32.DLL', 'GDI32.DLL', 'USER32.DLL', 'COMCTL32.DLL',
+                 'COMDLG32.DLL', 'WS2_32.DLL', 'ADVAPI32.DLL', 'NETAPI32.DLL',
+                 'OLE32.DLL', 'SHELL32.DLL', 'WUSER32.DLL', 'PSAPI.DLL',
+                 'MSVCRT.DLL', 'CRTDLL.DLL', 'MSCOREE.DLL']
+
+IS_IP = "^([12]{,1}\d{1,2}\.){3}[12]{,1}\d{1,2}"
+IS_DOMAIN_FILE = "^[\\\\\w\/:@\.-]{5,256}\.[a-zA-Z0-9]{1,4}"
+IS_REGISTER = "^(HKEY_LOCAL_MACHINE\\\\|HKLM\\\\).+$"
+IS_SUSPICIOUS = "(%s)|(%s)|(%s)" % (IS_IP, IS_DOMAIN_FILE, IS_REGISTER)
 
 
 class LoadNotSupportedError(Exception):
@@ -168,6 +179,8 @@ def make_parser():
                                 help="do not show decoded strings")
     extraction_group.add_option("--no-stack-strings", dest="no_stack_strings", action="store_true",
                                 help="do not show stackstrings")
+    extraction_group.add_option("--only-suspicious-strings", dest="only_suspicious_strings", action="store_true",
+                                help="only shows strings that look like an IP address")
     parser.add_option_group(extraction_group)
 
     format_group = OptionGroup(parser, "Format Options")
@@ -483,7 +496,7 @@ def print_identification_results(sample_file_path, decoder_results):
             headers=["address", "score"]))
 
 
-def print_decoding_results(decoded_strings, group_functions, quiet=False, expert=False):
+def print_decoding_results(decoded_strings, group_functions, quiet=False, expert=False, only_suspicious_strings=False):
     """
     Print results of string decoding phase.
     :param decoded_strings: list of decoded strings ([DecodedString])
@@ -502,7 +515,7 @@ def print_decoding_results(decoded_strings, group_functions, quiet=False, expert
             if len_ds > 0:
                 if not quiet:
                     print("\nDecoding function at 0x%X (decoded %d strings)" % (fva, len_ds))
-                print_decoded_strings(grouped_strings, quiet=quiet, expert=expert)
+                print_decoded_strings(grouped_strings, quiet=quiet, expert=expert, only_suspicious_strings=only_suspicious_strings)
     else:
         if not expert:
             seen = set()
@@ -510,16 +523,19 @@ def print_decoding_results(decoded_strings, group_functions, quiet=False, expert
         if not quiet:
             print("\nFLOSS decoded %d strings" % len(decoded_strings))
 
-        print_decoded_strings(decoded_strings, quiet=quiet, expert=expert)
+        print_decoded_strings(decoded_strings, quiet=quiet, expert=expert, only_suspicious_strings=only_suspicious_strings)
 
 
-def print_decoded_strings(decoded_strings, quiet=False, expert=False):
+def print_decoded_strings(decoded_strings, quiet=False, expert=False, only_suspicious_strings=False):
     """
     Print decoded strings.
     :param decoded_strings: list of decoded strings ([DecodedString])
     :param quiet: print strings only, suppresses headers
     :param expert: expert mode
     """
+    if only_suspicious_strings:
+        decoded_strings = [ds for ds in decoded_strings if is_suspicious(ds.s)]
+
     if quiet or not expert:
         for ds in decoded_strings:
             print(sanitize_string_for_printing(ds.s))
@@ -844,7 +860,20 @@ def create_r2_script(sample_file_path, r2_script_file, decoded_strings, stack_st
     # TODO return, catch exception in main()
 
 
-def print_static_strings(path, min_length, quiet=False):
+def is_suspicious(s):
+    if s.upper() in WINDOWS_FILES:
+        return False
+
+    suspicious_expression = re.compile(IS_SUSPICIOUS)
+    return bool(suspicious_expression.match(s))
+
+
+def print_string(s, only_suspicious_strings):
+    if not only_suspicious_strings or is_suspicious(s):
+        print("%s" % s)
+
+
+def print_static_strings(path, min_length, quiet=False, only_suspicious_strings=False):
     """
     Print static ASCII and UTF-16 strings from provided file.
     :param path: input file
@@ -860,14 +889,14 @@ def print_static_strings(path, min_length, quiet=False):
             if not quiet:
                 print("FLOSS static ASCII strings")
             for s in strings.extract_ascii_strings(b, n=min_length):
-                print("%s" % s.s)
+                print_string(s.s, only_suspicious_strings)
             if not quiet:
                 print("")
 
             if not quiet:
                 print("FLOSS static Unicode strings")
             for s in strings.extract_unicode_strings(b, n=min_length):
-                print("%s" % s.s)
+                print_string(s.s, only_suspicious_strings)
             if not quiet:
                 print("")
 
@@ -880,19 +909,19 @@ def print_static_strings(path, min_length, quiet=False):
             if not quiet:
                 print("FLOSS static ASCII strings")
             for s in strings.extract_ascii_strings(b, n=min_length):
-                print("%s" % (s.s))
+                print_string(s.s, only_suspicious_strings)
             if not quiet:
                 print("")
 
             if not quiet:
                 print("FLOSS static UTF-16 strings")
             for s in strings.extract_unicode_strings(b, n=min_length):
-                print("%s" % (s.s))
+                print_string(s.s, only_suspicious_strings)
             if not quiet:
                 print("")
 
 
-def print_stack_strings(extracted_strings, quiet=False, expert=False):
+def print_stack_strings(extracted_strings, quiet=False, expert=False, only_suspicious_strings=False):
     """
     Print extracted stackstrings.
     :param extracted_strings: list of stack strings ([StackString])
@@ -906,7 +935,7 @@ def print_stack_strings(extracted_strings, quiet=False, expert=False):
 
     if not expert:
         for ss in extracted_strings:
-            print("%s" % (ss.s))
+            print_string(ss.s, only_suspicious_strings)
     elif count > 0:
         print(tabulate.tabulate(
             [(hex(s.fva), hex(s.frame_offset), s.s) for s in extracted_strings],
@@ -1003,7 +1032,7 @@ def main(argv=None):
     if not is_workspace_file(sample_file_path):
         if not options.no_static_strings and not options.functions:
             floss_logger.info("Extracting static strings...")
-            print_static_strings(sample_file_path, min_length=min_length, quiet=options.quiet)
+            print_static_strings(sample_file_path, min_length=min_length, quiet=options.quiet, only_suspicious_strings=options.only_suspicious_strings)
 
         if options.no_decoded_strings and options.no_stack_strings and not options.should_show_metainfo:
             # we are done
@@ -1053,7 +1082,7 @@ def main(argv=None):
         # TODO: all of them on non-sanitized strings.
         if not options.expert:
             decoded_strings = filter_unique_decoded(decoded_strings)
-        print_decoding_results(decoded_strings, options.group_functions, quiet=options.quiet, expert=options.expert)
+        print_decoding_results(decoded_strings, options.group_functions, quiet=options.quiet, expert=options.expert, only_suspicious_strings=options.only_suspicious_strings)
     else:
         decoded_strings = []
 
@@ -1064,7 +1093,7 @@ def main(argv=None):
         if not options.expert:
             # remove duplicate entries
             stack_strings = set(stack_strings)
-        print_stack_strings(stack_strings, quiet=options.quiet, expert=options.expert)
+        print_stack_strings(stack_strings, quiet=options.quiet, expert=options.expert, only_suspicious_strings=options.only_suspicious_strings)
     else:
         stack_strings = []
 
