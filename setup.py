@@ -14,9 +14,9 @@ requirements = [
     "pyyaml",
     "simplejson",
     "tabulate",
-    "vivisect==v0.0.20200708",
+    "vivisect==v0.0.20200611",
     "plugnplay",
-    "viv-utils==0.3.15",
+    "viv-utils==0.3.11",
     "enum34"
 ]
 
