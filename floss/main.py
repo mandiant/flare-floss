@@ -745,6 +745,7 @@ print "Annotating %d strings from FLOSS for %s"
     )
     return script_content
 
+
 def create_ghidra_script_content(sample_file_path, decoded_strings, stack_strings):
     """
     Create Ghidra script contents for Ghidra file annotations.
@@ -907,6 +908,7 @@ def create_binja_script(sample_file_path, binja_script_file, decoded_strings, st
         except Exception as e:
             raise e
     # TODO return, catch exception in main()
+
 
 def create_ghidra_script(sample_file_path, ghidra_script_file, decoded_strings, stack_strings):
     """
@@ -1239,7 +1241,7 @@ def main(argv=None):
     if options.binja_script_file:
         floss_logger.info("Creating Binary Ninja script...")
         create_binja_script(sample_file_path, options.binja_script_file, decoded_strings, stack_strings)
-    
+
     if options.ghidra_script_file:
         floss_logger.info("Creating Ghidra script...")
         create_ghidra_script(sample_file_path, options.ghidra_script_file, decoded_strings, stack_strings)
