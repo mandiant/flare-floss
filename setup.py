@@ -12,7 +12,7 @@ requirements = [
     "viv-utils[flirt]==0.6.6",
     "pydantic==1.8.2",
     "tqdm==4.62.2",
-    "networkx==2.5.1",
+    "networkx==2.6.3",
     "halo==0.0.31",
 ]
 
