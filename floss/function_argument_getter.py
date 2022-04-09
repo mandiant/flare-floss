@@ -1,9 +1,11 @@
 # Copyright (C) 2017 Mandiant, Inc. All Rights Reserved.
 
 import contextlib
+from typing import Set, List
 from collections import namedtuple
 
 import envi
+import vivisect
 import viv_utils
 import viv_utils.emulator_drivers
 
@@ -21,22 +23,20 @@ logger = floss.logging_.getLogger(__name__)
 class CallMonitor(viv_utils.emulator_drivers.Monitor):
     """collect call arguments to a target function during emulation"""
 
-    def __init__(self, vivisect_workspace, target_fva):
-        """:param target_fva: address of function whose arguments to monitor"""
-        viv_utils.emulator_drivers.Monitor.__init__(self, vivisect_workspace)
-        self.target_function_va = target_fva
-        self.function_contexts = []
+    def __init__(self, call_site_va: int):
+        super().__init__()
+        self.call_site_va = call_site_va
+        self.function_contexts: List[FunctionContext] = list()
 
-    def apicall(self, emu, op, pc, api, argv):
-        return_address = self.getStackValue(emu, 0)
-        if pc == self.target_function_va:
-            self.function_contexts.append(FunctionContext(emu.getEmuSnap(), return_address, op.va))
+    def prehook(self, emu, op, pc):
+        logger.trace("%s: %s", hex(pc), op)
+        if pc == self.call_site_va:
+            # strictly calls here, return address should always be next instruction
+            return_address = pc + len(op)
+            self.function_contexts.append(FunctionContext(emu.getEmuSnap(), return_address, pc))
 
-    def get_contexts(self):
+    def get_contexts(self) -> List[FunctionContext]:
         return self.function_contexts
-
-    def prehook(self, emu, op, starteip):
-        logger.trace("%s: %s", hex(starteip), op)
 
 
 @contextlib.contextmanager
@@ -48,79 +48,79 @@ def installed_monitor(driver, monitor):
         driver.remove_monitor(monitor)
 
 
-class FunctionArgumentGetter(viv_utils.LoggingObject):
-    def __init__(self, vivisect_workspace):
-        viv_utils.LoggingObject.__init__(self)
-        self.vivisect_workspace = vivisect_workspace
-        self.emu = floss.utils.make_emulator(vivisect_workspace)
-        self.driver = viv_utils.emulator_drivers.FunctionRunnerEmulatorDriver(self.emu)
-        self.index = viv_utils.InstructionFunctionIndex(vivisect_workspace)
+def extract_decoding_contexts(
+    vw: vivisect.VivWorkspace, decoder_fva: int, index: viv_utils.InstructionFunctionIndex
+) -> List[FunctionContext]:
+    """
+    Extract the CPU and memory contexts of all calls to the given function.
+    Under the hood, we brute-force emulate all code paths to extract the
+     state of the stack, registers, and global memory at each call to
+     the given address.
+    """
+    logger.trace("Getting function context for function at 0x%08x...", decoder_fva)
 
-    def get_all_function_contexts(self, function_va, max_hits):
-        logger.trace("Getting function context for function at 0x%08x...", function_va)
+    emu = floss.utils.make_emulator(vw)
+    driver = viv_utils.emulator_drivers.FullCoverageEmulatorDriver(emu, repmax=0x1000)
 
-        all_contexts = []
-        for caller_va in self.get_caller_vas(function_va):
-            function_context = self.get_contexts_via_monitor(caller_va, function_va, max_hits)
-            all_contexts.extend(function_context)
+    contexts = list()
+    for caller_va in get_caller_vas(vw, decoder_fva):
+        contexts.extend(get_contexts_via_monitor(driver, caller_va, decoder_fva, index))
 
-        logger.trace("Got %d function contexts for function at 0x%08x.", len(all_contexts), function_va)
-        return all_contexts
+    logger.trace("Got %d function contexts for function at 0x%08x.", len(contexts), decoder_fva)
+    return contexts
 
-    def get_caller_vas(self, function_va):
-        # optimization: avoid re-processing the same function repeatedly
-        caller_function_vas = set([])
-        for caller_va in self.vivisect_workspace.getCallers(function_va):
-            logger.trace("    caller: %s" % hex(caller_va))
 
+def get_caller_vas(vw, fva) -> Set[int]:
+    """
+    return all unique VAs where function is called from
+    """
+    caller_vas = set()
+    for caller_va in vw.getCallers(fva):
+        if not is_call(vw, caller_va):
+            continue
+        if caller_va == fva:
+            # ignore recursive functions
+            continue
+        caller_vas.add(caller_va)
+    return caller_vas
+
+
+def is_call(vw: vivisect.VivWorkspace, va: int) -> bool:
+    try:
+        op = vw.parseOpcode(va)
+    except (envi.UnsupportedInstruction, envi.InvalidInstruction) as e:
+        logger.trace("  not a call instruction: failed to decode instruction: %s", e.message)
+        return False
+
+    if op.iflags & envi.IF_CALL:
+        return True
+
+    logger.trace("  not a call instruction: %s", op)
+    return False
+
+
+def get_contexts_via_monitor(driver, caller_va, decoder_fva: int, index: viv_utils.InstructionFunctionIndex):
+    """
+    run the given function while collecting arguments to a target function
+    """
+    try:
+        caller_fva = index[caller_va]
+    except KeyError:
+        logger.trace("  unknown function")
+        return []
+
+    logger.trace("emulating: %s, watching %s" % (hex(caller_fva), hex(decoder_fva)))
+    monitor = CallMonitor(caller_va)
+    with installed_monitor(driver, monitor):
+        with floss.api_hooks.defaultHooks(driver):
             try:
-                op = self.vivisect_workspace.parseOpcode(caller_va)
+                driver.run(caller_fva)
             except Exception as e:
-                logger.trace("      not a call instruction: failed to decode instruction: %s", e.message)
-                continue
+                logger.debug("error during emulation of function: %s", str(e))
+    contexts = monitor.get_contexts()
 
-            if not (op.iflags & envi.IF_CALL):
-                logger.trace("      not a call instruction: %s", op)
-                continue
+    logger.trace("   results:")
+    for _ in contexts:
+        logger.trace("    <context>")
 
-            try:
-                # the address of the function that contains this instruction
-                caller_function_va = self.index[caller_va]
-            except KeyError:
-                # there's a pointer outside a function, or
-                # maybe two functions share the same basic block.
-                # this is a limitation of viv_utils.FunctionIndex
-                logger.trace("unknown caller function: 0x%x", caller_va)
-                continue
-
-            logger.trace("      function: %s", hex(caller_function_va))
-            caller_function_vas.add(caller_function_va)
-        return caller_function_vas
-
-    def get_contexts_via_monitor(self, fva, target_fva, max_hits):
-        """
-        run the given function while collecting arguments to a target function
-        """
-        try:
-            _ = self.index[fva]
-        except KeyError:
-            logger.trace("    unknown function")
-            return []
-
-        logger.trace("    emulating: %s, watching %s" % (hex(self.index[fva]), hex(target_fva)))
-        monitor = CallMonitor(self.vivisect_workspace, target_fva)
-        with installed_monitor(self.driver, monitor):
-            with floss.api_hooks.defaultHooks(self.driver):
-                # TODO maxhit == 1 makes most sense for getting all simple contexts (no loops etc. in generation)
-                self.driver.runFunction(self.index[fva], maxhit=max_hits, maxrep=0x1000, func_only=True)
-        contexts = monitor.get_contexts()
-
-        logger.trace("      results:")
-        for c in contexts:
-            logger.trace("        <context>")
-
-        return contexts
-
-
-def get_function_contexts(vw, fva, max_hits):
-    return FunctionArgumentGetter(vw).get_all_function_contexts(fva, max_hits)
+    return contexts

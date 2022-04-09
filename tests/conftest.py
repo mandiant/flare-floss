@@ -160,7 +160,7 @@ class FLOSSTest(pytest.Item):
                     "FLOSS extraction failed:",
                     "   expected: %s" % str(expected),
                     "   got: %s" % str(got),
-                    "   expected-got: %s" % str(set(expected) - set(got)),
-                    "   got-expected: %s" % str(set(got) - set(expected)),
+                    "   missing (expected-got): %s" % str(set(expected) - set(got)),
+                    "   unexpected (got-expected): %s" % str(set(got) - set(expected)),
                 ]
             )

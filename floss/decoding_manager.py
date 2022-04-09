@@ -110,13 +110,12 @@ class DeltaCollectorHook(viv_utils.emulator_drivers.Hook):
     """
 
     def __init__(self, pre_snap: Snapshot):
-        super(DeltaCollectorHook, self).__init__()
-
+        super().__init__()
         self._pre_snap = pre_snap
         self.deltas: List[Delta] = []
 
-    def hook(self, callname, driver, callconv, api, argv):
-        if is_import(driver._emu, driver._emu.getProgramCounter()):
+    def __call__(self, emu, api, argv):
+        if is_import(emu, emu.getProgramCounter()):
             # TODO add apis to ignore here, e.g.
             #  "kernel32.GetSystemTime", "ntdll.RtlFreeHeap", "ntdll.RtlAllocateHeap",
             #  callname = driver._emu.getCallApi(driver._emu.getProgramCounter())[3]
@@ -124,9 +123,10 @@ class DeltaCollectorHook(viv_utils.emulator_drivers.Hook):
                 # TODO optimize - may leverage writelog
                 #  reduce duplicate deltas
                 #  reduce redundant (unchanged) data in each delta
-                self.deltas.append(Delta(self._pre_snap, make_snapshot(driver._emu)))
+                self.deltas.append(Delta(self._pre_snap, make_snapshot(emu)))
             except MapsTooLargeError:
-                logger.debug("despite call to import %s, maps too large, not extracting strings", callname)
+                _, _, _, name, _ = api
+                logger.debug("despite call to import %s, maps too large, not extracting strings", name)
                 pass
 
 
@@ -164,18 +164,20 @@ def emulate_function(
 
     try:
         logger.debug("Emulating function at 0x%08x", fva)
-        driver = viv_utils.emulator_drivers.DebuggerEmulatorDriver(emu)
-        monitor = api_hooks.ApiMonitor(emu.vw, function_index)
+        driver = viv_utils.emulator_drivers.DebuggerEmulatorDriver(
+            emu, repmax=256, max_hit=DS_MAX_ADDRESS_REVISITS_EMULATION, max_insn=max_instruction_count
+        )
+        monitor = api_hooks.ApiMonitor(function_index)
         driver.add_monitor(monitor)
         driver.add_hook(delta_collector)
 
         with api_hooks.defaultHooks(driver):
-            # TODO add maxhit=DS_MAX_ADDRESS_REVISITS_EMULATION once in viv-utils
-            driver.runToVa(return_address, max_instruction_count=max_instruction_count)
+            driver.run_to_va(return_address)
 
-    except viv_utils.emulator_drivers.InstructionRangeExceededError:
+    except viv_utils.emulator_drivers.BreakpointHit as e:
         # TODO track/shortcut instances of this
-        logger.debug("Halting as emulation has escaped!")
+        if e.reason == "max_insn":
+            logger.debug("Halting as emulation has escaped!")
     except envi.InvalidInstruction:
         logger.debug("vivisect encountered an invalid instruction. will continue processing.", exc_info=True)
     except envi.UnsupportedInstruction:

@@ -71,6 +71,27 @@ def remove_stack_memory(emu: Emulator):
     raise ValueError("`STACK_MEM_NAME` not in memory map")
 
 
+def dump_stack(emu):
+    """
+    Convenience debugging routine for showing
+     state current state of the stack.
+    """
+    esp = emu.getStackCounter()
+    stack_str = ""
+    for i in range(16, -16, -4):
+        if i == 0:
+            sp = "<= SP"
+        else:
+            sp = "%02x" % (-i)
+        stack_str = "%s\n0x%08x - 0x%08x %s" % (stack_str, (esp - i), floss.utils.get_stack_value(emu, -i), sp)
+    logger.trace(stack_str)
+    return stack_str
+
+
+def get_stack_value(emu, offset):
+    return emu.readMemoryFormat(emu.getStackCounter() + offset, "<P")[0]
+
+
 def getPointerSize(vw):
     if isinstance(vw.arch, envi.archs.amd64.Amd64Module):
         return 8
@@ -211,7 +232,8 @@ MAX_STRING_LENGTH_FILTER_STRICT = 6
 FP_FILTER_STRICT_INCLUDE = re.compile(r"^\[.*?]$|%[sd]")
 # remove special characters
 FP_FILTER_STRICT_SPECIAL_CHARS = re.compile(r"[^A-Za-z0-9.]")
-# TODO eTpH., gTpd, BTpp, ec.
+# TODO eTpH., gTpd, BTpp, etc.
+# TODO DEEE, RQQQ
 FP_FILTER_STRICT_KNOWN_FP = re.compile(r"^O.*A$")
 
 

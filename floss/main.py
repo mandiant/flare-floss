@@ -559,6 +559,7 @@ def main(argv=None) -> int:
         decoding_function_features, library_functions = find_decoding_function_features(
             vw, selected_functions, disable_progress=args.quiet or args.disable_progress
         )
+        # TODO trim libfuncs from selected_funcs
         results.analysis.functions.library = len(library_functions)
         results.metadata.runtime.find_features = get_runtime_diff(interim)
         interim = time()

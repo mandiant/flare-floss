@@ -120,18 +120,18 @@ def extract_function_kinda_tight_loop(f):
     Yields tight loop features in the provided function
     Algorithm by Blaine S.
     """
-    cfg = viv_utils.CFG(f)
-
     try:
-        root_bb_va = cfg.get_root_basic_block().va
-    except KeyError:
+        cfg = viv_utils.CFG(f)
+    except ValueError:
         # likely wrongly identified or analyzed function
         return
+
+    root_bb_vas = {bb.va for bb in cfg.get_root_basic_blocks()}
     leaf_bb_vas = {bb.va for bb in cfg.get_leaf_basic_blocks()}
 
     for bb in f.basic_blocks:
         # skip first and last BBs
-        if bb.va == root_bb_va:
+        if bb.va in root_bb_vas:
             continue
 
         if bb.va in leaf_bb_vas:

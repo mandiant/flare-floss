@@ -12,7 +12,6 @@ import floss.render
 import floss.results
 import floss.strings
 import floss.decoding_manager
-import floss.function_argument_getter
 from floss.const import (
     DS_MAX_INSN_COUNT,
     DS_FUNCTION_CALLS_RARE,
@@ -24,6 +23,7 @@ from floss.const import (
 from floss.utils import is_all_zeros
 from floss.results import AddressType, DecodedString
 from floss.decoding_manager import Delta
+from floss.function_argument_getter import extract_decoding_contexts
 
 logger = floss.logging_.getLogger(__name__)
 
@@ -154,7 +154,7 @@ def decode_strings(
     with tqdm.contrib.logging.logging_redirect_tqdm(), floss.utils.redirecting_print_to_tqdm():
         for fva in pb:
             seen: Set[str] = set()
-            ctxs = extract_decoding_contexts(vw, fva, max_hits)
+            ctxs = extract_decoding_contexts(vw, fva, function_index)
             n_calls = len(ctxs)
             for n, ctx in enumerate(ctxs, 1):
                 if isinstance(pb, tqdm.tqdm):
@@ -178,22 +178,6 @@ def decode_strings(
                             seen.add(ds.string)
                             decoded_strings.append(ds)
         return decoded_strings
-
-
-def extract_decoding_contexts(vw, function, max_hits):
-    """
-    Extract the CPU and memory contexts of all calls to the given function.
-    Under the hood, we brute-force emulate all code paths to extract the
-     state of the stack, registers, and global memory at each call to
-     the given address.
-
-    :param vw: The vivisect workspace in which the function is defined.
-    :type function: int
-    :param function: The address of the function whose contexts we'll find.
-    :param max_hits: The maximum number of hits per address
-    :rtype: Sequence[function_argument_getter.FunctionContext]
-    """
-    return floss.function_argument_getter.get_function_contexts(vw, function, max_hits)
 
 
 def emulate_decoding_routine(vw, function_index, function: int, context, max_instruction_count: int) -> List[Delta]:

@@ -221,7 +221,7 @@ def render(results, verbose, disable_headers):
 
     if not disable_headers:
         ostream.writeln("")
-        ostream.write(f"FLARE FLOSS v{results.metadata.version} RESULTS\n")
+        ostream.write(f"FLARE FLOSS RESULTS (version {results.metadata.version})\n")
         render_meta(results, ostream, verbose)
         ostream.writeln("")
 

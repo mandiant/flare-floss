@@ -1,13 +1,14 @@
 from typing import Set, List, Tuple, Iterator, Optional
 
 import tqdm
+import envi.exc
 import viv_utils
 import tqdm.contrib.logging
 import viv_utils.emulator_drivers
 
 import floss.utils
 import floss.features.features
-from floss.const import TS_MAX_INSN_COUNT
+from floss.const import TS_MAX_INSN_COUNT, DS_MAX_ADDRESS_REVISITS_EMULATION
 from floss.utils import extract_strings
 from floss.results import TightString
 from floss.stackstrings import CallContext, StackstringContextMonitor
@@ -17,12 +18,12 @@ logger = floss.logging_.getLogger(__name__)
 
 
 class TightstringContextMonitor(StackstringContextMonitor):
-    def __init__(self, vw, sp, min_length):
-        super(TightstringContextMonitor, self).__init__(vw, sp, [])
+    def __init__(self, sp, min_length):
+        super().__init__(sp, [])
         self.min_length = min_length
 
-    # override base class
-    def apicall(self, emu, op, pc, api, argv):
+    def apicall(self, emu, api, argv):
+        # override base and do nothing here
         pass
 
     def get_pre_ctx_strings(self, emu) -> Set[str]:
@@ -42,19 +43,25 @@ class TightstringContextMonitor(StackstringContextMonitor):
 
 def extract_tightstring_contexts(vw, fva, min_length, tloops) -> Iterator[CallContext]:
     emu = floss.utils.make_emulator(vw)
-    monitor = TightstringContextMonitor(vw, emu.getStackCounter(), min_length)
-    driver_all_paths = viv_utils.emulator_drivers.FunctionRunnerEmulatorDriver(emu)
-    driver_all_paths.add_monitor(monitor)
-    driver = viv_utils.emulator_drivers.DebuggerEmulatorDriver(emu)
+    monitor = TightstringContextMonitor(emu.getStackCounter(), min_length)
+    driver_full_coverage = viv_utils.emulator_drivers.FullCoverageEmulatorDriver(emu, repmax=256)
+    driver_full_coverage.add_monitor(monitor)
+    driver = viv_utils.emulator_drivers.DebuggerEmulatorDriver(
+        emu, max_hit=DS_MAX_ADDRESS_REVISITS_EMULATION, max_insn=TS_MAX_INSN_COUNT
+    )
 
     for t in tloops:
-        # find and emulate single path to start of tight loop
-        driver_all_paths.runFunction(fva, t.startva, maxhit=1, maxrep=0x100, func_only=True)
+        try:
+            # find and emulate single path to start of tight loop
+            driver_full_coverage.run_to_va(fva, t.startva)
+        except envi.exc.DivideByZero:
+            continue
+
         # find existing (FP) stackstrings before tightstring loop executes
         pre_ctx_strings = monitor.get_pre_ctx_strings(emu)
         try:
             # emulate tight loop
-            driver.runToVa(t.endva, max_instruction_count=TS_MAX_INSN_COUNT)
+            driver.run_to_va(t.endva)
         except Exception as e:
             logger.debug("error emulating tight loop starting at 0x%x in function 0x%x: %s", t.startva, fva, e)
         yield from monitor.get_context(emu, t.startva, pre_ctx_strings)

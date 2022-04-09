@@ -1,6 +1,5 @@
 # Copyright (C) 2017 Mandiant, Inc. All Rights Reserved.
 
-import copy
 from typing import Set, List, Optional
 from dataclasses import dataclass
 
@@ -49,8 +48,8 @@ class StackstringContextMonitor(viv_utils.emulator_drivers.Monitor):
       - based on heuristics looking for mov instructions to a hardcoded buffer.
     """
 
-    def __init__(self, vw, init_sp, bb_ends):
-        viv_utils.emulator_drivers.Monitor.__init__(self, vw)
+    def __init__(self, init_sp, bb_ends):
+        super().__init__()
         self.ctxs: List[CallContext] = []
 
         self._init_sp = init_sp
@@ -60,16 +59,17 @@ class StackstringContextMonitor(viv_utils.emulator_drivers.Monitor):
         # not guaranteed to grow greater than MIN_NUMBER_OF_MOVS.
         self._mov_count = 0
 
-    # overrides emulator_drivers.Monitor
-    def apicall(self, emu, op, pc, api, argv):
-        self.update_contexts(emu, op.va)
+    def apicall(self, emu, api, argv):
+        self.update_contexts(emu, emu.getProgramCounter())
 
+    # TODO remove va arg? see below
     def update_contexts(self, emu, va) -> None:
         try:
             self.ctxs.append(self.get_call_context(emu, va))
         except ValueError as e:
             logger.debug("%s", e)
 
+    # TODO get va here from emu?
     def get_call_context(self, emu, va, pre_ctx_strings: Optional[Set[str]] = None) -> CallContext:
         """
         Returns a context with the bytes on the stack between the base pointer
@@ -122,11 +122,14 @@ class StackstringContextMonitor(viv_utils.emulator_drivers.Monitor):
 
 def extract_call_contexts(vw, fva, bb_ends):
     emu = floss.utils.make_emulator(vw)
-    monitor = StackstringContextMonitor(vw, emu.getStackCounter(), bb_ends)
-    driver = viv_utils.emulator_drivers.FunctionRunnerEmulatorDriver(emu)
+    monitor = StackstringContextMonitor(emu.getStackCounter(), bb_ends)
+    driver = viv_utils.emulator_drivers.FullCoverageEmulatorDriver(emu, repmax=256)
+    # note: we don't use ApiMonitor with our custom API hooks here
     driver.add_monitor(monitor)
-    # only hit each address once, careful with other values, exponential growth possible
-    driver.runFunction(fva, maxhit=1, maxrep=0x100, func_only=True)
+    try:
+        driver.run(fva)
+    except Exception as e:
+        logger.debug("error during emulation of function: %s", str(e))
     return monitor.ctxs
 
 
