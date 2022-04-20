@@ -12,6 +12,7 @@ import tqdm
 import tabulate
 import viv_utils
 import envi.archs
+import viv_utils.emulator_drivers
 from envi import Emulator
 
 import floss.strings
@@ -20,6 +21,7 @@ import floss.logging_
 from .const import MEGABYTE, MAX_STRING_LENGTH
 from .results import StaticString
 from .identify import is_thunk_function
+from .api_hooks import ENABLED_VIV_DEFAULT_HOOKS
 
 STACK_MEM_NAME = "[stack]"
 
@@ -55,6 +57,7 @@ def make_emulator(vw) -> Emulator:
     emu.setStackCounter(emu.getStackCounter() - int(0.25 * MEGABYTE))
     # do not short circuit rep prefix
     emu.setEmuOpt("i386:repmax", 256)  # 0 == no limit on rep prefix
+    viv_utils.emulator_drivers.remove_default_viv_hooks(emu, allow_list=ENABLED_VIV_DEFAULT_HOOKS)
     return emu
 
 

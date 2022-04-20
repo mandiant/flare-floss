@@ -44,8 +44,8 @@ class TightstringContextMonitor(StackstringContextMonitor):
 def extract_tightstring_contexts(vw, fva, min_length, tloops) -> Iterator[CallContext]:
     emu = floss.utils.make_emulator(vw)
     monitor = TightstringContextMonitor(emu.getStackCounter(), min_length)
-    driver_full_coverage = viv_utils.emulator_drivers.FullCoverageEmulatorDriver(emu, repmax=256)
-    driver_full_coverage.add_monitor(monitor)
+    driver_single_path = viv_utils.emulator_drivers.SinglePathEmulatorDriver(emu, repmax=256)
+    driver_single_path.add_monitor(monitor)
     driver = viv_utils.emulator_drivers.DebuggerEmulatorDriver(
         emu, max_hit=DS_MAX_ADDRESS_REVISITS_EMULATION, max_insn=TS_MAX_INSN_COUNT
     )
@@ -53,7 +53,7 @@ def extract_tightstring_contexts(vw, fva, min_length, tloops) -> Iterator[CallCo
     for t in tloops:
         try:
             # find and emulate single path to start of tight loop
-            driver_full_coverage.run_to_va(fva, t.startva)
+            driver_single_path.run_to_va(fva, t.startva)
         except envi.exc.DivideByZero:
             continue
 

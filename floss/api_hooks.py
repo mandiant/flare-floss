@@ -5,13 +5,26 @@ import contextlib
 import envi
 import viv_utils.emulator_drivers
 
+import floss.utils
 import floss.logging_
-from floss.utils import dump_stack
 
 logger = floss.logging_.getLogger(__name__)
 
 
 CURRENT_PROCESS_ID = 7331
+
+# these default vivisect function hooks (imphooks) return as we expect, so we allow them
+ENABLED_VIV_DEFAULT_HOOKS = (
+    "kernel32.LoadLibraryA",
+    "kernel32.LoadLibraryW",
+    "kernel32.GetProcAddress",
+    "kernel32.GetModuleHandleA",
+    "kernel32.GetModuleHandleW",
+    "kernel32.LoadLibraryExA",
+    "kernel32.LoadLibraryExW",
+    "kernel32.GetModuleHandleA",
+    "kernel32.GetModuleHandleW",
+)
 
 
 class ApiMonitor(viv_utils.emulator_drivers.Monitor):
@@ -86,7 +99,7 @@ class ApiMonitor(viv_utils.emulator_drivers.Monitor):
         or raise an Exception if no valid address is found within the search boundaries.
         Modify program counter and stack pointer, so the emulator does not return to a garbage address.
         """
-        dump_stack(emu)
+        floss.utils.dump_stack(emu)
         NUM_ADDRESSES = 4
         pointer_size = emu.getPointerSize()
         STACK_SEARCH_WINDOW = pointer_size * NUM_ADDRESSES
@@ -97,10 +110,10 @@ class ApiMonitor(viv_utils.emulator_drivers.Monitor):
                 emu.setProgramCounter(ret_va_candidate)
                 emu.setStackCounter(esp + offset + pointer_size)
                 logger.trace("Returning to 0x%08x, adjusted stack:", ret_va_candidate)
-                dump_stack(emu)
+                floss.utils.dump_stack(emu)
                 return
 
-        dump_stack(emu)
+        floss.utils.dump_stack(emu)
         raise Exception("No valid return address found...")
 
 
