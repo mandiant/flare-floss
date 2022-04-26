@@ -1,3 +1,5 @@
+# Copyright (C) 2017 Mandiant, Inc. All Rights Reserved.
+
 KILOBYTE = 1024
 MEGABYTE = 1024 * KILOBYTE
 MAX_FILE_SIZE = 16 * MEGABYTE

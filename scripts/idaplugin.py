@@ -1,4 +1,5 @@
 # TODO currently not maintained or tested
+# Copyright (C) 2017 Mandiant, Inc. All Rights Reserved.
 
 #!/usr/bin/env python3
 """

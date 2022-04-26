@@ -1,3 +1,5 @@
+# Copyright (C) 2017 Mandiant, Inc. All Rights Reserved.
+
 import string
 
 

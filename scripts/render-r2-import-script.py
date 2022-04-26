@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright (C) 2017 Mandiant, Inc. All Rights Reserved.
+
 """
 render-r2-import-script.py
 
