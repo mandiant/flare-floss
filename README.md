@@ -1,5 +1,6 @@
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/flare-floss)
-[![CI status](https://github.com/mandiant/flare-floss/workflows/CI/badge.svg)](https://github.com/mandiant/flare-floss/actions?query=workflow%3ACI+event%3Apush+branch%3Amaster)
+[![CI status](https://github.com/mandiant/flare-floss/actions/workflows/tests.yml/badge.svg)](https://github.com/mandiant/flare-floss/actions/workflows/tests.yml)
+[![build status](https://github.com/mandiant/flare-floss/actions/workflows/build.yml/badge.svg)](https://github.com/mandiant/flare-floss/actions/workflows/build.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)](LICENSE.txt)
 
 <img src="https://raw.githubusercontent.com/mandiant/flare-floss/master/resources/logo.png" width="350"/>
