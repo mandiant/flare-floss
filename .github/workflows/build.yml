@@ -1,8 +1,8 @@
 name: build
 
 on:
-  pull_request:
-    types: [opened, edited]
+  push:
+    branches: [ master ]
   release:
     types: [edited, published]
 
