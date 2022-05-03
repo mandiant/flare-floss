@@ -9,7 +9,7 @@ import setuptools
 requirements = [
     "tabulate==0.8.9",
     "vivisect==1.0.8",
-    "viv-utils[flirt]==0.7.2",
+    "viv-utils[flirt]==0.7.4",
     "pydantic==1.9.0",
     "tqdm==4.64.0",
     "networkx==2.5.1",
