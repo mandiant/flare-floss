@@ -1,4 +1,4 @@
-# Copyright (C) 2017 Mandiant, Inc. All Rights Reserved.
+# Copyright (C) 2020 Mandiant, Inc. All Rights Reserved.
 
 import pytest
 import fixtures

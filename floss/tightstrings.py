@@ -1,4 +1,4 @@
-# Copyright (C) 2017 Mandiant, Inc. All Rights Reserved.
+# Copyright (C) 2021 Mandiant, Inc. All Rights Reserved.
 
 from typing import Set, List, Tuple, Iterator, Optional
 

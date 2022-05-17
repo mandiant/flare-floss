@@ -1,4 +1,4 @@
-# Copyright (C) 2017 Mandiant, Inc. All Rights Reserved.
+# Copyright (C) 2022 Mandiant, Inc. All Rights Reserved.
 
 import logging
 from enum import Enum
