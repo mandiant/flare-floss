@@ -491,7 +491,7 @@ def main(argv=None) -> int:
             )
             logger.debug("-" * 80)
 
-            sigs_path = os.path.join(get_default_root(), "sigs")
+            sigs_path = os.path.join(os.path.dirname(__file__), "sigs")
         else:
             sigs_path = args.signatures
             logger.debug("using signatures path: %s", sigs_path)
