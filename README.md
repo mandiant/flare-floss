@@ -6,7 +6,14 @@
 
 ![FLOSS logo](https://github.com/mandiant/flare-floss/blob/master/resources/floss-logo.png)
 
-# FLARE Obfuscated String Solver
+# FLARE Obfuscated String Solver with Large File Support
+
+## Please Note
+
+All credit goes to the original authors. This fork merely allows bypassing the
+default imposed file size limitations. If you experience issues, please first
+try the official binaries provided by the [FLOSS project](https://github.com/mandiant/flare-floss)
+and then report them there.
 
 Rather than heavily protecting backdoors with hardcore packers, many
 malware authors evade heuristic detections by obfuscating only key
