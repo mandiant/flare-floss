@@ -51,7 +51,7 @@ setuptools.setup(
         "dev": [
             "pyyaml==6.0",
             "pytest==7.1.2",
-            "pytest-sugar==0.9.4",
+            "pytest-sugar==0.9.5",
             "pytest-instafail==0.4.2",
             "pytest-cov==3.0.0",
             "pycodestyle==2.8.0",
