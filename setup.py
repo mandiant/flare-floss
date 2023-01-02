@@ -62,7 +62,7 @@ setuptools.setup(
             "pycodestyle==2.10.0",
             "black==22.12.0",
             "isort==5.11.4",
-            "mypy==0.982",
+            "mypy==0.991",
             # type stubs for mypy
             "types-PyYAML==6.0.10",
             "types-tabulate==0.9.0.0",
