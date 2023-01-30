@@ -61,7 +61,7 @@ setuptools.setup(
             "pytest-cov==4.0.0",
             "pycodestyle==2.10.0",
             "black==22.12.0",
-            "isort==5.11.4",
+            "isort==5.12.0",
             "mypy==0.982",
             # type stubs for mypy
             "types-PyYAML==6.0.10",
