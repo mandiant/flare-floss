@@ -364,7 +364,6 @@ def load_vw(
     sigpaths: str,
     should_save_workspace: bool = False,
 ) -> VivWorkspace:
-
     if format not in ("sc32", "sc64"):
         if not is_supported_file_type(sample_path):
             raise WorkspaceLoadError(

@@ -45,7 +45,6 @@ def memdiff_search(bytes1, bytes2):
 
     # Compare first half of the string
     if bytes1[:half] != bytes2[:half]:
-
         # Have we found the first diff?
         if bytes1[0] != bytes2[0]:
             return 0
@@ -83,7 +82,6 @@ def memdiff(bytes1, bytes2):
     diff_start = memdiff_search(bytes1, bytes2)
     diff_offset = None
     for offset, byte in enumerate(bytes1[diff_start:]):
-
         if bytes2[diff_start + offset] != byte:
             # Store offset if we're not tracking a diff
             if diff_offset is None:
