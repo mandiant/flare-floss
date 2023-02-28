@@ -245,6 +245,14 @@ FP_FILTER_REP_CHARS_1 = re.compile(r"([ -~])\1{3,}")
 # /v7+/v7+/v7+/v7+
 # ignore space and % for potential format strings, like %04d%02d%02d%02d%02d
 FP_FILTER_REP_CHARS_2 = re.compile(r"([^% ]{4})\1{4,}")
+# AaaAaAAaAAAaaAA-LIBGCCW32-EH-2-SJLJ-GTHR-MINGW32
+FP_FILTER_MINGW32 = re.compile(r"[aA]*-LIBGCCW32-.*-GTHR-MINGW32")
+# aeriedjD#shasj
+FP_FILTER_JUNK1 = re.compile(r"(aeriedjD#shasj)+")
+# fatal error:
+FP_FILTER_FATAL = re.compile(r".*fatal error: .*")
+# lAll0Y
+FP_FILER_LALL = re.compile(r"^lAll")
 
 # be stricter removing FP strings for shorter strings
 MAX_STRING_LENGTH_FILTER_STRICT = 6
@@ -261,7 +269,16 @@ def strip_string(s) -> str:
     :param s: input string
     :return: string stripped from FP pre- or suffixes
     """
-    for reg in (FP_FILTER_PREFIX_1, FP_FILTER_SUFFIX_1, FP_FILTER_REP_CHARS_1, FP_FILTER_REP_CHARS_2):
+    for reg in (
+        FP_FILTER_PREFIX_1,
+        FP_FILTER_SUFFIX_1,
+        FP_FILTER_REP_CHARS_1,
+        FP_FILTER_REP_CHARS_2,
+        FP_FILTER_MINGW32,
+        FP_FILTER_JUNK1,
+        FP_FILTER_FATAL,
+        FP_FILER_LALL,
+    ):
         s = re.sub(reg, "", s)
     if len(s) <= MAX_STRING_LENGTH_FILTER_STRICT:
         if not re.match(FP_FILTER_STRICT_INCLUDE, s):
