@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
     - name: Checkout FLOSS
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
     - name: Set up Python 3.8
       uses: actions/setup-python@v4
       with:
@@ -49,7 +49,7 @@ jobs:
             python-version: '3.10'
     steps:
     - name: Checkout FLOSS with submodule
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         submodules: true
     - name: Set up Python ${{ matrix.python-version }}
