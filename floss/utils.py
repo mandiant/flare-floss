@@ -205,7 +205,7 @@ FP_FLOSS_ARTIFACTS = (
 )
 
 
-def extract_strings(buffer: bytes, min_length: int, exclude: Set[str] = set()) -> Iterable[StaticString]:
+def extract_strings(buffer: bytes, min_length: int, exclude: Optional[Set[str]] = None) -> Iterable[StaticString]:
     if len(buffer) < min_length:
         return
 
