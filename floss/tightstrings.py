@@ -106,6 +106,7 @@ def extract_tightstrings(
                     logger.trace(
                         "extracting tightstring at checkpoint: 0x%x stacksize: 0x%x", ctx.pc, ctx.init_sp - ctx.sp
                     )
+                    ctx.pre_ctx_strings = set(ctx.pre_ctx_strings)  # Convert list to set
                     logger.trace("pre_ctx strings: %s", ctx.pre_ctx_strings)
                     for s in extract_strings(ctx.stack_memory, min_length, exclude=ctx.pre_ctx_strings):
                         frame_offset = (ctx.init_sp - ctx.sp) - s.offset - floss.utils.getPointerSize(vw)
