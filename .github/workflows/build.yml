@@ -25,12 +25,12 @@ jobs:
             asset_name: macos
     steps:
       - name: Checkout floss
-        uses: actions/checkout@v3
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
         with:
           submodules: false
       # using Python 3.8 to support running across multiple operating systems including Windows 7
       - name: Set up Python 3.8
-        uses: actions/setup-python@v3
+        uses: actions/setup-python@d27e3f3d7c64b4bbf8e4abfb9b63b83e846e0435 # v4.5.0
         with:
           python-version: '3.8'
       - name: Install floss [build]
@@ -66,11 +66,11 @@ jobs:
             asset_name: macos
     steps:
       - name: Download ${{ matrix.asset_name }}
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
           name: ${{ matrix.asset_name }}
       - name: Checkout testfiles
-        uses: actions/checkout@v3
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
         with:
           repository: mandiant/flare-floss-testfiles
           path: tests/data
@@ -99,7 +99,7 @@ jobs:
             artifact_name: floss
     steps:
       - name: Download ${{ matrix.asset_name }}
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
           name: ${{ matrix.asset_name }}
       - name: Set executable flag
