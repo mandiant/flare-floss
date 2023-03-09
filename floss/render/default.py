@@ -6,6 +6,7 @@ import collections
 from typing import List, Tuple, Union
 
 import tabulate
+from termcolor import colored
 
 import floss.utils as util
 import floss.logging_
@@ -134,20 +135,22 @@ def render_staticstrings(strings, ostream, verbose, disable_headers):
         unicode_offset_len = len(f"{unicode_strings[-1].offset}")
     offset_len = max(ascii_offset_len, unicode_offset_len)
 
-    render_sub_heading("FLOSS STATIC STRINGS: ASCII", len(ascii_strings), ostream, disable_headers)
+    render_sub_heading("FLOSS STATIC STRINGS: " + colored("ASCII", "blue", attrs=['bold']), len(ascii_strings), ostream, disable_headers)
     for s in ascii_strings:
+        str_ = colored(s.string, "green", attrs=['bold'])
         if verbose == Verbosity.DEFAULT:
-            ostream.writeln(s.string)
+            ostream.writeln(str_)
         else:
-            ostream.writeln(f"0x{s.offset:>0{offset_len}x} {s.string}")
+            ostream.writeln(f"0x{s.offset:>0{offset_len}x} {str_}")
     ostream.writeln("")
 
-    render_sub_heading("FLOSS STATIC STRINGS: UTF-16LE", len(unicode_strings), ostream, disable_headers)
+    render_sub_heading("FLOSS STATIC STRINGS: " + colored("UTF-16LE", "blue", attrs=['bold']), len(unicode_strings), ostream, disable_headers)
     for s in unicode_strings:
+        str_ = colored(s.string, "green", attrs=['bold'])
         if verbose == Verbosity.DEFAULT:
-            ostream.writeln(s.string)
+            ostream.writeln(str_)
         else:
-            ostream.writeln(f"0x{s.offset:>0{offset_len}x} {s.string}")
+            ostream.writeln(f"0x{s.offset:>0{offset_len}x} {str_}")
 
 
 def render_stackstrings(
@@ -165,7 +168,7 @@ def render_stackstrings(
                             util.hex(s.function),
                             util.hex(s.program_counter),
                             util.hex(s.frame_offset),
-                            sanitize(s.string),
+                            colored(sanitize(s.string), "green", attrs=['bold']),
                         )
                         for s in strings
                     ],
@@ -188,14 +191,14 @@ def render_decoded_strings(decoded_strings: List[DecodedString], ostream, verbos
             strings_by_functions[ds.decoding_routine].append(ds)
 
         for fva, data in strings_by_functions.items():
-            render_heading(f" FUNCTION at 0x{fva:x}", len(data), ostream, disable_headers)
+            render_sub_heading(" FUNCTION at "+colored(f"0x{fva:x}", "blue", attrs=['bold']), len(data), ostream, disable_headers)
             rows = []
             for ds in data:
                 if ds.address_type in (AddressType.HEAP, AddressType.STACK):
                     offset_string = f"({ds.address_type})"
                 else:
                     offset_string = hex(ds.address or 0)
-                rows.append((offset_string, hex(ds.decoded_at), sanitize(ds.string)))
+                rows.append((offset_string, hex(ds.decoded_at), colored(sanitize(ds.string), "green", attrs=['bold'])))
 
             if rows:
                 ostream.write(
@@ -215,7 +218,8 @@ def render_heading(heading, n, ostream, disable_headers):
     if disable_headers:
         return
     heading = f"‖ {heading} ({n}) ‖"
-    ostream.write(tabulate.tabulate([[heading]], tablefmt="rst"))
+    table = tabulate.tabulate([[heading]], tablefmt="rst")
+    ostream.write(colored(table, "blue", attrs=['bold']))
     ostream.write("\n")
 
 
@@ -239,7 +243,8 @@ def render(results, verbose, disable_headers):
 
     if not disable_headers:
         ostream.writeln("")
-        ostream.write(f"FLARE FLOSS RESULTS (version {results.metadata.version})\n")
+        colored_str = colored(f"FLARE FLOSS RESULTS (version {results.metadata.version})\n", "blue", attrs=['bold'])
+        ostream.write(colored_str)
         render_meta(results, ostream, verbose)
         ostream.writeln("")
 

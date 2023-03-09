@@ -8,6 +8,7 @@ import logging
 import argparse
 import textwrap
 import contextlib
+import colorama
 from enum import Enum
 from time import time
 from typing import Set, List, Optional
@@ -253,11 +254,32 @@ def make_parser(argv):
     logging_group.add_argument(
         "-q", "--quiet", action="store_true", help="disable all status output on STDOUT except fatal errors"
     )
+    logging_group.add_argument(
+        "--color",
+        type=str,
+        choices=("auto", "always", "never"),
+        default="auto",
+        help="enable ANSI color codes in results, default: only during interactive session",
+    )
 
     return parser
 
 
-def set_log_config(debug, quiet):
+def set_log_config(debug, quiet, color):
+
+    if color == "always":
+        colorama.init(strip=False)
+    elif color == "auto":
+        # colorama will detect:
+        #  - when on Windows console, and fixup coloring, and
+        #  - when not an interactive session, and disable coloring
+        # renderers should use coloring and assume it will be stripped out if necessary.
+        colorama.init()
+    elif color == "never":
+        colorama.init(strip=True)
+    else:
+        raise RuntimeError("unexpected --color value: " + color)
+    
     if quiet:
         log_level = logging.WARNING
     elif debug >= DebugLevel.TRACE:
@@ -471,7 +493,7 @@ def main(argv=None) -> int:
         print(e)
         return -1
 
-    set_log_config(args.debug, args.quiet)
+    set_log_config(args.debug, args.quiet, args.color)
 
     # Since Python 3.8 cp65001 is an alias to utf_8, but not for Python < 3.8
     # TODO: remove this code when only supporting Python 3.8+
