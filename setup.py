@@ -14,9 +14,6 @@ requirements = [
     "tqdm==4.65.0",
     "networkx==2.5.1",
     "halo==0.0.31",
-    "termcolor==2.2.0",
-    "colorama==0.4.4",
-    "types-colorama==0.4.15.8",
 ]
 
 # this sets __version__
@@ -69,6 +66,9 @@ setuptools.setup(
             # type stubs for mypy
             "types-PyYAML==6.0.10",
             "types-tabulate==0.9.0.1",
+            "termcolor==2.2.0",
+            "colorama==0.4.4",
+            "types-colorama==0.4.15.8",
         ],
         "build": [
             "pyinstaller==5.8.0",
