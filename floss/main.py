@@ -8,12 +8,12 @@ import logging
 import argparse
 import textwrap
 import contextlib
-import colorama
 from enum import Enum
 from time import time
 from typing import Set, List, Optional
 
 import halo
+import colorama
 import viv_utils
 import viv_utils.flirt
 from vivisect import VivWorkspace
@@ -265,8 +265,7 @@ def make_parser(argv):
     return parser
 
 
-def set_log_config(debug, quiet, color):
-
+def set_color_config(color):
     if color == "always":
         colorama.init(strip=False)
     elif color == "auto":
@@ -279,7 +278,9 @@ def set_log_config(debug, quiet, color):
         colorama.init(strip=True)
     else:
         raise RuntimeError("unexpected --color value: " + color)
-    
+
+
+def set_log_config(debug, quiet):
     if quiet:
         log_level = logging.WARNING
     elif debug >= DebugLevel.TRACE:
@@ -493,7 +494,8 @@ def main(argv=None) -> int:
         print(e)
         return -1
 
-    set_log_config(args.debug, args.quiet, args.color)
+    set_log_config(args.debug, args.quiet)
+    set_color_config(args.color)
 
     # Since Python 3.8 cp65001 is an alias to utf_8, but not for Python < 3.8
     # TODO: remove this code when only supporting Python 3.8+

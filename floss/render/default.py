@@ -30,6 +30,16 @@ class StringIO(io.StringIO):
         self.write("\n")
 
 
+def heading_style(str):
+    colored_string = colored(str, "blue", attrs=["bold"])
+    return colored_string
+
+
+def string_style(str):
+    colored_string = colored(str, "green", attrs=["bold"])
+    return colored_string
+
+
 def width(s: str, character_count: int) -> str:
     """pad the given string to at least `character_count`"""
     if len(s) < character_count:
@@ -135,22 +145,24 @@ def render_staticstrings(strings, ostream, verbose, disable_headers):
         unicode_offset_len = len(f"{unicode_strings[-1].offset}")
     offset_len = max(ascii_offset_len, unicode_offset_len)
 
-    render_sub_heading("FLOSS STATIC STRINGS: " + colored("ASCII", "blue", attrs=['bold']), len(ascii_strings), ostream, disable_headers)
+    render_sub_heading("FLOSS STATIC STRINGS: " + heading_style("ASCII"), len(ascii_strings), ostream, disable_headers)
     for s in ascii_strings:
-        str_ = colored(s.string, "green", attrs=['bold'])
+        colored_string = string_style(s.string)
         if verbose == Verbosity.DEFAULT:
-            ostream.writeln(str_)
+            ostream.writeln(colored_string)
         else:
-            ostream.writeln(f"0x{s.offset:>0{offset_len}x} {str_}")
+            ostream.writeln(f"0x{s.offset:>0{offset_len}x} {colored_string}")
     ostream.writeln("")
 
-    render_sub_heading("FLOSS STATIC STRINGS: " + colored("UTF-16LE", "blue", attrs=['bold']), len(unicode_strings), ostream, disable_headers)
+    render_sub_heading(
+        "FLOSS STATIC STRINGS: " + heading_style("UTF-16LE"), len(unicode_strings), ostream, disable_headers
+    )
     for s in unicode_strings:
-        str_ = colored(s.string, "green", attrs=['bold'])
+        colored_string = string_style(s.string)
         if verbose == Verbosity.DEFAULT:
-            ostream.writeln(str_)
+            ostream.writeln(colored_string)
         else:
-            ostream.writeln(f"0x{s.offset:>0{offset_len}x} {str_}")
+            ostream.writeln(f"0x{s.offset:>0{offset_len}x} {colored_string}")
 
 
 def render_stackstrings(
@@ -168,7 +180,7 @@ def render_stackstrings(
                             util.hex(s.function),
                             util.hex(s.program_counter),
                             util.hex(s.frame_offset),
-                            colored(sanitize(s.string), "green", attrs=['bold']),
+                            string_style(sanitize(s.string)),
                         )
                         for s in strings
                     ],
@@ -191,14 +203,14 @@ def render_decoded_strings(decoded_strings: List[DecodedString], ostream, verbos
             strings_by_functions[ds.decoding_routine].append(ds)
 
         for fva, data in strings_by_functions.items():
-            render_sub_heading(" FUNCTION at "+colored(f"0x{fva:x}", "blue", attrs=['bold']), len(data), ostream, disable_headers)
+            render_sub_heading(" FUNCTION at " + heading_style(f"0x{fva:x}"), len(data), ostream, disable_headers)
             rows = []
             for ds in data:
                 if ds.address_type in (AddressType.HEAP, AddressType.STACK):
                     offset_string = f"({ds.address_type})"
                 else:
                     offset_string = hex(ds.address or 0)
-                rows.append((offset_string, hex(ds.decoded_at), colored(sanitize(ds.string), "green", attrs=['bold'])))
+                rows.append((offset_string, hex(ds.decoded_at), string_style(ds.string)))
 
             if rows:
                 ostream.write(
@@ -219,7 +231,7 @@ def render_heading(heading, n, ostream, disable_headers):
         return
     heading = f"‖ {heading} ({n}) ‖"
     table = tabulate.tabulate([[heading]], tablefmt="rst")
-    ostream.write(colored(table, "blue", attrs=['bold']))
+    ostream.write(heading_style(table))
     ostream.write("\n")
 
 
@@ -243,7 +255,7 @@ def render(results, verbose, disable_headers):
 
     if not disable_headers:
         ostream.writeln("")
-        colored_str = colored(f"FLARE FLOSS RESULTS (version {results.metadata.version})\n", "blue", attrs=['bold'])
+        colored_str = heading_style(f"FLARE FLOSS RESULTS (version {results.metadata.version})\n")
         ostream.write(colored_str)
         render_meta(results, ostream, verbose)
         ostream.writeln("")
