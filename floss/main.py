@@ -266,10 +266,8 @@ def make_parser(argv):
 
 
 def set_color_config(color):
-    import codecs
-
-    codecs.register(lambda name: codecs.lookup("utf-8") if name == "cp65001" else None)
-    codecs.register(lambda name: codecs.lookup("utf-8") if name == "cp1252" else None)
+    import sys
+    sys.stdout.reconfigure(encoding='utf-8')
 
     if color == "always":
         colorama.init(strip=False)
