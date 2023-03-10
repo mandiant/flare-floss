@@ -10,7 +10,6 @@ import textwrap
 import contextlib
 from enum import Enum
 from time import time
-import sys
 from typing import Set, List, Optional
 
 import halo
