@@ -266,7 +266,7 @@ def make_parser(argv):
 
 
 def set_color_config(color):
-    sys.stdout.reconfigure(encoding='utf-8')
+    sys.stdout.reconfigure(encoding="utf-8")
     colorama.just_fix_windows_console()
 
     if color == "always":
