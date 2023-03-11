@@ -206,8 +206,10 @@ def render_decoded_strings(decoded_strings: List[DecodedString], ostream, verbos
             render_sub_heading(" FUNCTION at " + heading_style(f"0x{fva:x}"), len(data), ostream, disable_headers)
             rows = []
             for ds in data:
-                if ds.address_type in (AddressType.HEAP, AddressType.STACK):
-                    offset_string = f"({ds.address_type})"
+                if ds.address_type == AddressType.STACK:
+                    offset_string = "[stack]"
+                elif ds.address_type == AddressType.HEAP:
+                    offset_string = "[heap]"
                 else:
                     offset_string = hex(ds.address or 0)
                 rows.append((offset_string, hex(ds.decoded_at), string_style(ds.string)))
