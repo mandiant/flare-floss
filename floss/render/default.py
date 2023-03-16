@@ -147,29 +147,25 @@ def render_staticstrings(strings, ostream, verbose, disable_headers):
 
     if verbose == Verbosity.DEFAULT:
         render_sub_heading("FLOSS STATIC STRINGS: ASCII", len(ascii_strings), ostream, disable_headers)
+        for s in ascii_strings:
+            ostream.writeln(s.string)
+        ostream.writeln("")
+        render_sub_heading("FLOSS STATIC STRINGS: UTF-16LE", len(unicode_strings), ostream, disable_headers)
+        for s in unicode_strings:
+            ostream.writeln(s.string)
     else:
         render_sub_heading(
             "FLOSS STATIC STRINGS: " + heading_style("ASCII"), len(ascii_strings), ostream, disable_headers
         )
-    for s in ascii_strings:
-        colored_string = string_style(s.string)
-        if verbose == Verbosity.DEFAULT:
-            ostream.writeln(s.string)
-        else:
+        for s in ascii_strings:
+            colored_string = string_style(s.string)
             ostream.writeln(f"0x{s.offset:>0{offset_len}x} {colored_string}")
-    ostream.writeln("")
-
-    if verbose == Verbosity.DEFAULT:
-        render_sub_heading("FLOSS STATIC STRINGS: UTF-16LE", len(unicode_strings), ostream, disable_headers)
-    else:
+        ostream.writeln("")
         render_sub_heading(
             "FLOSS STATIC STRINGS: " + heading_style("UTF-16LE"), len(unicode_strings), ostream, disable_headers
         )
-    for s in unicode_strings:
-        colored_string = string_style(s.string)
-        if verbose == Verbosity.DEFAULT:
-            ostream.writeln(s.string)
-        else:
+        for s in unicode_strings:
+            colored_string = string_style(s.string)
             ostream.writeln(f"0x{s.offset:>0{offset_len}x} {colored_string}")
 
 
