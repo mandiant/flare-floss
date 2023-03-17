@@ -131,8 +131,21 @@ def strtime(seconds):
     return f"{m:02.0f}:{s:02.0f}"
 
 
+def print_static_strings(strings, encoding, offset_len, ostream, verbose, disable_headers):
+    if verbose != Verbosity.DEFAULT:
+        encoding = heading_style(encoding)
+    render_sub_heading(f"FLOSS STATIC STRINGS: {encoding}", len(strings), ostream, disable_headers)
+    for s in strings:
+        colored_string = string_style(s.string)
+        if verbose == Verbosity.DEFAULT:
+            ostream.writeln(s.string)
+        else:
+            ostream.writeln(f"0x{s.offset:>0{offset_len}x} {colored_string}")
+    ostream.writeln("")
+
+
 def render_staticstrings(strings, ostream, verbose, disable_headers):
-    render_heading("FLOSS STATIC STRINGS", len(strings), ostream, disable_headers, verbose)
+    render_heading("FLOSS STATIC STRINGS", len(strings), ostream, verbose, disable_headers)
 
     ascii_strings = list(filter(lambda s: s.encoding == StringEncoding.ASCII, strings))
     unicode_strings = list(filter(lambda s: s.encoding == StringEncoding.UTF16LE, strings))
@@ -145,28 +158,8 @@ def render_staticstrings(strings, ostream, verbose, disable_headers):
         unicode_offset_len = len(f"{unicode_strings[-1].offset}")
     offset_len = max(ascii_offset_len, unicode_offset_len)
 
-    if verbose == Verbosity.DEFAULT:
-        render_sub_heading("FLOSS STATIC STRINGS: ASCII", len(ascii_strings), ostream, disable_headers)
-        for s in ascii_strings:
-            ostream.writeln(s.string)
-        ostream.writeln("")
-        render_sub_heading("FLOSS STATIC STRINGS: UTF-16LE", len(unicode_strings), ostream, disable_headers)
-        for s in unicode_strings:
-            ostream.writeln(s.string)
-    else:
-        render_sub_heading(
-            "FLOSS STATIC STRINGS: " + heading_style("ASCII"), len(ascii_strings), ostream, disable_headers
-        )
-        for s in ascii_strings:
-            colored_string = string_style(s.string)
-            ostream.writeln(f"0x{s.offset:>0{offset_len}x} {colored_string}")
-        ostream.writeln("")
-        render_sub_heading(
-            "FLOSS STATIC STRINGS: " + heading_style("UTF-16LE"), len(unicode_strings), ostream, disable_headers
-        )
-        for s in unicode_strings:
-            colored_string = string_style(s.string)
-            ostream.writeln(f"0x{s.offset:>0{offset_len}x} {colored_string}")
+    print_static_strings(ascii_strings, "ASCII", offset_len, ostream, verbose, disable_headers)
+    print_static_strings(unicode_strings, "UTF-16LE", offset_len, ostream, verbose, disable_headers)
 
 
 def render_stackstrings(
@@ -225,7 +218,7 @@ def render_decoded_strings(decoded_strings: List[DecodedString], ostream, verbos
                 ostream.writeln("\n")
 
 
-def render_heading(heading, n, ostream, disable_headers, verbose):
+def render_heading(heading, n, ostream, verbose, disable_headers):
     """
     example::
 
@@ -277,17 +270,17 @@ def render(results, verbose, disable_headers):
         ostream.writeln("")
 
     if results.analysis.enable_stack_strings:
-        render_heading("FLOSS STACK STRINGS", len(results.strings.stack_strings), ostream, disable_headers, verbose)
+        render_heading("FLOSS STACK STRINGS", len(results.strings.stack_strings), ostream, verbose, disable_headers)
         render_stackstrings(results.strings.stack_strings, ostream, verbose, disable_headers)
         ostream.writeln("")
 
     if results.analysis.enable_tight_strings:
-        render_heading("FLOSS TIGHT STRINGS", len(results.strings.tight_strings), ostream, disable_headers, verbose)
+        render_heading("FLOSS TIGHT STRINGS", len(results.strings.tight_strings), ostream, verbose, disable_headers)
         render_stackstrings(results.strings.tight_strings, ostream, verbose, disable_headers)
         ostream.writeln("")
 
     if results.analysis.enable_decoded_strings:
-        render_heading("FLOSS DECODED STRINGS", len(results.strings.decoded_strings), ostream, disable_headers, verbose)
+        render_heading("FLOSS DECODED STRINGS", len(results.strings.decoded_strings), ostream, verbose, disable_headers)
         render_decoded_strings(results.strings.decoded_strings, ostream, verbose, disable_headers)
 
     return ostream.getvalue()
