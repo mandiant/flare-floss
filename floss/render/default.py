@@ -131,15 +131,15 @@ def strtime(seconds):
     return f"{m:02.0f}:{s:02.0f}"
 
 
-def print_static_strings(strings, encoding, offset_len, ostream, verbose, disable_headers):
+def render_static_substrings(strings, encoding, offset_len, ostream, verbose, disable_headers):
     if verbose != Verbosity.DEFAULT:
         encoding = heading_style(encoding)
     render_sub_heading(f"FLOSS STATIC STRINGS: {encoding}", len(strings), ostream, disable_headers)
     for s in strings:
-        colored_string = string_style(s.string)
         if verbose == Verbosity.DEFAULT:
             ostream.writeln(s.string)
         else:
+            colored_string = string_style(s.string)
             ostream.writeln(f"0x{s.offset:>0{offset_len}x} {colored_string}")
     ostream.writeln("")
 
@@ -158,8 +158,8 @@ def render_staticstrings(strings, ostream, verbose, disable_headers):
         unicode_offset_len = len(f"{unicode_strings[-1].offset}")
     offset_len = max(ascii_offset_len, unicode_offset_len)
 
-    print_static_strings(ascii_strings, "ASCII", offset_len, ostream, verbose, disable_headers)
-    print_static_strings(unicode_strings, "UTF-16LE", offset_len, ostream, verbose, disable_headers)
+    render_static_substrings(ascii_strings, "ASCII", offset_len, ostream, verbose, disable_headers)
+    render_static_substrings(unicode_strings, "UTF-16LE", offset_len, ostream, verbose, disable_headers)
 
 
 def render_stackstrings(
