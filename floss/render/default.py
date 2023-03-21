@@ -31,12 +31,12 @@ class StringIO(io.StringIO):
 
 
 def heading_style(str):
-    colored_string = colored(str, "blue", attrs=["bold"])
+    colored_string = colored(str, "cyan")
     return colored_string
 
 
 def string_style(str):
-    colored_string = colored(str, "green", attrs=["bold"])
+    colored_string = colored(str, "green")
     return colored_string
 
 
@@ -131,8 +131,21 @@ def strtime(seconds):
     return f"{m:02.0f}:{s:02.0f}"
 
 
+def render_static_substrings(strings, encoding, offset_len, ostream, verbose, disable_headers):
+    if verbose != Verbosity.DEFAULT:
+        encoding = heading_style(encoding)
+    render_sub_heading(f"FLOSS STATIC STRINGS: {encoding}", len(strings), ostream, disable_headers)
+    for s in strings:
+        if verbose == Verbosity.DEFAULT:
+            ostream.writeln(s.string)
+        else:
+            colored_string = string_style(s.string)
+            ostream.writeln(f"0x{s.offset:>0{offset_len}x} {colored_string}")
+    ostream.writeln("")
+
+
 def render_staticstrings(strings, ostream, verbose, disable_headers):
-    render_heading("FLOSS STATIC STRINGS", len(strings), ostream, disable_headers)
+    render_heading("FLOSS STATIC STRINGS", len(strings), ostream, verbose, disable_headers)
 
     ascii_strings = list(filter(lambda s: s.encoding == StringEncoding.ASCII, strings))
     unicode_strings = list(filter(lambda s: s.encoding == StringEncoding.UTF16LE, strings))
@@ -145,24 +158,8 @@ def render_staticstrings(strings, ostream, verbose, disable_headers):
         unicode_offset_len = len(f"{unicode_strings[-1].offset}")
     offset_len = max(ascii_offset_len, unicode_offset_len)
 
-    render_sub_heading("FLOSS STATIC STRINGS: " + heading_style("ASCII"), len(ascii_strings), ostream, disable_headers)
-    for s in ascii_strings:
-        colored_string = string_style(s.string)
-        if verbose == Verbosity.DEFAULT:
-            ostream.writeln(colored_string)
-        else:
-            ostream.writeln(f"0x{s.offset:>0{offset_len}x} {colored_string}")
-    ostream.writeln("")
-
-    render_sub_heading(
-        "FLOSS STATIC STRINGS: " + heading_style("UTF-16LE"), len(unicode_strings), ostream, disable_headers
-    )
-    for s in unicode_strings:
-        colored_string = string_style(s.string)
-        if verbose == Verbosity.DEFAULT:
-            ostream.writeln(colored_string)
-        else:
-            ostream.writeln(f"0x{s.offset:>0{offset_len}x} {colored_string}")
+    render_static_substrings(ascii_strings, "ASCII", offset_len, ostream, verbose, disable_headers)
+    render_static_substrings(unicode_strings, "UTF-16LE", offset_len, ostream, verbose, disable_headers)
 
 
 def render_stackstrings(
@@ -221,7 +218,7 @@ def render_decoded_strings(decoded_strings: List[DecodedString], ostream, verbos
                 ostream.writeln("\n")
 
 
-def render_heading(heading, n, ostream, disable_headers):
+def render_heading(heading, n, ostream, verbose, disable_headers):
     """
     example::
 
@@ -233,7 +230,10 @@ def render_heading(heading, n, ostream, disable_headers):
         return
     heading = f"‖ {heading} ({n}) ‖"
     table = tabulate.tabulate([[heading]], tablefmt="rst")
-    ostream.write(heading_style(table))
+    if verbose == Verbosity.DEFAULT:
+        ostream.write(table)
+    else:
+        ostream.write(heading_style(table))
     ostream.write("\n")
 
 
@@ -257,8 +257,11 @@ def render(results, verbose, disable_headers):
 
     if not disable_headers:
         ostream.writeln("")
-        colored_str = heading_style(f"FLARE FLOSS RESULTS (version {results.metadata.version})\n")
-        ostream.write(colored_str)
+        if verbose == Verbosity.DEFAULT:
+            ostream.write(f"FLARE FLOSS RESULTS (version {results.metadata.version})\n")
+        else:
+            colored_str = heading_style(f"FLARE FLOSS RESULTS (version {results.metadata.version})\n")
+            ostream.write(colored_str)
         render_meta(results, ostream, verbose)
         ostream.writeln("")
 
@@ -267,17 +270,17 @@ def render(results, verbose, disable_headers):
         ostream.writeln("")
 
     if results.analysis.enable_stack_strings:
-        render_heading("FLOSS STACK STRINGS", len(results.strings.stack_strings), ostream, disable_headers)
+        render_heading("FLOSS STACK STRINGS", len(results.strings.stack_strings), ostream, verbose, disable_headers)
         render_stackstrings(results.strings.stack_strings, ostream, verbose, disable_headers)
         ostream.writeln("")
 
     if results.analysis.enable_tight_strings:
-        render_heading("FLOSS TIGHT STRINGS", len(results.strings.tight_strings), ostream, disable_headers)
+        render_heading("FLOSS TIGHT STRINGS", len(results.strings.tight_strings), ostream, verbose, disable_headers)
         render_stackstrings(results.strings.tight_strings, ostream, verbose, disable_headers)
         ostream.writeln("")
 
     if results.analysis.enable_decoded_strings:
-        render_heading("FLOSS DECODED STRINGS", len(results.strings.decoded_strings), ostream, disable_headers)
+        render_heading("FLOSS DECODED STRINGS", len(results.strings.decoded_strings), ostream, verbose, disable_headers)
         render_decoded_strings(results.strings.decoded_strings, ostream, verbose, disable_headers)
 
     return ostream.getvalue()

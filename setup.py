@@ -71,7 +71,7 @@ setuptools.setup(
             "types-colorama==0.4.15.8",
         ],
         "build": [
-            "pyinstaller==5.8.0",
+            "pyinstaller==5.9.0",
         ],
     },
     zip_safe=False,
