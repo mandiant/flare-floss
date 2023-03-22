@@ -108,8 +108,9 @@ def main():
 if __name__ == "__main__":
     main()
 """ % (
-        len(result_document.strings.decoded_strings) + len(result_document.strings.stack_strings)
-         + len(result_document.strings.tight_strings),
+        len(result_document.strings.decoded_strings)
+        + len(result_document.strings.stack_strings)
+        + len(result_document.strings.tight_strings),
         result_document.metadata.file_path,
         "\n    ".join(main_commands),
     )

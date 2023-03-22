@@ -102,7 +102,8 @@ print("Annotating %d strings from FLOSS for %s")
 %s
 
 """ % (
-        len(result_document.strings.decoded_strings) + len(result_document.strings.stack_strings) 
+        len(result_document.strings.decoded_strings)
+        + len(result_document.strings.stack_strings)
         + len(result_document.strings.tight_strings),
         result_document.metadata.file_path,
         "\n".join(main_commands),
