@@ -54,12 +54,10 @@ def render_r2_script(result_document: ResultDocument) -> str:
                     main_commands.append("af @ %d" % (ds.decoding_routine))
                     main_commands.append("afn floss_%x @ %d" % (ds.decoding_routine, ds.decoding_routine))
                     fvas.append(ds.decoding_routine)
-    ss_len = 0
     for ss in result_document.strings.stack_strings:
         if ss.string != "":
             sanitized_string = base64.b64encode(b'"FLOSS: %s"' % ss.string.encode("utf-8")).decode("ascii")
             main_commands.append("Ca -0x%x base64:%s @ %d" % (ss.frame_offset, sanitized_string, ss.function))
-            ss_len += 1
     for ts in result_document.strings.tight_strings:
         if ts.string != "":
             sanitized_string = base64.b64encode(b'"FLOSS: %s"' % ts.string.encode("utf-8")).decode("ascii")

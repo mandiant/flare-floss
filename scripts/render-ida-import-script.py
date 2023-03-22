@@ -49,7 +49,6 @@ def render_ida_script(result_document: ResultDocument) -> str:
                 main_commands.append('AppendComment(%d, "FLOSS: " + %s)' % (ds.decoded_at, b64))
     main_commands.append('print("Imported decoded strings from FLOSS")')
 
-    ss_len = 0
     for ss in result_document.strings.stack_strings:
         if ss.string != "":
             b64 = base64.b64encode(ss.string.encode("utf-8")).decode("ascii")
@@ -57,10 +56,8 @@ def render_ida_script(result_document: ResultDocument) -> str:
             main_commands.append(
                 'AppendLvarComment(%d, %d, "FLOSS stackstring: " + %s, True)' % (ss.function, ss.frame_offset, b64)
             )
-            ss_len += 1
     main_commands.append('print("Imported stackstrings from FLOSS")')
 
-    ts_len = 0
     for ts in result_document.strings.tight_strings:
         if ts.string != "":
             b64 = base64.b64encode(ts.string.encode("utf-8")).decode("ascii")
@@ -68,7 +65,6 @@ def render_ida_script(result_document: ResultDocument) -> str:
             main_commands.append(
                 'AppendLvarComment(%d, %d, "FLOSS tightstring: " + %s, True)' % (ts.function, ts.frame_offset, b64)
             )
-            ts_len += 1
     main_commands.append('print("Imported tightstrings from FLOSS")')
 
     script_content = """
@@ -112,7 +108,7 @@ def main():
 if __name__ == "__main__":
     main()
 """ % (
-        len(result_document.strings.decoded_strings) + ss_len + ts_len,
+        len(result_document.strings.decoded_strings) + len(result_document.strings.stack_strings) + len(result_document.strings.tight_strings),
         result_document.metadata.file_path,
         "\n    ".join(main_commands),
     )
