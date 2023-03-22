@@ -60,6 +60,12 @@ def render_r2_script(result_document: ResultDocument) -> str:
             sanitized_string = base64.b64encode(b'"FLOSS: %s"' % ss.string.encode("utf-8")).decode("ascii")
             main_commands.append("Ca -0x%x base64:%s @ %d" % (ss.frame_offset, sanitized_string, ss.function))
             ss_len += 1
+    ts_len = 0
+    for ts in result_document.strings.tight_strings:
+        if ts.string != "":
+            sanitized_string = base64.b64encode(b'"FLOSS: %s"' % ts.string.encode("utf-8")).decode("ascii")
+            main_commands.append("Ca -0x%x base64:%s @ %d" % (ts.frame_offset, sanitized_string, ts.function))
+            ts_len += 1
 
     return "\n".join(main_commands)
 

@@ -59,6 +59,15 @@ def render_binja_script(result_document: ResultDocument) -> str:
             ss_len += 1
     main_commands.append('print("Imported stackstrings from FLOSS")')
 
+    ts_len = 0
+    for ts in result_document.strings.tight_strings:
+        if ts.string != "":
+            b64 = base64.b64encode(ts.string.encode("utf-8")).decode("ascii")
+            b64 = 'base64.b64decode("%s").decode("utf-8")' % (b64)
+            main_commands.append('AppendComment(%d, "FLOSS tightstring: " + %s)' % (ts.function, b64))
+            ts_len += 1
+    main_commands.append('print("Imported tightstrings from FLOSS")')
+
     script_content = """import base64
 
 import binaryninja as bn
@@ -109,7 +118,7 @@ print("Annotating %d strings from FLOSS for %s")
 %s
 
 """ % (
-        len(result_document.strings.decoded_strings) + ss_len,
+        len(result_document.strings.decoded_strings) + ss_len + ts_len,
         result_document.metadata.file_path,
         "\n".join(main_commands),
     )
