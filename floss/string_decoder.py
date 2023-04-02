@@ -163,12 +163,12 @@ def decode_strings(
                     for delta_bytes in extract_delta_bytes(delta, ctx.decoded_at_va, fva):
                         for s in floss.utils.extract_strings(delta_bytes.bytes, min_length, seen):
                             ds = DecodedString(
-                                delta_bytes.address + s.offset,
-                                delta_bytes.address_type,
-                                s.string,
-                                s.encoding,
-                                delta_bytes.decoded_at,
-                                delta_bytes.decoding_routine,
+                                address=delta_bytes.address + s.offset,
+                                address_type=delta_bytes.address_type,
+                                string=s.string,
+                                encoding=s.encoding,
+                                decoded_at=delta_bytes.decoded_at,
+                                decoding_routine=delta_bytes.decoding_routine,
                             )
                             floss.results.log_result(ds, verbosity)
                             seen.add(ds.string)
