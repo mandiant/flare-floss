@@ -34,7 +34,7 @@ You can now run `make all` from the directory `tests/data/src` to build all the 
 
 ### Adding a new Binary Test Case
 
-  - Decide on a name for your test. Pick something like "decode-rot-13." Follow the examples and stick to this name throughout the test case.
+  - Decide on a name for your test. Pick something like `decode-rot-13`. Follow the examples and stick to this name throughout the test case.
   - Copy the directory `tests/data/src/template` to `tests/data/src/decode-rot-13`.
   - Update the `test.yml` document to describe the purpose of the test.
   - Update the Makefile in `tests/data/src/decode-rot-13/Makefile`. You should only need to update the test name in the first line. Change it to `test-decode-rot-13`.
