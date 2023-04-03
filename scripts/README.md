@@ -28,12 +28,21 @@ and redirect it to a JSON file.
 
     $ floss -j suspicious.exe > floss_results.json
 
+For Binary Ninja, IDA, Ghidra or Radare2,
 - Run the script for your tool of choice, pass the result json as an argument and
 redirect the output to a Python(.py) file.
 
 
     $ python render-tool-import-script.py floss_results.json > apply_floss.py
 
-- Run the new python file in the tool you made it for.
+- Run the new python file apply_floss.py in the tool you made it for.
+
+For x64dbg,
+- Instead of a python file, redirect the output to a .json file.
+
+
+    $ python render-x64dbg-database.py floss-results.json > database.json
+
+- Then, open the JSON file database.json in x64dbg.
 
 #### To run the IDA plugin,
