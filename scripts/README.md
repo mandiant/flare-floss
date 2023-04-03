@@ -20,18 +20,20 @@ To install FLOSS, see the documentation [here](../doc/installation.md).
 
 
 # Usage
-To convert FLOSS output into scripts for tools:
+#### To convert FLOSS output into scripts for tools:
 
-Run FLOSS on the desired executable with the JSON argument to emit a JSON result
+- Run FLOSS on the desired executable with the JSON argument to emit a JSON result
 and redirect it to a JSON file.
+
 
     $ floss -j suspicious.exe > floss_results.json
 
-Run the script for your tool of choice, pass the result json as an argument and
+- Run the script for your tool of choice, pass the result json as an argument and
 redirect the output to a Python(.py) file.
+
 
     $ python render-tool-import-script.py floss_results.json > apply_floss.py
 
-Run the new python file in the tool you made it for.
+- Run the new python file in the tool you made it for.
 
-To run the IDA plugin,
+#### To run the IDA plugin,
