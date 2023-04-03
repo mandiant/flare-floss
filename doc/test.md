@@ -20,7 +20,7 @@ We store all test-related files in the [flare-floss-testfiles](https://github.co
 You can easily build the binary test cases on both Linux (and OSX) and Windows systems because the source code is C99 source code. Under Linux, we provide Makefiles that invoke the build commands to compile all the tests in one go. On Windows, you may need to script calls to `cl.exe` using a batch script.
 
 If you install [wclang](https://github.com/tpoechtrager/wclang),
-you can cross-compile 32-bit and 64-bit Windows executables from your Linux environment. 
+you can cross-compile 32-bit and 64-bit Windows executables from your Linux environment.
 You can use the following steps to configure your environment for building the binary test cases:
 
     sudo apt-get install clang mingw-w64 cmake make
