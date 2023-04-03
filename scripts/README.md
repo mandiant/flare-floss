@@ -16,7 +16,6 @@ To install FLOSS as source, see the documentation [here](../doc/installation.md)
 - Run FLOSS on the desired executable with the -j or --json argument to emit a JSON result
 and redirect it to a JSON file.
 
-
     $ floss -j suspicious.exe > floss_results.json
 
 For Binary Ninja, IDA, Ghidra or Radare2,
