@@ -1,10 +1,5 @@
 # FLOSS Scripts
 FLOSS supports converting its output into scripts for various tools. Please see the render scripts in this directory.
-1. [IDA pro](render-ida-import-script.py)
-2. [Binary Ninja](render-binja-import-script.py)
-3. [Ghidra](render-ghidra-import-script.py)
-4. [Radare2](render-r2-import-script.py)
-5. [X64dbg](render-x64dbg-database.py)
   
 Additionally, there is another [plugin for IDA](idaplugin.py) to allow FLOSS to automatically
 extract obfuscated strings and apply them to the currently loaded module in IDA.
