@@ -59,5 +59,5 @@ For a detailed description of *testing* FLOSS, review the documentation
 
 ## Scripts
 FLOSS also contains additional Python scripts in the [scripts](scripts) folder 
-which can be used to load its output into other tools such as Binary Ninja or IDA pro.
+which can be used to load its output into other tools such as Binary Ninja or IDA Pro.
 For detailed description of these scripts review the documentation [here](scripts/README.md).
