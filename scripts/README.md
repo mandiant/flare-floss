@@ -1,6 +1,4 @@
-# FLARE Obfuscated String Solver
-
-## Scripts
+# FLOSS Scripts
 FLOSS currently supports converting its output into scripts for the following tools:
 1. [IDA pro](render-ida-import-script.py)
 2. [Binary Ninja](render-binja-import-script.py)
