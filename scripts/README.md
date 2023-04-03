@@ -20,23 +20,11 @@ and redirect it to a JSON file.
 
 For Binary Ninja, IDA, Ghidra or Radare2,
 - Run the script for your tool of choice by passing the result json as an argument and
-redirect the output to a Python(.py) file.
+redirect the output to a Python(.py) file.  
 
-IDA
-
-      $ python render-ida-import-script.py floss_results.json > apply_floss.py
-
-Binary Ninja
-
-    $ python render-binja-import-script.py floss_results.json > apply_floss.py
-
-Ghidra
+Ghidra Example:
 
     $ python render-ghidra-import-script.py floss_results.json > apply_floss.py
-
-Radare2
-
-    $ python render-r2-import-script.py floss_results.json > apply_floss.py
 
 - Run the new python file apply_floss.py in the tool you made it for.
 
@@ -48,4 +36,4 @@ For x64dbg,
 
 - Open the JSON file database.json in x64dbg.
 
-#### To run the IDA plugin,
+#### To run the IDA plugin:
