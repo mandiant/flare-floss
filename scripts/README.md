@@ -1,5 +1,5 @@
 # FLOSS Scripts
-FLOSS currently supports converting its output into scripts for the following tools:
+FLOSS supports converting its output into scripts for various tools. Please see the render scripts in this directory.
 1. [IDA pro](render-ida-import-script.py)
 2. [Binary Ninja](render-binja-import-script.py)
 3. [Ghidra](render-ghidra-import-script.py)
