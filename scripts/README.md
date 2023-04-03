@@ -32,8 +32,21 @@ For Binary Ninja, IDA, Ghidra or Radare2,
 - Run the script for your tool of choice, pass the result json as an argument and
 redirect the output to a Python(.py) file.
 
+IDA
 
-    $ python render-tool-import-script.py floss_results.json > apply_floss.py
+      $ python render-ida-import-script.py floss_results.json > apply_floss.py
+
+Binary Ninja
+
+    $ python render-binja-import-script.py floss_results.json > apply_floss.py
+
+Ghidra
+
+    $ python render-ghidra-import-script.py floss_results.json > apply_floss.py
+
+Radare2
+
+    $ python render-r2-import-script.py floss_results.json > apply_floss.py
 
 - Run the new python file apply_floss.py in the tool you made it for.
 
