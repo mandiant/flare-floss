@@ -14,7 +14,7 @@ To install FLOSS as source, see the documentation [here](../doc/installation.md)
 ## Convert FLOSS output for use by other tools
 
 - Run FLOSS on the desired executable with the `-j` or `--json` argument to emit a JSON result
-and redirect it to a JSON file.
+and redirect it to a JSON file.  
     `$ floss -j suspicious.exe > floss_results.json`
 
 For Binary Ninja, IDA Pro, Ghidra or Radare2:
@@ -27,7 +27,7 @@ Ghidra Example:
 - Run the Python script `apply_floss.py` using the desired tool.
 
 For x64dbg:
-- Instead of a Python file, redirect the output to a .json file.
+- Instead of a Python file, redirect the output to a .json file.  
     `$ python render-x64dbg-database.py floss-results.json > database.json`
 
 - Open the JSON file `database.json` in x64dbg.
