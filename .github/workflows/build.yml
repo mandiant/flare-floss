@@ -14,7 +14,7 @@ jobs:
       matrix:
         include:
           # use old linux so that the shared library versioning is more portable
-          - os: ubuntu-18.04
+          - os: ubuntu-20.04
             artifact_name: floss
             asset_name: linux
           - os: windows-2019
@@ -50,10 +50,10 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: ubuntu-18.04
+          - os: ubuntu-20.04
             artifact_name: floss
             asset_name: linux
-          - os: ubuntu-20.04
+          - os: ubuntu-22.04
             artifact_name: floss
             asset_name: linux
           - os: windows-2019
