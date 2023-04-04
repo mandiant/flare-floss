@@ -26,9 +26,9 @@ jobs:
     - name: Lint with isort
       run: isort --profile black --length-sort --line-width 120 -c .
     - name: Lint with black
-      run: black -l 120 --check .
+      run: black -l 120 .
     - name: Check types with mypy
-      run: mypy --config-file .github/mypy/mypy.ini floss/ scripts/ tests/
+      run: mypy --config-file .github/mypy/mypy.ini --check-untyped-defs floss/ scripts/ tests/
 
   tests:
     name: Tests in ${{ matrix.python-version }} on ${{ matrix.os }}
