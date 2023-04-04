@@ -31,9 +31,6 @@ Ghidra Example:
 For x64dbg:
 - Instead of a Python file, redirect the output to a .json file.
 
-
     $ python render-x64dbg-database.py floss-results.json > database.json
 
 - Open the JSON file `database.json` in x64dbg.
-
-#### To run the IDA plugin:
