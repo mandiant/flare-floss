@@ -2,7 +2,7 @@
 FLOSS supports converting its output into scripts for various tools. Please see the render scripts in this directory.
   
 Additionally, there is another [plugin for IDA](idaplugin.py) to allow FLOSS to automatically
-extract obfuscated strings and apply them to the currently loaded module in IDA.
+extract obfuscated strings and apply them to the currently loaded module in IDA. `idaplugin.py` is a IDAPython script you can directly run within IDA Pro (File - Script File... [ALT + F7]).
 
 # Installation
 These scripts can be downloaded from the FLOSS [GitHub](https://github.com/mandiant/flare-floss) repository
