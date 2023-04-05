@@ -41,5 +41,5 @@ You can now run `make all` from the directory `tests/data/src` to build all the 
   - Move the file `template.c` to `decode-rot-13.c` and provide your implementation.
   - Update the Makefile in `tests/data/src/Makefile`. Add a new line in the first section with the name of your test.
   - Ensure you have the build environment configured, as described in the section "Building Binary Test Cases."
-  - Move `cd` to `tests/data/src/decode-rot-13` and run `make all`. Confirm the binary runs as expected.
+  - `cd` to `tests/data/src/decode-rot-13` and run `make all`. Confirm the binary runs as expected.
   - Create a new branch named `feature/test-decode-rot-13`, add and commit the Readme, Makefiles, .c source file, compiled binaries, and submit a PR to the [flare-floss-testfiles](https://github.com/mandiant/flare-floss-testfiles) repository.
