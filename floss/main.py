@@ -343,11 +343,6 @@ def is_supported_file_type(sample_file_path):
         return False
 
 
-class Architecture(str, Enum):
-    i386 = "i386"
-    amd64 = "amd64"
-
-
 def load_vw(
     sample_path: str,
     format: str,
