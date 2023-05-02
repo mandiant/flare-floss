@@ -265,7 +265,7 @@ def is_go_bin(sample: str) -> bool:
     Check if the binary given is compiled with GO compiler or not
     it checks the magic header of the pclntab structure -pcHeader-
     the magic values varies through the version
-    refernce:
+    reference:
     https://github.com/0xjiayu/go_parser/blob/865359c297257e00165beb1683ef6a679edc2c7f/pclntbl.py#L46
     """
     try:
