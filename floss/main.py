@@ -533,7 +533,6 @@ def main(argv=None) -> int:
         logger.warning("GO Binary Detected, GOLang binaries are not supported yet. Results may be inaccurate.")
         logger.warning("GO: Proceeding with analysis may take a long time.")
 
-
     if results.analysis.enable_static_strings:
         logger.info("extracting static strings...")
 
