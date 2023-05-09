@@ -530,7 +530,9 @@ def main(argv=None) -> int:
     # 4. decoded strings
 
     if is_go_bin(sample=sample):
-        logger.debug("GO Binary Detected")
+        logger.warning("GO Binary Detected, GOLang binaries are not supported yet. Results may be inaccurate.")
+        logger.warning("GO: Proceeding with analysis may take a long time.")
+
 
     if results.analysis.enable_static_strings:
         logger.info("extracting static strings...")
