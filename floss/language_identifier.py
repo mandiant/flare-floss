@@ -59,10 +59,7 @@ def verify_pclntab(section, pclntab_va: int) -> bool:
     Parse headers of pclntab to verify it is legit
     used in go parser itself https://go.dev/src/debug/gosym/pclntab.go
     """
-    pc_quanum = section.get_data(pclntab_va + 6, 1)
-    pointer_size = section.get_data(pclntab_va + 7, 1)
-    if (pc_quanum != b"\x01" and pc_quanum != b"\x02" and pc_quanum != b"\x04") or (
-        pointer_size != b"\x04" and pointer_size != b"\x08"
-    ):
+    pc_quanum = section.get_data(pclntab_va + 6, 1)[0]
+    pointer_size = section.get_data(pclntab_va + 7, 1)[0]
+    return pc_quanum in {1, 2, 4} and pointer_size in {4, 8}:
         return False
-    return True
