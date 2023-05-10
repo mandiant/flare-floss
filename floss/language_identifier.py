@@ -9,7 +9,7 @@ logger = floss.logging_.getLogger("floss")
 
 def is_go_bin(sample: str) -> bool:
     """
-    Check if the binary given is compiled with GO compiler or not
+    Check if the binary given is compiled with Go compiler or not
     it checks the magic header of the pclntab structure -pcHeader-
     the magic values varies through the version
     reference:
