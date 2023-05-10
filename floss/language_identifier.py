@@ -46,8 +46,9 @@ def is_go_bin(sample: str) -> bool:
         for section in pe.sections:
             section_va = section.VirtualAddress
             section_size = section.SizeOfRawData
-            if magic in section.get_data(section_va, section_size):
-                pclntab_va = section.get_data(section_va, section_size).index(magic) + section_va
+            section_data = section.get_data(section_va, section_size)
+            if magic in section_data:
+                pclntab_va = section_data.index(magic) + section_va
                 if verify_pclntab(section, pclntab_va):
                     # just for testing
                     return True
