@@ -153,7 +153,7 @@ class CallsTo(Feature):
         self.locations = locations
 
     def score(self):
-        return float(self.value) / float(self.max_calls_to)
+        return float(self.value / self.max_calls_to)
 
 
 class Loop(Feature):

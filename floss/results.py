@@ -65,6 +65,7 @@ class StackString:
     Attributes:
       function: the address of the function from which the stackstring was extracted
       string: the extracted string
+      encoding: string encoding
       program_counter: the program counter at the moment the string was extracted
       stack_pointer: the stack counter at the moment the string was extracted
       original_stack_pointer: the initial stack counter when the function was entered
@@ -189,7 +190,8 @@ class ResultDocument:
 
     @classmethod
     def parse_file(cls, path):
-        return cls.__pydantic_model__.parse_file(path)
+        # We're ignoring the following mypy error since this field is guaranteed by the Pydantic dataclass.
+        return cls.__pydantic_model__.parse_file(path)  # type: ignore
 
 
 def log_result(decoded_string, verbosity):

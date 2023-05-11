@@ -28,7 +28,7 @@ jobs:
     - name: Lint with black
       run: black -l 120 --check .
     - name: Check types with mypy
-      run: mypy --config-file .github/mypy/mypy.ini floss/ scripts/ tests/
+      run: mypy --config-file .github/mypy/mypy.ini --check-untyped-defs floss/ scripts/ tests/
 
   tests:
     name: Tests in ${{ matrix.python-version }} on ${{ matrix.os }}

@@ -178,7 +178,16 @@ def extract_stackstrings(
                 )
                 for s in extract_strings(ctx.stack_memory, min_length, seen):
                     frame_offset = (ctx.init_sp - ctx.sp) - s.offset - getPointerSize(vw)
-                    ss = StackString(fva, s.string, s.encoding, ctx.pc, ctx.sp, ctx.init_sp, s.offset, frame_offset)
+                    ss = StackString(
+                        function=fva,
+                        string=s.string,
+                        encoding=s.encoding,
+                        program_counter=ctx.pc,
+                        stack_pointer=ctx.sp,
+                        original_stack_pointer=ctx.init_sp,
+                        offset=s.offset,
+                        frame_offset=frame_offset,
+                    )
                     floss.results.log_result(ss, verbosity)
                     seen.add(s.string)
                     stack_strings.append(ss)

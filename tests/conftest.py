@@ -9,7 +9,7 @@ import viv_utils
 import floss.main as floss_main
 import floss.stackstrings as stackstrings
 import floss.tightstrings as tightstrings
-import floss.string_decoder
+import floss.string_decoder as string_decoder
 from floss.const import MIN_STRING_LENGTH
 from floss.identify import (
     get_function_fvas,
@@ -26,18 +26,20 @@ def extract_strings(vw):
     """
     top_functions, decoding_function_features = identify_decoding_functions(vw)
 
-    for s in floss.string_decoder.decode_strings(
+    for s_decoded in string_decoder.decode_strings(
         vw, get_function_fvas(top_functions), MIN_STRING_LENGTH, disable_progress=True
     ):
-        yield s.string
+        yield s_decoded.string
 
     no_tightloop_functions = get_functions_without_tightloops(decoding_function_features)
-    for s in stackstrings.extract_stackstrings(vw, no_tightloop_functions, MIN_STRING_LENGTH, disable_progress=True):
-        yield s.string
+    for s_stack in stackstrings.extract_stackstrings(
+        vw, no_tightloop_functions, MIN_STRING_LENGTH, disable_progress=True
+    ):
+        yield s_stack.string
 
     tightloop_functions = get_functions_with_tightloops(decoding_function_features)
-    for s in tightstrings.extract_tightstrings(vw, tightloop_functions, MIN_STRING_LENGTH, disable_progress=True):
-        yield s.string
+    for s_tight in tightstrings.extract_tightstrings(vw, tightloop_functions, MIN_STRING_LENGTH, disable_progress=True):
+        yield s_tight.string
 
 
 def identify_decoding_functions(vw):
@@ -54,7 +56,7 @@ def pytest_collect_file(parent, path):
 
 class YamlFile(pytest.File):
     def collect(self):
-        spec = yaml.safe_load(self.fspath.open())
+        spec = yaml.safe_load(self.path.open())
         test_dir = os.path.dirname(str(self.fspath))
         for platform, archs in spec["Output Files"].items():
             for arch, filename in archs.items():

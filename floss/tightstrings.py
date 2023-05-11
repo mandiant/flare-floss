@@ -109,7 +109,16 @@ def extract_tightstrings(
                     logger.trace("pre_ctx strings: %s", ctx.pre_ctx_strings)
                     for s in extract_strings(ctx.stack_memory, min_length, exclude=ctx.pre_ctx_strings):
                         frame_offset = (ctx.init_sp - ctx.sp) - s.offset - floss.utils.getPointerSize(vw)
-                        ts = TightString(fva, s.string, s.encoding, ctx.pc, ctx.sp, ctx.init_sp, s.offset, frame_offset)
+                        ts = TightString(
+                            function=fva,
+                            string=s.string,
+                            encoding=s.encoding,
+                            program_counter=ctx.pc,
+                            stack_pointer=ctx.sp,
+                            original_stack_pointer=ctx.init_sp,
+                            offset=s.offset,
+                            frame_offset=frame_offset,
+                        )
                         floss.results.log_result(ts, verbosity)
                         tight_strings.append(ts)
     return tight_strings

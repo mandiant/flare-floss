@@ -117,12 +117,13 @@ def apply_decoded_strings(decoded_strings: List[DecodedString]) -> None:
 
 
 def apply_stack_strings(
-    strings: List[Union[StackString, TightString]], lvar_cmt: bool = True, cmt: bool = True
+    stack_strings: List[StackString], tight_strings: List[TightString], lvar_cmt: bool = True, cmt: bool = True
 ) -> None:
     """
     lvar_cmt: apply stack variable comment
     cmt: apply regular comment
     """
+    strings = stack_strings + tight_strings
     for s in strings:
         if not s.string:
             continue
@@ -179,7 +180,6 @@ def main(argv=None):
         vw, selected_functions, MIN_LENGTH, verbosity=floss.render.Verbosity.VERBOSE, disable_progress=True
     )
     logger.info("decoded %d stack strings", len(stack_strings))
-    apply_stack_strings(stack_strings)
 
     logger.info("extracting tightstrings...")
     tightloop_functions = floss.identify.get_functions_with_tightloops(decoding_function_features)
@@ -191,7 +191,8 @@ def main(argv=None):
         disable_progress=True,
     )
     logger.info("decoded %d tight strings", len(tight_strings))
-    apply_stack_strings(tight_strings)
+
+    apply_stack_strings(stack_strings, tight_strings)
 
     logger.info("decoding strings...")
 

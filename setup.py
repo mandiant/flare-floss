@@ -8,8 +8,8 @@ import setuptools
 
 requirements = [
     "tabulate==0.9.0",
-    "vivisect==1.0.8",
-    "viv-utils[flirt]==0.7.7",
+    "vivisect==1.1.1",
+    "viv-utils[flirt]==0.7.9",
     "pydantic==1.10.7",
     "tqdm==4.65.0",
     "networkx==2.5.1",
@@ -64,7 +64,7 @@ setuptools.setup(
             "pycodestyle==2.10.0",
             "black==23.3.0",
             "isort==5.11.4",
-            "mypy==1.0.1",
+            "mypy==1.1.1",
             # type stubs for mypy
             "types-PyYAML==6.0.10",
             "types-tabulate==0.9.0.2",

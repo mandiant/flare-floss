@@ -52,7 +52,7 @@ def extract_ascii_strings(buf, n=MIN_LENGTH) -> Iterable[StaticString]:
         reg = rb"([%s]{%d,})" % (ASCII_BYTE, n)
         r = re.compile(reg)
     for match in r.finditer(buf):
-        yield StaticString(match.group().decode("ascii"), offset=match.start(), encoding=StringEncoding.ASCII)
+        yield StaticString(string=match.group().decode("ascii"), offset=match.start(), encoding=StringEncoding.ASCII)
 
 
 def extract_unicode_strings(buf, n=MIN_LENGTH) -> Iterable[StaticString]:
@@ -79,7 +79,9 @@ def extract_unicode_strings(buf, n=MIN_LENGTH) -> Iterable[StaticString]:
         r = re.compile(reg)
     for match in r.finditer(buf):
         try:
-            yield StaticString(match.group().decode("utf-16"), offset=match.start(), encoding=StringEncoding.UTF16LE)
+            yield StaticString(
+                string=match.group().decode("utf-16"), offset=match.start(), encoding=StringEncoding.UTF16LE
+            )
         except UnicodeDecodeError:
             pass
 

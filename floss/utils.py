@@ -4,6 +4,7 @@ import time
 import inspect
 import logging
 import argparse
+import builtins
 import contextlib
 from typing import Set, Tuple, Iterable, Optional
 from collections import OrderedDict
@@ -96,9 +97,10 @@ def get_stack_value(emu, offset):
 
 
 def getPointerSize(vw):
-    if isinstance(vw.arch, envi.archs.amd64.Amd64Module):
+    arch = vw.getMeta("Architecture")
+    if arch == "amd64":
         return 8
-    elif isinstance(vw.arch, envi.archs.i386.i386Module):
+    elif arch == "i386":
         return 4
     else:
         raise NotImplementedError("unexpected architecture: %s" % (vw.arch.__class__.__name__))
@@ -231,7 +233,7 @@ def extract_strings(buffer: bytes, min_length: int, exclude: Optional[Set[str]] 
         if exclude and decoded_string in exclude:
             continue
 
-        yield StaticString(decoded_string, s.offset, s.encoding)
+        yield StaticString(string=decoded_string, offset=s.offset, encoding=s.encoding)
 
 
 # FP string starts
@@ -307,10 +309,10 @@ def redirecting_print_to_tqdm():
 
     try:
         # Globaly replace print with new_print
-        inspect.builtins.print = new_print
+        builtins.print = new_print
         yield
     finally:
-        inspect.builtins.print = old_print
+        builtins.print = old_print
 
 
 @contextlib.contextmanager

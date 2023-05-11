@@ -46,7 +46,7 @@ from floss.identify import (
     find_decoding_function_features,
     get_functions_without_tightloops,
 )
-from floss.logging_ import DebugLevel
+from floss.logging_ import TRACE, DebugLevel
 from floss.stackstrings import extract_stackstrings
 from floss.tightstrings import extract_tightstrings
 from floss.string_decoder import decode_strings
@@ -264,7 +264,7 @@ def set_log_config(debug, quiet):
     if quiet:
         log_level = logging.WARNING
     elif debug >= DebugLevel.TRACE:
-        log_level = logging.TRACE
+        log_level = TRACE
     elif debug >= DebugLevel.DEFAULT:
         log_level = logging.DEBUG
     else:
