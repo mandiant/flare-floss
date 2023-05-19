@@ -19,12 +19,15 @@ def is_go_bin(sample: str) -> bool:
     """
     try:
         pe = pefile.PE(sample)
-    except:
-        if not os.path.exists(sample):
-            logger.error(f"Path {sample} does not exist or cannot be accessed")
-        else:
-            logger.debug("NOT valid PE header")
+    except pefile.PEFormatError as  err:
+        logger.debug(f"NOT valid PE header: {err}")
+        return False     
+    except IOError as err:
+        logger.error(f"File does not exist or cannot be accessed: {err}")
         return False
+    except Exception as err:
+        logger.error(f"Unexpected error: {err}")
+        raise
 
     go_magic = [
         b"\xf0\xff\xff\xff\x00\x00",
