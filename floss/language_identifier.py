@@ -19,9 +19,9 @@ def is_go_bin(sample: str) -> bool:
     """
     try:
         pe = pefile.PE(sample)
-    except pefile.PEFormatError as  err:
+    except pefile.PEFormatError as err:
         logger.debug(f"NOT valid PE header: {err}")
-        return False     
+        return False
     except IOError as err:
         logger.error(f"File does not exist or cannot be accessed: {err}")
         return False
