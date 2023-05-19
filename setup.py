@@ -64,13 +64,13 @@ setuptools.setup(
             "pycodestyle==2.10.0",
             "black==23.3.0",
             "isort==5.11.4",
-            "mypy==1.1.1",
+            "mypy==1.3.0",
             # type stubs for mypy
             "types-PyYAML==6.0.10",
             "types-tabulate==0.9.0.2",
         ],
         "build": [
-            "pyinstaller==5.10.1",
+            "pyinstaller==5.11.0",
         ],
     },
     zip_safe=False,
