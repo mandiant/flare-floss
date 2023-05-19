@@ -1,4 +1,6 @@
 # Copyright (C) 2023 Mandiant, Inc. All Rights Reserved.
+import os
+
 import pefile
 
 import floss.logging_
@@ -18,7 +20,10 @@ def is_go_bin(sample: str) -> bool:
     try:
         pe = pefile.PE(sample)
     except:
-        logger.debug("NOT valid PE header")
+        if not os.path.exists(sample):
+            logger.error(f"Path {sample} does not exist or cannot be accessed")
+        else:
+            logger.debug("NOT valid PE header")
         return False
 
     go_magic = [
