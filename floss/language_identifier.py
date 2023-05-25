@@ -6,7 +6,7 @@ import pefile
 import floss.logging_
 from floss.logging_ import DebugLevel
 
-logger = floss.logging_.getLogger("floss")
+logger = floss.logging_.getLogger(__name__)
 
 
 def is_go_bin(sample: str) -> bool:
