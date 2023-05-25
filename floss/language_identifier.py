@@ -51,7 +51,6 @@ def is_go_bin(sample: str) -> bool:
                     pclntab_va = section_data.index(magic) + section_va
                     if verify_pclntab(section, pclntab_va):
                         return True
-            return False
 
     # if not found, search in all the available sections
 
