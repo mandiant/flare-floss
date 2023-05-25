@@ -42,7 +42,7 @@ def is_go_bin(sample: str) -> bool:
             section_name = section.Name.partition(b"\x00")[0].decode("utf-8")
         except UnicodeDecodeError:
             continue
-        if ".rdata" in section_name:
+        if ".rdata" == section_name:
             section_va = section.VirtualAddress
             section_size = section.SizeOfRawData
             section_data = section.get_data(section_va, section_size)
