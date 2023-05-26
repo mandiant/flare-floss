@@ -64,6 +64,7 @@ def is_go_bin(sample: str) -> bool:
                 pclntab_va = section_data.index(magic) + section_va
                 if verify_pclntab(section, pclntab_va):
                     # just for testing
+                    logger.warning("Go binary found with version %s", get_go_version(magic))
                     return True
     return False
 def get_go_version(magic):
