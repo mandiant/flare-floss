@@ -65,6 +65,24 @@ def is_go_bin(sample: str) -> bool:
                     # just for testing
                     return True
     return False
+def get_go_version(magic):
+    """get the version of the go compiler used to compile the binary"""
+        
+    MAGIC_112 = b"\xfb\xff\xff\xff\x00\x00"  # Magic Number from version 1.12
+    MAGIC_116 = b"\xfa\xff\xff\xff\x00\x00"  # Magic Number from version 1.16
+    MAGIC_118 = b"\xf0\xff\xff\xff\x00\x00"  # Magic Number from version 1.18
+    MAGIC_120 = b"\xf1\xff\xff\xff\x00\x00"  # Magic Number from version 1.20
+
+    if magic == MAGIC_112:
+        return "1.12"
+    elif magic == MAGIC_116:
+        return "1.16"
+    elif magic == MAGIC_118:
+        return "1.18"
+    elif magic == MAGIC_120:
+        return "1.20"
+    else:
+        return "unknown"
 
 
 def verify_pclntab(section, pclntab_va: int) -> bool:
