@@ -4,7 +4,6 @@ import os
 import pefile
 
 import floss.logging_
-from floss.logging_ import DebugLevel
 
 logger = floss.logging_.getLogger(__name__)
 
@@ -67,9 +66,11 @@ def is_go_bin(sample: str) -> bool:
                     logger.warning("Go binary found with version %s", get_go_version(magic))
                     return True
     return False
+
+
 def get_go_version(magic):
     """get the version of the go compiler used to compile the binary"""
-        
+
     MAGIC_112 = b"\xfb\xff\xff\xff\x00\x00"  # Magic Number from version 1.12
     MAGIC_116 = b"\xfa\xff\xff\xff\x00\x00"  # Magic Number from version 1.16
     MAGIC_118 = b"\xf0\xff\xff\xff\x00\x00"  # Magic Number from version 1.18
