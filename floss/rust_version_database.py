@@ -3,11 +3,11 @@
 # Origin: Rust Repository https://github.com/rust-lang/rust
 #
 # Description:
-# This file serves as a comprehensive reference, capturing the commit hashes associated with Rust versions over time. 
+# This file serves as a comprehensive reference, capturing the commit hashes associated with Rust versions over time.
 # It facilitates tracking the commit history and enables the precise association of specific versions with their respective commits.
 #
 # Regeneration Instructions:
-# 
+#
 # To regenerate or update this file, you can follow these steps:
 #   1) Visit the Rust GitHub repository's releases page: https://github.com/rust-lang/rust/releases.
 #
