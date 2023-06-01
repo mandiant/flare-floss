@@ -39,15 +39,20 @@ def is_rust_bin(sample: str) -> bool:
         rust_commit_hash = json.load(in_handle)
 
     # Check if the binary contains the rustc/commit-hash string
-    regex = re.compile(r"rustc/.*[/|\\]library")
+    regex_hash = re.compile(r"rustc/.*[\\\/]library")
+    regex_version = re.compile(r"rustc/[0-9]{1,2}\.[0-9]{1,2}\.[0-9]{1,2}")
+
     with open(sample, "rb") as f:
         data = f.read()
         for string, type, span, is_interesting in b2s.extract_all_strings(data, only_interesting=True):
-            if regex.search(string):
+            if regex_hash.search(string):
                 for hash in rust_commit_hash.keys():
                     if hash in string:
                         logger.warning("Rust binary found with version: %s", rust_commit_hash[hash])
                         return True
+            if regex_version.search(string):
+                logger.warning("Rust binary found with version: %s", string)
+                return True
     return False
 
 
