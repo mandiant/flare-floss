@@ -3,13 +3,13 @@ import os
 import re
 import mmap
 import contextlib
-
-import pefile
-from floss.results import StaticString
-import floss.logging_
-from floss.strings import extract_ascii_unicode_strings
 from typing import Iterable
 
+import pefile
+
+import floss.logging_
+from floss.results import StaticString
+from floss.strings import extract_ascii_unicode_strings
 from floss.rust_version_database import rust_commit_hash
 
 logger = floss.logging_.getLogger(__name__)

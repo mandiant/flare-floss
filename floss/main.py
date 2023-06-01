@@ -529,8 +529,6 @@ def main(argv=None) -> int:
     # 3. tight strings
     # 4. decoded strings
 
-    
-
     if results.analysis.enable_static_strings:
         logger.info("extracting static strings...")
 
