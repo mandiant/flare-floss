@@ -5,19 +5,21 @@ import mmap
 import contextlib
 
 import pefile
-
+from floss.results import StaticString
 import floss.logging_
 from floss.strings import extract_ascii_unicode_strings
+from typing import Iterable
+
 from floss.rust_version_database import rust_commit_hash
 
 logger = floss.logging_.getLogger(__name__)
 
 
-def identify_language(sample: str) -> str:
+def identify_language(sample: str, static_strings: Iterable[StaticString]) -> str:
     """
     Identify the language of the binary given
     """
-    if is_rust_bin(sample):
+    if is_rust_bin(static_strings):
         logger.warning("Rust Binary Detected, Rust binaries are not supported yet. Results may be inaccurate.")
         logger.warning("Rust: Proceeding with analysis may take a long time.")
         return "rust"
@@ -29,15 +31,11 @@ def identify_language(sample: str) -> str:
         return "unknown"
 
 
-def is_rust_bin(sample: str) -> bool:
+def is_rust_bin(static_strings: Iterable[StaticString]) -> bool:
     """
     Check if the binary given is compiled with Rust compiler or not
     reference: https://github.com/mandiant/flare-floss/issues/766
     """
-
-    with open(sample, "rb") as f:
-        with contextlib.closing(mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)) as buf:
-            static_strings = list(extract_ascii_unicode_strings(buf))
 
     # Check if the binary contains the rustc/commit-hash string
 

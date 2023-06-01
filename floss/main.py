@@ -529,7 +529,7 @@ def main(argv=None) -> int:
     # 3. tight strings
     # 4. decoded strings
 
-    language = identify_language(sample=sample)
+    
 
     if results.analysis.enable_static_strings:
         logger.info("extracting static strings...")
@@ -544,6 +544,12 @@ def main(argv=None) -> int:
         results.strings.static_strings = static_strings
         results.metadata.runtime.static_strings = get_runtime_diff(interim)
         interim = time()
+    else:
+        with open(sample, "rb") as f:
+            with contextlib.closing(mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)) as buf:
+                static_strings = list(extract_ascii_unicode_strings(buf, args.min_length))
+
+    language = identify_language(sample=sample, static_strings=static_strings)
 
     if (
         results.analysis.enable_decoded_strings
