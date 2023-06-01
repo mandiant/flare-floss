@@ -4,9 +4,12 @@ import re
 
 import pefile
 import binary2strings as b2s
+import contextlib
+import mmap
 
 import floss.logging_
 from floss.rust_version_database import rust_commit_hash
+from floss.strings import extract_ascii_unicode_strings
 
 logger = floss.logging_.getLogger(__name__)
 
@@ -33,26 +36,30 @@ def is_rust_bin(sample: str) -> bool:
     reference: https://github.com/mandiant/flare-floss/issues/766
     """
 
-    # rust_commit_hash = {}
-    # Load the rust version database
-    # with open(os.path.join(os.path.dirname(__file__), "rust_version_database.json"), "r") as in_handle:
-    #     rust_commit_hash = json.load(in_handle)
+    with open(sample, "rb") as f:
+        with contextlib.closing(mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)) as buf:
+            static_strings = list(extract_ascii_unicode_strings(buf))
 
     # Check if the binary contains the rustc/commit-hash string
-    regex_hash = re.compile(r"rustc/.*[\\\/]library")
-    regex_version = re.compile(r"rustc/[0-9]{1,2}\.[0-9]{1,2}\.[0-9]{1,2}")
 
-    with open(sample, "rb") as f:
-        data = f.read()
-        for string, type, span, is_interesting in b2s.extract_all_strings(data, only_interesting=True):
-            if regex_hash.search(string):
-                for hash in rust_commit_hash.keys():
-                    if hash in string:
-                        logger.warning("Rust binary found with version: %s", rust_commit_hash[hash])
-                        return True
-            if regex_version.search(string):
-                logger.warning("Rust binary found with version: %s", string)
-                return True
+    # matches strings like "rustc/commit-hash/library" e.g. "rustc/59eed8a2aac0230a8b53e89d4e99d55912ba6b35/library"
+    regex_hash = re.compile(r"rustc/.*[\\\/]library")   
+
+    # matches strings like "rustc/version/library" e.g. "rustc/1.54.0/library"
+    regex_version = re.compile(r"rustc/[0-9]{1,2}\.[0-9]{1,2}\.[0-9]{1,2}") 
+
+    for static_string_obj in static_strings:
+        string = static_string_obj.string
+        if regex_hash.search(string):
+            for commit_hash in rust_commit_hash.keys():
+                if commit_hash in string:
+                    version = rust_commit_hash[commit_hash]
+                    logger.warning("Rust Binary found with version: %s", version)
+                    return True
+        if regex_version.search(string):
+            logger.warning("Rust Binary found with version: %s", string)
+            return True
+        
     return False
 
 
