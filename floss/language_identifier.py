@@ -1,12 +1,12 @@
 # Copyright (C) 2023 Mandiant, Inc. All Rights Reserved.
 import os
 import re
-import json
 
 import pefile
 import binary2strings as b2s
 
 import floss.logging_
+from floss.rust_version_database import rust_commit_hash
 
 logger = floss.logging_.getLogger(__name__)
 
@@ -33,10 +33,10 @@ def is_rust_bin(sample: str) -> bool:
     reference: https://github.com/mandiant/flare-floss/issues/766
     """
 
-    rust_commit_hash = {}
+    # rust_commit_hash = {}
     # Load the rust version database
-    with open(os.path.join(os.path.dirname(__file__), "rust_version_database.json"), "r") as in_handle:
-        rust_commit_hash = json.load(in_handle)
+    # with open(os.path.join(os.path.dirname(__file__), "rust_version_database.json"), "r") as in_handle:
+    #     rust_commit_hash = json.load(in_handle)
 
     # Check if the binary contains the rustc/commit-hash string
     regex_hash = re.compile(r"rustc/.*[\\\/]library")
