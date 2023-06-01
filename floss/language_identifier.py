@@ -1,15 +1,14 @@
 # Copyright (C) 2023 Mandiant, Inc. All Rights Reserved.
 import os
 import re
+import mmap
+import contextlib
 
 import pefile
-import binary2strings as b2s
-import contextlib
-import mmap
 
 import floss.logging_
-from floss.rust_version_database import rust_commit_hash
 from floss.strings import extract_ascii_unicode_strings
+from floss.rust_version_database import rust_commit_hash
 
 logger = floss.logging_.getLogger(__name__)
 
@@ -43,10 +42,10 @@ def is_rust_bin(sample: str) -> bool:
     # Check if the binary contains the rustc/commit-hash string
 
     # matches strings like "rustc/commit-hash/library" e.g. "rustc/59eed8a2aac0230a8b53e89d4e99d55912ba6b35/library"
-    regex_hash = re.compile(r"rustc/.*[\\\/]library")   
+    regex_hash = re.compile(r"rustc/.*[\\\/]library")
 
     # matches strings like "rustc/version/library" e.g. "rustc/1.54.0/library"
-    regex_version = re.compile(r"rustc/[0-9]{1,2}\.[0-9]{1,2}\.[0-9]{1,2}") 
+    regex_version = re.compile(r"rustc/[0-9]{1,2}\.[0-9]{1,2}\.[0-9]{1,2}")
 
     for static_string_obj in static_strings:
         string = static_string_obj.string
@@ -59,7 +58,7 @@ def is_rust_bin(sample: str) -> bool:
         if regex_version.search(string):
             logger.warning("Rust Binary found with version: %s", string)
             return True
-        
+
     return False
 
 
