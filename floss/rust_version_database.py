@@ -1,3 +1,27 @@
+#############################################################################################
+# File: rust_version_database.py
+# Origin: Rust Repository https://github.com/rust-lang/rust
+#
+# Description:
+# This file serves as a comprehensive reference, capturing the commit hashes associated with Rust versions over time. 
+# It facilitates tracking the commit history and enables the precise association of specific versions with their respective commits.
+#
+# Regeneration Instructions:
+# 
+# To regenerate or update this file, you can follow these steps:
+#   1) Visit the Rust GitHub repository's releases page: https://github.com/rust-lang/rust/releases.
+#
+#   2) Locate the desired Rust version for which you need to obtain the commit hash.
+#
+#   3) On the releases page, you will find a list of versions along with their associated commit hashes.
+#
+#   4) Identify the specific Rust version you are interested in and note down its corresponding commit hash.
+#
+#   5) Update the file by adding or updating the commit hash for the respective Rust version.
+#
+#############################################################################################
+
+
 rust_commit_hash = {
     "59eed8a2aac0230a8b53e89d4e99d55912ba6b35": "1.56.1",
     "09c42c45858d5f3aedfa670698275303a3d19afa": "1.56.0",
