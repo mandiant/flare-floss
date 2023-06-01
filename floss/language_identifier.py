@@ -35,7 +35,7 @@ def is_rust_bin(sample: str) -> bool:
 
     rust_commit_hash = {}
     # Load the rust version database
-    with open(os.path.join(os.path.dirname(__file__), 'rust_version_database.json'), "r") as in_handle:
+    with open(os.path.join(os.path.dirname(__file__), "rust_version_database.json"), "r") as in_handle:
         rust_commit_hash = json.load(in_handle)
 
     # Check if the binary contains the rustc/commit-hash string
