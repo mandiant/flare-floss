@@ -50,7 +50,7 @@ from floss.logging_ import TRACE, DebugLevel
 from floss.stackstrings import extract_stackstrings
 from floss.tightstrings import extract_tightstrings
 from floss.string_decoder import decode_strings
-from floss.language_identifier import is_go_bin
+from floss.language_identifier import identify_language
 
 SIGNATURES_PATH_DEFAULT_STRING = "(embedded signatures)"
 EXTENSIONS_SHELLCODE_32 = ("sc32", "raw32")
@@ -529,9 +529,7 @@ def main(argv=None) -> int:
     # 3. tight strings
     # 4. decoded strings
 
-    if is_go_bin(sample=sample):
-        logger.warning("Go Binary Detected, Go binaries are not supported yet. Results may be inaccurate.")
-        logger.warning("Go: Proceeding with analysis may take a long time.")
+    language = identify_language(sample=sample)
 
     if results.analysis.enable_static_strings:
         logger.info("extracting static strings...")

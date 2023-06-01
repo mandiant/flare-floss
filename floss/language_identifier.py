@@ -1,11 +1,54 @@
 # Copyright (C) 2023 Mandiant, Inc. All Rights Reserved.
 import os
+import re
+import json
 
 import pefile
+import binary2strings as b2s
 
 import floss.logging_
 
 logger = floss.logging_.getLogger(__name__)
+
+
+def identify_language(sample: str) -> str:
+    """
+    Identify the language of the binary given
+    """
+    if is_rust_bin(sample):
+        logger.warning("Rust Binary Detected, Rust binaries are not supported yet. Results may be inaccurate.")
+        logger.warning("Rust: Proceeding with analysis may take a long time.")
+        return "rust"
+    elif is_go_bin(sample):
+        logger.warning("Go Binary Detected, Go binaries are not supported yet. Results may be inaccurate.")
+        logger.warning("Go: Proceeding with analysis may take a long time.")
+        return "go"
+    else:
+        return "unknown"
+
+
+def is_rust_bin(sample: str) -> bool:
+    """
+    Check if the binary given is compiled with Rust compiler or not
+    reference: https://github.com/mandiant/flare-floss/issues/766
+    """
+
+    rust_commit_hash = {}
+    # Load the rust version database
+    with open(os.path.join(os.path.dirname(__file__), 'rust_version_database.json'), "r") as in_handle:
+        rust_commit_hash = json.load(in_handle)
+
+    # Check if the binary contains the rustc/commit-hash string
+    regex = re.compile(r"rustc/.*[/|\\]library")
+    with open(sample, "rb") as f:
+        data = f.read()
+        for string, type, span, is_interesting in b2s.extract_all_strings(data, only_interesting=True):
+            if regex.search(string):
+                for hash in rust_commit_hash.keys():
+                    if hash in string:
+                        logger.warning("Rust binary found with version: %s", rust_commit_hash[hash])
+                        return True
+    return False
 
 
 def is_go_bin(sample: str) -> bool:
