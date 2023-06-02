@@ -524,7 +524,14 @@ def main(argv=None) -> int:
     sample_size = os.path.getsize(sample)
 
     with open(sample, "rb") as f:
-        with contextlib.closing(mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)) as buf:
+        if hasattr(mmap, "MAP_PRIVATE"):
+            # unix
+            kwargs = {"flags": mmap.MAP_PRIVATE, "prot": mmap.PROT_READ}
+        else:
+            # windows
+            kwargs = {"access": mmap.ACCESS_READ}
+
+        with contextlib.closing(mmap.mmap(f.fileno(), 0, **kwargs)) as buf:
             static_strings = list(extract_ascii_unicode_strings(buf, args.min_length))
 
     language = identify_language(sample=sample, static_strings=static_strings)
