@@ -39,20 +39,19 @@ def is_rust_bin(static_strings: Iterable[StaticString]) -> bool:
 
     # Check if the binary contains the rustc/commit-hash string
 
-    # matches strings like "rustc/commit-hash/library" e.g. "rustc/59eed8a2aac0230a8b53e89d4e99d55912ba6b35/library"
-    regex_hash = re.compile(r"rustc/.*[\\\/]library")
+    # matches strings like "rustc/commit-hash[40 characters]/library" e.g. "rustc/59eed8a2aac0230a8b53e89d4e99d55912ba6b35/library"
+    regex_hash = re.compile(r"rustc/(?P<hash>[a-z0-9]{40})[\\\/]library")
 
     # matches strings like "rustc/version/library" e.g. "rustc/1.54.0/library"
     regex_version = re.compile(r"rustc/[0-9]{1,2}\.[0-9]{1,2}\.[0-9]{1,2}")
 
     for static_string_obj in static_strings:
         string = static_string_obj.string
-        if regex_hash.search(string):
-            for commit_hash in rust_commit_hash.keys():
-                if commit_hash in string:
-                    version = rust_commit_hash[commit_hash]
-                    logger.warning("Rust Binary found with version: %s", version)
-                    return True
+        matches = regex_hash.search(string)
+        if matches and matches["hash"] in rust_commit_hash.keys():
+            version = rust_commit_hash[matches["hash"]]
+            logger.warning("Rust Binary found with version: %s", version)
+            return True
         if regex_version.search(string):
             logger.warning("Rust Binary found with version: %s", string)
             return True

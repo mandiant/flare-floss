@@ -25,7 +25,7 @@ import requests
 from bs4 import BeautifulSoup
 
 page_number = 1
-rust_hases = {}
+rust_hashes = {}
 
 print("Fetching Rust hashes from https://github.com/rust-lang/rust/releases...")
 
@@ -44,12 +44,12 @@ while True:
     for table in tables:
         hash = str(table.find("a", attrs={"class": "Link--muted mb-2"})["href"]).split("/")[-1]
         version = table.find("span").text.strip()
-        rust_hases[hash] = version
+        rust_hashes[hash] = version
 
     page_number += 1
 
 
-print("\n{} hashes fetched.".format(len(rust_hases)))
+print("\n{} hashes fetched.".format(len(rust_hashes)))
 print("Writing it to rust_version_database.py...")
 
 # write the hashes to a file
@@ -79,7 +79,7 @@ header = """
 with open("rust_version_database.py", "w") as f:
     f.write(header)
     f.write("rust_commit_hash = ")
-    f.write(str(rust_hases))
+    f.write(str(rust_hashes))
 
 # format the file
 subprocess.call(["black", "-l", "120", "rust_version_database.py"])
