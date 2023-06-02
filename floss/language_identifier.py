@@ -1,8 +1,6 @@
 # Copyright (C) 2023 Mandiant, Inc. All Rights Reserved.
-import os
+
 import re
-import mmap
-import contextlib
 from typing import Iterable
 
 import pefile
