@@ -23,7 +23,7 @@ def test_render_rich_markup():
         ),
         analysis=Analysis(),
         strings=Strings(
-            static_strings=[StaticString(string="[/<]one", offset="1033749", encoding=StringEncoding.ASCII)],
+            static_strings=[StaticString(string="[/<]one", offset=1033749, encoding=StringEncoding.ASCII)],
             tight_strings=[
                 TightString(
                     function=0x4000000,
@@ -62,6 +62,10 @@ def test_render_rich_markup():
     )
 
     assert "[/<]one" in render(results, True, False, "auto")
+    assert "[/<]one" in render(results, False, False, "auto")
     assert "[/<]two" in render(results, True, False, "auto")
+    assert "[/<]two" in render(results, False, False, "auto")
     assert "[/<]three" in render(results, True, False, "auto")
+    assert "[/<]three" in render(results, False, False, "auto")
     assert "[/<]four" in render(results, True, False, "auto")
+    assert "[/<]four" in render(results, False, False, "auto")

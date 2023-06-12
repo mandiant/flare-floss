@@ -135,7 +135,7 @@ def render_static_substrings(strings, encoding, offset_len, console, verbose, di
     render_sub_heading(f"FLOSS STATIC STRINGS: {encoding}", len(strings), console, disable_headers)
     for s in strings:
         if verbose == Verbosity.DEFAULT:
-            console.print(escape(s.string))
+            console.print(s.string, markup=False)
         else:
             colored_string = string_style(s.string)
             console.print(f"0x{s.offset:>0{offset_len}x} {colored_string}")
@@ -165,7 +165,7 @@ def render_stackstrings(
 ):
     if verbose == Verbosity.DEFAULT:
         for s in strings:
-            console.print(escape(sanitize(s.string)))
+            console.print(sanitize(s.string), markup=False)
     else:
         if strings:
             table = Table(
@@ -194,7 +194,7 @@ def render_decoded_strings(decoded_strings: List[DecodedString], console, verbos
     """
     if verbose == Verbosity.DEFAULT:
         for ds in decoded_strings:
-            console.print(escape(sanitize(ds.string)))
+            console.print(sanitize(ds.string), markup=False)
     else:
         strings_by_functions: Dict[int, list] = collections.defaultdict(list)
         for ds in decoded_strings:
