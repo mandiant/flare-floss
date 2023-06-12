@@ -4,7 +4,7 @@ import io
 import sys
 import textwrap
 import collections
-from typing import List, Tuple, Union
+from typing import Dict, List, Tuple, Union
 
 from rich import box
 from rich.table import Table
@@ -25,13 +25,13 @@ DISABLED = "Disabled"
 logger = floss.logging_.getLogger(__name__)
 
 
-def heading_style(str):
-    colored_string = "[cyan]" + str + "[/cyan]"
+def heading_style(s: str):
+    colored_string = "[cyan]" + escape(s) + "[/cyan]"
     return colored_string
 
 
-def string_style(str):
-    colored_string = "[green]" + str + " [/green]"
+def string_style(s: str):
+    colored_string = "[green]" + escape(s) + " [/green]"
     return colored_string
 
 
@@ -135,7 +135,7 @@ def render_static_substrings(strings, encoding, offset_len, console, verbose, di
     render_sub_heading(f"FLOSS STATIC STRINGS: {encoding}", len(strings), console, disable_headers)
     for s in strings:
         if verbose == Verbosity.DEFAULT:
-            console.print(s.string)
+            console.print(escape(s.string))
         else:
             colored_string = string_style(s.string)
             console.print(f"0x{s.offset:>0{offset_len}x} {colored_string}")
@@ -165,7 +165,7 @@ def render_stackstrings(
 ):
     if verbose == Verbosity.DEFAULT:
         for s in strings:
-            console.print(sanitize(s.string))
+            console.print(escape(sanitize(s.string)))
     else:
         if strings:
             table = Table(
@@ -194,9 +194,9 @@ def render_decoded_strings(decoded_strings: List[DecodedString], console, verbos
     """
     if verbose == Verbosity.DEFAULT:
         for ds in decoded_strings:
-            console.print(sanitize(ds.string))
+            console.print(escape(sanitize(ds.string)))
     else:
-        strings_by_functions = collections.defaultdict(list)
+        strings_by_functions: Dict[int, list] = collections.defaultdict(list)
         for ds in decoded_strings:
             strings_by_functions[ds.decoding_routine].append(ds)
 
