@@ -2,23 +2,20 @@
 
 import re
 import sys
+import mmap
 import struct
 import logging
 import argparse
-from typing import List, Iterable, Optional
 import contextlib
-import mmap
-from floss.strings import extract_ascii_unicode_strings
-
+from typing import List, Iterable, Optional
 
 import pefile
 
 from floss.results import StaticString, StringEncoding
+from floss.strings import extract_ascii_unicode_strings
 
 logger = logging.getLogger(__name__)
 
-
-final_size = 0
 
 MIN_STR_LEN = 6
 
@@ -48,8 +45,6 @@ def extract_go_strings(
     Reference: https://github.com/mandiant/flare-floss/issues/779
     """
 
-    global final_size, all_strings_data
-    
     try:
         pe = pefile.PE(sample)
     except pefile.PEFormatError as err:
@@ -84,7 +79,8 @@ def extract_go_strings(
 
         # See https://github.com/mandiant/flare-floss/issues/805#issuecomment-1590510957 for regex explanation
         combinedregex = re.compile(
-            b"\x81\xf9(....)|\x81\x38(....)|\x81\x7d\x00(....)|\x81\x3B(....)|\x66\x81\xf9(..)|\x66\x81\x7b\x04(..)|\x66\x81\x78\x04(..)|\x66\x81\x7d\x04(..)|\x80\x7b\x06(.)|\x80\x7d\x06(.)|\x80\xf8(.)|\x80\x78\x06(.)", re.DOTALL
+            b"\x81\xf9(....)|\x81\x38(....)|\x81\x7d\x00(....)|\x81\x3B(....)|\x66\x81\xf9(..)|\x66\x81\x7b\x04(..)|\x66\x81\x78\x04(..)|\x66\x81\x7d\x04(..)|\x80\x7b\x06(.)|\x80\x7d\x06(.)|\x80\xf8(.)|\x80\x78\x06(.)",
+            re.DOTALL,
         )
         longstring32 = re.compile(b"\x83(?=.(.).....\x8D\x05(....))", re.DOTALL)
 
@@ -159,7 +155,9 @@ def extract_go_strings(
                                 decoded_string = string.decode("utf-8")
                                 if decoded_string.isprintable() and len(decoded_string) >= min_length:
                                     addr = 0
-                                    yield StaticString(string=decoded_string, offset=addr, encoding=StringEncoding.ASCII)
+                                    yield StaticString(
+                                        string=decoded_string, offset=addr, encoding=StringEncoding.ASCII
+                                    )
                             except UnicodeDecodeError:
                                 pass
                     except AttributeError:
@@ -198,6 +196,7 @@ def extract_go_strings(
                     logger.error(f"Error: {e}")
                     raise
 
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Get Go strings")
     parser.add_argument("path", help="file or path to analyze")
@@ -214,17 +213,13 @@ def main(argv=None):
     static_strings = extract_go_strings(args.path, min_length=args.min_length)
     all_static_strings = get_static_strings(args.path, args.min_length)
 
-
     extracted_static_strings = []
     extracted_static_strings_count = 0
-
 
     for strings_obj in static_strings:
         string = strings_obj.string
         extracted_static_strings.append(string)
         extracted_static_strings_count += 1
-
-    
 
     all_static_string_list = []
 
@@ -232,20 +227,18 @@ def main(argv=None):
         if string.string.isprintable():
             all_static_string_list.append(string.string)
 
-
-
     for string in all_static_string_list:
         if string not in extracted_static_strings:
             print(string)
 
     print("Total number of strings extracted via strings.exe: ", len(all_static_string_list))
 
-
-    print("Percentage of strings extracted: ", format((extracted_static_strings_count*100/len(all_static_string_list)), '.2f'))
-
+    print(
+        "Percentage of strings extracted: ",
+        format((extracted_static_strings_count * 100 / len(all_static_string_list)), ".2f"),
+    )
 
     print("Number of strings extracted: ", extracted_static_strings_count)
-
 
 
 if __name__ == "__main__":
