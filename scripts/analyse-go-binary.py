@@ -223,9 +223,9 @@ def main(argv=None):
 
     all_static_string_list = []
 
-    for string in all_static_strings:
-        if string.string.isprintable():
-            all_static_string_list.append(string.string)
+    for string_obj in all_static_strings:
+        if string_obj.string.isprintable():
+            all_static_string_list.append(string_obj.string)
 
     for string in all_static_string_list:
         if string not in extracted_static_strings:
