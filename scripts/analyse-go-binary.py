@@ -6,9 +6,12 @@ import struct
 import logging
 import argparse
 from typing import List, Iterable, Optional
+import contextlib
+import mmap
+from floss.strings import extract_ascii_unicode_strings
+
 
 import pefile
-from tqdm import tqdm
 
 from floss.results import StaticString, StringEncoding
 
@@ -17,45 +20,23 @@ logger = logging.getLogger(__name__)
 
 final_size = 0
 
-MIN_STR_LEN = 4
+MIN_STR_LEN = 6
 
 
-def find_longest_string(bindata):
+def get_static_strings(sample: str, min_length: int) -> list:
     """
-    Reference:- https://github.com/CarveSystems/gostringsr2/blob/master/gostringsr2/gostringsr2.py
+    Returns list of static strings from the file which are above the minimum length
     """
-    off = 0
-    this_off = 0
-    longest_off = 0
-    longest_size = 0
-
-    binlength = len(bindata)
-    while off < binlength:
-        b = bindata[off : off + 2]
-        # Basically, terminate a "string" if 2 null bytes are seen. Seems to work for the most part.
-        if b == b"\x00\x00":
-            this_size = off - this_off
-            if this_size > 0:
-                if this_size > longest_size:
-                    longest_off = this_off
-                    longest_size = this_size
-            this_off = off + 2
+    with open(sample, "rb") as f:
+        if hasattr(mmap, "MAP_PRIVATE"):
+            # unix
+            kwargs = {"flags": mmap.MAP_PRIVATE, "prot": mmap.PROT_READ}
         else:
-            this_size = off - this_off
-            if this_size > 0:
-                if this_size > longest_size:
-                    longest_off = this_off
-                    longest_size = this_size
-        off += 2
+            # windows
+            kwargs = {"access": mmap.ACCESS_READ}
 
-    if (off - this_off) > longest_size:
-        longest_off = this_off
-        longest_size = off - this_off
-
-    if longest_size > 0:
-        return (longest_off, longest_size)
-
-    return (None, 0)
+        with contextlib.closing(mmap.mmap(f.fileno(), 0, **kwargs)) as buf:
+            return list(extract_ascii_unicode_strings(buf, min_length))
 
 
 def extract_go_strings(
@@ -66,14 +47,14 @@ def extract_go_strings(
     Get Go strings from a PE file.
     Reference: https://github.com/mandiant/flare-floss/issues/779
     """
-    global final_size
 
+    global final_size, all_strings_data
+    
     try:
         pe = pefile.PE(sample)
     except pefile.PEFormatError as err:
-        return
-        # logger.debug(f"invalid PE file: {err}")
-        # raise ValueError("Invalid PE header")
+        logger.debug(f"invalid PE file: {err}")
+        raise ValueError("Invalid PE header")
 
     if pe.FILE_HEADER.Machine == pefile.MACHINE_TYPE["IMAGE_FILE_MACHINE_AMD64"]:
         """
@@ -89,6 +70,10 @@ def extract_go_strings(
             b"\x48\xba(........)|\x48\xb8(........)|\x81\x78\x08(....)|\x81\x79\x08(....)|\x66\x81\x78\x0c(..)|\x66\x81\x79\x0c(..)|\x80\x78\x0e(.)|\x80\x79\x0e(.)"
         )
 
+        # longstring = re.compile(b"\x48\x8D.(....).(....)")
+        longstring64 = re.compile(b"\x48\x8d(?=.(....).(....))", re.DOTALL)
+        longstring64_2 = re.compile(b"\x48\x83(?=.(.)(.){2,5}\x48\x8D.(....))", re.DOTALL)
+
     elif pe.FILE_HEADER.Machine == pefile.MACHINE_TYPE["IMAGE_FILE_MACHINE_I386"]:
         """
         .data:102A78D0 E3 9A 17 10                       dd offset aString
@@ -99,8 +84,10 @@ def extract_go_strings(
 
         # See https://github.com/mandiant/flare-floss/issues/805#issuecomment-1590510957 for regex explanation
         combinedregex = re.compile(
-            b"\x81\xf9(....)|\x81\x38(....)|\x81\x7d\x00(....)|\x81\x3B(....)|\x66\x81\xf9(..)|\x66\x81\x7b\x04(..)|\x66\x81\x78\x04(..)|\x66\x81\x7d\x04(..)|\x80\x7b\x06(.)|\x80\x7d\x06(.)|\x80\xf8(.)|\x80\x78\x06(.)"
+            b"\x81\xf9(....)|\x81\x38(....)|\x81\x7d\x00(....)|\x81\x3B(....)|\x66\x81\xf9(..)|\x66\x81\x7b\x04(..)|\x66\x81\x78\x04(..)|\x66\x81\x7d\x04(..)|\x80\x7b\x06(.)|\x80\x7d\x06(.)|\x80\xf8(.)|\x80\x78\x06(.)", re.DOTALL
         )
+        longstring32 = re.compile(b"\x83(?=.(.).....\x8D\x05(....))", re.DOTALL)
+
     else:
         raise ValueError("unhandled architecture")
 
@@ -110,39 +97,80 @@ def extract_go_strings(
         except UnicodeDecodeError:
             continue
 
-        if section_name == ".rdata":
+        if section_name == ".text":
             section_va = section.VirtualAddress
             section_size = section.SizeOfRawData
             section_data = section.get_data(section_va, section_size)
 
-            off, size = find_longest_string(section_data)
-            # print(hex(pe.OPTIONAL_HEADER.ImageBase + off + section_va), hex(size))
-            final_size = size
+            if alignment == 0x10:
+                for m in longstring64.finditer(section_data):
+                    format = "<I"
+                    s_off = struct.unpack(format, m.group(1))[0]
+                    s_size = struct.unpack(format, m.group(2))[0]
+
+                    s_rva = s_off + m.start() + section_va + 7
+                    addr = m.start() + pe.OPTIONAL_HEADER.ImageBase + section_va + 7
+
+                    try:
+                        string = pe.get_string_at_rva(s_rva, s_size).decode("utf-8")
+                        if string.isprintable() and string != "" and len(string) >= min_length:
+                            yield StaticString(string=string, offset=addr, encoding=StringEncoding.ASCII)
+                    except UnicodeDecodeError:
+                        continue
+
+                for m in longstring64_2.finditer(section_data):
+                    s_off = struct.unpack("<I", m.group(3))[0]
+                    s_size = struct.unpack("<B", m.group(1))[0]
+
+                    s_rva = s_off + m.end() + section_va
+                    addr = m.start() + pe.OPTIONAL_HEADER.ImageBase + section_va
+                    try:
+                        string = pe.get_string_at_rva(s_rva, s_size).decode("utf-8")
+                        if string.isprintable() and string != "" and len(string) >= min_length:
+                            yield StaticString(string=string, offset=addr, encoding=StringEncoding.ASCII)
+                    except UnicodeDecodeError:
+                        continue
+            else:
+                for m in longstring32.finditer(section_data):
+                    s_off = struct.unpack("<I", m.group(2))[0]
+                    s_size = struct.unpack("<B", m.group(1))[0]
+
+                    s_rva = s_off + m.end() + section_va
+                    addr = m.start() + pe.OPTIONAL_HEADER.ImageBase + section_va
+
+                    try:
+                        string = pe.get_string_at_rva(s_rva, s_size).decode("utf-8")
+                        if string.isprintable() and string != "" and len(string) >= min_length:
+                            yield StaticString(string=string, offset=addr, encoding=StringEncoding.ASCII)
+                    except UnicodeDecodeError:
+                        continue
 
         if section_name == ".text":
             section_va = section.VirtualAddress
             section_size = section.SizeOfRawData
             section_data = section.get_data(section_va, section_size)
 
-            strings = re.findall(combinedregex, section_data)
-
-            for string_tuple in strings:
-                for string in string_tuple:
-                    if string != b"":
-                        try:
-                            decoded_string = string.decode("utf-8")
-                            if decoded_string.isprintable() and len(string) >= min_length:
-                                addr = 0
-                                yield StaticString(string=string, offset=addr, encoding=StringEncoding.ASCII)
-                        except UnicodeDecodeError:
-                            pass
+            for m in combinedregex.finditer(section_data):
+                for i in range(1, 8):
+                    try:
+                        string = m.group(i)
+                        if string != b"":
+                            try:
+                                decoded_string = string.decode("utf-8")
+                                if decoded_string.isprintable() and len(decoded_string) >= min_length:
+                                    addr = 0
+                                    yield StaticString(string=decoded_string, offset=addr, encoding=StringEncoding.ASCII)
+                            except UnicodeDecodeError:
+                                pass
+                    except AttributeError:
+                        pass
 
         if section_name in (".rdata", ".data"):
             section_va = section.VirtualAddress
             section_size = section.SizeOfRawData
             section_data = section.get_data(section_va, section_size)
 
-            for i in tqdm(range(0, len(section_data) - alignment // 2, alignment // 2)):
+            for i in range(0, len(section_data) - alignment // 2, alignment // 2):
                 try:
                     curr = section_data[i : i + alignment]
                     s_off, s_size = struct.unpack(fmt, curr)
@@ -158,16 +186,17 @@ def extract_go_strings(
                     addr = pe.OPTIONAL_HEADER.ImageBase + section_va + i
 
                     try:
-                        string = pe.get_string_at_rva(s_rva, s_size).decode("ascii")
+                        string = pe.get_string_at_rva(s_rva, s_size).decode("utf-8")
                     except UnicodeDecodeError:
                         continue
 
-                    if len(string) >= min_length and len(string) == s_size:
+                    if (
+                        len(string) >= min_length and len(string) == s_size
+                    ):  # if the string is greater than the minimum length
                         yield StaticString(string=string, offset=addr, encoding=StringEncoding.ASCII)
                 except Exception as e:
                     logger.error(f"Error: {e}")
                     raise
-
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Get Go strings")
@@ -183,17 +212,40 @@ def main(argv=None):
     args = parser.parse_args(args=argv)
 
     static_strings = extract_go_strings(args.path, min_length=args.min_length)
+    all_static_strings = get_static_strings(args.path, args.min_length)
 
-    final_length = 0
+
+    extracted_static_strings = []
+    extracted_static_strings_count = 0
+
 
     for strings_obj in static_strings:
         string = strings_obj.string
-        final_length += len(string)
+        extracted_static_strings.append(string)
+        extracted_static_strings_count += 1
 
-    try:
-        print(final_length * 100 / final_size)
-    except:
-        pass
+    
+
+    all_static_string_list = []
+
+    for string in all_static_strings:
+        if string.string.isprintable():
+            all_static_string_list.append(string.string)
+
+
+
+    for string in all_static_string_list:
+        if string not in extracted_static_strings:
+            print(string)
+
+    print("Total number of strings extracted via strings.exe: ", len(all_static_string_list))
+
+
+    print("Percentage of strings extracted: ", format((extracted_static_strings_count*100/len(all_static_string_list)), '.2f'))
+
+
+    print("Number of strings extracted: ", extracted_static_strings_count)
+
 
 
 if __name__ == "__main__":
