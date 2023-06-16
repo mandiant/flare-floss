@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 MIN_STR_LEN = 6
 
 
-def get_static_strings(sample: str, min_length: int) -> list[StaticString]:
+def get_static_strings(sample: str, min_length: int) -> list:
     """
     Returns list of static strings from the file which are above the minimum length
     """
