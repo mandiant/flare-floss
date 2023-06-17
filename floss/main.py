@@ -50,7 +50,8 @@ from floss.logging_ import TRACE, DebugLevel
 from floss.stackstrings import extract_stackstrings
 from floss.tightstrings import extract_tightstrings
 from floss.string_decoder import decode_strings
-from floss.language_identifier import identify_language
+from floss.language.identify import Language, identify_language
+from floss.language.go.extract import extract_go_strings
 
 SIGNATURES_PATH_DEFAULT_STRING = "(embedded signatures)"
 EXTENSIONS_SHELLCODE_32 = ("sc32", "raw32")
@@ -533,8 +534,6 @@ def main(argv=None) -> int:
 
         return 0
 
-    results = ResultDocument(metadata=Metadata(file_path=sample, min_length=args.min_length), analysis=analysis)
-
     time0 = time()
     interim = time0
     sample_size = os.path.getsize(sample)
@@ -542,6 +541,50 @@ def main(argv=None) -> int:
     static_strings = get_static_strings(sample, args.min_length)
 
     language = identify_language(sample=sample, static_strings=static_strings)
+
+    if language == Language.GO:
+        enhancedStaticStrings = extract_go_strings(sample=sample, min_length=args.min_length)
+        enhancedStaticStrings = list(enhancedStaticStrings)
+
+        # Calculate String Coverage
+        original_count = 0
+        modified_count = 0
+        for original_string in static_strings:
+            original_str = original_string.string
+            for modified_string in enhancedStaticStrings:
+                modified_str = modified_string.string
+                if original_str in modified_str:
+                    modified_count += len(modified_str)
+
+            original_count += len(original_string.string)
+
+        logger.info("Percentage of strings extracted: " + str(modified_count / original_count) + "%")
+
+        interim = time()
+
+        analysis = Analysis(
+            enable_static_strings=True,
+            enable_stack_strings=False,
+            enable_tight_strings=False,
+            enable_decoded_strings=False,
+        )
+
+        results = ResultDocument(metadata=Metadata(file_path=sample, min_length=args.min_length), analysis=analysis)
+
+        results.strings.static_strings = enhancedStaticStrings
+
+        results.metadata.runtime.total = get_runtime_diff(time0)
+        logger.info("finished execution after %.2f seconds", results.metadata.runtime.total)
+
+        if args.json:
+            r = floss.render.json.render(results)
+        else:
+            r = floss.render.default.render(results, args.verbose, args.quiet, args.color)
+
+        print(r)
+        return 0
+
+    results = ResultDocument(metadata=Metadata(file_path=sample, min_length=args.min_length), analysis=analysis)
 
     # in order of expected run time, fast to slow
     # 1. static strings

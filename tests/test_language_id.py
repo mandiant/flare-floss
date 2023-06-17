@@ -3,7 +3,7 @@ import os
 import pytest
 
 from floss.main import get_static_strings
-from floss.language_identifier import Language, identify_language
+from floss.language.identify import Language, identify_language
 
 
 @pytest.mark.parametrize(
