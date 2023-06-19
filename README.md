@@ -21,10 +21,10 @@ malware binaries. You can use it just like `strings.exe` to enhance the
 basic static analysis of unknown binaries.
 
 FLOSS extracts all the following string types:
-1. static strings: "regular" ASCII and UTF-16LE strings
-2. stack strings: strings constructed on the stack at run-time
-3. tight strings: a special form of stack strings, decoded on the stack
-4. decoded strings: strings decoded in a function
+1. static strings: "regular" ASCII and UTF-16LE strings.
+2. stack strings: strings constructed on the stack at run-time.
+3. tight strings: a special form of stack strings, decoded on the stack.
+4. decoded strings: strings decoded in a function.
 
 Please review the theory behind FLOSS [here](doc/theory.md).
 
