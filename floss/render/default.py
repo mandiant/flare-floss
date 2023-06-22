@@ -10,6 +10,7 @@ from rich import box
 from rich.table import Table
 from rich.markup import escape
 from rich.console import Console
+from floss.language.identify import Language
 
 import floss.utils as util
 import floss.logging_
@@ -142,22 +143,32 @@ def render_static_substrings(strings, encoding, offset_len, console, verbose, di
     console.print("\n")
 
 
-def render_staticstrings(strings, console, verbose, disable_headers):
+def render_staticstrings(strings, console, verbose, disable_headers, language):
     render_heading("FLOSS STATIC STRINGS", len(strings), console, verbose, disable_headers)
+    if language == Language.GO:
+        strings = sorted(strings, key=lambda s: s.offset)
+        unicode8_strings = list(filter(lambda s: s.encoding == StringEncoding.UTF8, strings))
+        unicode8_offset_len = 0
 
-    ascii_strings = list(filter(lambda s: s.encoding == StringEncoding.ASCII, strings))
-    unicode_strings = list(filter(lambda s: s.encoding == StringEncoding.UTF16LE, strings))
+        if unicode8_strings:
+            unicode8_offset_len = len(f"{unicode8_strings[-1].offset}")
+        offset_len = unicode8_offset_len
 
-    ascii_offset_len = 0
-    unicode_offset_len = 0
-    if ascii_strings:
-        ascii_offset_len = len(f"{ascii_strings[-1].offset}")
-    if unicode_strings:
-        unicode_offset_len = len(f"{unicode_strings[-1].offset}")
-    offset_len = max(ascii_offset_len, unicode_offset_len)
+        render_static_substrings(unicode8_strings, "UTF-8", offset_len, console, verbose, disable_headers)
+    else:
+        ascii_strings = list(filter(lambda s: s.encoding == StringEncoding.ASCII, strings))
+        unicode_strings = list(filter(lambda s: s.encoding == StringEncoding.UTF16LE, strings))
 
-    render_static_substrings(ascii_strings, "ASCII", offset_len, console, verbose, disable_headers)
-    render_static_substrings(unicode_strings, "UTF-16LE", offset_len, console, verbose, disable_headers)
+        ascii_offset_len = 0
+        unicode_offset_len = 0
+        if ascii_strings:
+            ascii_offset_len = len(f"{ascii_strings[-1].offset}")
+        if unicode_strings:
+            unicode_offset_len = len(f"{unicode_strings[-1].offset}")
+        offset_len = max(ascii_offset_len, unicode_offset_len)
+
+        render_static_substrings(ascii_strings, "ASCII", offset_len, console, verbose, disable_headers)
+        render_static_substrings(unicode_strings, "UTF-16LE", offset_len, console, verbose, disable_headers)
 
 
 def render_stackstrings(
@@ -273,7 +284,7 @@ def get_color(color):
     return color_system
 
 
-def render(results, verbose, disable_headers, color):
+def render(results, verbose, disable_headers, color, language = None):
     sys.__stdout__.reconfigure(encoding="utf-8")
     console = Console(file=io.StringIO(), color_system=get_color(color), highlight=False)
 
@@ -288,7 +299,7 @@ def render(results, verbose, disable_headers, color):
         console.print("\n")
 
     if results.analysis.enable_static_strings:
-        render_staticstrings(results.strings.static_strings, console, verbose, disable_headers)
+        render_staticstrings(results.strings.static_strings, console, verbose, disable_headers, language)
         console.print("\n")
 
     if results.analysis.enable_stack_strings:
