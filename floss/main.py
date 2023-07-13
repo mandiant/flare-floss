@@ -153,6 +153,17 @@ def make_parser(argv):
         help="path to sample to analyze",
     )
 
+    language_group = parser.add_argument_group("language arguments")
+    language_group.add_argument(
+        "-e",
+        "--extract",
+        dest="language",
+        type=str,
+        choices=[l.value for l in Language],
+        default=Language.UNKNOWN.value,
+        help="language of the sample",
+    )
+
     analysis_group = parser.add_argument_group("analysis arguments")
     analysis_group.add_argument(
         "--no",
@@ -536,7 +547,7 @@ def main(argv=None) -> int:
     lang_id = identify_language(sample, static_strings)
 
     # set language configurations
-    if lang_id == Language.GO:
+    if (lang_id == Language.GO and args.language == Language.UNKNOWN.value) or args.language == Language.GO.value:
         results.metadata.language = Language.GO.value
 
         if args.enabled_types == [] and args.disabled_types == []:
@@ -554,7 +565,9 @@ def main(argv=None) -> int:
                 analysis.enable_tight_strings = False
                 analysis.enable_decoded_strings = False
 
-    elif lang_id == Language.DOTNET:
+    elif (
+        lang_id == Language.DOTNET and args.language == Language.UNKNOWN.value
+    ) or args.language == Language.DOTNET.value:
         logger.warning(".NET language-specific string extraction is not supported")
         logger.warning(" will NOT deobfuscate any .NET strings")
 
@@ -578,7 +591,9 @@ def main(argv=None) -> int:
         results.metadata.runtime.static_strings = static_runtime
 
         if lang_id:
-            if lang_id == Language.GO:
+            if (
+                lang_id == Language.GO and args.language == Language.UNKNOWN.value
+            ) or args.language == Language.GO.value:
                 logger.info("applying language-specific Go string extraction")
 
                 interim = time()
