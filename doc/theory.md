@@ -56,7 +56,7 @@ Finally, FLOSS diffs the emulator memory states from before and
 ## Go String Extraction
 The Go string extraction algorithm implemented in the FLOSS tool is designed to address the unique characteristics of Go strings in binaries, ensuring efficient retrieval during reverse engineering and malware analysis tasks. Go strings are conventionally represented as sequences of 8-bit bytes, often encoding UTF-8 text. Without special handling, the strings within the binary may appear as a large chunk of indistinguishable data. The FLOSS algorithm overcomes this challenge by analyzing struct string instances and leveraging the length-sorted order of strings within the binary. This capability provides valuable insights into the inner workings of Go programs, facilitating comprehensive analysis and understanding.
 
-### Algorithm:-
+### Algorithm:
 
 1. Analyze the struct string instances within the binary.
 2. Identify the longest continuous sequence of monotonically increasing string lengths.
