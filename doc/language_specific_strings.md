@@ -21,7 +21,7 @@ For more information on Go strings, you can refer to the Go project's documentat
 Learn more:
 
     Go Project: [Go Project](https://github.com/golang/go)
-    Blog post: [TITLE OF BLOG](https://medium.com/p/92f6d9fee97c)
+    Blog post: [Unveiling Go Strings: A Google Summer of Code Journey](https://medium.com/p/92f6d9fee97c)
     Source code: 
     - https://github.com/golang/go/blob/36ea4f9680f8296f1c7d0cf7dbb1b3a9d572754a/src/builtin/builtin.go#L70-L73
     - https://github.com/golang/go/blob/38e2376f35907ebbb98419f1f4b8f28125bf6aaf/src/go/types/builtins.go#L824-L825
