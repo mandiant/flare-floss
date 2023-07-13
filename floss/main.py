@@ -98,9 +98,9 @@ def make_parser(argv):
         ' 1. static strings:  "regular" ASCII and UTF-16LE strings\n'
         " 2. stack strings:   strings constructed on the stack at run-time\n"
         " 3. tight strings:   special form of stack strings, decoded on the stack\n"
-        " 4. decoded strings: strings decoded in a function\n"
+        " 4. decoded strings: strings decoded in a function\n\n"
 
-        "Language specific strings:"
+        "Language specific strings:\n"
         " 1. Go strings: strings embedded in Go binaries\n"
     )
     epilog = textwrap.dedent(
