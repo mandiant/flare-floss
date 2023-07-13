@@ -3,7 +3,7 @@ Programs compiled by the Go compiler use a string representation that is difficu
 
 FLOSS implements an algorithm to handle the unusual characteristics of strings in Go binaries. This approach analyzes instances of the `struct String` type to identify candidate strings and reasons about the length-sorted order to avoid false positives. Crucially, FLOSS automatically handles the complexities of Go strings and displays strings as written in the program's source code.
 
-It's important to mention that there are other types of strings, such as runtime strings, which are not derived from the program strings. While FLOSS may not handle these types directly, it provides valuable insights into the strings originated within the program.
+It's important to mention that there are other types of strings, such as runtime strings, which are not derived from the program strings. 
 
 ### Algorithm:
 
