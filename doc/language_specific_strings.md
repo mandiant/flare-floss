@@ -5,7 +5,7 @@ FLOSS implements an algorithm to handle the unusual characteristics of strings i
 
 It's important to mention that there are other types of strings, such as runtime strings, which are not derived from the program strings. While FLOSS may not handle these types directly, it provides valuable insights into the strings originated within the program.
 
-### Algorithm:-
+### Algorithm:
 
 1. Analyze the struct string instances within the binary.
     - In Go, a struct string represents a string value. It consists of two components: a pointer to the string's underlying data and the length of the string.
