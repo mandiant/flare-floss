@@ -151,16 +151,6 @@ def make_parser(argv):
         help="path to sample to analyze",
     )
 
-    parser.add_argument(
-        "-g",
-        "--lang",
-        dest="language",
-        type=str,
-        choices=[l.value for l in Language],
-        default="",
-        help="language of the sample",
-    )
-
     analysis_group = parser.add_argument_group("analysis arguments")
     analysis_group.add_argument(
         "--no",
@@ -195,6 +185,14 @@ def make_parser(argv):
         choices=[f[0] for f in formats],
         default="auto",
         help="select sample format, %s" % format_help if show_all_options else argparse.SUPPRESS,
+    )
+    advanced_group.add_argument(
+        "--language",
+        dest="language",
+        type=str,
+        choices=[l.value for l in Language],
+        default="",
+        help="language of the sample",
     )
     advanced_group.add_argument(
         "-l",

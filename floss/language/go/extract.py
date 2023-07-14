@@ -572,7 +572,7 @@ def get_string_blob_strings(pe: pefile.PE, min_length) -> Iterable[StaticString]
         struct_strings = list(sorted(set(get_struct_string_candidates(pe)), key=lambda s: s.address))
 
     if struct_strings == []:
-        raise ValueError("no struct string candidates found")
+        raise ValueError("No struct string candidates found. Is this a Go binary?")
 
     with floss.utils.timing("find string blob"):
         string_blob_start, string_blob_end = find_string_blob_range(pe, struct_strings)
