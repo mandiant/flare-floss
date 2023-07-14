@@ -79,7 +79,7 @@ def get_extract_stats(pe, all_ss_strings: List[StaticString], go_strings, min_le
         if secname != ".rdata":
             continue
 
-        if len(s.string) <= 30:
+        if len(s.string) <= 2800:
             # guessed value right now
             continue
 
