@@ -506,9 +506,6 @@ def find_string_blob_range(pe: pefile.PE, struct_strings: List[StructString]) ->
     # pick the mid string, so that we avoid any junk data on the edges of the string blob
     run_mid = (run_start + run_end) // 2
 
-    if run_mid == 0:
-        raise ValueError("no string blob found")
-
     instance = struct_strings[run_mid]
 
     s = read_struct_string(pe, instance)
@@ -573,6 +570,9 @@ def get_string_blob_strings(pe: pefile.PE, min_length) -> Iterable[StaticString]
 
     with floss.utils.timing("find struct string candidates"):
         struct_strings = list(sorted(set(get_struct_string_candidates(pe)), key=lambda s: s.address))
+
+    if struct_strings == []:
+        raise ValueError("no struct string candidates found")
 
     with floss.utils.timing("find string blob"):
         string_blob_start, string_blob_end = find_string_blob_range(pe, struct_strings)
