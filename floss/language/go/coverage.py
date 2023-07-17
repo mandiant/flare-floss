@@ -80,6 +80,10 @@ def get_extract_stats(pe, all_ss_strings: List[StaticString], go_strings, min_le
             continue
 
         if len(s.string) <= 2800:
+            # This value was chosen based on experimentaion on different samples
+            # of go binaries that include versions 1.20, 1.18, 1.16, 1.12. and 
+            # architectures amd64 and i386.
+            # See: https://github.com/mandiant/flare-floss/issues/807#issuecomment-1636087673
             continue
 
         len_all_ss += len(s.string)
