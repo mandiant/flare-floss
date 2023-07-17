@@ -569,10 +569,14 @@ def get_string_blob_strings(pe: pefile.PE, min_length) -> Iterable[StaticString]
     image_base = pe.OPTIONAL_HEADER.ImageBase
 
     with floss.utils.timing("find struct string candidates"):
-        struct_strings = list(sorted(set(get_struct_string_candidates(pe)), key=lambda s: s.address))
+        try:
+            struct_strings = list(sorted(set(get_struct_string_candidates(pe)), key=lambda s: s.address))
+            if struct_strings == []:
+                raise ValueError("No struct string candidates found. Is this a Go binary?")
 
-    if struct_strings == []:
-        raise ValueError("No struct string candidates found. Is this a Go binary?")
+        except ValueError as e:
+            logger.warning("Failed to find struct string candidates: %s", e)
+            return
 
     with floss.utils.timing("find string blob"):
         string_blob_start, string_blob_end = find_string_blob_range(pe, struct_strings)
