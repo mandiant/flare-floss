@@ -189,7 +189,7 @@ def make_parser(argv):
     advanced_group.add_argument(
         "--language",
         type=str,
-        choices=[l.value for l in Language],
+        choices=[l.value for l in Language if l != Language.UNKNOWN] + ["none"],
         default="",
         help="language of the sample",
     )
