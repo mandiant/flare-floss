@@ -188,7 +188,6 @@ def make_parser(argv):
     )
     advanced_group.add_argument(
         "--language",
-        dest="language",
         type=str,
         choices=[l.value for l in Language],
         default="",
