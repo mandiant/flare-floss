@@ -191,7 +191,7 @@ def make_parser(argv):
         type=str,
         choices=[l.value for l in Language if l != Language.UNKNOWN] + ["none"],
         default="",
-        help="language of the sample",
+        help="language of the sample" if show_all_options else argparse.SUPPRESS,
     )
     advanced_group.add_argument(
         "-l",
