@@ -2,6 +2,7 @@ import pathlib
 import zipfile
 
 import pytest
+
 from floss.language.go.extract import extract_go_strings
 
 
