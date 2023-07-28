@@ -12,9 +12,8 @@ from pathlib import Path
 from itertools import chain
 from dataclasses import dataclass
 
-import binary2strings as b2s
-
 import pefile
+import binary2strings as b2s
 from typing_extensions import TypeAlias
 
 import floss.utils
@@ -308,12 +307,7 @@ def extract_utf8_strings(sample, min_length) -> List[StaticString]:
     image_base = pe.OPTIONAL_HEADER.ImageBase
 
     with floss.utils.timing("extract UTF-8 strings"):
-        strings = list(
-            b2s.extract_all_strings(
-                buf,
-                min_length
-            )
-        )
+        strings = list(b2s.extract_all_strings(buf, min_length))
 
     for section in pe.sections:
         if section.Name.startswith(b".rdata\x00"):
@@ -325,38 +319,35 @@ def extract_utf8_strings(sample, min_length) -> List[StaticString]:
     start_rdata = pointer_to_raw_data
     end_rdata = pointer_to_raw_data + section_size
 
-
     ref_data = []
 
     for string in strings:
         start = string[2][0]
         end = string[2][1]
         string_type = string[1]
-        if not(start_rdata <= start < end_rdata):
+        if not (start_rdata <= start < end_rdata):
             continue
-        if not(start_rdata <= end < end_rdata):
+        if not (start_rdata <= end < end_rdata):
             continue
         if string_type != "UTF8":
             continue
 
         ref_data.append((string[0], start, end))
 
-
     candidates = get_struct_string_candidates(pe)
 
     for can in candidates:
         address = can.address - image_base - virtual_address + pointer_to_raw_data
 
-        if not(start_rdata <= address < end_rdata):
+        if not (start_rdata <= address < end_rdata):
             continue
-        
+
         # if address is in between start and end of a string in ref data then split the string
         for ref in ref_data:
             if ref[1] < address < ref[2]:
-
                 # split the string and add it to ref_data
-                ref_data.append((ref[0][0: address - ref[1]], ref[1], address))
-                ref_data.append((ref[0][address - ref[1]:], address, ref[2]))
+                ref_data.append((ref[0][0 : address - ref[1]], ref[1], address))
+                ref_data.append((ref[0][address - ref[1] :], address, ref[2]))
 
                 # remove the original string
                 ref_data.remove(ref)
@@ -366,11 +357,11 @@ def extract_utf8_strings(sample, min_length) -> List[StaticString]:
     static_strings = []
     for ref in ref_data:
         try:
-            string = StaticString.from_utf8(ref[0].encode('utf-8'), ref[1], min_length)
+            string = StaticString.from_utf8(ref[0].encode("utf-8"), ref[1], min_length)
             static_strings.append(string)
         except ValueError:
             pass
-    
+
     return static_strings
 
 
