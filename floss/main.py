@@ -537,7 +537,11 @@ def main(argv=None) -> int:
     # can throw away result later if not desired in output
     time0 = time()
     interim = time0
+
     static_strings = get_static_strings(sample, args.min_length)
+    if static_strings == []:
+        return 0
+
     static_runtime = get_runtime_diff(interim)
 
     lang_id = identify_language(sample, static_strings)

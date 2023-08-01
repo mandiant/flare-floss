@@ -9,14 +9,14 @@ from floss.language.go.extract import extract_go_strings
 @pytest.fixture(scope="module")
 def go_strings32():
     n = 6
-    path = pathlib.Path(__file__).parent / "data" / "src" / "go-hello" / "bin" / "go-hello.exe"
+    path = pathlib.Path(__file__).parent / "data" / "language" / "go" / "go-hello" / "bin" / "go-hello.exe"
     return extract_go_strings(path, n)
 
 
 @pytest.fixture(scope="module")
 def go_strings64():
     n = 6
-    path = pathlib.Path(__file__).parent / "data" / "src" / "go-hello" / "bin" / "go-hello64.exe"
+    path = pathlib.Path(__file__).parent / "data" / "language" / "go" / "go-hello" / "bin" / "go-hello64.exe"
     return extract_go_strings(path, n)
 
 
@@ -121,6 +121,21 @@ def test_lea_mov_call(request, string, offset, encoding, go_strings):
     ],
 )
 def test_mov_lea_mov(request, string, offset, encoding, go_strings):
+    assert StaticString(string=string, offset=offset, encoding=encoding) in request.getfixturevalue(go_strings)
+
+
+@pytest.mark.parametrize(
+    "string,offset,encoding,go_strings",
+    [
+        # 00000000004AB080  20 6E 6F 74 20 66 6F 75  6E 64 20 6D 61 72 6B 72   not found markr
+        # 00000000004AB090  6F 6F 74 20 6A 6F 62 73  20 64 6F 6E 65 0A 20 74  oot jobs done. t
+        pytest.param(" markroot jobs done\n", 0xAA68A, StringEncoding.UTF8, "go_strings64"),
+        # 004A3DE0  66 6F 75 6E 64 20 6D 61  72 6B 72 6F 6F 74 20 6A  found markroot j
+        # 004A3DF0  6F 62 73 20 64 6F 6E 65  0A 20 74 6F 20 75 6E 61  obs done. to una
+        pytest.param(" markroot jobs done\n", 0xA23E5, StringEncoding.UTF8, "go_strings32"),
+    ],
+)
+def test_strings_with_newline_char_0A(request, string, offset, encoding, go_strings):
     assert StaticString(string=string, offset=offset, encoding=encoding) in request.getfixturevalue(go_strings)
 
 

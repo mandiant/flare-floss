@@ -10,10 +10,10 @@ from floss.language.identify import Language, identify_language
 @pytest.mark.parametrize(
     "binary_file, expected_result",
     [
-        ("data/src/go-hello/bin/go-hello.exe", Language.GO),
-        ("data/src/rust-hello/bin/rust-hello.exe", Language.RUST),
+        ("data/language/go/go-hello/bin/go-hello.exe", Language.GO),
+        ("data/language/rust/rust-hello/bin/rust-hello.exe", Language.RUST),
         ("data/test-decode-to-stack.exe", Language.UNKNOWN),
-        ("data/src/dotnet-hello/bin/dotnet-hello.exe", Language.DOTNET),
+        ("data/language/dotnet/dotnet-hello/bin/dotnet-hello.exe", Language.DOTNET),
         ("data/src/shellcode-stackstrings/bin/shellcode-stackstrings.bin", Language.UNKNOWN),
     ],
 )

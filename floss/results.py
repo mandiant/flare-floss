@@ -139,8 +139,6 @@ class StaticString:
         except UnicodeDecodeError:
             raise ValueError("not utf-8")
 
-        if not decoded_string.isprintable():
-            raise ValueError("not printable")
         if len(decoded_string) < min_length:
             raise ValueError("too short")
         return cls(string=decoded_string, offset=addr, encoding=StringEncoding.UTF8)
