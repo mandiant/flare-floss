@@ -38,11 +38,9 @@ def extract_files_64():
                 / "extracted_64"
                 / zip_info.filename
             ).resolve()
-            print(extracted_file_path)
             extracted_file = zip_ref.extract(zip_info, path=extracted_file_path.parent)
             extracted_files.append(extracted_file)
 
-    print(extracted_files)
     yield
 
     # Clean up - remove the extracted files after the test finishes
@@ -83,11 +81,9 @@ def extract_files_32():
                 / "extracted_32"
                 / zip_info.filename
             ).resolve()
-            print(extracted_file_path)
             extracted_file = zip_ref.extract(zip_info, path=extracted_file_path.parent)
             extracted_files.append(extracted_file)
 
-    print(extracted_files)
     yield
 
     # Clean up - remove the extracted files after the test finishes
