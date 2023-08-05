@@ -1,9 +1,6 @@
 # Copyright (C) 2023 Mandiant, Inc. All Rights Reserved.
 
-import re
 import sys
-import array
-import struct
 import logging
 import pathlib
 import argparse
@@ -26,16 +23,8 @@ MIN_STR_LEN = 4
 
 VA: TypeAlias = int
 
-def extract_utf8_strings(sample, min_length) -> List[StaticString]:
-    """
-    extract UTF-8 strings from the given PE file using binary2strings
-    """
-    p = pathlib.Path(sample)
-    buf = p.read_bytes()
-    pe = pefile.PE(data=buf, fast_load=True)
 
-    image_base = pe.OPTIONAL_HEADER.ImageBase
-
+def get_rdata_section_info(pe):
     for section in pe.sections:
         if section.Name.startswith(b".rdata\x00"):
             virtual_address = section.VirtualAddress
@@ -46,12 +35,14 @@ def extract_utf8_strings(sample, min_length) -> List[StaticString]:
     start_rdata = pointer_to_raw_data
     end_rdata = pointer_to_raw_data + section_size
 
-    with floss.utils.timing("extract UTF-8 strings"):
-        strings = list(b2s.extract_all_strings(buf[start_rdata:end_rdata], min_length))
+    return start_rdata, end_rdata, virtual_address, pointer_to_raw_data
+
+
+def filter_strings(strings, start_rdata, end_rdata):
+    """Extract string only from .rdata segment"""
 
     ref_data = []
 
-    # Filtering out some strings
     for string in strings:
         start = string[2][0] + start_rdata
         end = string[2][1] + start_rdata
@@ -65,6 +56,41 @@ def extract_utf8_strings(sample, min_length) -> List[StaticString]:
 
         ref_data.append((string[0], start, end))
 
+    return ref_data
+
+
+def split_string(ref_data, address):
+    """if address is in between start and end of a string in ref data then split the string"""
+    for ref in ref_data:
+        if ref[1] < address < ref[2]:
+            # split the string and add it to ref_data
+            ref_data.append((ref[0][0 : address - ref[1]], ref[1], address))
+            ref_data.append((ref[0][address - ref[1] :], address, ref[2]))
+
+            # remove the original string
+            ref_data.remove(ref)
+
+            break
+
+
+def extract_utf8_strings(sample, min_length) -> List[StaticString]:
+    """
+    extract UTF-8 strings from the given PE file using binary2strings
+    """
+    p = pathlib.Path(sample)
+    buf = p.read_bytes()
+    pe = pefile.PE(data=buf, fast_load=True)
+
+    image_base = pe.OPTIONAL_HEADER.ImageBase
+
+    start_rdata, end_rdata, virtual_address, pointer_to_raw_data = get_rdata_section_info(pe)
+
+    # extract utf-8 strings
+    strings = list(b2s.extract_all_strings(buf[start_rdata:end_rdata], min_length))
+
+    # Filtering out some strings
+    ref_data = filter_strings(strings, start_rdata, end_rdata)
+
     # Get Struct string instances for .rdata section
     candidates = get_struct_string_candidates(pe)
 
@@ -74,17 +100,7 @@ def extract_utf8_strings(sample, min_length) -> List[StaticString]:
         if not (start_rdata <= address < end_rdata):
             continue
 
-        # if address is in between start and end of a string in ref data then split the string
-        for ref in ref_data:
-            if ref[1] < address < ref[2]:
-                # split the string and add it to ref_data
-                ref_data.append((ref[0][0 : address - ref[1]], ref[1], address))
-                ref_data.append((ref[0][address - ref[1] :], address, ref[2]))
-
-                # remove the original string
-                ref_data.remove(ref)
-
-                break
+        split_string(ref_data, address)
 
     # Get references from .text segment
     xrefs = find_lea_xrefs(pe)
@@ -95,17 +111,7 @@ def extract_utf8_strings(sample, min_length) -> List[StaticString]:
         if not (start_rdata <= address < end_rdata):
             continue
 
-        # if address is in between start and end of a string in ref data then split the string
-        for ref in ref_data:
-            if ref[1] < address < ref[2]:
-                # split the string and add it to ref_data
-                ref_data.append((ref[0][0 : address - ref[1]], ref[1], address))
-                ref_data.append((ref[0][address - ref[1] :], address, ref[2]))
-
-                # remove the original string
-                ref_data.remove(ref)
-
-                break
+        split_string(ref_data, address)
 
     static_strings = []
 
