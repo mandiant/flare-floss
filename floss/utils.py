@@ -541,6 +541,11 @@ def get_static_strings(sample: Path, min_length: int) -> list:
     """
     Returns list of static strings from the file which are above the minimum length
     """
+
+    if sample.stat().st_size == 0:
+        logger.warning("File is empty")
+        return []
+
     with sample.open("r") as f:
         if hasattr(mmap, "MAP_PRIVATE"):
             # unix

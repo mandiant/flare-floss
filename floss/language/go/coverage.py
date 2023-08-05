@@ -62,7 +62,7 @@ def main():
     get_extract_stats(pe, static_strings, go_strings, args.min_length)
 
 
-def get_extract_stats(pe, all_ss_strings: List[StaticString], go_strings, min_len):
+def get_extract_stats(pe, all_ss_strings: List[StaticString], go_strings, min_len) -> float:
     all_strings = list()
     # these are ascii, extract these utf-8 to get fewer chunks (ascii may split on two-byte characters, for example)
     for ss in all_ss_strings:
@@ -79,8 +79,11 @@ def get_extract_stats(pe, all_ss_strings: List[StaticString], go_strings, min_le
         if secname != ".rdata":
             continue
 
-        if len(s.string) <= 30:
-            # guessed value right now
+        if len(s.string) <= 2800:
+            # This value was chosen based on experimentaion on different samples
+            # of go binaries that include versions 1.20, 1.18, 1.16, 1.12. and
+            # architectures amd64 and i386.
+            # See: https://github.com/mandiant/flare-floss/issues/807#issuecomment-1636087673
             continue
 
         len_all_ss += len(s.string)
@@ -233,6 +236,8 @@ def get_extract_stats(pe, all_ss_strings: List[StaticString], go_strings, min_le
     print("len gostring chars  :", len_gostr)
     print(f"Percentage of string chars extracted: {round(100 * (len_gostr / len_all_ss))}%")
     print()
+
+    return 100 * (len_gostr / len_all_ss)
 
 
 def get_missed_strings(

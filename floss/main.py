@@ -98,7 +98,9 @@ def make_parser(argv):
         ' 1. static strings:  "regular" ASCII and UTF-16LE strings\n'
         " 2. stack strings:   strings constructed on the stack at run-time\n"
         " 3. tight strings:   special form of stack strings, decoded on the stack\n"
-        " 4. decoded strings: strings decoded in a function\n"
+        " 4. decoded strings: strings decoded in a function\n\n"
+        "Language specific strings:\n"
+        " 1. Go strings: strings embedded in Go binaries\n"
     )
     epilog = textwrap.dedent(
         """
@@ -185,6 +187,13 @@ def make_parser(argv):
         choices=[f[0] for f in formats],
         default="auto",
         help="select sample format, %s" % format_help if show_all_options else argparse.SUPPRESS,
+    )
+    advanced_group.add_argument(
+        "--language",
+        type=str,
+        choices=[l.value for l in Language if l != Language.UNKNOWN] + ["none"],
+        default="",
+        help="language of the sample" if show_all_options else argparse.SUPPRESS,
     )
     advanced_group.add_argument(
         "-l",
@@ -462,11 +471,6 @@ def main(argv=None) -> int:
 
     set_log_config(args.debug, args.quiet)
 
-    # Since Python 3.8 cp65001 is an alias to utf_8, but not for Python < 3.8
-    # TODO: remove this code when only supporting Python 3.8+
-    # https://stackoverflow.com/a/3259271/87207
-    codecs.register(lambda name: codecs.lookup("utf-8") if name == "cp65001" else None)
-
     if hasattr(args, "signatures"):
         if args.signatures == SIGNATURES_PATH_DEFAULT_STRING:
             logger.debug("-" * 80)
@@ -528,13 +532,17 @@ def main(argv=None) -> int:
     # can throw away result later if not desired in output
     time0 = time()
     interim = time0
+
     static_strings = get_static_strings(sample, args.min_length)
+    if static_strings == []:
+        return 0
+
     static_runtime = get_runtime_diff(interim)
 
     lang_id = identify_language(sample, static_strings)
 
     # set language configurations
-    if lang_id == Language.GO:
+    if (lang_id == Language.GO and args.language == "") or args.language == Language.GO.value:
         results.metadata.language = Language.GO.value
 
         if args.enabled_types == [] and args.disabled_types == []:
@@ -552,7 +560,7 @@ def main(argv=None) -> int:
                 analysis.enable_tight_strings = False
                 analysis.enable_decoded_strings = False
 
-    elif lang_id == Language.DOTNET:
+    elif (lang_id == Language.DOTNET and args.language == "") or args.language == Language.DOTNET.value:
         logger.warning(".NET language-specific string extraction is not supported")
         logger.warning(" will NOT deobfuscate any .NET strings")
 
@@ -576,7 +584,7 @@ def main(argv=None) -> int:
         results.metadata.runtime.static_strings = static_runtime
 
         if lang_id:
-            if lang_id == Language.GO:
+            if (lang_id == Language.GO and args.language == "") or args.language == Language.GO.value:
                 logger.info("applying language-specific Go string extraction")
 
                 interim = time()

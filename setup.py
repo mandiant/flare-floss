@@ -12,7 +12,7 @@ requirements = [
     "viv-utils[flirt]==0.7.9",
     "pydantic==1.10.9",
     "tqdm==4.65.0",
-    "networkx==2.5.1",
+    "networkx==3.1",
     "halo==0.0.31",
     "rich==13.4.2",
     "pefile>=2022.5.30",
@@ -57,18 +57,19 @@ setuptools.setup(
     install_requires=requirements,
     extras_require={
         "dev": [
-            "pyyaml==6.0",
+            "pre-commit==2.21.0",
+            "pyyaml==6.0.1",
             "pytest==7.4.0",
             "pytest-sugar==0.9.4",
             "pytest-instafail==0.5.0",
             "pytest-cov==4.1.0",
-            "pycodestyle==2.10.0",
-            "black==23.3.0",
+            "pycodestyle==2.11.0",
+            "black==23.7.0",
             "isort==5.11.4",
             "mypy==1.4.1",
             # type stubs for mypy
             "types-PyYAML==6.0.10",
-            "types-tabulate==0.9.0.2",
+            "types-tabulate==0.9.0.3",
         ],
         "build": [
             "pyinstaller==5.13.0",
@@ -85,5 +86,5 @@ setuptools.setup(
         "Programming Language :: Python :: 3",
         "Topic :: Security",
     ],
-    python_requires=">=3.7",
+    python_requires=">=3.8",
 )
