@@ -26,6 +26,99 @@ MIN_STR_LEN = 4
 VA: TypeAlias = int
 
 
+def find_amd64_lea_xrefs(buf: bytes, base_addr: VA) -> Iterable[VA]:
+    """
+    scan the given data found at the given base address
+    to find all the 64-bit RIP-relative LEA instructions,
+    extracting the target virtual address.
+    """
+    rip_relative_insn_length = 7
+    rip_relative_insn_re = re.compile(
+        # use rb, or else double escape the term "\x0D", or else beware!
+        rb"""
+        (?:                   # non-capturing group
+              \x48 \x8D \x05  # 48 8d 05 aa aa 00 00    lea    rax,[rip+0xaaaa] 
+            | \x48 \x8D \x0D  # 48 8d 0d aa aa 00 00    lea    rcx,[rip+0xaaaa]
+            | \x48 \x8D \x15  # 48 8d 15 aa aa 00 00    lea    rdx,[rip+0xaaaa]
+            | \x48 \x8D \x1D  # 48 8d 1d aa aa 00 00    lea    rbx,[rip+0xaaaa]
+            | \x48 \x8D \x2D  # 48 8d 2d aa aa 00 00    lea    rbp,[rip+0xaaaa]
+            | \x48 \x8D \x35  # 48 8d 35 aa aa 00 00    lea    rsi,[rip+0xaaaa]
+            | \x48 \x8D \x3D  # 48 8d 3d aa aa 00 00    lea    rdi,[rip+0xaaaa]
+            | \x4C \x8D \x05  # 4c 8d 05 aa aa 00 00    lea     r8,[rip+0xaaaa]
+            | \x4C \x8D \x0D  # 4c 8d 0d aa aa 00 00    lea     r9,[rip+0xaaaa]
+            | \x4C \x8D \x15  # 4c 8d 15 aa aa 00 00    lea    r10,[rip+0xaaaa]
+            | \x4C \x8D \x1D  # 4c 8d 1d aa aa 00 00    lea    r11,[rip+0xaaaa]
+            | \x4C \x8D \x25  # 4c 8d 25 aa aa 00 00    lea    r12,[rip+0xaaaa]
+            | \x4C \x8D \x2D  # 4c 8d 2d aa aa 00 00    lea    r13,[rip+0xaaaa]
+            | \x4C \x8D \x35  # 4c 8d 35 aa aa 00 00    lea    r14,[rip+0xaaaa]
+            | \x4C \x8D \x3D  # 4c 8d 3d aa aa 00 00    lea    r15,[rip+0xaaaa]
+        )
+        (?P<offset>....)
+        """,
+        re.DOTALL | re.VERBOSE,
+    )
+
+    for match in rip_relative_insn_re.finditer(buf):
+        offset_bytes = match.group("offset")
+        offset = struct.unpack("<i", offset_bytes)[0]
+
+        yield base_addr + match.start() + offset + rip_relative_insn_length
+
+
+def find_i386_lea_xrefs(buf: bytes) -> Iterable[VA]:
+    """
+    scan the given data
+    to find all the 32-bit absolutely addressed LEA instructions,
+    extracting the target virtual address.
+    """
+    absolute_insn_re = re.compile(
+        rb"""
+        (
+              \x8D \x05  # 8d 05 aa aa 00 00       lea    eax,ds:0xaaaa
+            | \x8D \x1D  # 8d 1d aa aa 00 00       lea    ebx,ds:0xaaaa
+            | \x8D \x0D  # 8d 0d aa aa 00 00       lea    ecx,ds:0xaaaa
+            | \x8D \x15  # 8d 15 aa aa 00 00       lea    edx,ds:0xaaaa
+            | \x8D \x35  # 8d 35 aa aa 00 00       lea    esi,ds:0xaaaa
+            | \x8D \x3D  # 8d 3d aa aa 00 00       lea    edi,ds:0xaaaa
+        )
+        (?P<address>....)
+        """,
+        re.DOTALL + re.VERBOSE,
+    )
+
+    for match in absolute_insn_re.finditer(buf):
+        address_bytes = match.group("address")
+        address = struct.unpack("<I", address_bytes)[0]
+
+        yield address
+
+
+def find_lea_xrefs(pe: pefile.PE) -> Iterable[VA]:
+    """
+    scan the executable sections of the given PE file
+    for LEA instructions that reference valid memory addresses,
+    yielding the virtual addresses.
+    """
+    low, high = get_image_range(pe)
+
+    for section in pe.sections:
+        if not section.IMAGE_SCN_MEM_EXECUTE:
+            continue
+
+        code = section.get_data()
+
+        if pe.FILE_HEADER.Machine == pefile.MACHINE_TYPE["IMAGE_FILE_MACHINE_AMD64"]:
+            xrefs = find_amd64_lea_xrefs(code, section.VirtualAddress + pe.OPTIONAL_HEADER.ImageBase)
+        elif pe.FILE_HEADER.Machine == pefile.MACHINE_TYPE["IMAGE_FILE_MACHINE_I386"]:
+            xrefs = find_i386_lea_xrefs(code)
+        else:
+            raise ValueError("unhandled architecture")
+
+        for xref in xrefs:
+            if low <= xref < high:
+                yield xref
+
+
 def get_image_range(pe: pefile.PE) -> Tuple[VA, VA]:
     """return the range of the image in memory."""
     image_base = pe.OPTIONAL_HEADER.ImageBase
@@ -306,9 +399,6 @@ def extract_utf8_strings(sample, min_length) -> List[StaticString]:
 
     image_base = pe.OPTIONAL_HEADER.ImageBase
 
-    with floss.utils.timing("extract UTF-8 strings"):
-        strings = list(b2s.extract_all_strings(buf, min_length))
-
     for section in pe.sections:
         if section.Name.startswith(b".rdata\x00"):
             virtual_address = section.VirtualAddress
@@ -319,11 +409,15 @@ def extract_utf8_strings(sample, min_length) -> List[StaticString]:
     start_rdata = pointer_to_raw_data
     end_rdata = pointer_to_raw_data + section_size
 
+    with floss.utils.timing("extract UTF-8 strings"):
+        strings = list(b2s.extract_all_strings(buf[start_rdata:end_rdata], min_length))
+
     ref_data = []
 
+    # Filtering out some strings
     for string in strings:
-        start = string[2][0]
-        end = string[2][1]
+        start = string[2][0] + start_rdata
+        end = string[2][1] + start_rdata
         string_type = string[1]
         if not (start_rdata <= start < end_rdata):
             continue
@@ -334,6 +428,7 @@ def extract_utf8_strings(sample, min_length) -> List[StaticString]:
 
         ref_data.append((string[0], start, end))
 
+    # Get Struct string instances for .rdata section
     candidates = get_struct_string_candidates(pe)
 
     for can in candidates:
@@ -354,10 +449,32 @@ def extract_utf8_strings(sample, min_length) -> List[StaticString]:
 
                 break
 
+    # Get references from .text segment
+    xrefs = find_lea_xrefs(pe)
+
+    for xref in xrefs:
+        address = xref - image_base - virtual_address + pointer_to_raw_data
+
+        if not (start_rdata <= address < end_rdata):
+            continue
+
+        # if address is in between start and end of a string in ref data then split the string
+        for ref in ref_data:
+            if ref[1] < address < ref[2]:
+                # split the string and add it to ref_data
+                ref_data.append((ref[0][0 : address - ref[1]], ref[1], address))
+                ref_data.append((ref[0][address - ref[1] :], address, ref[2]))
+
+                # remove the original string
+                ref_data.remove(ref)
+
+                break
+
     static_strings = []
+
     for ref in ref_data:
         try:
-            string = StaticString.from_utf8(ref[0].encode("utf-8"), ref[1], min_length)
+            string = StaticString.from_utf8(ref[0].replace("\n", "").encode("utf-8"), ref[1], min_length)
             static_strings.append(string)
         except ValueError:
             pass
@@ -383,10 +500,6 @@ def main(argv=None):
     rust_strings = sorted(extract_utf8_strings(args.path, args.min_length), key=lambda s: s.offset)
     for string in rust_strings:
         print(f"{string.offset:#x}: {string.string}")
-
-    # rust_strings = sorted(extract_rust_strings(args.path, args.min_length), key=lambda s: s.offset)
-    # for string in rust_strings:
-    #     print(f"{string.offset:#x}: {string.string}")
 
 
 if __name__ == "__main__":
