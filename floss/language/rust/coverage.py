@@ -57,8 +57,6 @@ def main():
     buf = path.read_bytes()
     pe = pefile.PE(data=buf, fast_load=True)
 
-    image_base = pe.OPTIONAL_HEADER.ImageBase
-
     for section in pe.sections:
         if section.Name.startswith(b".rdata\x00"):
             virtual_address = section.VirtualAddress
@@ -69,14 +67,14 @@ def main():
     start_rdata = pointer_to_raw_data
     end_rdata = pointer_to_raw_data + section_size
 
-    static_strings: List[StaticString] = extract_ascii_unicode_strings(buf[start_rdata:end_rdata], args.min_length)
+    static_strings: List[Iterable] = extract_ascii_unicode_strings(buf[start_rdata:end_rdata], args.min_length)
 
     rust_strings = extract_utf8_strings(path, args.min_length)
 
-    get_extract_stats(pe, static_strings, rust_strings, args.min_length)
+    get_extract_stats(static_strings, rust_strings)
 
 
-def get_extract_stats(pe, static_strings, rust_strings, min_length):
+def get_extract_stats(static_strings: List[StaticString], rust_strings: List[StaticString]) -> float:
     total_static_string_length = 0
     for static_string in static_strings:
         string = static_string.string
@@ -91,6 +89,8 @@ def get_extract_stats(pe, static_strings, rust_strings, min_length):
     percentage = format((total_extracted_rust_string_length / total_static_string_length) * 100, ".2f")
 
     print("Percentage of string extracted: ", percentage)
+
+    return percentage
 
 
 if __name__ == "__main__":

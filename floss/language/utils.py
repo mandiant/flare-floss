@@ -32,6 +32,24 @@ class StructString:
     ```
 
     https://github.com/golang/go/blob/36ea4f9680f8296f1c7d0cf7dbb1b3a9d572754a/src/internal/unsafeheader/unsafeheader.go#L28-L37
+    
+
+
+    ```rust
+        /// # Representation
+        ///
+        /// A `String` is made up of three components: a pointer to some bytes, a
+        /// length, and a capacity. The pointer points to an internal buffer `String`
+        /// uses to store its data. The length is the number of bytes currently stored
+        /// in the buffer, and the capacity is the size of the buffer in bytes. As such,
+        /// the length will always be less than or equal to the capacity.
+        ///
+
+    ```
+    We only use pointer and length data
+    
+    https://github.com/rust-lang/rust/blob/3911a63b7777e19dad4043542f908018e70c0bdd/library/alloc/src/string.rs
+    
     """
 
     address: VA
@@ -243,54 +261,36 @@ def get_struct_string_candidates(pe: pefile.PE) -> Iterable[StructString]:
             candidates = list(candidates)
 
         for candidate in candidates:
-            # this region has some inline performance comments,
-            # showing the impact of the various checks against a huge
-            # sample Go program (kubelet.exe) encountered during development.
-            #
-            # go ahead and remove these comments if the logic ever changes.
-            #
-            # base perf: 1.07s
+
             va = candidate.address
             rva = va - image_base
 
-            # perf: 1.13s
-            # delta: 0.06s
             if not (low <= va < high):
                 continue
 
-            # perf: 1.35s
-            # delta: 0.22s
             target_section = pe.get_section_by_rva(rva)
             if not target_section:
                 # string instance must be in a section
                 continue
 
-            # perf: negligible
             if target_section.IMAGE_SCN_MEM_EXECUTE:
                 # string instances aren't found with the code
                 continue
 
-            # perf: negligible
             if not target_section.IMAGE_SCN_MEM_READ:
                 # string instances must be readable, naturally
                 continue
 
-            # perf: 1.42s
-            # delta: 0.07s
             try:
                 section_start, _, section_data = next(filter(lambda s: s[0] <= candidate.address < s[1], section_datas))
             except StopIteration:
                 continue
 
-            # perf: 1.53s
-            # delta: 0.11s
             instance_offset = candidate.address - section_start
             # remember: section_data is a memoryview, so this is a fast slice.
             # when not using memoryview, this takes a *long* time (dozens of seconds or longer).
             instance_data = section_data[instance_offset : instance_offset + candidate.length]
 
-            # perf: 1.66s
-            # delta: 0.13s
             if len(instance_data) != candidate.length:
                 continue
 

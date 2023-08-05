@@ -5,17 +5,13 @@ import logging
 import pathlib
 import argparse
 from typing import List, Tuple, Iterable, Optional
-from pathlib import Path
-from itertools import chain
-from dataclasses import dataclass
 
 import pefile
 import binary2strings as b2s
 from typing_extensions import TypeAlias
 
-import floss.utils
 from floss.results import StaticString, StringEncoding
-from floss.language.utils import StructString, find_lea_xrefs, get_struct_string_candidates
+from floss.language.utils import find_lea_xrefs, get_struct_string_candidates
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +20,10 @@ MIN_STR_LEN = 4
 VA: TypeAlias = int
 
 
-def get_rdata_section_info(pe):
+def get_rdata_section_info(pe: pefile.PE) -> Tuple[int, int, int, int]:
+    '''
+        Retrieve info about .rdata section
+    '''
     for section in pe.sections:
         if section.Name.startswith(b".rdata\x00"):
             virtual_address = section.VirtualAddress
@@ -32,14 +31,16 @@ def get_rdata_section_info(pe):
             section_size = section.SizeOfRawData
             break
 
-    start_rdata = pointer_to_raw_data
-    end_rdata = pointer_to_raw_data + section_size
+    start_address = pointer_to_raw_data
+    end_address = pointer_to_raw_data + section_size
 
-    return start_rdata, end_rdata, virtual_address, pointer_to_raw_data
+    return start_address, end_address, virtual_address, pointer_to_raw_data
 
 
-def filter_strings(strings, start_rdata, end_rdata):
-    """Extract string only from .rdata segment"""
+def filter_strings(strings: List[Tuple[str, str, Tuple[int, int], bool]], start_rdata: int, end_rdata: int) -> List[Tuple[str, int, int]]:
+    '''
+        Extract strings only from .rdata segment, discard others
+    '''
 
     ref_data = []
 
@@ -59,8 +60,11 @@ def filter_strings(strings, start_rdata, end_rdata):
     return ref_data
 
 
-def split_string(ref_data, address):
-    """if address is in between start and end of a string in ref data then split the string"""
+def split_string(ref_data: List[Tuple[str, int, int]], address: int) -> None:
+    '''
+        if address is in between start and end of a string in ref data then split the string
+    '''
+
     for ref in ref_data:
         if ref[1] < address < ref[2]:
             # split the string and add it to ref_data
@@ -73,10 +77,11 @@ def split_string(ref_data, address):
             break
 
 
-def extract_utf8_strings(sample, min_length) -> List[StaticString]:
-    """
-    extract UTF-8 strings from the given PE file using binary2strings
-    """
+def extract_utf8_strings(sample: pefile.PE, min_length: int) -> List[StaticString]:
+    '''
+        Extract UTF-8 strings from the given PE file using binary2strings
+    '''
+
     p = pathlib.Path(sample)
     buf = p.read_bytes()
     pe = pefile.PE(data=buf, fast_load=True)
@@ -88,7 +93,7 @@ def extract_utf8_strings(sample, min_length) -> List[StaticString]:
     # extract utf-8 strings
     strings = list(b2s.extract_all_strings(buf[start_rdata:end_rdata], min_length))
 
-    # Filtering out some strings
+    # Filtering out strings that are not in .rdata
     ref_data = filter_strings(strings, start_rdata, end_rdata)
 
     # Get Struct string instances for .rdata section
@@ -112,6 +117,7 @@ def extract_utf8_strings(sample, min_length) -> List[StaticString]:
             continue
 
         split_string(ref_data, address)
+
 
     static_strings = []
 
