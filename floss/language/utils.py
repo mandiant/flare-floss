@@ -32,7 +32,7 @@ class StructString:
     ```
 
     https://github.com/golang/go/blob/36ea4f9680f8296f1c7d0cf7dbb1b3a9d572754a/src/internal/unsafeheader/unsafeheader.go#L28-L37
-    
+
 
 
     ```rust
@@ -47,9 +47,9 @@ class StructString:
 
     ```
     We only use pointer and length data
-    
+
     https://github.com/rust-lang/rust/blob/3911a63b7777e19dad4043542f908018e70c0bdd/library/alloc/src/string.rs
-    
+
     """
 
     address: VA
@@ -261,7 +261,6 @@ def get_struct_string_candidates(pe: pefile.PE) -> Iterable[StructString]:
             candidates = list(candidates)
 
         for candidate in candidates:
-
             va = candidate.address
             rva = va - image_base
 

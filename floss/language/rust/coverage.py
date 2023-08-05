@@ -67,14 +67,14 @@ def main():
     start_rdata = pointer_to_raw_data
     end_rdata = pointer_to_raw_data + section_size
 
-    static_strings: List[Iterable] = extract_ascii_unicode_strings(buf[start_rdata:end_rdata], args.min_length)
+    static_strings: Iterable[StaticString] = extract_ascii_unicode_strings(buf[start_rdata:end_rdata], args.min_length)
 
     rust_strings = extract_utf8_strings(path, args.min_length)
 
     get_extract_stats(static_strings, rust_strings)
 
 
-def get_extract_stats(static_strings: List[StaticString], rust_strings: List[StaticString]) -> float:
+def get_extract_stats(static_strings: Iterable[StaticString], rust_strings: List[StaticString]) -> str:
     total_static_string_length = 0
     for static_string in static_strings:
         string = static_string.string

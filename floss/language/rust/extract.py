@@ -21,9 +21,9 @@ VA: TypeAlias = int
 
 
 def get_rdata_section_info(pe: pefile.PE) -> Tuple[int, int, int, int]:
-    '''
-        Retrieve info about .rdata section
-    '''
+    """
+    Retrieve info about .rdata section
+    """
     for section in pe.sections:
         if section.Name.startswith(b".rdata\x00"):
             virtual_address = section.VirtualAddress
@@ -37,10 +37,12 @@ def get_rdata_section_info(pe: pefile.PE) -> Tuple[int, int, int, int]:
     return start_address, end_address, virtual_address, pointer_to_raw_data
 
 
-def filter_strings(strings: List[Tuple[str, str, Tuple[int, int], bool]], start_rdata: int, end_rdata: int) -> List[Tuple[str, int, int]]:
-    '''
-        Extract strings only from .rdata segment, discard others
-    '''
+def filter_strings(
+    strings: List[Tuple[str, str, Tuple[int, int], bool]], start_rdata: int, end_rdata: int
+) -> List[Tuple[str, int, int]]:
+    """
+    Extract strings only from .rdata segment, discard others
+    """
 
     ref_data = []
 
@@ -61,9 +63,9 @@ def filter_strings(strings: List[Tuple[str, str, Tuple[int, int], bool]], start_
 
 
 def split_string(ref_data: List[Tuple[str, int, int]], address: int) -> None:
-    '''
-        if address is in between start and end of a string in ref data then split the string
-    '''
+    """
+    if address is in between start and end of a string in ref data then split the string
+    """
 
     for ref in ref_data:
         if ref[1] < address < ref[2]:
@@ -78,9 +80,9 @@ def split_string(ref_data: List[Tuple[str, int, int]], address: int) -> None:
 
 
 def extract_utf8_strings(sample: pefile.PE, min_length: int) -> List[StaticString]:
-    '''
-        Extract UTF-8 strings from the given PE file using binary2strings
-    '''
+    """
+    Extract UTF-8 strings from the given PE file using binary2strings
+    """
 
     p = pathlib.Path(sample)
     buf = p.read_bytes()
@@ -117,7 +119,6 @@ def extract_utf8_strings(sample: pefile.PE, min_length: int) -> List[StaticStrin
             continue
 
         split_string(ref_data, address)
-
 
     static_strings = []
 
