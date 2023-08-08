@@ -75,7 +75,7 @@ def extract_files_32(request, extract_files):
         ("data/language/go/go-binaries-all-versions/bin/extracted_64/main1.20.exe"),
     ],
 )
-def test_language_detection_64(binary_file, extract_files_64):
+def test_go_binary_string_detection_64(binary_file, extract_files_64):
     expected_strings = [
         "Something is wrong with your computer, ",
         "You Cracked it, A Hero is born",
@@ -112,7 +112,7 @@ def test_language_detection_64(binary_file, extract_files_64):
         ("data/language/go/go-binaries-all-versions/bin/extracted_32/main1.20.exe"),
     ],
 )
-def test_language_detection_32(binary_file, extract_files_32):
+def test_go_binary_string_detection_32(binary_file, extract_files_32):
     expected_strings = [
         "Something is wrong with your computer, ",
         "You Cracked it, A Hero is born",
