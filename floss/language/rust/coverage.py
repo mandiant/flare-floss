@@ -18,7 +18,7 @@ MIN_STR_LEN = 4
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Get Go strings")
+    parser = argparse.ArgumentParser(description="Get Rust strings")
     parser.add_argument("path", help="file or path to analyze")
     parser.add_argument(
         "-n",
@@ -76,15 +76,23 @@ def main():
 
 def get_extract_stats(static_strings: Iterable[StaticString], rust_strings: List[StaticString]) -> str:
     total_static_string_length = 0
+    total_extracted_rust_string_length = 0
+    large_chunk = ""
+
     for static_string in static_strings:
         string = static_string.string
-        total_static_string_length += len(string)
+        large_chunk += string
 
-    total_extracted_rust_string_length = 0
+    total_static_string_length = len(large_chunk)
 
     for rust_string in rust_strings:
-        string = rust_string.string
-        total_extracted_rust_string_length += len(string)
+        # The current strings.py program doesn't take into account \n and \r
+        # so we have to remove them from rust_string to compare
+        string = rust_string.string.replace("\n", "").replace("\r", "")
+        if string not in large_chunk:
+            print(string.encode("utf-8"))
+        else:
+            total_extracted_rust_string_length += len(string)
 
     percentage = format((total_extracted_rust_string_length / total_static_string_length) * 100, ".2f")
 
