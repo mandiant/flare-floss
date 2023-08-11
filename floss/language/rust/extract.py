@@ -20,21 +20,18 @@ MIN_STR_LEN = 4
 VA: TypeAlias = int
 
 
-def get_rdata_section_info(pe: pefile.PE) -> Tuple[int, int, int, int]:
+def get_rdata_section_info(pe: pefile.PE) -> pefile.SectionStructure:
     """
     Retrieve info about .rdata section
     """
+    rdata_structure = pefile.SectionStructure(pe.__IMAGE_SECTION_HEADER_format__)
+
     for section in pe.sections:
         if section.Name.startswith(b".rdata\x00"):
-            virtual_address = section.VirtualAddress
-            pointer_to_raw_data = section.PointerToRawData
-            section_size = section.SizeOfRawData
+            rdata_structure = section
             break
 
-    start_address = pointer_to_raw_data
-    end_address = pointer_to_raw_data + section_size
-
-    return start_address, end_address, virtual_address, pointer_to_raw_data
+    return rdata_structure
 
 
 def filter_strings(
@@ -90,7 +87,12 @@ def extract_utf8_strings(sample: pefile.PE, min_length: int) -> List[StaticStrin
 
     image_base = pe.OPTIONAL_HEADER.ImageBase
 
-    start_rdata, end_rdata, virtual_address, pointer_to_raw_data = get_rdata_section_info(pe)
+    # start_rdata, end_rdata, virtual_address, pointer_to_raw_data = get_rdata_section_info(pe)
+    rdata_section = get_rdata_section_info(pe)
+    start_rdata = rdata_section.PointerToRawData
+    end_rdata = start_rdata + rdata_section.SizeOfRawData
+    virtual_address = rdata_section.VirtualAddress
+    pointer_to_raw_data = rdata_section.PointerToRawData
 
     # extract utf-8 strings
     strings = list(b2s.extract_all_strings(buf[start_rdata:end_rdata], min_length))
@@ -124,7 +126,7 @@ def extract_utf8_strings(sample: pefile.PE, min_length: int) -> List[StaticStrin
 
     for ref in ref_data:
         try:
-            string = StaticString.from_utf8(ref[0].replace("\n", "").encode("utf-8"), ref[1], min_length)
+            string = StaticString.from_utf8(ref[0].encode("utf-8"), ref[1], min_length)
             static_strings.append(string)
         except ValueError:
             pass
