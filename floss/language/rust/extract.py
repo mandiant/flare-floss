@@ -5,6 +5,7 @@ import logging
 import pathlib
 import argparse
 from typing import List, Tuple, Iterable, Optional
+from collections import namedtuple
 
 import pefile
 import binary2strings as b2s
@@ -19,6 +20,8 @@ MIN_STR_LEN = 4
 
 VA: TypeAlias = int
 
+Strings = namedtuple("Strings", ["string", "start_address", "end_address"])
+
 
 def get_rdata_section_info(pe: pefile.PE) -> pefile.SectionStructure:
     """
@@ -30,15 +33,16 @@ def get_rdata_section_info(pe: pefile.PE) -> pefile.SectionStructure:
         if section.Name.startswith(b".rdata\x00"):
             rdata_structure = section
             break
+    else:
+        logger.error("No .rdata section found")
+        sys.exit(1)
 
     return rdata_structure
 
 
-def filter_strings(
-    strings: List[Tuple[str, str, Tuple[int, int], bool]], start_rdata: int, end_rdata: int
-) -> List[Tuple[str, int, int]]:
+def filter_strings_utf8(strings: List[Tuple[str, str, Tuple[int, int], bool]], start_rdata: int) -> List[Strings]:
     """
-    Extract strings only from .rdata segment, discard others
+    Filter out strings that are not UTF-8
     """
 
     ref_data = []
@@ -47,19 +51,15 @@ def filter_strings(
         start = string[2][0] + start_rdata
         end = string[2][1] + start_rdata
         string_type = string[1]
-        if not (start_rdata <= start < end_rdata):
-            continue
-        if not (start_rdata <= end < end_rdata):
-            continue
         if string_type != "UTF8":
             continue
 
-        ref_data.append((string[0], start, end))
+        ref_data.append(Strings(string[0], start, end))
 
     return ref_data
 
 
-def split_string(ref_data: List[Tuple[str, int, int]], address: int) -> None:
+def split_string(ref_data: List[Strings], address: int) -> None:
     """
     if address is in between start and end of a string in ref data then split the string
     """
@@ -97,8 +97,8 @@ def extract_utf8_strings(sample: pefile.PE, min_length: int) -> List[StaticStrin
     # extract utf-8 strings
     strings = list(b2s.extract_all_strings(buf[start_rdata:end_rdata], min_length))
 
-    # Filtering out strings that are not in .rdata
-    ref_data = filter_strings(strings, start_rdata, end_rdata)
+    # Filtering out strings that are not UTF-8
+    ref_data = filter_strings_utf8(strings, start_rdata)
 
     # Get Struct string instances for .rdata section
     candidates = get_struct_string_candidates(pe)
