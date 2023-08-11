@@ -67,8 +67,8 @@ def split_string(ref_data: List[Strings], address: int) -> None:
     for ref in ref_data:
         if ref[1] < address < ref[2]:
             # split the string and add it to ref_data
-            ref_data.append((ref[0][0 : address - ref[1]], ref[1], address))
-            ref_data.append((ref[0][address - ref[1] :], address, ref[2]))
+            ref_data.append(Strings(ref[0][0 : address - ref[1]], ref[1], address))
+            ref_data.append(Strings(ref[0][address - ref[1] :], address, ref[2]))
 
             # remove the original string
             ref_data.remove(ref)
