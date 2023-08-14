@@ -40,7 +40,9 @@ def get_rdata_section_info(pe: pefile.PE) -> pefile.SectionStructure:
     return rdata_structure
 
 
-def filter_and_transform_utf8_strings(strings: List[Tuple[str, str, Tuple[int, int], bool]], start_rdata: int) -> List[Strings]:
+def filter_and_transform_utf8_strings(
+    strings: List[Tuple[str, str, Tuple[int, int], bool]], start_rdata: int
+) -> List[Strings]:
     """
     Filter out strings that are not UTF-8
     """
