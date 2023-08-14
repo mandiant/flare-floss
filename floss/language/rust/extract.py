@@ -87,7 +87,6 @@ def extract_utf8_strings(sample: pefile.PE, min_length: int) -> List[StaticStrin
 
     image_base = pe.OPTIONAL_HEADER.ImageBase
 
-    # start_rdata, end_rdata, virtual_address, pointer_to_raw_data = get_rdata_section_info(pe)
     rdata_section = get_rdata_section_info(pe)
     start_rdata = rdata_section.PointerToRawData
     end_rdata = start_rdata + rdata_section.SizeOfRawData
