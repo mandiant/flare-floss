@@ -59,7 +59,6 @@ def main():
 
     for section in pe.sections:
         if section.Name.startswith(b".rdata\x00"):
-            virtual_address = section.VirtualAddress
             pointer_to_raw_data = section.PointerToRawData
             section_size = section.SizeOfRawData
             break
@@ -90,7 +89,7 @@ def get_extract_stats(static_strings: Iterable[StaticString], rust_strings: List
         # so we have to remove them from rust_string to compare
         string = rust_string.string.replace("\n", "").replace("\r", "")
         if string not in large_chunk:
-            print(string.encode("utf-8"))
+            logger.debug(string.encode("utf-8"))
         else:
             total_extracted_rust_string_length += len(string)
 

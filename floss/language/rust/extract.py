@@ -40,7 +40,7 @@ def get_rdata_section_info(pe: pefile.PE) -> pefile.SectionStructure:
     return rdata_structure
 
 
-def filter_strings_utf8(strings: List[Tuple[str, str, Tuple[int, int], bool]], start_rdata: int) -> List[Strings]:
+def filter_and_transform_utf8_strings(strings: List[Tuple[str, str, Tuple[int, int], bool]], start_rdata: int) -> List[Strings]:
     """
     Filter out strings that are not UTF-8
     """
@@ -101,8 +101,8 @@ def extract_rust_strings(sample: pefile.PE, min_length: int) -> List[StaticStrin
     # extract utf-8 strings
     strings = list(b2s.extract_all_strings(buf[start_rdata:end_rdata], min_length))
 
-    # Filtering out strings that are not UTF-8
-    ref_data = filter_strings_utf8(strings, start_rdata)
+    # filter out strings that are not UTF-8 and transform them
+    ref_data = filter_and_transform_utf8_strings(strings, start_rdata)
 
     # Get Struct string instances for .rdata section
     candidates = get_struct_string_candidates(pe)
