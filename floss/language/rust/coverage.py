@@ -10,7 +10,7 @@ import pefile
 
 from floss.results import StaticString
 from floss.strings import extract_ascii_unicode_strings
-from floss.language.rust.extract import extract_utf8_strings
+from floss.language.rust.extract import extract_rust_strings
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +69,7 @@ def main():
 
     static_strings: Iterable[StaticString] = extract_ascii_unicode_strings(buf[start_rdata:end_rdata], args.min_length)
 
-    rust_strings = extract_utf8_strings(path, args.min_length)
+    rust_strings = extract_rust_strings(path, args.min_length)
 
     get_extract_stats(static_strings, rust_strings)
 

@@ -35,7 +35,7 @@ def get_rdata_section_info(pe: pefile.PE) -> pefile.SectionStructure:
             break
     else:
         logger.error("No .rdata section found")
-        sys.exit(1)
+        return rdata_structure
 
     return rdata_structure
 
@@ -76,7 +76,7 @@ def split_string(ref_data: List[Strings], address: int) -> None:
             break
 
 
-def extract_utf8_strings(sample: pefile.PE, min_length: int) -> List[StaticString]:
+def extract_rust_strings(sample: pefile.PE, min_length: int) -> List[StaticString]:
     """
     Extract UTF-8 strings from the given PE file using binary2strings
     """
@@ -88,6 +88,11 @@ def extract_utf8_strings(sample: pefile.PE, min_length: int) -> List[StaticStrin
     image_base = pe.OPTIONAL_HEADER.ImageBase
 
     rdata_section = get_rdata_section_info(pe)
+
+    # If .rdata section is not found
+    if rdata_section.VirtualAddress == None:
+        return []
+
     start_rdata = rdata_section.PointerToRawData
     end_rdata = start_rdata + rdata_section.SizeOfRawData
     virtual_address = rdata_section.VirtualAddress
@@ -148,7 +153,7 @@ def main(argv=None):
 
     logging.basicConfig(level=logging.DEBUG)
 
-    rust_strings = sorted(extract_utf8_strings(args.path, args.min_length), key=lambda s: s.offset)
+    rust_strings = sorted(extract_rust_strings(args.path, args.min_length), key=lambda s: s.offset)
     for string in rust_strings:
         print(f"{string.offset:#x}: {string.string}")
 
