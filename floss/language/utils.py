@@ -1,13 +1,17 @@
 import re
 import array
 import struct
+import hashlib
 from typing import List, Tuple, Iterable, Optional
 from dataclasses import dataclass
 
 import pefile
+import tabulate
 from typing_extensions import TypeAlias
 
 import floss.utils
+from floss.results import StaticString, StringEncoding
+from floss.render.sanitize import sanitize
 
 VA: TypeAlias = int
 
@@ -299,3 +303,216 @@ def get_struct_string_candidates(pe: pefile.PE) -> Iterable[StructString]:
             # to valid UTF-8 data;
             # however, even copying the bytes here is very slow,
             # dozens of seconds or more (suspect many minutes).
+
+
+def get_extract_stats(pe, all_ss_strings: List[StaticString], lang_strings, min_len, min_blob_len) -> float:
+    all_strings = list()
+    # these are ascii, extract these utf-8 to get fewer chunks (ascii may split on two-byte characters, for example)
+    for ss in all_ss_strings:
+        sec = pe.get_section_by_rva(ss.offset)
+        secname = sec.Name.decode("utf-8").split("\x00")[0] if sec else ""
+        all_strings.append((secname, ss))
+
+    len_all_ss = 0
+    len_lang_str = 0
+
+    lang_str_found = list()
+    results = list()
+    for secname, s in all_strings:
+        if secname != ".rdata":
+            continue
+
+        if len(s.string) <= min_blob_len:
+            continue
+
+        len_all_ss += len(s.string)
+
+        orig_len = len(s.string)
+        sha256 = hashlib.sha256()
+        sha256.update(s.string.encode("utf-8"))
+        s_id = sha256.hexdigest()[:3].upper()
+        s_range = (s.offset, s.offset + len(s.string))
+
+        found = False
+        for lang_str in lang_strings:
+            sec = pe.get_section_by_rva(lang_str.offset)
+            lang_str_sec = sec.Name.decode("utf-8").split("\x00")[0] if sec else ""
+
+            if lang_str_sec != ".rdata":
+                continue
+
+            if (
+                lang_str.string
+                and lang_str.string in s.string
+                and lang_str_sec == secname
+                and s.offset <= lang_str.offset <= s.offset + orig_len
+            ):
+                found = True
+                len_lang_str += len(lang_str.string)
+
+                # remove found string data
+                idx = s.string.find(lang_str.string)
+                assert idx != -1
+                if idx == 0:
+                    new_offset = s.offset + idx + len(lang_str.string)
+                else:
+                    new_offset = s.offset
+
+                replaced_s = s.string.replace(lang_str.string, "", 1)
+                replaced_len = len(replaced_s)
+                s_trimmed = StaticString(
+                    string=replaced_s,
+                    offset=new_offset,
+                    encoding=s.encoding,
+                )
+
+                type_ = "substring"
+                if s.string[: len(lang_str.string)] == lang_str.string and s.offset == lang_str.offset:
+                    type_ = "exactsubstr"
+
+                results.append((secname, s_id, s_range, True, type_, s, replaced_len, lang_str))
+
+                s = s_trimmed
+
+                lang_str_found.append(lang_str)
+
+                if replaced_len < min_len:
+                    results.append((secname, s_id, s_range, False, "missing", s, orig_len - replaced_len, lang_str))
+                    break
+
+        if not found:
+            null = StaticString(string="", offset=0, encoding=StringEncoding.UTF8)
+            results.append((secname, s_id, s_range, False, "", s, 0, null))
+
+    rows = list()
+    for lang_str in lang_strings:
+        sec = pe.get_section_by_rva(lang_str.offset)
+        lang_str_sec = sec.Name.decode("utf-8").split("\x00")[0] if sec else ""
+        if lang_str_sec != ".rdata":
+            continue
+
+        if lang_str in lang_str_found:
+            continue
+
+        lang_str_data = lang_str.string
+        if len(lang_str.string) >= 50:
+            lang_str_data = lang_str.string[:36] + "...." + lang_str.string[-10:]
+        lang_str_data = sanitize(lang_str_data)
+
+        rows.append(
+            (
+                f"{lang_str_sec}",
+                f"",
+                f"",
+                f"{lang_str.offset:8x}",
+                f"",
+                f"unmatched Language string",
+                f"",
+                f"",
+                f"{len(lang_str.string) if lang_str.string else ''}",
+                f"{lang_str_data}",
+                f"{hex(lang_str.offset) if lang_str.offset else ''}",
+            )
+        )
+
+    for r in results:
+        secname, s_id, s_range, found, msg, s, len_after, lang_str = r
+
+        sdata = s.string
+        if len(s.string) >= 50:
+            sdata = s.string[:36] + "...." + s.string[-10:]
+        sdata = sanitize(sdata)
+
+        lang_str_data = lang_str.string
+        if len(lang_str.string) >= 50:
+            lang_str_data = lang_str.string[:36] + "...." + lang_str.string[-10:]
+        lang_str_data = sanitize(lang_str_data)
+
+        len_info = f"{len(s.string):3d}"
+        if found:
+            len_info = f"{len(s.string):3d} > {len_after:3d} ({(len(s.string) - len_after) * -1:2d})"
+
+        rows.append(
+            (
+                f"{secname}",
+                f"<{s_id}>",
+                f"{s_range[0]:x} - {s_range[1]:x}",
+                f"{s.offset:8x}",
+                f"{found}",
+                f"{msg}",
+                len_info,
+                f"{sdata}",
+                f"{len(lang_str.string) if lang_str.string else ''}",
+                f"{lang_str_data}",
+                f"{hex(lang_str.offset) if lang_str.offset else ''}",
+            )
+        )
+
+    rows = sorted(rows, key=lambda t: t[3])
+
+    print(
+        tabulate.tabulate(
+            rows,
+            headers=[
+                "section",
+                "id",
+                "range",
+                "offset",
+                "found",
+                "msg",
+                "slen",
+                "string",
+                "lang_str_len",
+                "lang_string",
+                "lang_str_off",
+            ],
+            tablefmt="psql",
+        )
+    )
+
+    print(".rdata only")
+    print("len all string chars:", len_all_ss)
+    print("len lang string chars  :", len_lang_str)
+    print(f"Percentage of string chars extracted: {round(100 * (len_lang_str / len_all_ss))}%")
+    print()
+
+    return 100 * (len_lang_str / len_all_ss)
+
+
+def get_missed_strings(
+    all_ss_strings: List[StaticString], lang_strings: List[StaticString], min_len: int
+) -> List[StaticString]:
+    missed_strings = list()
+
+    for s in all_ss_strings:
+        orig_len = len(s.string)
+
+        found = False
+        for lang_str in lang_strings:
+            if lang_str.string and lang_str.string in s.string and s.offset <= lang_str.offset <= s.offset + orig_len:
+                found = True
+
+                # remove found string data
+                idx = s.string.find(lang_str.string)
+                assert idx != -1
+                if idx == 0:
+                    new_offset = s.offset + idx + len(lang_str.string)
+                else:
+                    new_offset = s.offset
+
+                replaced_s = s.string.replace(lang_str.string, "", 1)
+                replaced_len = len(replaced_s)
+                s_trimmed = StaticString(
+                    string=replaced_s,
+                    offset=new_offset,
+                    encoding=s.encoding,
+                )
+                s = s_trimmed
+
+                if replaced_len < min_len:
+                    break
+
+        if not found:
+            missed_strings.append(s)
+
+    return missed_strings
