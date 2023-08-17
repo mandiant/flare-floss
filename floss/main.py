@@ -591,7 +591,7 @@ def main(argv=None) -> int:
                 results.strings.language_strings = floss.language.go.extract.extract_go_strings(sample, args.min_length)
                 results.metadata.runtime.language_strings = get_runtime_diff(interim)
 
-                results.strings.language_strings_missed = floss.language.go.coverage.get_missed_strings(
+                results.strings.language_strings_missed = floss.language.utils.get_missed_strings(
                     static_strings, results.strings.language_strings, args.min_length
                 )
     if (
