@@ -27,7 +27,7 @@ def get_rdata_section_info(pe: pefile.PE) -> pefile.SectionStructure:
     """
     Retrieve info about .rdata section
     """
-    rdata_structure = pefile.SectionStructure(pe.__IMAGE_SECTION_HEADER_format__)
+    rdata_structure = None
 
     for section in pe.sections:
         if section.Name.startswith(b".rdata\x00"):
@@ -35,7 +35,6 @@ def get_rdata_section_info(pe: pefile.PE) -> pefile.SectionStructure:
             break
     else:
         logger.error("No .rdata section found")
-        return rdata_structure
 
     return rdata_structure
 
@@ -43,7 +42,6 @@ def get_rdata_section_info(pe: pefile.PE) -> pefile.SectionStructure:
 def filter_and_transform_utf8_strings(
     strings: List[Tuple[str, str, Tuple[int, int], bool]], start_rdata: int
 ) -> List[Strings]:
-
     ref_data = []
 
     for string in strings:
@@ -89,7 +87,7 @@ def extract_rust_strings(sample: pefile.PE, min_length: int) -> List[StaticStrin
     rdata_section = get_rdata_section_info(pe)
 
     # If .rdata section is not found
-    if rdata_section.VirtualAddress == None:
+    if rdata_section == None:
         return []
 
     start_rdata = rdata_section.PointerToRawData
