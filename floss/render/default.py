@@ -9,7 +9,7 @@ from typing import Dict, List, Tuple, Union
 from rich import box
 from rich.table import Table
 from rich.markup import escape
-from enrich.console import Console
+from rich.console import Console
 
 import floss.utils as util
 import floss.logging_
@@ -301,7 +301,7 @@ def get_color(color):
 
 def render(results: floss.results.ResultDocument, verbose, disable_headers, color):
     sys.__stdout__.reconfigure(encoding="utf-8")
-    console = Console(file=io.StringIO(), color_system=get_color(color), highlight=False, redirect=False)
+    console = Console(file=io.StringIO(), color_system=get_color(color), highlight=False, soft_wrap=True)
 
     if not disable_headers:
         console.print("\n")
