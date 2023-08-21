@@ -56,16 +56,37 @@ def filter_and_transform_utf8_strings(
     return ref_data
 
 
-def split_string(ref_data: List[Strings], address: int) -> None:
+def split_string(ref_data: List[Strings], static_strings: List[StaticString], address: int) -> None:
     """
     if address is in between start and end of a string in ref data then split the string
     """
 
     for ref in ref_data:
-        if ref[1] < address < ref[2]:
+        if ref[1] <= address < ref[2]:
             # split the string and add it to ref_data
             ref_data.append(Strings(ref[0][0 : address - ref[1]], ref[1], address))
             ref_data.append(Strings(ref[0][address - ref[1] :], address, ref[2]))
+
+            # split the string and add it to static_strings
+            try:
+                static_strings.append(
+                    StaticString.from_utf8(ref[0][0 : address - ref[1]].encode("utf-8"), ref[1], MIN_STR_LEN)
+                )
+            except ValueError:
+                pass
+
+            try:
+                static_strings.append(
+                    StaticString.from_utf8(ref[0][address - ref[1] :].encode("utf-8"), address, MIN_STR_LEN)
+                )
+            except ValueError:
+                pass
+
+            # remove from static strings if it exists
+            for string in static_strings:
+                if string.string == ref[0]:
+                    static_strings.remove(string)
+                    break
 
             # remove the original string
             ref_data.remove(ref)
@@ -81,6 +102,7 @@ def extract_rust_strings(sample: pefile.PE, min_length: int) -> List[StaticStrin
     p = pathlib.Path(sample)
     buf = p.read_bytes()
     pe = pefile.PE(data=buf, fast_load=True)
+    static_strings = []
 
     image_base = pe.OPTIONAL_HEADER.ImageBase
 
@@ -101,6 +123,13 @@ def extract_rust_strings(sample: pefile.PE, min_length: int) -> List[StaticStrin
     # filter out strings that are not UTF-8 and transform them
     ref_data = filter_and_transform_utf8_strings(strings, start_rdata)
 
+    # append all the ref_data strings to static_strings
+    for ref in ref_data:
+        try:
+            static_strings.append(StaticString.from_utf8(ref[0].encode("utf-8"), ref[1], min_length))
+        except ValueError:
+            pass
+
     # Get Struct string instances for .rdata section
     candidates = get_struct_string_candidates(pe)
 
@@ -110,7 +139,7 @@ def extract_rust_strings(sample: pefile.PE, min_length: int) -> List[StaticStrin
         if not (start_rdata <= address < end_rdata):
             continue
 
-        split_string(ref_data, address)
+        split_string(ref_data, static_strings, address)
 
     # Get references from .text segment
     xrefs = find_lea_xrefs(pe)
@@ -121,16 +150,7 @@ def extract_rust_strings(sample: pefile.PE, min_length: int) -> List[StaticStrin
         if not (start_rdata <= address < end_rdata):
             continue
 
-        split_string(ref_data, address)
-
-    static_strings = []
-
-    for ref in ref_data:
-        try:
-            string = StaticString.from_utf8(ref[0].encode("utf-8"), ref[1], min_length)
-            static_strings.append(string)
-        except ValueError:
-            pass
+        split_string(ref_data, static_strings, address)
 
     return static_strings
 
