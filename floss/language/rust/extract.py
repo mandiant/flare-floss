@@ -56,42 +56,45 @@ def filter_and_transform_utf8_strings(
     return ref_data
 
 
-def split_string(ref_data: List[Strings], static_strings: List[StaticString], address: int) -> None:
+def split_string(ref_data: List[Strings], address: int) -> Optional[List[StaticString]]:
     """
     if address is in between start and end of a string in ref data then split the string
     """
 
     for ref in ref_data:
-        if ref[1] <= address < ref[2]:
+        if ref[1] < address < ref[2]:
+            static_strings = []
+
+            string1 = ref[0][0 : address - ref[1]]
+            string2 = ref[0][address - ref[1] :]
+
             # split the string and add it to ref_data
-            ref_data.append(Strings(ref[0][0 : address - ref[1]], ref[1], address))
-            ref_data.append(Strings(ref[0][address - ref[1] :], address, ref[2]))
+            ref_data.append(Strings(string1, ref[1], address))
+            ref_data.append(Strings(string2, address, ref[2]))
 
             # split the string and add it to static_strings
             try:
-                static_strings.append(
-                    StaticString.from_utf8(ref[0][0 : address - ref[1]].encode("utf-8"), ref[1], MIN_STR_LEN)
-                )
+                static_strings.append(StaticString.from_utf8(string1.encode("utf-8"), ref[1], MIN_STR_LEN))
             except ValueError:
                 pass
 
             try:
-                static_strings.append(
-                    StaticString.from_utf8(ref[0][address - ref[1] :].encode("utf-8"), address, MIN_STR_LEN)
-                )
+                static_strings.append(StaticString.from_utf8(string2.encode("utf-8"), address, MIN_STR_LEN))
             except ValueError:
                 pass
 
-            # remove from static strings if it exists
-            for string in static_strings:
-                if string.string == ref[0]:
-                    static_strings.remove(string)
-                    break
+            # append removed string to static_strings
+            try:
+                static_strings.append(StaticString.from_utf8(ref[0].encode("utf-8"), ref[1], MIN_STR_LEN))
+            except ValueError:
+                pass
 
             # remove the original string
             ref_data.remove(ref)
 
-            break
+            return static_strings
+
+    return None
 
 
 def extract_rust_strings(sample: pefile.PE, min_length: int) -> List[StaticString]:
@@ -139,7 +142,16 @@ def extract_rust_strings(sample: pefile.PE, min_length: int) -> List[StaticStrin
         if not (start_rdata <= address < end_rdata):
             continue
 
-        split_string(ref_data, static_strings, address)
+        split_strings = split_string(ref_data, address)
+
+        if split_strings:
+            # remove the original string
+            for static_string in static_strings:
+                if static_string == split_strings[-1]:
+                    static_strings.remove(static_string)
+                    break
+
+            static_strings.extend(split_strings[:-1])
 
     # Get references from .text segment
     xrefs = find_lea_xrefs(pe)
@@ -150,7 +162,16 @@ def extract_rust_strings(sample: pefile.PE, min_length: int) -> List[StaticStrin
         if not (start_rdata <= address < end_rdata):
             continue
 
-        split_string(ref_data, static_strings, address)
+        split_strings = split_string(ref_data, address)
+
+        if split_strings:
+            # remove the original string
+            for static_string in static_strings:
+                if static_string == split_strings[-1]:
+                    static_strings.remove(static_string)
+                    break
+
+            static_strings.extend(split_strings[:2])
 
     return static_strings
 
