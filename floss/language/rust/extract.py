@@ -1,15 +1,13 @@
 # Copyright (C) 2023 Mandiant, Inc. All Rights Reserved.
-
 import sys
 import logging
 import pathlib
 import argparse
-from typing import List, Tuple, Iterable, Optional
+import itertools
+from typing import List, Tuple, Iterable
 
 import pefile
 import binary2strings as b2s
-from typing_extensions import TypeAlias
-
 from floss.results import StaticString, StringEncoding
 from floss.language.utils import find_lea_xrefs, get_struct_string_candidates
 
@@ -17,100 +15,81 @@ logger = logging.getLogger(__name__)
 
 MIN_STR_LEN = 4
 
-VA: TypeAlias = int
 
-
-def get_rdata_section_info(pe: pefile.PE) -> pefile.SectionStructure:
-    """
-    Retrieve info about .rdata section
-    """
-    rdata_structure = None
-
+def get_rdata_section(pe: pefile.PE) -> pefile.SectionStructure:
     for section in pe.sections:
         if section.Name.startswith(b".rdata\x00"):
-            rdata_structure = section
-            break
-    else:
-        logger.error("No .rdata section found")
-        raise ValueError("No .rdata section found")
+            return section
 
-    return rdata_structure
+    raise ValueError("no .rdata section found")
 
 
 def filter_and_transform_utf8_strings(
     strings: List[Tuple[str, str, Tuple[int, int], bool]],
     start_rdata: int,
-    min_length: int,
 ) -> List[StaticString]:
-    static_strings = []
+    transformed_strings = []
 
     for string in strings:
-        start = string[2][0] + start_rdata
+        s = string[0]
         string_type = string[1]
+        start = string[2][0] + start_rdata
+
         if string_type != "UTF8":
             continue
-        try:
-            static_strings.append(StaticString.from_utf8(string[0].encode("utf-8"), start, min_length))
-        except ValueError:
-            pass
 
-    return static_strings
+        # our static algorithm does not extract new lines either
+        s = s.replace("\n", "")
+        transformed_strings.append(StaticString(string=s, offset=start, encoding=StringEncoding.UTF8))
+
+    return transformed_strings
 
 
-def split_string(static_strings: List[StaticString], address: int) -> List[StaticString]:
+def split_strings(static_strings: List[StaticString], address: int) -> None:
     """
     if address is in between start and end of a string in ref data then split the string
+    this modifies the elements of the static strings list directly
     """
 
     for string in static_strings:
         if string.offset < address < string.offset + len(string.string):
-            string1 = string.string[0 : address - string.offset]
-            string2 = string.string[address - string.offset :]
+            rust_string = string.string[0 : address - string.offset]
+            rest = string.string[address - string.offset :]
 
-            # split the string and add it to static_strings
-            try:
-                static_strings.append(StaticString.from_utf8(string1.encode("utf-8"), string.offset, MIN_STR_LEN))
-            except ValueError:
-                pass
-
-            try:
-                static_strings.append(StaticString.from_utf8(string2.encode("utf-8"), address, MIN_STR_LEN))
-            except ValueError:
-                pass
+            static_strings.append(StaticString(string=rust_string, offset=string.offset, encoding=StringEncoding.UTF8))
+            static_strings.append(StaticString(string=rest, offset=address, encoding=StringEncoding.UTF8))
 
             # remove string from static_strings
-            try:
-                string = StaticString.from_utf8(string.string.encode("utf-8"), string.offset, MIN_STR_LEN)
-                for static_string in static_strings:
-                    if static_string == string:
-                        static_strings.remove(static_string)
-                        break
-            except ValueError:
-                pass
+            for static_string in static_strings:
+                if static_string == string:
+                    static_strings.remove(static_string)
+                    return
 
-            return static_strings
-
-    return static_strings
+            return
 
 
-def extract_rust_strings(sample: pefile.PE, min_length: int) -> List[StaticString]:
+def extract_rust_strings(sample: str, min_length: int) -> List[StaticString]:
     """
-    Extract UTF-8 strings from the given PE file using binary2strings
+    Extract Rust strings from a sample
     """
 
     p = pathlib.Path(sample)
     buf = p.read_bytes()
     pe = pefile.PE(data=buf, fast_load=True)
 
+    rust_strings: List[StaticString] = list()
+    rust_strings.extend(get_string_blob_strings(pe, min_length))
+
+    return rust_strings
+
+
+def get_string_blob_strings(pe: pefile.PE, min_length: int) -> Iterable[StaticString]:
     image_base = pe.OPTIONAL_HEADER.ImageBase
 
     try:
-        rdata_section = get_rdata_section_info(pe)
-    except ValueError:
-        return []
-
-    # If .rdata section is not found
-    if rdata_section == None:
+        rdata_section = get_rdata_section(pe)
+    except ValueError as e:
+        logger.error("cannot extract rust strings: %s", e)
         return []
 
     start_rdata = rdata_section.PointerToRawData
@@ -118,33 +97,22 @@ def extract_rust_strings(sample: pefile.PE, min_length: int) -> List[StaticStrin
     virtual_address = rdata_section.VirtualAddress
     pointer_to_raw_data = rdata_section.PointerToRawData
 
-    # extract utf-8 strings
-    strings = list(b2s.extract_all_strings(buf[start_rdata:end_rdata], min_length))
+    # extract utf-8 and wide strings, latter not needed here
+    strings = b2s.extract_all_strings(rdata_section.get_data(), min_length)
 
-    # filter out strings that are not UTF-8 and transform them
-    static_strings = filter_and_transform_utf8_strings(strings, start_rdata, min_length)
+    # select only UTF-8 strings and adjust offset
+    static_strings = filter_and_transform_utf8_strings(strings, start_rdata)
 
-    # Get Struct string instances for .rdata section
-    candidates = get_struct_string_candidates(pe)
-
-    for can in candidates:
-        address = can.address - image_base - virtual_address + pointer_to_raw_data
-
-        if not (start_rdata <= address < end_rdata):
-            continue
-
-        static_strings = split_string(static_strings, address)
-
-    # Get references from .text segment
+    struct_string_addrs = map(lambda c: c.address, get_struct_string_candidates(pe))
     xrefs = find_lea_xrefs(pe)
 
-    for xref in xrefs:
-        address = xref - image_base - virtual_address + pointer_to_raw_data
+    for addr in itertools.chain(struct_string_addrs, xrefs):
+        address = addr - image_base - virtual_address + pointer_to_raw_data
 
         if not (start_rdata <= address < end_rdata):
             continue
 
-        static_strings = split_string(static_strings, address)
+        split_strings(static_strings, address)
 
     return static_strings
 
