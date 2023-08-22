@@ -46,7 +46,6 @@ def filter_and_transform_utf8_strings(
 
     for string in strings:
         start = string[2][0] + start_rdata
-        end = string[2][1] + start_rdata
         string_type = string[1]
         if string_type != "UTF8":
             continue
@@ -65,8 +64,6 @@ def split_string(static_strings: List[StaticString], address: int) -> List[Stati
 
     for string in static_strings:
         if string.offset < address < string.offset + len(string.string):
-            # static_strings = []
-
             string1 = string.string[0 : address - string.offset]
             string2 = string.string[address - string.offset :]
 
@@ -104,7 +101,6 @@ def extract_rust_strings(sample: pefile.PE, min_length: int) -> List[StaticStrin
     p = pathlib.Path(sample)
     buf = p.read_bytes()
     pe = pefile.PE(data=buf, fast_load=True)
-    static_strings: List[StaticString] = []
 
     image_base = pe.OPTIONAL_HEADER.ImageBase
 

@@ -3,7 +3,7 @@
 import json
 import datetime
 from enum import Enum
-from typing import Dict, List, Optional
+from typing import Dict, List
 from pathlib import Path
 from dataclasses import field
 
@@ -133,7 +133,7 @@ class StaticString:
     encoding: StringEncoding
 
     @classmethod
-    def from_utf8(cls, buf, addr, min_length: int):
+    def from_utf8(cls, buf, addr, min_length):
         try:
             decoded_string = buf.decode("utf-8")
         except UnicodeDecodeError:
@@ -141,7 +141,6 @@ class StaticString:
 
         if len(decoded_string) < min_length:
             raise ValueError("too short")
-
         return cls(string=decoded_string, offset=addr, encoding=StringEncoding.UTF8)
 
 
