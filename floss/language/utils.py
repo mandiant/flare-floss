@@ -160,6 +160,109 @@ def find_lea_xrefs(pe: pefile.PE) -> Iterable[VA]:
                 yield xref
 
 
+def find_i386_push_xrefs(buf: bytes) -> Iterable[VA]:
+    """
+    scan the given data found at the given base address
+    to find all the 32-bit PUSH instructions,
+    extracting the target virtual address.
+    """
+    push_insn_re = re.compile(
+        rb"""
+        (
+              \x68       # 68 aa aa 00 00       push   0xaaaa
+        )
+        (?P<address>....)
+        """,
+        re.DOTALL + re.VERBOSE,
+    )
+
+    for match in push_insn_re.finditer(buf):
+        address_bytes = match.group("address")
+        address = struct.unpack("<I", address_bytes)[0]
+
+        yield address
+
+
+def find_push_xrefs(pe: pefile.PE) -> Iterable[VA]:
+    """
+    scan the executable sections of the given PE file
+    for PUSH instructions that reference valid memory addresses,
+    yielding the virtual addresses.
+    """
+    low, high = get_image_range(pe)
+
+    for section in pe.sections:
+        if not section.IMAGE_SCN_MEM_EXECUTE:
+            continue
+
+        code = section.get_data()
+
+        if pe.FILE_HEADER.Machine == pefile.MACHINE_TYPE["IMAGE_FILE_MACHINE_AMD64"]:
+            xrefs: Iterable[VA] = []  # no push instructions on amd64
+        elif pe.FILE_HEADER.Machine == pefile.MACHINE_TYPE["IMAGE_FILE_MACHINE_I386"]:
+            xrefs = find_i386_push_xrefs(code)
+        else:
+            raise ValueError("unhandled architecture")
+
+        for xref in xrefs:
+            if low <= xref < high:
+                yield xref
+
+
+def find_i386_mov_xrefs(buf: bytes) -> Iterable[VA]:
+    """
+    scan the given data found at the given base address
+    to find all the 32-bit MOV instructions,
+    extracting the target virtual address.
+    """
+    mov_insn_re = re.compile(
+        rb"""
+        (
+              \xB9       # b9 aa aa 00 00       mov    ecx,0xaaaa
+            | \xBB       # bb aa aa 00 00       mov    ebx,0xaaaa
+            | \xBA       # ba aa aa 00 00       mov    edx,0xaaaa
+            | \xB8       # b8 aa aa 00 00       mov    eax,0xaaaa
+            | \xBE       # be aa aa 00 00       mov    esi,0xaaaa
+            | \xBF       # bf aa aa 00 00       mov    edi,0xaaaa
+        )
+        (?P<address>....)
+        """,
+        re.DOTALL + re.VERBOSE,
+    )
+
+    for match in mov_insn_re.finditer(buf):
+        address_bytes = match.group("address")
+        address = struct.unpack("<I", address_bytes)[0]
+
+        yield address
+
+
+def find_mov_xrefs(pe: pefile.PE) -> Iterable[VA]:
+    """
+    scan the executable sections of the given PE file
+    for MOV instructions that reference valid memory addresses,
+    yielding the virtual addresses.
+    """
+    low, high = get_image_range(pe)
+
+    for section in pe.sections:
+        if not section.IMAGE_SCN_MEM_EXECUTE:
+            continue
+
+        code = section.get_data()
+
+        if pe.FILE_HEADER.Machine == pefile.MACHINE_TYPE["IMAGE_FILE_MACHINE_AMD64"]:
+            xrefs: Iterable[VA] = []  # no mov instructions on amd64
+        elif pe.FILE_HEADER.Machine == pefile.MACHINE_TYPE["IMAGE_FILE_MACHINE_I386"]:
+            xrefs = find_i386_mov_xrefs(code)
+        else:
+            raise ValueError("unhandled architecture")
+
+        for xref in xrefs:
+            if low <= xref < high:
+                yield xref
+
+
 def get_max_section_size(pe: pefile.PE) -> int:
     """get the size of the largest section, as seen on disk."""
     return max(map(lambda s: s.SizeOfRawData, pe.sections))

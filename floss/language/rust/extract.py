@@ -8,8 +8,9 @@ from typing import List, Tuple, Iterable
 
 import pefile
 import binary2strings as b2s
+
 from floss.results import StaticString, StringEncoding
-from floss.language.utils import find_lea_xrefs, get_struct_string_candidates
+from floss.language.utils import find_lea_xrefs, find_mov_xrefs, find_push_xrefs, get_struct_string_candidates
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +69,7 @@ def split_strings(static_strings: List[StaticString], address: int) -> None:
             return
 
 
-def extract_rust_strings(sample: str, min_length: int) -> List[StaticString]:
+def extract_rust_strings(sample: pathlib.Path, min_length: int) -> List[StaticString]:
     """
     Extract Rust strings from a sample
     """
@@ -104,9 +105,11 @@ def get_string_blob_strings(pe: pefile.PE, min_length: int) -> Iterable[StaticSt
     static_strings = filter_and_transform_utf8_strings(strings, start_rdata)
 
     struct_string_addrs = map(lambda c: c.address, get_struct_string_candidates(pe))
-    xrefs = find_lea_xrefs(pe)
+    xrefs_lea = find_lea_xrefs(pe)
+    xrefs_push = find_push_xrefs(pe)
+    xrefs_mov = find_mov_xrefs(pe)
 
-    for addr in itertools.chain(struct_string_addrs, xrefs):
+    for addr in itertools.chain(struct_string_addrs, xrefs_lea, xrefs_push, xrefs_mov):
         address = addr - image_base - virtual_address + pointer_to_raw_data
 
         if not (start_rdata <= address < end_rdata):
