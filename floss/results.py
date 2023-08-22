@@ -130,11 +130,10 @@ class StaticString:
 
     string: str
     offset: int
-    offset_end: int = 0
-    encoding: StringEncoding = StringEncoding.ASCII
+    encoding: StringEncoding
 
     @classmethod
-    def from_utf8(cls, buf, addr, min_length: int, end_addr: Optional[int] = None):
+    def from_utf8(cls, buf, addr, min_length: int):
         try:
             decoded_string = buf.decode("utf-8")
         except UnicodeDecodeError:
@@ -143,10 +142,7 @@ class StaticString:
         if len(decoded_string) < min_length:
             raise ValueError("too short")
 
-        if end_addr is None:
-            end_addr = addr + len(buf)
-
-        return cls(string=decoded_string, offset=addr, offset_end=end_addr, encoding=StringEncoding.UTF8)
+        return cls(string=decoded_string, offset=addr, encoding=StringEncoding.UTF8)
 
 
 @dataclass

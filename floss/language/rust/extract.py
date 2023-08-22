@@ -41,8 +41,7 @@ def filter_and_transform_utf8_strings(
     strings: List[Tuple[str, str, Tuple[int, int], bool]],
     start_rdata: int,
     min_length: int,
-) -> None:
-    
+) -> List[StaticString]:
     static_strings = []
 
     for string in strings:
@@ -59,30 +58,26 @@ def filter_and_transform_utf8_strings(
     return static_strings
 
 
-def split_string(static_strings: List[StaticString], address: int) -> Optional[List[StaticString]]:
+def split_string(static_strings: List[StaticString], address: int) -> List[StaticString]:
     """
     if address is in between start and end of a string in ref data then split the string
     """
 
     for string in static_strings:
         if string.offset < address < string.offset + len(string.string):
-            static_strings = []
+            # static_strings = []
 
             string1 = string.string[0 : address - string.offset]
             string2 = string.string[address - string.offset :]
 
             # split the string and add it to static_strings
             try:
-                static_strings.append(
-                    StaticString.from_utf8(string1.encode("utf-8"), string.offset, MIN_STR_LEN)
-                )
+                static_strings.append(StaticString.from_utf8(string1.encode("utf-8"), string.offset, MIN_STR_LEN))
             except ValueError:
                 pass
 
             try:
-                static_strings.append(
-                    StaticString.from_utf8(string2.encode("utf-8"), address, MIN_STR_LEN)
-                )
+                static_strings.append(StaticString.from_utf8(string2.encode("utf-8"), address, MIN_STR_LEN))
             except ValueError:
                 pass
 
@@ -98,7 +93,7 @@ def split_string(static_strings: List[StaticString], address: int) -> Optional[L
 
             return static_strings
 
-    return None
+    return static_strings
 
 
 def extract_rust_strings(sample: pefile.PE, min_length: int) -> List[StaticString]:
