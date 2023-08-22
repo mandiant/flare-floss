@@ -32,6 +32,7 @@ def get_rdata_section_info(pe: pefile.PE) -> pefile.SectionStructure:
             break
     else:
         logger.error("No .rdata section found")
+        raise ValueError("No .rdata section found")
 
     return rdata_structure
 
@@ -108,7 +109,10 @@ def extract_rust_strings(sample: pefile.PE, min_length: int) -> List[StaticStrin
 
     image_base = pe.OPTIONAL_HEADER.ImageBase
 
-    rdata_section = get_rdata_section_info(pe)
+    try:
+        rdata_section = get_rdata_section_info(pe)
+    except ValueError:
+        return []
 
     # If .rdata section is not found
     if rdata_section == None:
