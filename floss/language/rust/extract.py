@@ -40,7 +40,10 @@ def get_rdata_section_info(pe: pefile.PE) -> pefile.SectionStructure:
 
 
 def filter_and_transform_utf8_strings(
-    strings: List[Tuple[str, str, Tuple[int, int], bool]], start_rdata: int
+    strings: List[Tuple[str, str, Tuple[int, int], bool]],
+    static_strings: List[StaticString],
+    start_rdata: int,
+    min_length: int,
 ) -> List[Strings]:
     ref_data = []
 
@@ -52,6 +55,11 @@ def filter_and_transform_utf8_strings(
             continue
 
         ref_data.append(Strings(string[0], start, end))
+
+        try:
+            static_strings.append(StaticString.from_utf8(string[0].encode("utf-8"), start, min_length))
+        except ValueError:
+            pass
 
     return ref_data
 
@@ -105,7 +113,7 @@ def extract_rust_strings(sample: pefile.PE, min_length: int) -> List[StaticStrin
     p = pathlib.Path(sample)
     buf = p.read_bytes()
     pe = pefile.PE(data=buf, fast_load=True)
-    static_strings = []
+    static_strings: List[StaticString] = []
 
     image_base = pe.OPTIONAL_HEADER.ImageBase
 
@@ -124,14 +132,7 @@ def extract_rust_strings(sample: pefile.PE, min_length: int) -> List[StaticStrin
     strings = list(b2s.extract_all_strings(buf[start_rdata:end_rdata], min_length))
 
     # filter out strings that are not UTF-8 and transform them
-    ref_data = filter_and_transform_utf8_strings(strings, start_rdata)
-
-    # append all the ref_data strings to static_strings
-    for ref in ref_data:
-        try:
-            static_strings.append(StaticString.from_utf8(ref[0].encode("utf-8"), ref[1], min_length))
-        except ValueError:
-            pass
+    ref_data = filter_and_transform_utf8_strings(strings, static_strings, start_rdata, min_length)
 
     # Get Struct string instances for .rdata section
     candidates = get_struct_string_candidates(pe)
