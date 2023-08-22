@@ -39,10 +39,12 @@ def get_rdata_section_info(pe: pefile.PE) -> pefile.SectionStructure:
 
 def filter_and_transform_utf8_strings(
     strings: List[Tuple[str, str, Tuple[int, int], bool]],
-    static_strings: List[StaticString],
     start_rdata: int,
     min_length: int,
 ) -> None:
+    
+    static_strings = []
+
     for string in strings:
         start = string[2][0] + start_rdata
         end = string[2][1] + start_rdata
@@ -50,9 +52,11 @@ def filter_and_transform_utf8_strings(
         if string_type != "UTF8":
             continue
         try:
-            static_strings.append(StaticString.from_utf8(string[0].encode("utf-8"), start, min_length, end))
+            static_strings.append(StaticString.from_utf8(string[0].encode("utf-8"), start, min_length))
         except ValueError:
             pass
+
+    return static_strings
 
 
 def split_string(static_strings: List[StaticString], address: int) -> Optional[List[StaticString]]:
@@ -61,7 +65,7 @@ def split_string(static_strings: List[StaticString], address: int) -> Optional[L
     """
 
     for string in static_strings:
-        if string.offset < address < string.offset_end:
+        if string.offset < address < string.offset + len(string.string):
             static_strings = []
 
             string1 = string.string[0 : address - string.offset]
@@ -70,29 +74,29 @@ def split_string(static_strings: List[StaticString], address: int) -> Optional[L
             # split the string and add it to static_strings
             try:
                 static_strings.append(
-                    StaticString.from_utf8(string1.encode("utf-8"), string.offset, MIN_STR_LEN, address)
+                    StaticString.from_utf8(string1.encode("utf-8"), string.offset, MIN_STR_LEN)
                 )
             except ValueError:
                 pass
 
             try:
                 static_strings.append(
-                    StaticString.from_utf8(string2.encode("utf-8"), address, MIN_STR_LEN, string.offset_end)
+                    StaticString.from_utf8(string2.encode("utf-8"), address, MIN_STR_LEN)
                 )
             except ValueError:
                 pass
 
             # remove string from static_strings
             try:
-                string = StaticString.from_utf8(
-                    string.string.encode("utf-8"), string.offset, MIN_STR_LEN, string.offset_end
-                )
+                string = StaticString.from_utf8(string.string.encode("utf-8"), string.offset, MIN_STR_LEN)
                 for static_string in static_strings:
                     if static_string == string:
                         static_strings.remove(static_string)
                         break
             except ValueError:
                 pass
+
+            return static_strings
 
     return None
 
@@ -127,7 +131,7 @@ def extract_rust_strings(sample: pefile.PE, min_length: int) -> List[StaticStrin
     strings = list(b2s.extract_all_strings(buf[start_rdata:end_rdata], min_length))
 
     # filter out strings that are not UTF-8 and transform them
-    filter_and_transform_utf8_strings(strings, static_strings, start_rdata, min_length)
+    static_strings = filter_and_transform_utf8_strings(strings, start_rdata, min_length)
 
     # Get Struct string instances for .rdata section
     candidates = get_struct_string_candidates(pe)
@@ -138,7 +142,7 @@ def extract_rust_strings(sample: pefile.PE, min_length: int) -> List[StaticStrin
         if not (start_rdata <= address < end_rdata):
             continue
 
-        split_string(static_strings, address)
+        static_strings = split_string(static_strings, address)
 
     # Get references from .text segment
     xrefs = find_lea_xrefs(pe)
@@ -149,7 +153,7 @@ def extract_rust_strings(sample: pefile.PE, min_length: int) -> List[StaticStrin
         if not (start_rdata <= address < end_rdata):
             continue
 
-        split_string(static_strings, address)
+        static_strings = split_string(static_strings, address)
 
     return static_strings
 
