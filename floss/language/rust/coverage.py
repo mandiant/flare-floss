@@ -61,6 +61,8 @@ def main():
 
     rust_strings = extract_rust_strings(path, args.min_length)
 
+    # The min_blob_length value was chosen as 0 because in rust binaries, the 
+    # string blobs are small and the min_blob_length value is not needed.
     get_extract_stats(pe, static_strings, rust_strings, args.min_length, 0)
 
 
