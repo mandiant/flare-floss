@@ -26,8 +26,6 @@ def identify_language(sample: Path, static_strings: Iterable[StaticString]) -> L
     Identify the language of the binary given
     """
     if is_rust_bin(static_strings):
-        logger.warning("Rust binary detected, Rust binaries are not supported yet; results may be inaccurate")
-        logger.warning("Rust: proceeding with analysis may take a long time")
         return Language.RUST
 
     # Open the file as PE for further checks

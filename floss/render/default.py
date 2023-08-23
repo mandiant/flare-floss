@@ -155,6 +155,18 @@ def render_gostrings(language_strings, language_strings_missed, console, verbose
     console.print("\n")
 
 
+def render_ruststrings(language_strings, language_strings_missed, console, verbose, disable_headers):
+    strings = sorted(language_strings + language_strings_missed, key=lambda s: s.offset)
+    render_heading("FLOSS RUST STRINGS", len(strings), console, verbose, disable_headers)
+    for s in strings:
+        if verbose == Verbosity.DEFAULT:
+            console.print(sanitize(s.string, is_ascii_only=False), markup=False)
+        else:
+            colored_string = string_style(sanitize(s.string, is_ascii_only=False))
+            console.print(f"0x{s.offset:>08x} {colored_string}")
+    console.print("\n")
+
+
 def render_static_substrings(strings, encoding, offset_len, console, verbose, disable_headers):
     if verbose != Verbosity.DEFAULT:
         encoding = heading_style(encoding)
@@ -315,6 +327,11 @@ def render(results: floss.results.ResultDocument, verbose, disable_headers, colo
 
     if results.metadata.language == floss.language.identify.Language.GO.value:
         render_gostrings(
+            results.strings.language_strings, results.strings.language_strings_missed, console, verbose, disable_headers
+        )
+        console.print("\n")
+    elif results.metadata.language == floss.language.identify.Language.RUST.value:
+        render_ruststrings(
             results.strings.language_strings, results.strings.language_strings_missed, console, verbose, disable_headers
         )
         console.print("\n")

@@ -22,9 +22,12 @@ import floss.results
 import floss.version
 import floss.logging_
 import floss.render.json
+import floss.language.utils
 import floss.render.default
 import floss.language.go.extract
 import floss.language.go.coverage
+import floss.language.rust.extract
+import floss.language.rust.coverage
 from floss.const import MEGABYTE, MAX_FILE_SIZE, MIN_STRING_LENGTH, SUPPORTED_FILE_MAGIC
 from floss.utils import (
     hex,
@@ -101,6 +104,7 @@ def make_parser(argv):
         " 4. decoded strings: strings decoded in a function\n\n"
         "Language specific strings:\n"
         " 1. Go strings: strings embedded in Go binaries\n"
+        " 2. Rust strings: strings embedded in Rust binaries\n"
     )
     epilog = textwrap.dedent(
         """
@@ -560,6 +564,24 @@ def main(argv=None) -> int:
                 analysis.enable_tight_strings = False
                 analysis.enable_decoded_strings = False
 
+    elif (lang_id == Language.RUST and args.language == "") or args.language == Language.RUST.value:
+        results.metadata.language = Language.RUST.value
+
+        if args.enabled_types == [] and args.disabled_types == []:
+            prompt = input("Do you want to enable string deobfuscation? (this could take a long time) [y/N] ")
+
+            if prompt == "y" or prompt == "Y":
+                logger.info("enabled string deobfuscation")
+                analysis.enable_stack_strings = True
+                analysis.enable_tight_strings = True
+                analysis.enable_decoded_strings = True
+
+            else:
+                logger.info("disabled string deobfuscation")
+                analysis.enable_stack_strings = False
+                analysis.enable_tight_strings = False
+                analysis.enable_decoded_strings = False
+
     elif (lang_id == Language.DOTNET and args.language == "") or args.language == Language.DOTNET.value:
         logger.warning(".NET language-specific string extraction is not supported")
         logger.warning(" will NOT deobfuscate any .NET strings")
@@ -589,6 +611,19 @@ def main(argv=None) -> int:
 
                 interim = time()
                 results.strings.language_strings = floss.language.go.extract.extract_go_strings(sample, args.min_length)
+                results.metadata.runtime.language_strings = get_runtime_diff(interim)
+
+                results.strings.language_strings_missed = floss.language.utils.get_missed_strings(
+                    static_strings, results.strings.language_strings, args.min_length
+                )
+
+            elif (lang_id == Language.RUST and args.language == "") or args.language == Language.RUST.value:
+                logger.info("applying language-specific Rust string extraction")
+
+                interim = time()
+                results.strings.language_strings = floss.language.rust.extract.extract_rust_strings(
+                    sample, args.min_length
+                )
                 results.metadata.runtime.language_strings = get_runtime_diff(interim)
 
                 results.strings.language_strings_missed = floss.language.utils.get_missed_strings(
