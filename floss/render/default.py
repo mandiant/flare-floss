@@ -143,30 +143,6 @@ def strtime(seconds):
     return f"{m:02.0f}:{s:02.0f}"
 
 
-def render_gostrings(language_strings, language_strings_missed, console, verbose, disable_headers):
-    strings = sorted(language_strings + language_strings_missed, key=lambda s: s.offset)
-    render_heading("FLOSS GO STRINGS", len(strings), console, verbose, disable_headers)
-    for s in strings:
-        if verbose == Verbosity.DEFAULT:
-            console.print(sanitize(s.string, is_ascii_only=False), markup=False)
-        else:
-            colored_string = string_style(sanitize(s.string, is_ascii_only=False))
-            console.print(f"0x{s.offset:>08x} {colored_string}")
-    console.print("\n")
-
-
-def render_ruststrings(language_strings, language_strings_missed, console, verbose, disable_headers):
-    strings = sorted(language_strings + language_strings_missed, key=lambda s: s.offset)
-    render_heading("FLOSS RUST STRINGS", len(strings), console, verbose, disable_headers)
-    for s in strings:
-        if verbose == Verbosity.DEFAULT:
-            console.print(sanitize(s.string, is_ascii_only=False), markup=False)
-        else:
-            colored_string = string_style(sanitize(s.string, is_ascii_only=False))
-            console.print(f"0x{s.offset:>08x} {colored_string}")
-    console.print("\n")
-
-
 def render_language_strings(language, language_strings, language_strings_missed, console, verbose, disable_headers):
     strings = sorted(language_strings + language_strings_missed, key=lambda s: s.offset)
     render_heading(f"FLOSS {language} STRINGS", len(strings), console, verbose, disable_headers)
@@ -336,17 +312,6 @@ def render(results: floss.results.ResultDocument, verbose, disable_headers, colo
             console.print(colored_str)
         render_meta(results, console, verbose)
         console.print("\n")
-
-    # if results.metadata.language == floss.language.identify.Language.GO.value:
-    #     render_gostrings(
-    #         results.strings.language_strings, results.strings.language_strings_missed, console, verbose, disable_headers
-    #     )
-    #     console.print("\n")
-    # elif results.metadata.language == floss.language.identify.Language.RUST.value:
-    #     render_ruststrings(
-    #         results.strings.language_strings, results.strings.language_strings_missed, console, verbose, disable_headers
-    #     )
-    #     console.print("\n")
 
     if (
         results.metadata.language == floss.language.identify.Language.GO.value
