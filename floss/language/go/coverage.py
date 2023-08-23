@@ -57,11 +57,11 @@ def main():
 
     go_strings = extract_go_strings(path, args.min_length)
 
-    get_extract_stats(pe, static_strings, go_strings, args.min_length, 2800)
     # The value 2800 was chosen based on experimentaion on different samples
     # of go binaries that include versions 1.20, 1.18, 1.16, 1.12. and
     # architectures amd64 and i386.
     # See: https://github.com/mandiant/flare-floss/issues/807#issuecomment-1636087673
+    get_extract_stats(pe, static_strings, go_strings, args.min_length, 2800)
 
 
 if __name__ == "__main__":
