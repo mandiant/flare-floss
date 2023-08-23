@@ -105,11 +105,22 @@ def get_string_blob_strings(pe: pefile.PE, min_length: int) -> Iterable[StaticSt
     static_strings = filter_and_transform_utf8_strings(strings, start_rdata)
 
     struct_string_addrs = map(lambda c: c.address, get_struct_string_candidates(pe))
-    xrefs_lea = find_lea_xrefs(pe)
-    xrefs_push = find_push_xrefs(pe)
-    xrefs_mov = find_mov_xrefs(pe)
 
-    for addr in itertools.chain(struct_string_addrs, xrefs_lea, xrefs_push, xrefs_mov):
+    if pe.FILE_HEADER.Machine == pefile.MACHINE_TYPE["IMAGE_FILE_MACHINE_I386"]:
+        xrefs_lea = find_lea_xrefs(pe)
+        xrefs_push = find_push_xrefs(pe)
+        xrefs_mov = find_mov_xrefs(pe)
+        xrefs = itertools.chain(struct_string_addrs, xrefs_lea, xrefs_push, xrefs_mov)
+
+    elif pe.FILE_HEADER.Machine == pefile.MACHINE_TYPE["IMAGE_FILE_MACHINE_AMD64"]:
+        xrefs_lea = find_lea_xrefs(pe)
+        xrefs = itertools.chain(struct_string_addrs, xrefs_lea)
+
+    else:
+        logger.error("unsupported architecture: %s", pe.FILE_HEADER.Machine)
+        return []
+
+    for addr in xrefs:
         address = addr - image_base - virtual_address + pointer_to_raw_data
 
         if not (start_rdata <= address < end_rdata):
