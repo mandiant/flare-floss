@@ -3,7 +3,7 @@ import zipfile
 
 import pytest
 
-from floss.language.rust.extract import extract_utf8_strings
+from floss.language.rust.extract import extract_rust_strings
 
 
 @pytest.fixture(scope="module")
@@ -119,7 +119,7 @@ def test_language_detection_64(binary_file, extract_files_64):
 
     assert abs_path.exists(), f"File {binary_file} does not exist"
 
-    rust_strings = extract_utf8_strings(abs_path, 6)
+    rust_strings = extract_rust_strings(abs_path, 6)
 
     strings = []
 
@@ -145,6 +145,7 @@ def test_language_detection_64(binary_file, extract_files_64):
 def test_language_detection_32(binary_file, extract_files_32):
     expected_strings = [
         "the quick brown fox jumps over the lazy dog",
+        "Words in reverse",
         "Pangram: ",
         "Used characters: ",
         "Alice says: ",
@@ -156,7 +157,7 @@ def test_language_detection_32(binary_file, extract_files_32):
 
     assert abs_path.exists(), f"File {binary_file} does not exist"
 
-    rust_strings = extract_utf8_strings(abs_path, 6)
+    rust_strings = extract_rust_strings(abs_path, 6)
 
     strings = []
 
