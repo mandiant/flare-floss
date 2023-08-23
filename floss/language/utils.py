@@ -464,6 +464,8 @@ def get_extract_stats(
     pe: pefile, all_ss_strings: List[StaticString], lang_strings: List[StaticString], min_len: int, min_blob_len=0
 ) -> float:
     # min_blob_len: this is the minimum length of a string blob in binary file to be considered for extraction
+    # It is 0 in case of Rust extraction because we want to extract all strings from binary file
+    # while in case of Go extraction, we want to extract only large strings (len > 2800) from binary file
     all_strings = list()
     # these are ascii, extract these utf-8 to get fewer chunks (ascii may split on two-byte characters, for example)
     for ss in all_ss_strings:
