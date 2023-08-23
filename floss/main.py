@@ -549,49 +549,36 @@ def main(argv=None) -> int:
     if (lang_id == Language.GO and args.language == "") or args.language == Language.GO.value:
         results.metadata.language = Language.GO.value
 
-        if args.enabled_types == [] and args.disabled_types == []:
-            prompt = input("Do you want to enable string deobfuscation? (this could take a long time) [y/N] ")
-
-            if prompt == "y" or prompt == "Y":
-                logger.info("enabled string deobfuscation")
-                analysis.enable_stack_strings = True
-                analysis.enable_tight_strings = True
-                analysis.enable_decoded_strings = True
-
-            else:
-                logger.info("disabled string deobfuscation")
-                analysis.enable_stack_strings = False
-                analysis.enable_tight_strings = False
-                analysis.enable_decoded_strings = False
-
     elif (lang_id == Language.RUST and args.language == "") or args.language == Language.RUST.value:
         results.metadata.language = Language.RUST.value
-
-        if args.enabled_types == [] and args.disabled_types == []:
-            prompt = input("Do you want to enable string deobfuscation? (this could take a long time) [y/N] ")
-
-            if prompt == "y" or prompt == "Y":
-                logger.info("enabled string deobfuscation")
-                analysis.enable_stack_strings = True
-                analysis.enable_tight_strings = True
-                analysis.enable_decoded_strings = True
-
-            else:
-                logger.info("disabled string deobfuscation")
-                analysis.enable_stack_strings = False
-                analysis.enable_tight_strings = False
-                analysis.enable_decoded_strings = False
 
     elif (lang_id == Language.DOTNET and args.language == "") or args.language == Language.DOTNET.value:
         logger.warning(".NET language-specific string extraction is not supported")
         logger.warning(" will NOT deobfuscate any .NET strings")
 
-        results.metadata.language = Language.DOTNET.value
+        # let's enable .NET strings after we can deobfuscate them
+        # results.metadata.language = Language.DOTNET.value
 
         # TODO for pure .NET binaries our deobfuscation algorithms do nothing, but for mixed-mode assemblies they may
         analysis.enable_stack_strings = False
         analysis.enable_tight_strings = False
         analysis.enable_decoded_strings = False
+
+    if results.metadata.language != "":
+        if args.enabled_types == [] and args.disabled_types == []:
+            prompt = input("Do you want to enable string deobfuscation? (this could take a long time) [y/N] ")
+
+            if prompt.lower() == "y":
+                logger.info("enabled string deobfuscation")
+                analysis.enable_stack_strings = True
+                analysis.enable_tight_strings = True
+                analysis.enable_decoded_strings = True
+
+            else:
+                logger.info("disabled string deobfuscation")
+                analysis.enable_stack_strings = False
+                analysis.enable_tight_strings = False
+                analysis.enable_decoded_strings = False
 
     # in order of expected run time, fast to slow
     # 1. static strings (done above)
