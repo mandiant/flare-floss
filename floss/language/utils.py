@@ -183,6 +183,29 @@ def find_i386_push_xrefs(buf: bytes) -> Iterable[VA]:
         yield address
 
 
+def find_amd64_push_xrefs(buf: bytes) -> Iterable[VA]:
+    """
+    scan the given data found at the given base address
+    to find all the 64-bit PUSH instructions,
+    extracting the target virtual address.
+    """
+    push_insn_re = re.compile(
+        rb"""
+        (
+              \x68       # 68 aa aa 00 00       push   0xaaaa
+        )
+        (?P<address>....)
+        """,
+        re.DOTALL + re.VERBOSE,
+    )
+
+    for match in push_insn_re.finditer(buf):
+        address_bytes = match.group("address")
+        address = struct.unpack("<Q", address_bytes)[0]
+
+        yield address
+
+
 def find_push_xrefs(pe: pefile.PE) -> Iterable[VA]:
     """
     scan the executable sections of the given PE file
@@ -198,7 +221,7 @@ def find_push_xrefs(pe: pefile.PE) -> Iterable[VA]:
         code = section.get_data()
 
         if pe.FILE_HEADER.Machine == pefile.MACHINE_TYPE["IMAGE_FILE_MACHINE_AMD64"]:
-            xrefs: Iterable[VA] = []  # no push instructions on amd64
+            xrefs = find_amd64_push_xrefs(code)
         elif pe.FILE_HEADER.Machine == pefile.MACHINE_TYPE["IMAGE_FILE_MACHINE_I386"]:
             xrefs = find_i386_push_xrefs(code)
         else:
@@ -237,6 +260,35 @@ def find_i386_mov_xrefs(buf: bytes) -> Iterable[VA]:
         yield address
 
 
+def find_amd64_mov_xrefs(buf: bytes) -> Iterable[VA]:
+    """
+    scan the given data found at the given base address
+    to find all the 64-bit MOV instructions,
+    extracting the target virtual address.
+    """
+    mov_insn_re = re.compile(
+        rb"""
+        (
+              \x48 \xC7 \xC0       # 48 c7 c0 aa aa 00 00       mov    rax,0xaaaa
+            | \x48 \xC7 \xC1       # 48 c7 c1 aa aa 00 00       mov    rcx,0xaaaa
+            | \x48 \xC7 \xC2       # 48 c7 c2 aa aa 00 00       mov    rdx,0xaaaa
+            | \x48 \xC7 \xC3       # 48 c7 c3 aa aa 00 00       mov    rbx,0xaaaa
+            | \x48 \xC7 \xC5       # 48 c7 c5 aa aa 00 00       mov    rbp,0xaaaa
+            | \x48 \xC7 \xC6       # 48 c7 c6 aa aa 00 00       mov    rsi,0xaaaa
+            | \x48 \xC7 \xC7       # 48 c7 c7 aa aa 00 00       mov    rdi,0xaaaa
+        )
+        (?P<address>....)
+        """,
+        re.DOTALL + re.VERBOSE,
+    )
+
+    for match in mov_insn_re.finditer(buf):
+        address_bytes = match.group("address")
+        address = struct.unpack("<Q", address_bytes)[0]
+
+        yield address
+
+
 def find_mov_xrefs(pe: pefile.PE) -> Iterable[VA]:
     """
     scan the executable sections of the given PE file
@@ -252,7 +304,7 @@ def find_mov_xrefs(pe: pefile.PE) -> Iterable[VA]:
         code = section.get_data()
 
         if pe.FILE_HEADER.Machine == pefile.MACHINE_TYPE["IMAGE_FILE_MACHINE_AMD64"]:
-            xrefs: Iterable[VA] = []  # no mov instructions on amd64
+            xrefs = find_amd64_mov_xrefs(code)
         elif pe.FILE_HEADER.Machine == pefile.MACHINE_TYPE["IMAGE_FILE_MACHINE_I386"]:
             xrefs = find_i386_mov_xrefs(code)
         else:
