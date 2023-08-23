@@ -7,88 +7,58 @@ from floss.language.rust.extract import extract_rust_strings
 
 
 @pytest.fixture(scope="module")
-def extract_files_64():
-    zip_file_path = (
-        pathlib.Path(__file__).parent
-        / "data"
-        / "language"
-        / "rust"
-        / "rust-binaries-all-versions"
-        / "bin"
-        / "versions_64.zip"
-    )
+def extract_files(request):
+    def _extract_files(zip_file_name, extracted_dir_name):
+        zip_file_path = (
+            pathlib.Path(__file__).parent
+            / "data"
+            / "language"
+            / "rust"
+            / "rust-binaries-all-versions"
+            / "bin"
+            / zip_file_name
+        )
 
-    CD = pathlib.Path(__file__).resolve().parent
+        CD = pathlib.Path(__file__).resolve().parent
 
-    abs_zip_path = (CD / zip_file_path).resolve()
-    assert abs_zip_path.exists(), f"Zip file {zip_file_path} does not exist"
+        abs_zip_path = (CD / zip_file_path).resolve()
+        assert abs_zip_path.exists(), f"Zip file {zip_file_path} does not exist"
 
-    extracted_files = []
+        extracted_files = []
 
-    with zipfile.ZipFile(abs_zip_path, "r") as zip_ref:
-        for zip_info in zip_ref.infolist():
-            extracted_file_path = (
-                CD
-                / "data"
-                / "language"
-                / "rust"
-                / "rust-binaries-all-versions"
-                / "bin"
-                / "extracted_64"
-                / zip_info.filename
-            ).resolve()
-            extracted_file = zip_ref.extract(zip_info, path=extracted_file_path.parent)
-            extracted_files.append(extracted_file)
+        with zipfile.ZipFile(abs_zip_path, "r") as zip_ref:
+            for zip_info in zip_ref.infolist():
+                extracted_file_path = (
+                    CD
+                    / "data"
+                    / "language"
+                    / "rust"
+                    / "rust-binaries-all-versions"
+                    / "bin"
+                    / extracted_dir_name
+                    / zip_info.filename
+                ).resolve()
+                extracted_file = zip_ref.extract(zip_info, path=extracted_file_path.parent)
+                extracted_files.append(extracted_file)
 
-    yield
+        yield
 
-    # Clean up - remove the extracted files after the test finishes
-    for extracted_file in extracted_files:
-        pathlib.Path(extracted_file).unlink()
-    pathlib.Path(extracted_file_path.parent).rmdir()
+        # Clean up - remove the extracted files after the test finishes
+        for extracted_file in extracted_files:
+            pathlib.Path(extracted_file).unlink()
+        pathlib.Path(extracted_file_path.parent).rmdir()
+
+    return _extract_files
 
 
 @pytest.fixture(scope="module")
-def extract_files_32():
-    zip_file_path = (
-        pathlib.Path(__file__).parent
-        / "data"
-        / "language"
-        / "rust"
-        / "rust-binaries-all-versions"
-        / "bin"
-        / "versions_32.zip"
-    )
+def extract_files_64(request, extract_files):
+    yield from extract_files("versions_64.zip", "extracted_64")
 
-    CD = pathlib.Path(__file__).resolve().parent
 
-    abs_zip_path = (CD / zip_file_path).resolve()
-    # check if the zip file exists
-    assert abs_zip_path.exists(), f"Zip file {zip_file_path} does not exist"
-
-    extracted_files = []
-
-    with zipfile.ZipFile(abs_zip_path, "r") as zip_ref:
-        for zip_info in zip_ref.infolist():
-            extracted_file_path = (
-                CD
-                / "data"
-                / "language"
-                / "rust"
-                / "rust-binaries-all-versions"
-                / "bin"
-                / "extracted_32"
-                / zip_info.filename
-            ).resolve()
-            extracted_file = zip_ref.extract(zip_info, path=extracted_file_path.parent)
-            extracted_files.append(extracted_file)
-
-    yield
-
-    # Clean up - remove the extracted files after the test finishes
-    for extracted_file in extracted_files:
-        pathlib.Path(extracted_file).unlink()
-    pathlib.Path(extracted_file_path.parent).rmdir()
+@pytest.fixture(scope="module")
+def extract_files_32(request, extract_files):
+    yield from extract_files("versions_32.zip", "extracted_32")
 
 
 @pytest.mark.parametrize(
