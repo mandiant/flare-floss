@@ -37,7 +37,7 @@ def test_language_detection_64(binary_file):
 
     # do not print the output of the function
     with contextlib.redirect_stdout(None):
-        out = get_extract_stats(pe, all_ss_strings, go_strings, n)
+        out = get_extract_stats(pe, all_ss_strings, go_strings, n, 2800)
 
     # check that the output percentage is greater than 98%
     assert out > 98

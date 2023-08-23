@@ -301,7 +301,7 @@ def get_color(color):
 
 def render(results: floss.results.ResultDocument, verbose, disable_headers, color):
     sys.__stdout__.reconfigure(encoding="utf-8")
-    console = Console(file=io.StringIO(), color_system=get_color(color), highlight=False)
+    console = Console(file=io.StringIO(), color_system=get_color(color), highlight=False, soft_wrap=True)
 
     if not disable_headers:
         console.print("\n")

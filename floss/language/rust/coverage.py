@@ -1,16 +1,16 @@
 # Copyright (C) 2023 Mandiant, Inc. All Rights Reserved.
+
 import sys
 import logging
 import pathlib
 import argparse
-from typing import List
+from typing import List, Tuple, Iterable, Optional
 
 import pefile
 
-from floss.utils import get_static_strings
-from floss.results import StaticString, StringEncoding
+from floss.strings import extract_ascii_unicode_strings
 from floss.language.utils import get_extract_stats
-from floss.language.go.extract import extract_go_strings
+from floss.language.rust.extract import extract_rust_strings
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +18,7 @@ MIN_STR_LEN = 4
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Get Go strings")
+    parser = argparse.ArgumentParser(description="Get Rust strings")
     parser.add_argument("path", help="file or path to analyze")
     parser.add_argument(
         "-n",
@@ -53,15 +53,17 @@ def main():
 
     path = pathlib.Path(args.path)
 
-    static_strings: List[StaticString] = get_static_strings(path, args.min_length)
+    # see only .rdata section
+    buf = path.read_bytes()
+    pe = pefile.PE(data=buf, fast_load=True)
 
-    go_strings = extract_go_strings(path, args.min_length)
+    static_strings = list(extract_ascii_unicode_strings(buf, args.min_length))
 
-    # The value 2800 was chosen based on experimentaion on different samples
-    # of go binaries that include versions 1.20, 1.18, 1.16, 1.12. and
-    # architectures amd64 and i386.
-    # See: https://github.com/mandiant/flare-floss/issues/807#issuecomment-1636087673
-    get_extract_stats(pe, static_strings, go_strings, args.min_length, 2800)
+    rust_strings = extract_rust_strings(path, args.min_length)
+
+    # The min_blob_length value was chosen as 0 because in rust binaries, the
+    # string blobs are small and the min_blob_length value is not needed.
+    get_extract_stats(pe, static_strings, rust_strings, args.min_length, 0)
 
 
 if __name__ == "__main__":
