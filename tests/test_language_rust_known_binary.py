@@ -21,7 +21,6 @@ def extract_files_64():
     CD = pathlib.Path(__file__).resolve().parent
 
     abs_zip_path = (CD / zip_file_path).resolve()
-    # check if the zip file exists
     assert abs_zip_path.exists(), f"Zip file {zip_file_path} does not exist"
 
     extracted_files = []
