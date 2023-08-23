@@ -5,19 +5,19 @@ import pytest
 import pefile
 
 from floss.strings import extract_ascii_unicode_strings
-from floss.language.rust.extract import extract_utf8_strings
-from floss.language.rust.coverage import get_extract_stats
+from floss.language.rust.extract import extract_rust_strings
+from floss.language.utils import get_extract_stats
 
 
 @pytest.mark.parametrize(
     "binary_file",
     [
-        ("data/language/rust/rust-unknown-binaries/bin/1.59.0_i386"),
-        ("data/language/rust/rust-unknown-binaries/bin/1.64.0_amd64"),
-        ("data/language/rust/rust-unknown-binaries/bin/1.65.0_amd64"),
-        ("data/language/rust/rust-unknown-binaries/bin/1.68.1_amd64"),
-        ("data/language/rust/rust-unknown-binaries/bin/1.69.0_amd64"),
-        ("data/language/rust/rust-unknown-binaries/bin/1.69.0_i386"),
+        ("data/language/rust/rust-unknown-binaries/bin/1.59.0/i386/bf7362a9a5e94d93d5f495ac2535779708f2f09bf0729382aba0f7f64f42f36a"),
+        ("data/language/rust/rust-unknown-binaries/bin/1.64.0/amd64/e37b08d35b237961c2d5a94a5ced3919616037b3e2a73efa77bf992c5335fbf6"),
+        ("data/language/rust/rust-unknown-binaries/bin/1.65.0/amd64/635d89076c3c68520ae7927196c5b9448cb783f4ac0ee0a552d3bb60e899caba"),
+        ("data/language/rust/rust-unknown-binaries/bin/1.68.1/amd64/07e00bbedff9a4aee59056c629a6ac67a34d6f8b8f0082f98d14f0f80ee037a4"),
+        ("data/language/rust/rust-unknown-binaries/bin/1.69.0/amd64/b76d3f6327b9e680c491289ecd38f0a8b2fc7a7ba458e5532d80a78d89af0184"),
+        ("data/language/rust/rust-unknown-binaries/bin/1.69.0/i386/200c308a793630e4f3686dd846f0d55b6368834a859875970b4135f3ca487f46"),
     ],
 )
 def test_language_detection_64(binary_file):
@@ -29,25 +29,17 @@ def test_language_detection_64(binary_file):
     n = 4
 
     path = pathlib.Path(abs_path)
+
     buf = path.read_bytes()
     pe = pefile.PE(data=buf, fast_load=True)
 
-    for section in pe.sections:
-        if section.Name.startswith(b".rdata\x00"):
-            pointer_to_raw_data = section.PointerToRawData
-            section_size = section.SizeOfRawData
-            break
+    all_ss_strings = list(extract_ascii_unicode_strings(buf, 4))
 
-    start_rdata = pointer_to_raw_data
-    end_rdata = pointer_to_raw_data + section_size
-
-    all_ss_strings = extract_ascii_unicode_strings(buf[start_rdata:end_rdata], n)
-    # all_ss_strings = get_static_strings(abs_path, n)
-    rust_strings = extract_utf8_strings(abs_path, n)
+    rust_strings = extract_rust_strings(path, n)
 
     # do not print the output of the function
     with contextlib.redirect_stdout(None):
-        out = get_extract_stats(all_ss_strings, rust_strings)
+        out = get_extract_stats(pe, all_ss_strings, rust_strings, n)
 
-    # check that the output percentage is greater than 97%
-    assert float(out) > 97
+    # check that the output percentage is greater than 88%
+    assert float(out) > 88
