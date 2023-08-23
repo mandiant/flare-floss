@@ -25,3 +25,25 @@ Learn more:
     Source code: 
     - https://github.com/golang/go/blob/36ea4f9680f8296f1c7d0cf7dbb1b3a9d572754a/src/builtin/builtin.go#L70-L73
     - https://github.com/golang/go/blob/38e2376f35907ebbb98419f1f4b8f28125bf6aaf/src/go/types/builtins.go#L824-L825
+
+## Rust String Extraction
+Similar to Go, Rust strings are also encoded as structs. However, Rust strings are encoded as a struct containing three fields: a pointer to the string's underlying data, the length of the string, and the capacity of the string. 
+
+FLOSS implements an algorithm to handle the unusual characteristics of strings in Rust binaries. This approach analyzes instances of the `struct String` type to identify candidate strings and cross-references to split the strings. Crucially, FLOSS automatically handles the complexities of Rust strings and displays strings as written in the program's source code.
+
+### Algorithm:
+1. Analyze the string instances within the binary.
+    - In Rust, strings are encoded as structs (see source code links below) containing three fields: a pointer to the string's underlying data, the length of the string, and the capacity of the string.
+    - By examining these instances, we can identify the strings and their locations within the binary.
+2. Get cross-references from the binary.
+3. Extract all the utf-8 encoded strings from the binary.
+4. If a cross-reference is found, then the string is split at the cross-reference location.
+
+For more information on Rust strings, you can refer to the Rust project's documentation and the source code of the struct String layout.
+
+Learn more:
+
+    Rust Project: [Rust Project](https://github.com/rust-lang/rust)
+    Blog post: TODO: Add blog post link
+    Source code: 
+    - https://github.com/rust-lang/rust/blob/3911a63b7777e19dad4043542f908018e70c0bdd/library/alloc/src/string.rs
