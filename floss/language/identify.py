@@ -26,6 +26,7 @@ def identify_language(sample: Path, static_strings: Iterable[StaticString]) -> L
     Identify the language of the binary given
     """
     if is_rust_bin(static_strings):
+        logger.warning("Presently, the decoding analysis is fine-tuned for static strings.")
         return Language.RUST
 
     # Open the file as PE for further checks
