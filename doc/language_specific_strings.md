@@ -29,14 +29,14 @@ Learn more:
 ## Rust String Extraction
 Similar to Go, Rust binaries may contain strings that are not NULL terminated. Separate strings within the binary may appear as larger chunks of indistinguishable string data.
 
-FLOSS analyzes the data and code in Rust binaries to identify candidate strings.
+FLOSS analyzes the data and code in Rust binaries to identify individual candidate strings.
 
 ### Algorithm:
 1. Extract all UTF-8 encoded strings
 2. Analyze data and code references to identify substring boundaries
-3. Split strings into individual parts
+3. Split strings from step 1 into individual parts as found in step 2
 
-For more information on Rust strings, you can refer to the Rust project's documentation and the source code of the struct String layout.
+For more information on Rust strings, you can refer to the Rust project's documentation and the source code of the Rust String layout.
 
 Learn more:
 
