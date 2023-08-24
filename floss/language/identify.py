@@ -26,7 +26,7 @@ def identify_language(sample: Path, static_strings: Iterable[StaticString]) -> L
     Identify the language of the binary given
     """
     if is_rust_bin(static_strings):
-        logger.warning("Presently, the decoding analysis is fine-tuned for static strings.")
+        logger.warning("Rust binary detected, FLOSS handles Rust static strings, but string deobfuscation may be inaccurate and take a long time")
         return Language.RUST
 
     # Open the file as PE for further checks
