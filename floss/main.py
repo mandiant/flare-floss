@@ -274,6 +274,14 @@ def make_parser(argv):
         help="enable ANSI color codes in results, default: only during interactive session",
     )
 
+    // TODO ...
+    parser.add_argument(
+        "-o",
+        "--output",
+        type=argparse.FileType("w"),
+        help="send output into file",
+    )
+
     return parser
 
 
