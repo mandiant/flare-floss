@@ -2,6 +2,7 @@
 # Copyright (C) 2017 Mandiant, Inc. All Rights Reserved.
 import os
 import sys
+import json
 import codecs
 import logging
 import argparse
@@ -759,10 +760,13 @@ def main(argv=None) -> int:
         # this may be slow when there's many strings, so informing users what's happening
         logger.info("rendering results")
         r = floss.render.default.render(results, args.verbose, args.quiet, args.color)
-
+    
     if args.output:
         logger.info("saving into '{}'".format(args.output.name))
-        open(args.output.name, "w").write(r)
+        if args.json:
+            json.dump(json.loads(r), open(args.output.name, "w"), indent=2)
+        else:
+            open(args.output.name, "w").write(r)
     else:
         print(r)
 
