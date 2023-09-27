@@ -761,6 +761,7 @@ def main(argv=None) -> int:
         r = floss.render.default.render(results, args.verbose, args.quiet, args.color)
 
     if args.output:
+        logger.info("saving into '{}'".format(args.output.name))
         open(args.output.name, "w").write(r)
     else:
         print(r)
