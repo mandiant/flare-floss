@@ -160,6 +160,13 @@ def make_parser(argv):
         help="path to sample to analyze",
     )
 
+    parser.add_argument(
+        "-o",
+        "--output",
+        type=argparse.FileType("w"),
+        help="send output into file",
+    )
+
     analysis_group = parser.add_argument_group("analysis arguments")
     analysis_group.add_argument(
         "--no",
@@ -272,14 +279,6 @@ def make_parser(argv):
         choices=("auto", "always", "never"),
         default="auto",
         help="enable ANSI color codes in results, default: only during interactive session",
-    )
-
-    // TODO ...
-    parser.add_argument(
-        "-o",
-        "--output",
-        type=argparse.FileType("w"),
-        help="send output into file",
     )
 
     return parser
@@ -761,7 +760,10 @@ def main(argv=None) -> int:
         logger.info("rendering results")
         r = floss.render.default.render(results, args.verbose, args.quiet, args.color)
 
-    print(r)
+    if args.output:
+        open(args.output.name, "w").write(r)
+    else:
+        print(r)
 
     return 0
 
