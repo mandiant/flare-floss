@@ -3,6 +3,7 @@ import sys
 import logging
 import pathlib
 import argparse
+from typing import List, Tuple, Iterable, Optional
 
 import pefile
 
@@ -19,7 +20,7 @@ def get_rdata_section(pe: pefile.PE) -> pefile.SectionStructure:
     raise ValueError("no .rdata section found")
 
 
-def extract_utf8_strings(pe: pefile.PE, min_length=MIN_STR_LEN):
+def extract_utf8_strings(pe: pefile.PE, min_length=MIN_STR_LEN) -> List[Tuple[str, int, int]]:
     """
     Extracts UTF-8 strings from the .rdata section of a PE file.
     """
@@ -64,20 +65,18 @@ def extract_utf8_strings(pe: pefile.PE, min_length=MIN_STR_LEN):
 
     strings = []  # string, start index, end index
 
-    # check for consecutive characters and convert to string
+    prev = False
+
     for i in range(0, len(character_and_index)):
-        if i == 0:
-            strings.append([character_and_index[i][0], character_and_index[i][1], character_and_index[i][1]])
-        else:
-            if (
-                character_and_index[i - 1][1] + character_and_index[i - 1][2] == character_and_index[i][1]
-                and character_and_index[i][0].isprintable() == True
-            ):
+        if character_and_index[i][0].isprintable() == True:
+            if prev == False:
+                strings.append([character_and_index[i][0], character_and_index[i][1], character_and_index[i][1]])
+                prev = True
+            else:
                 strings[-1][0] += character_and_index[i][0]
                 strings[-1][2] = character_and_index[i][1]
-            else:
-                if character_and_index[i][0].isprintable() == True:
-                    strings.append([character_and_index[i][0], character_and_index[i][1], character_and_index[i][1]])
+        else:
+            prev = False
 
     # filter strings less than min length
     strings = [string for string in strings if len(string[0]) >= min_length]

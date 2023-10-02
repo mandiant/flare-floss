@@ -11,6 +11,7 @@ import binary2strings as b2s
 
 from floss.results import StaticString, StringEncoding
 from floss.language.utils import find_lea_xrefs, find_mov_xrefs, find_push_xrefs, get_struct_string_candidates
+from floss.language.rust.decode_utf8 import extract_utf8_strings
 
 logger = logging.getLogger(__name__)
 
@@ -26,18 +27,14 @@ def get_rdata_section(pe: pefile.PE) -> pefile.SectionStructure:
 
 
 def filter_and_transform_utf8_strings(
-    strings: List[Tuple[str, str, Tuple[int, int], bool]],
+    strings: List[Tuple[str, int, int]],
     start_rdata: int,
 ) -> List[StaticString]:
     transformed_strings = []
 
     for string in strings:
         s = string[0]
-        string_type = string[1]
-        start = string[2][0] + start_rdata
-
-        if string_type != "UTF8":
-            continue
+        start = string[1] + start_rdata
 
         # our static algorithm does not extract new lines either
         s = s.replace("\n", "")
@@ -98,8 +95,8 @@ def get_string_blob_strings(pe: pefile.PE, min_length: int) -> Iterable[StaticSt
     virtual_address = rdata_section.VirtualAddress
     pointer_to_raw_data = rdata_section.PointerToRawData
 
-    # extract utf-8 and wide strings, latter not needed here
-    strings = b2s.extract_all_strings(rdata_section.get_data(), min_length)
+    # extract utf-8 strings
+    strings = extract_utf8_strings(pe, min_length)
 
     # select only UTF-8 strings and adjust offset
     static_strings = filter_and_transform_utf8_strings(strings, start_rdata)
