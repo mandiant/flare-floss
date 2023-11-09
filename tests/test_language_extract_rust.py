@@ -30,12 +30,11 @@ def rust_strings64():
         # .rdata:00000001400BD040 30 D0 0B 40 01 00 pieces          ___str_ <offset aHelloWorld, 0Eh>
         # .rdata:00000001400BD040 00 00 00 00                                               ; "Hello, world!\n"
         pytest.param("Hello, world!", 0xBB030, StringEncoding.UTF8, "rust_strings64"),
-        # TODO enable, see issue #867
         # .rdata:00000001400BD050 69 6E 76 61 6C 69 aInvalidArgs    db 'invalid args',0
         # .rdata:00000001400BD05D 00 00 00                          align 20h
         # .rdata:00000001400BD060 50 D0 0B 40 01 00 stru_1400BD060  ___str_ <offset aInvalidArgs, 0Ch>
         # .rdata:00000001400BD060 00 00 00 00                                               ; "invalid args"
-        # pytest.param("invalid args", 0xBB050, StringEncoding.UTF8, "rust_strings64"),
+        pytest.param("invalid args", 0xBB050, StringEncoding.UTF8, "rust_strings64"),
     ],
 )
 def test_data_string_offset(request, string, offset, encoding, rust_strings):

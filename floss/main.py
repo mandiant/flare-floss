@@ -546,28 +546,38 @@ def main(argv=None) -> int:
 
     static_runtime = get_runtime_diff(interim)
 
-    lang_id = identify_language(sample, static_strings)
-
     # set language configurations
-    if (lang_id == Language.GO and args.language == "") or args.language == Language.GO.value:
+    lang_id: Language
+    if args.language == Language.GO.value:
+        lang_id = Language.GO
+    elif args.language == Language.RUST.value:
+        lang_id = Language.RUST
+    elif args.language == Language.DOTNET.value:
+        lang_id = Language.DOTNET
+    elif args.language == "none":
+        lang_id = Language.UNKNOWN
+    else:
+        lang_id = identify_language(sample, static_strings)
+
+    if lang_id == Language.GO:
         if analysis.enable_tight_strings or analysis.enable_stack_strings or analysis.enable_decoded_strings:
             logger.warning(
                 "FLOSS handles Go static strings, but string deobfuscation may be inaccurate and take a long time"
             )
         results.metadata.language = Language.GO.value
 
-    elif (lang_id == Language.RUST and args.language == "") or args.language == Language.RUST.value:
+    elif lang_id == Language.RUST:
         if analysis.enable_tight_strings or analysis.enable_stack_strings or analysis.enable_decoded_strings:
             logger.warning(
                 "FLOSS handles Rust static strings, but string deobfuscation may be inaccurate and take a long time"
             )
         results.metadata.language = Language.RUST.value
 
-    elif (lang_id == Language.DOTNET and args.language == "") or args.language == Language.DOTNET.value:
-        logger.warning(".NET language-specific string extraction is not supported")
-        logger.warning(" will NOT deobfuscate any .NET strings")
+    elif lang_id == Language.DOTNET:
+        logger.warning(".NET language-specific string extraction is not supported yet")
+        logger.warning("Furthermore, FLOSS does NOT attempt to deobfuscate any strings from .NET binaries")
 
-        # let's enable .NET strings after we can deobfuscate them
+        # enable .NET strings once we can extract them
         # results.metadata.language = Language.DOTNET.value
 
         # TODO for pure .NET binaries our deobfuscation algorithms do nothing, but for mixed-mode assemblies they may
@@ -604,7 +614,7 @@ def main(argv=None) -> int:
         if not lang_id:
             logger.info("extracting static strings")
         else:
-            if (lang_id == Language.GO and args.language == "") or args.language == Language.GO.value:
+            if lang_id == Language.GO:
                 logger.info("extracting language-specific Go strings")
 
                 interim = time()
@@ -615,7 +625,7 @@ def main(argv=None) -> int:
                     static_strings, results.strings.language_strings, args.min_length
                 )
 
-            elif (lang_id == Language.RUST and args.language == "") or args.language == Language.RUST.value:
+            elif lang_id == Language.RUST:
                 logger.info("extracting language-specific Rust strings")
 
                 interim = time()

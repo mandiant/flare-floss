@@ -276,7 +276,9 @@ def get_string_blob_strings(pe: pefile.PE, min_length) -> Iterable[StaticString]
         try:
             string_blob_start, string_blob_end = find_string_blob_range(pe, struct_strings)
         except ValueError:
-            logger.warning("Failed to find string blob range: Go version may be unsupported.")
+            logger.warning(
+                "Failed to find string blob range: Is this a Go binary? If so, the Go version may be unsupported."
+            )
             return
 
     with floss.utils.timing("collect string blob strings"):
