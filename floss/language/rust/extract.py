@@ -10,7 +10,13 @@ import pefile
 import binary2strings as b2s
 
 from floss.results import StaticString, StringEncoding
-from floss.language.utils import find_lea_xrefs, find_mov_xrefs, find_push_xrefs, get_struct_string_candidates
+from floss.language.utils import (
+    find_lea_xrefs,
+    find_mov_xrefs,
+    find_push_xrefs,
+    get_raw_xrefs_rdata_i386,
+    get_struct_string_candidates,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -151,7 +157,8 @@ def get_string_blob_strings(pe: pefile.PE, min_length: int) -> Iterable[StaticSt
         xrefs_lea = find_lea_xrefs(pe)
         xrefs_push = find_push_xrefs(pe)
         xrefs_mov = find_mov_xrefs(pe)
-        xrefs = itertools.chain(struct_string_addrs, xrefs_lea, xrefs_push, xrefs_mov)
+        xrefs_raw_rdata = get_raw_xrefs_rdata_i386(pe, rdata_section.get_data())
+        xrefs = itertools.chain(struct_string_addrs, xrefs_lea, xrefs_push, xrefs_mov, xrefs_raw_rdata)
 
     elif pe.FILE_HEADER.Machine == pefile.MACHINE_TYPE["IMAGE_FILE_MACHINE_AMD64"]:
         xrefs_lea = find_lea_xrefs(pe)

@@ -465,6 +465,34 @@ def get_struct_string_candidates(pe: pefile.PE) -> Iterable[StructString]:
             # dozens of seconds or more (suspect many minutes).
 
 
+def get_raw_xrefs_rdata_i386(pe: pefile.PE, buf: bytes) -> Iterable[VA]:
+    """
+    scan for raw xrefs in .rdata section
+    """
+    format = "I"
+
+    if not buf:
+        return
+
+    low, high = get_image_range(pe)
+
+    # using array module as a high-performance way to access the data as fixed-sized words.
+    words = iter(array.array(format, buf))
+
+    last = next(words)
+    for current in words:
+        address = last
+        last = current
+
+        if address == 0x0:
+            continue
+
+        if not (low <= address < high):
+            continue
+
+        yield address
+
+
 def get_extract_stats(
     pe: pefile, all_ss_strings: List[StaticString], lang_strings: List[StaticString], min_len: int, min_blob_len=0
 ) -> float:
