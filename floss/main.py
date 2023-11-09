@@ -548,16 +548,14 @@ def main(argv=None) -> int:
 
     # set language configurations
     lang_id: Language
-    if args.language == Language.GO.value:
-        lang_id = Language.GO
-    elif args.language == Language.RUST.value:
-        lang_id = Language.RUST
-    elif args.language == Language.DOTNET.value:
-        lang_id = Language.DOTNET
-    elif args.language == "none":
-        lang_id = Language.UNKNOWN
-    else:
-        lang_id = identify_language(sample, static_strings)
+    lang_id_mapping = {
+        Language.GO.value: Language.GO,
+        Language.RUST.value: Language.RUST,
+        Language.DOTNET.value: Language.DOTNET,
+        "none": Language.UNKNOWN,
+    }
+
+    lang_id = lang_id_mapping.get(args.language, identify_language(sample, static_strings))
 
     if lang_id == Language.GO:
         if analysis.enable_tight_strings or analysis.enable_stack_strings or analysis.enable_decoded_strings:
