@@ -477,6 +477,9 @@ def get_raw_xrefs_rdata_i386(pe: pefile.PE, buf: bytes) -> Iterable[VA]:
     .rdata:004D623C                 dd offset unk_4C85BB
     .rdata:004D6240                 dd offset unk_4C85B3
 
+    From the disassembly, they are called as follows:
+    .text:00498E56                 push    ds:off_4D61E0[ecx*4]
+
     The above are not struct String instances, but are references to strings in .rdata section.
     They can be used to divide the string blobs into smaller chunks.
     """
