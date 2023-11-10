@@ -552,7 +552,6 @@ def main(argv=None) -> int:
     try:
         lang_id = Language(args.language)
     except ValueError:
-        print("Identifying language...", args.language)
         lang_id = identify_language(sample, static_strings)
 
     if lang_id == Language.GO:
