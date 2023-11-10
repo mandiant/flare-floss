@@ -198,7 +198,7 @@ def make_parser(argv):
     advanced_group.add_argument(
         "--language",
         type=str,
-        choices=[lang.value for lang in Language],
+        choices=[lang.value for lang in Language if lang != Language.UNKNOWN] + ["none"],
         default="none",
         help="use language-specific string extraction, disable using 'none'" if show_all_options else argparse.SUPPRESS,
     )
