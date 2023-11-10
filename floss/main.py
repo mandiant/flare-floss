@@ -198,8 +198,8 @@ def make_parser(argv):
     advanced_group.add_argument(
         "--language",
         type=str,
-        choices=[l.value for l in Language if l != Language.UNKNOWN] + ["none"],
-        default="",
+        choices=[lang.value for lang in Language],
+        default="none",
         help="use language-specific string extraction, disable using 'none'" if show_all_options else argparse.SUPPRESS,
     )
     advanced_group.add_argument(
@@ -548,14 +548,12 @@ def main(argv=None) -> int:
 
     # set language configurations
     lang_id: Language
-    lang_id_mapping = {
-        Language.GO.value: Language.GO,
-        Language.RUST.value: Language.RUST,
-        Language.DOTNET.value: Language.DOTNET,
-        "none": Language.UNKNOWN,
-    }
 
-    lang_id = lang_id_mapping.get(args.language, identify_language(sample, static_strings))
+    try:
+        lang_id = Language(args.language)
+    except ValueError:
+        print("Identifying language...", args.language)
+        lang_id = identify_language(sample, static_strings)
 
     if lang_id == Language.GO:
         if analysis.enable_tight_strings or analysis.enable_stack_strings or analysis.enable_decoded_strings:
