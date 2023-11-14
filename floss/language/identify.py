@@ -140,7 +140,7 @@ def get_if_go_and_version(pe: pefile.PE) -> Tuple[bool, str]:
     except ValueError:
         logger.debug(".rdata section not found")
 
-    # if not found, search commin all the available sections
+    # if not found, search in all the available sections
     for section in pe.sections:
         section_va = section.VirtualAddress
         section_size = section.SizeOfRawData
