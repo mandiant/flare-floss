@@ -10,6 +10,7 @@ import pefile
 import floss.logging_
 from floss.results import StaticString
 from floss.rust_version_database import rust_commit_hash
+from floss.language.utils import get_rdata_section
 
 logger = floss.logging_.getLogger(__name__)
 
@@ -89,7 +90,16 @@ def get_if_go_and_version(pe: pefile.PE) -> Tuple[bool, str]:
         b"\xfa\xff\xff\xff\x00\x00",
         b"\xf1\xff\xff\xff\x00\x00",
     ]
-
+    go_functions = [
+        b"runtime.main",
+        b"main.main",
+        b"runtime.gcWork",
+        b"runtime.morestack",
+        b"runtime.morestack_noctxt",
+        b"runtime.newproc",
+        b"runtime.gcWriteBarrier",
+        b"runtime.Gosched",
+    ]
     # look for the .rdata section first
     for section in pe.sections:
         try:
@@ -116,6 +126,32 @@ def get_if_go_and_version(pe: pefile.PE) -> Tuple[bool, str]:
                 pclntab_va = section_data.index(magic) + section_va
                 if verify_pclntab(section, pclntab_va):
                     return True, get_go_version(magic)
+
+    # if not found, the magic bytes may have been patched, search for common Go functions present in all Go samples including obfuscated files
+    # look for the .rdata section first
+    try:
+        section = get_rdata_section(pe)
+        section_va = section.VirtualAddress
+        section_size = section.SizeOfRawData
+        section_data = section.get_data(section_va, section_size)
+        for go_function in go_functions:
+            if go_function in section_data:
+                logger.info("Go binary found, function name %s", go_function)
+                return True
+    except ValueError:
+        logger.debug(".rdata section not found")
+
+    # if not found, search commin all the available sections
+    for section in pe.sections:
+        section_va = section.VirtualAddress
+        section_size = section.SizeOfRawData
+        section_data = section.get_data(section_va, section_size)
+        for go_function in go_functions:
+            if go_function in section_data:
+                logger.info("Go binary found, function name %s", go_function)
+                return True
+
+    return False
     return False, VERSION_UNKNOWN_OR_NA
 
 
