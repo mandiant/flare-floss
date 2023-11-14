@@ -9,8 +9,8 @@ import pefile
 
 import floss.logging_
 from floss.results import StaticString
-from floss.rust_version_database import rust_commit_hash
 from floss.language.utils import get_rdata_section
+from floss.rust_version_database import rust_commit_hash
 
 logger = floss.logging_.getLogger(__name__)
 
@@ -135,6 +135,7 @@ def get_if_go_and_version(pe: pefile.PE) -> Tuple[bool, str]:
     except ValueError:
         logger.debug(".rdata section not found")
 
+<<<<<<< HEAD
     section_va = section.VirtualAddress
     section_size = section.SizeOfRawData
     section_data = section.get_data(section_va, section_size)
@@ -144,6 +145,9 @@ def get_if_go_and_version(pe: pefile.PE) -> Tuple[bool, str]:
             return True, VERSION_UNKNOWN_OR_NA
 
     # if not found, search commin all the available sections
+=======
+    # if not found, search in all the available sections
+>>>>>>> 55a835f20616d085a0b8bcf5ef20de5083690246
     for section in pe.sections:
         section_va = section.VirtualAddress
         section_size = section.SizeOfRawData
