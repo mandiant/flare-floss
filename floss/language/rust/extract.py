@@ -17,12 +17,6 @@ logger = logging.getLogger(__name__)
 MIN_STR_LEN = 4
 
 
-def get_rdata_section(pe: pefile.PE) -> pefile.SectionStructure:
-    for section in pe.sections:
-        if section.Name.startswith(b".rdata\x00"):
-            return section
-
-    raise ValueError("no .rdata section found")
 
 
 def fix_b2s_wide_strings(

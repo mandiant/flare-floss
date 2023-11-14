@@ -101,20 +101,19 @@ def get_if_go_and_version(pe: pefile.PE) -> Tuple[bool, str]:
         b"runtime.Gosched",
     ]
     # look for the .rdata section first
-    for section in pe.sections:
-        try:
-            section_name = section.Name.partition(b"\x00")[0].decode("utf-8")
-        except UnicodeDecodeError:
-            continue
-        if ".rdata" == section_name:
-            section_va = section.VirtualAddress
-            section_size = section.SizeOfRawData
-            section_data = section.get_data(section_va, section_size)
-            for magic in go_magic:
-                if magic in section_data:
-                    pclntab_va = section_data.index(magic) + section_va
-                    if verify_pclntab(section, pclntab_va):
-                        return True, get_go_version(magic)
+    try:
+        section = get_rdata_section(pe)
+        section_va = section.VirtualAddress
+        section_size = section.SizeOfRawData
+        section_data = section.get_data(section_va, section_size)
+        for magic in go_magic:
+            if magic in section_data:
+                pclntab_va = section_data.index(magic) + section_va
+                if verify_pclntab(section, pclntab_va):
+                    return True, get_go_version(magic)
+    except ValueError:
+        logger.debug(".rdata section not found")
+
 
     # if not found, search in all the available sections
     for magic in go_magic:
