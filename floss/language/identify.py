@@ -135,7 +135,7 @@ def get_if_go_and_version(pe: pefile.PE) -> Tuple[bool, str]:
     except ValueError:
         logger.debug(".rdata section not found")
 
-<<<<<<< HEAD
+
     section_va = section.VirtualAddress
     section_size = section.SizeOfRawData
     section_data = section.get_data(section_va, section_size)
@@ -144,10 +144,7 @@ def get_if_go_and_version(pe: pefile.PE) -> Tuple[bool, str]:
             logger.info("Go binary found, function name %s", go_function)
             return True, VERSION_UNKNOWN_OR_NA
 
-    # if not found, search commin all the available sections
-=======
     # if not found, search in all the available sections
->>>>>>> 55a835f20616d085a0b8bcf5ef20de5083690246
     for section in pe.sections:
         section_va = section.VirtualAddress
         section_size = section.SizeOfRawData
