@@ -137,7 +137,7 @@ def get_if_go_and_version(pe: pefile.PE) -> Tuple[bool, str]:
         for go_function in go_functions:
             if go_function in section_data:
                 logger.info("Go binary found, function name %s", go_function)
-                return True
+                return True, VERSION_UNKNOWN_OR_NA
     except ValueError:
         logger.debug(".rdata section not found")
 
@@ -149,9 +149,8 @@ def get_if_go_and_version(pe: pefile.PE) -> Tuple[bool, str]:
         for go_function in go_functions:
             if go_function in section_data:
                 logger.info("Go binary found, function name %s", go_function)
-                return True
+                return True, VERSION_UNKNOWN_OR_NA
 
-    return False
     return False, VERSION_UNKNOWN_OR_NA
 
 
