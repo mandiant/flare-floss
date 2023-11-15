@@ -105,15 +105,15 @@ def get_if_go_and_version(pe: pefile.PE) -> Tuple[bool, str]:
         section = get_rdata_section(pe)
     except ValueError:
         logger.debug(".rdata section not found")
-
-    section_va = section.VirtualAddress
-    section_size = section.SizeOfRawData
-    section_data = section.get_data(section_va, section_size)
-    for magic in go_magic:
-        if magic in section_data:
-            pclntab_va = section_data.index(magic) + section_va
-            if verify_pclntab(section, pclntab_va):
-                return True, get_go_version(magic)
+    else:
+        section_va = section.VirtualAddress
+        section_size = section.SizeOfRawData
+        section_data = section.get_data(section_va, section_size)
+        for magic in go_magic:
+            if magic in section_data:
+                pclntab_va = section_data.index(magic) + section_va
+                if verify_pclntab(section, pclntab_va):
+                    return True, get_go_version(magic)
 
 
 
@@ -134,15 +134,15 @@ def get_if_go_and_version(pe: pefile.PE) -> Tuple[bool, str]:
         section = get_rdata_section(pe)
     except ValueError:
         logger.debug(".rdata section not found")
+    else:
+        section_va = section.VirtualAddress
+        section_size = section.SizeOfRawData
+        section_data = section.get_data(section_va, section_size)
+        for go_function in go_functions:
+            if go_function in section_data:
+                logger.info("Go binary found, function name %s", go_function)
+                return True, VERSION_UNKNOWN_OR_NA
 
-
-    section_va = section.VirtualAddress
-    section_size = section.SizeOfRawData
-    section_data = section.get_data(section_va, section_size)
-    for go_function in go_functions:
-        if go_function in section_data:
-            logger.info("Go binary found, function name %s", go_function)
-            return True, VERSION_UNKNOWN_OR_NA
 
     # if not found, search in all the available sections
     for section in pe.sections:
