@@ -59,13 +59,15 @@ class StructString:
     address: VA
     length: int
 
+
 def get_rdata_section(pe: pefile.PE) -> pefile.SectionStructure:
     for section in pe.sections:
         if section.Name.startswith(b".rdata\x00"):
             return section
 
     raise ValueError("no .rdata section found")
-    
+
+
 def get_image_range(pe: pefile.PE) -> Tuple[VA, VA]:
     """return the range of the image in memory."""
     image_base = pe.OPTIONAL_HEADER.ImageBase

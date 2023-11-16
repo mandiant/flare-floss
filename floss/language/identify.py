@@ -115,8 +115,6 @@ def get_if_go_and_version(pe: pefile.PE) -> Tuple[bool, str]:
                 if verify_pclntab(section, pclntab_va):
                     return True, get_go_version(magic)
 
-
-
     # if not found, search in all the available sections
     for magic in go_magic:
         for section in pe.sections:
@@ -142,7 +140,6 @@ def get_if_go_and_version(pe: pefile.PE) -> Tuple[bool, str]:
             if go_function in section_data:
                 logger.info("Go binary found, function name %s", go_function)
                 return True, VERSION_UNKNOWN_OR_NA
-
 
     # if not found, search in all the available sections
     for section in pe.sections:
