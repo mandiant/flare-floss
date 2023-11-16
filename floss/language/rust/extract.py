@@ -23,8 +23,6 @@ logger = logging.getLogger(__name__)
 MIN_STR_LEN = 4
 
 
-
-
 def fix_b2s_wide_strings(
     strings: List[Tuple[str, str, Tuple[int, int], bool]], min_length: int, buffer: bytes
 ) -> List[Tuple[str, str, Tuple[int, int], bool]]:
