@@ -10,7 +10,7 @@ import pefile
 import binary2strings as b2s
 
 from floss.results import StaticString, StringEncoding
-from floss.language.utils import find_lea_xrefs, find_mov_xrefs, find_push_xrefs, get_struct_string_candidates
+from floss.language.utils import find_lea_xrefs, find_mov_xrefs, find_push_xrefs, get_struct_string_candidates, get_rdata_section
 
 logger = logging.getLogger(__name__)
 
