@@ -37,6 +37,9 @@ def find_stack_strings_with_regex(
                 if not binary_string:
                     continue
 
+                if binary_string.endswith(b"\x00"):
+                    binary_string = binary_string[:-1]
+
                 addr = m.start()
                 # need to subtract opcode bytes offset
                 off_regex = len(m.group(0)) - len(binary_string)
@@ -98,6 +101,9 @@ def find_i386_stackstrings(section_data, offset, min_length):
 def get_stackstrings(pe: pefile.PE, min_length: int) -> Iterable[StaticString]:
     """
     Find stackstrings in the given PE file.
+
+    TODO(mr-tz): algorithms need improvements / rethinking of approach
+     https://github.com/mandiant/flare-floss/issues/828
     """
 
     for section in pe.sections:
@@ -269,7 +275,9 @@ def get_string_blob_strings(pe: pefile.PE, min_length) -> Iterable[StaticString]
     with floss.utils.timing("find struct string candidates"):
         struct_strings = list(sorted(set(get_struct_string_candidates(pe)), key=lambda s: s.address))
         if not struct_strings:
-            logger.warning("Failed to find struct string candidates: Is this a Go binary?")
+            logger.warning(
+                "Failed to find struct string candidates: Is this a Go binary? If so, the Go version may be unsupported."
+            )
             return
 
     with floss.utils.timing("find string blob"):
@@ -354,12 +362,14 @@ def get_string_blob_strings(pe: pefile.PE, min_length) -> Iterable[StaticString]
         last_buf = string_blob_buf[last_pointer_offset:]
         for size in range(len(last_buf), 0, -1):
             try:
-                s = last_buf[:size].decode("utf-8")
+                _ = last_buf[:size].decode("utf-8")
             except UnicodeDecodeError:
                 continue
             else:
                 try:
-                    string = StaticString.from_utf8(last_buf[:size], last_pointer, min_length)
+                    string = StaticString.from_utf8(
+                        last_buf[:size], pe.get_offset_from_rva(last_pointer - image_base), min_length
+                    )
                     yield string
                 except ValueError:
                     pass
@@ -380,6 +390,25 @@ def extract_go_strings(sample, min_length) -> List[StaticString]:
     go_strings.extend(get_stackstrings(pe, min_length))
 
     return go_strings
+
+
+def get_static_strings_from_blob_range(sample: pathlib.Path, static_strings: List[StaticString]) -> List[StaticString]:
+    pe = pefile.PE(data=pathlib.Path(sample).read_bytes(), fast_load=True)
+
+    struct_strings = list(sorted(set(get_struct_string_candidates(pe)), key=lambda s: s.address))
+    if not struct_strings:
+        return []
+
+    try:
+        string_blob_start, string_blob_end = find_string_blob_range(pe, struct_strings)
+    except ValueError:
+        return []
+
+    image_base = pe.OPTIONAL_HEADER.ImageBase
+    string_blob_start = pe.get_offset_from_rva(string_blob_start - image_base)
+    string_blob_end = pe.get_offset_from_rva(string_blob_end - image_base)
+
+    return list(filter(lambda s: string_blob_start <= s.offset < string_blob_end, static_strings))
 
 
 def main(argv=None):

@@ -2,16 +2,20 @@
 
 import re
 from enum import Enum
-from typing import Iterable
+from typing import Tuple, Iterable
 from pathlib import Path
 
 import pefile
 
 import floss.logging_
 from floss.results import StaticString
-from floss.rust_version_database import rust_commit_hash
+from floss.language.utils import get_rdata_section
+from floss.language.rust.rust_version_database import rust_commit_hash
 
 logger = floss.logging_.getLogger(__name__)
+
+
+VERSION_UNKNOWN_OR_NA = "version unknown"
 
 
 class Language(Enum):
@@ -19,33 +23,38 @@ class Language(Enum):
     RUST = "rust"
     DOTNET = "dotnet"
     UNKNOWN = "unknown"
+    DISABLED = "none"
 
 
-def identify_language(sample: Path, static_strings: Iterable[StaticString]) -> Language:
-    """
-    Identify the language of the binary given
-    """
-    if is_rust_bin(static_strings):
-        return Language.RUST
+def identify_language_and_version(sample: Path, static_strings: Iterable[StaticString]) -> Tuple[Language, str]:
+    is_rust, version = get_if_rust_and_version(static_strings)
+    if is_rust:
+        logger.info("Rust binary found with version: %s", version)
+        return Language.RUST, version
 
-    # Open the file as PE for further checks
+    # open file as PE for further checks
     try:
         pe = pefile.PE(str(sample))
     except pefile.PEFormatError as err:
-        logger.debug(f"NOT a valid PE file: {err}")
-        return Language.UNKNOWN
+        logger.debug(
+            f"FLOSS currently only detects if Windows PE files were written in Go or .NET. "
+            f"This is not a valid PE file: {err}"
+        )
+        return Language.UNKNOWN, VERSION_UNKNOWN_OR_NA
 
-    if is_go_bin(pe):
-        return Language.GO
+    is_go, version = get_if_go_and_version(pe)
+    if is_go:
+        logger.info("Go binary found with version %s", version)
+        return Language.GO, version
     elif is_dotnet_bin(pe):
-        return Language.DOTNET
+        return Language.DOTNET, VERSION_UNKNOWN_OR_NA
     else:
-        return Language.UNKNOWN
+        return Language.UNKNOWN, VERSION_UNKNOWN_OR_NA
 
 
-def is_rust_bin(static_strings: Iterable[StaticString]) -> bool:
+def get_if_rust_and_version(static_strings: Iterable[StaticString]) -> Tuple[bool, str]:
     """
-    Check if the binary given is compiled with Rust compiler or not
+    Return if the binary given is compiled with Rust compiler and its version
     reference: https://github.com/mandiant/flare-floss/issues/766
     """
 
@@ -55,26 +64,31 @@ def is_rust_bin(static_strings: Iterable[StaticString]) -> bool:
     regex_hash = re.compile(r"rustc/(?P<hash>[a-z0-9]{40})[\\\/]library")
 
     # matches strings like "rustc/version/library" e.g. "rustc/1.54.0/library"
-    regex_version = re.compile(r"rustc/[0-9]{1,2}\.[0-9]{1,2}\.[0-9]{1,2}")
+    regex_version = re.compile(r"rustc/(?P<version>[0-9]{1,2}\.[0-9]{1,2}\.[0-9]{1,2})")
 
     for static_string_obj in static_strings:
         string = static_string_obj.string
+
+        match = regex_version.search(string)
+        if match:
+            return True, match["version"]
+
         matches = regex_hash.search(string)
-        if matches and matches["hash"] in rust_commit_hash.keys():
-            version = rust_commit_hash[matches["hash"]]
-            logger.info("Rust binary found with version: %s", version)
-            return True
-        if regex_version.search(string):
-            logger.info("Rust binary found with version: %s", string)
-            return True
+        if matches:
+            if matches["hash"] in rust_commit_hash.keys():
+                version = rust_commit_hash[matches["hash"]]
+                return True, version
+            else:
+                logger.debug("hash %s not found in Rust commit hash database", matches["hash"])
+                return True, VERSION_UNKNOWN_OR_NA
 
-    return False
+    return False, VERSION_UNKNOWN_OR_NA
 
 
-def is_go_bin(pe: pefile.PE) -> bool:
+def get_if_go_and_version(pe: pefile.PE) -> Tuple[bool, str]:
     """
-    Check if the binary given is compiled with Go compiler or not
-    it checks the magic header of the pclntab structure -pcHeader-
+    Return if the binary given is compiled with Go compiler and its version
+    this checks the magic header of the pclntab structure -pcHeader-
     the magic values varies through the version
     reference:
     https://github.com/0xjiayu/go_parser/blob/865359c297257e00165beb1683ef6a679edc2c7f/pclntbl.py#L46
@@ -86,26 +100,32 @@ def is_go_bin(pe: pefile.PE) -> bool:
         b"\xfa\xff\xff\xff\x00\x00",
         b"\xf1\xff\xff\xff\x00\x00",
     ]
-
+    go_functions = [
+        b"runtime.main",
+        b"main.main",
+        b"runtime.gcWork",
+        b"runtime.morestack",
+        b"runtime.morestack_noctxt",
+        b"runtime.newproc",
+        b"runtime.gcWriteBarrier",
+        b"runtime.Gosched",
+    ]
     # look for the .rdata section first
-    for section in pe.sections:
-        try:
-            section_name = section.Name.partition(b"\x00")[0].decode("utf-8")
-        except UnicodeDecodeError:
-            continue
-        if ".rdata" == section_name:
-            section_va = section.VirtualAddress
-            section_size = section.SizeOfRawData
-            section_data = section.get_data(section_va, section_size)
-            for magic in go_magic:
-                if magic in section_data:
-                    pclntab_va = section_data.index(magic) + section_va
-                    if verify_pclntab(section, pclntab_va):
-                        logger.info("Go binary found with version %s", get_go_version(magic))
-                        return True
+    try:
+        section = get_rdata_section(pe)
+    except ValueError:
+        logger.debug(".rdata section not found")
+    else:
+        section_va = section.VirtualAddress
+        section_size = section.SizeOfRawData
+        section_data = section.get_data(section_va, section_size)
+        for magic in go_magic:
+            if magic in section_data:
+                pclntab_va = section_data.index(magic) + section_va
+                if verify_pclntab(section, pclntab_va):
+                    return True, get_go_version(magic)
 
     # if not found, search in all the available sections
-
     for magic in go_magic:
         for section in pe.sections:
             section_va = section.VirtualAddress
@@ -114,10 +134,34 @@ def is_go_bin(pe: pefile.PE) -> bool:
             if magic in section_data:
                 pclntab_va = section_data.index(magic) + section_va
                 if verify_pclntab(section, pclntab_va):
-                    # just for testing
-                    logger.info("Go binary found with version %s", get_go_version(magic))
-                    return True
-    return False
+                    return True, get_go_version(magic)
+
+    # if not found, the magic bytes may have been patched, search for common Go functions present in all Go samples including obfuscated files
+    # look for the .rdata section first
+    try:
+        section = get_rdata_section(pe)
+    except ValueError:
+        logger.debug(".rdata section not found")
+    else:
+        section_va = section.VirtualAddress
+        section_size = section.SizeOfRawData
+        section_data = section.get_data(section_va, section_size)
+        for go_function in go_functions:
+            if go_function in section_data:
+                logger.info("Go binary found, function name %s", go_function)
+                return True, VERSION_UNKNOWN_OR_NA
+
+    # if not found, search in all the available sections
+    for section in pe.sections:
+        section_va = section.VirtualAddress
+        section_size = section.SizeOfRawData
+        section_data = section.get_data(section_va, section_size)
+        for go_function in go_functions:
+            if go_function in section_data:
+                logger.info("Go binary found, function name %s", go_function)
+                return True, VERSION_UNKNOWN_OR_NA
+
+    return False, VERSION_UNKNOWN_OR_NA
 
 
 def get_go_version(magic):
@@ -137,7 +181,7 @@ def get_go_version(magic):
     elif magic == MAGIC_120:
         return "1.20"
     else:
-        return "unknown"
+        return VERSION_UNKNOWN_OR_NA
 
 
 def verify_pclntab(section, pclntab_va: int) -> bool:

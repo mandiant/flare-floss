@@ -54,7 +54,7 @@ from floss.logging_ import TRACE, DebugLevel
 from floss.stackstrings import extract_stackstrings
 from floss.tightstrings import extract_tightstrings
 from floss.string_decoder import decode_strings
-from floss.language.identify import Language, identify_language
+from floss.language.identify import Language, identify_language_and_version
 
 SIGNATURES_PATH_DEFAULT_STRING = "(embedded signatures)"
 EXTENSIONS_SHELLCODE_32 = ("sc32", "raw32")
@@ -198,9 +198,11 @@ def make_parser(argv):
     advanced_group.add_argument(
         "--language",
         type=str,
-        choices=[l.value for l in Language if l != Language.UNKNOWN] + ["none"],
-        default="",
-        help="use language-specific string extraction, disable using 'none'" if show_all_options else argparse.SUPPRESS,
+        choices=[l.value for l in Language if l != Language.UNKNOWN],
+        default=Language.UNKNOWN.value,
+        help="use language-specific string extraction, auto-detect language by default, disable using 'none'"
+        if show_all_options
+        else argparse.SUPPRESS,
     )
     advanced_group.add_argument(
         "-l",
@@ -547,35 +549,44 @@ def main(argv=None) -> int:
     static_runtime = get_runtime_diff(interim)
 
     # set language configurations
-    lang_id: Language
-    if args.language == Language.GO.value:
-        lang_id = Language.GO
-    elif args.language == Language.RUST.value:
-        lang_id = Language.RUST
-    elif args.language == Language.DOTNET.value:
-        lang_id = Language.DOTNET
-    elif args.language == "none":
-        lang_id = Language.UNKNOWN
+    selected_lang = Language(args.language)
+    if selected_lang == Language.DISABLED:
+        results.metadata.language = ""
+        results.metadata.language_version = ""
+        results.metadata.language_selected = ""
     else:
-        lang_id = identify_language(sample, static_strings)
+        lang_id, lang_version = identify_language_and_version(sample, static_strings)
 
-    if lang_id == Language.GO:
+        if selected_lang == Language.UNKNOWN:
+            pass
+        elif selected_lang != lang_id:
+            logger.warning(
+                "the selected language '%s' differs to the automatically identified language '%s (%s)' - extracted "
+                "strings may be incomplete or inaccurate",
+                selected_lang.value,
+                lang_id.value,
+                lang_version,
+            )
+            results.metadata.language_selected = selected_lang.value
+
+        results.metadata.language = lang_id.value
+        results.metadata.language_version = lang_version
+
+    if results.metadata.language == Language.GO.value:
         if analysis.enable_tight_strings or analysis.enable_stack_strings or analysis.enable_decoded_strings:
             logger.warning(
                 "FLOSS handles Go static strings, but string deobfuscation may be inaccurate and take a long time"
             )
-        results.metadata.language = Language.GO.value
 
-    elif lang_id == Language.RUST:
+    elif results.metadata.language == Language.RUST.value:
         if analysis.enable_tight_strings or analysis.enable_stack_strings or analysis.enable_decoded_strings:
             logger.warning(
                 "FLOSS handles Rust static strings, but string deobfuscation may be inaccurate and take a long time"
             )
-        results.metadata.language = Language.RUST.value
 
-    elif lang_id == Language.DOTNET:
+    elif results.metadata.language == Language.DOTNET.value:
         logger.warning(".NET language-specific string extraction is not supported yet")
-        logger.warning("Furthermore, FLOSS does NOT attempt to deobfuscate any strings from .NET binaries")
+        logger.warning("FLOSS does NOT attempt to deobfuscate any strings from .NET binaries")
 
         # enable .NET strings once we can extract them
         # results.metadata.language = Language.DOTNET.value
@@ -585,7 +596,7 @@ def main(argv=None) -> int:
         analysis.enable_tight_strings = False
         analysis.enable_decoded_strings = False
 
-    if results.metadata.language != "":
+    if results.metadata.language not in ("", "unknown"):
         if args.enabled_types == [] and args.disabled_types == []:
             prompt = input("Do you want to enable string deobfuscation? (this could take a long time) [y/N] ")
 
@@ -603,40 +614,42 @@ def main(argv=None) -> int:
 
     # in order of expected run time, fast to slow
     # 1. static strings (done above)
+    #  a) includes language-specific strings, if applicable
     # 2. stack strings
     # 3. tight strings
     # 4. decoded strings
 
     if results.analysis.enable_static_strings:
+        logger.info("extracting static strings")
         results.strings.static_strings = static_strings
         results.metadata.runtime.static_strings = static_runtime
 
-        if not lang_id:
-            logger.info("extracting static strings")
-        else:
-            if lang_id == Language.GO:
-                logger.info("extracting language-specific Go strings")
+        if results.metadata.language == Language.GO.value:
+            logger.info("extracting language-specific Go strings")
 
-                interim = time()
-                results.strings.language_strings = floss.language.go.extract.extract_go_strings(sample, args.min_length)
-                results.metadata.runtime.language_strings = get_runtime_diff(interim)
+            interim = time()
+            results.strings.language_strings = floss.language.go.extract.extract_go_strings(sample, args.min_length)
+            results.metadata.runtime.language_strings = get_runtime_diff(interim)
 
-                results.strings.language_strings_missed = floss.language.utils.get_missed_strings(
-                    static_strings, results.strings.language_strings, args.min_length
-                )
+            # missed strings only includes non-identified strings in searched range
+            # here currently only focus on strings in string blob range
+            string_blob_strings = floss.language.go.extract.get_static_strings_from_blob_range(sample, static_strings)
+            results.strings.language_strings_missed = floss.language.utils.get_missed_strings(
+                string_blob_strings, results.strings.language_strings, args.min_length
+            )
 
-            elif lang_id == Language.RUST:
-                logger.info("extracting language-specific Rust strings")
+        elif results.metadata.language == Language.RUST.value:
+            logger.info("extracting language-specific Rust strings")
 
-                interim = time()
-                results.strings.language_strings = floss.language.rust.extract.extract_rust_strings(
-                    sample, args.min_length
-                )
-                results.metadata.runtime.language_strings = get_runtime_diff(interim)
+            interim = time()
+            results.strings.language_strings = floss.language.rust.extract.extract_rust_strings(sample, args.min_length)
+            results.metadata.runtime.language_strings = get_runtime_diff(interim)
 
-                results.strings.language_strings_missed = floss.language.utils.get_missed_strings(
-                    static_strings, results.strings.language_strings, args.min_length
-                )
+            # currently Rust strings are only extracted from the .rdata section
+            rdata_strings = floss.language.rust.extract.get_static_strings_from_rdata(sample, static_strings)
+            results.strings.language_strings_missed = floss.language.utils.get_missed_strings(
+                rdata_strings, results.strings.language_strings, args.min_length
+            )
     if (
         results.analysis.enable_decoded_strings
         or results.analysis.enable_stack_strings

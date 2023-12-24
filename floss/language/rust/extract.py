@@ -15,20 +15,13 @@ from floss.language.utils import (
     find_mov_xrefs,
     find_push_xrefs,
     get_raw_xrefs_rdata_i386,
+    get_rdata_section,
     get_struct_string_candidates,
 )
 
 logger = logging.getLogger(__name__)
 
 MIN_STR_LEN = 4
-
-
-def get_rdata_section(pe: pefile.PE) -> pefile.SectionStructure:
-    for section in pe.sections:
-        if section.Name.startswith(b".rdata\x00"):
-            return section
-
-    raise ValueError("no .rdata section found")
 
 
 def fix_b2s_wide_strings(
@@ -129,6 +122,20 @@ def extract_rust_strings(sample: pathlib.Path, min_length: int) -> List[StaticSt
     return rust_strings
 
 
+def get_static_strings_from_rdata(sample, static_strings) -> List[StaticString]:
+    pe = pefile.PE(data=pathlib.Path(sample).read_bytes(), fast_load=True)
+
+    try:
+        rdata_section = get_rdata_section(pe)
+    except ValueError:
+        return []
+
+    start_rdata = rdata_section.PointerToRawData
+    end_rdata = start_rdata + rdata_section.SizeOfRawData
+
+    return list(filter(lambda s: start_rdata <= s.offset < end_rdata, static_strings))
+
+
 def get_string_blob_strings(pe: pefile.PE, min_length: int) -> Iterable[StaticString]:
     image_base = pe.OPTIONAL_HEADER.ImageBase
 
@@ -151,6 +158,11 @@ def get_string_blob_strings(pe: pefile.PE, min_length: int) -> Iterable[StaticSt
     # select only UTF-8 strings and adjust offset
     static_strings = filter_and_transform_utf8_strings(fixed_strings, start_rdata)
 
+    # TODO(mr-tz) - handle miss in rust-hello64.exe
+    #  .rdata:00000001400C1270 0A                      aPanickedAfterP db 0Ah                  ; DATA XREF: .rdata:00000001400C12B8↓o
+    #  .rdata:00000001400C1271 70 61 6E 69 63 6B 65 64…                db 'panicked after panic::always_abort(), aborting.',0Ah,0
+    #  .rdata:00000001400C12A2 00 00 00 00 00 00                       align 8
+
     struct_string_addrs = map(lambda c: c.address, get_struct_string_candidates(pe))
 
     if pe.FILE_HEADER.Machine == pefile.MACHINE_TYPE["IMAGE_FILE_MACHINE_I386"]:
@@ -163,6 +175,11 @@ def get_string_blob_strings(pe: pefile.PE, min_length: int) -> Iterable[StaticSt
     elif pe.FILE_HEADER.Machine == pefile.MACHINE_TYPE["IMAGE_FILE_MACHINE_AMD64"]:
         xrefs_lea = find_lea_xrefs(pe)
         xrefs = itertools.chain(struct_string_addrs, xrefs_lea)
+
+        # TODO(mr-tz) - handle movdqa rust-hello64.exe
+        #  .text:0000000140026046 66 0F 6F 05 02 71 09 00                 movdqa  xmm0, cs:xmmword_1400BD150
+        #  .text:000000014002604E 66 0F 6F 0D 0A 71 09 00                 movdqa  xmm1, cs:xmmword_1400BD160
+        #  .text:0000000140026056 66 0F 6F 15 12 71 09 00                 movdqa  xmm2, cs:xmmword_1400BD170
 
     else:
         logger.error("unsupported architecture: %s", pe.FILE_HEADER.Machine)

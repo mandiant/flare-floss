@@ -50,9 +50,9 @@ def identify_decoding_functions(vw):
     return top_functions, decoding_function_features
 
 
-def pytest_collect_file(parent, path):
-    if path.basename == "test.yml":
-        return YamlFile.from_parent(parent, fspath=path)
+def pytest_collect_file(parent, file_path):
+    if file_path.name == "test.yml":
+        return YamlFile.from_parent(parent, path=file_path)
 
 
 class YamlFile(pytest.File):

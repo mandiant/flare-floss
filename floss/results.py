@@ -1,5 +1,6 @@
 # Copyright (C) 2021 Mandiant, Inc. All Rights Reserved.
 
+import re
 import json
 import datetime
 from enum import Enum
@@ -139,6 +140,9 @@ class StaticString:
         except UnicodeDecodeError:
             raise ValueError("not utf-8")
 
+        if not re.sub(r"[\r\n\t]", "", decoded_string).isprintable():
+            raise ValueError("not printable")
+
         if len(decoded_string) < min_length:
             raise ValueError("too short")
         return cls(string=decoded_string, offset=addr, encoding=StringEncoding.UTF8)
@@ -187,6 +191,8 @@ class Metadata:
     min_length: int = 0
     runtime: Runtime = field(default_factory=Runtime)
     language: str = ""
+    language_version: str = ""
+    language_selected: str = ""  # configured by user
 
 
 @dataclass
