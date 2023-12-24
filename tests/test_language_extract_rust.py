@@ -80,3 +80,21 @@ def test_push(request, string, offset, encoding, rust_strings):
 )
 def test_mov_jmp(request, string, offset, encoding, rust_strings):
     assert StaticString(string=string, offset=offset, encoding=encoding) in request.getfixturevalue(rust_strings)
+
+
+@pytest.mark.parametrize(
+    "string,offset,encoding,rust_strings",
+    [
+        # .rdata:004BFA48                 dd offset unk_4BA13A
+        # .rdata:004BFA4C                 dd offset unk_4BA100
+        pytest.param("Invalid branch target in DWARF expression", 0xB813A, StringEncoding.UTF8, "rust_strings32"),
+        pytest.param(
+            "Expected to find an FDE pointer, but found a CIE pointer instead.",
+            0xB8163,
+            StringEncoding.UTF8,
+            "rust_strings32",
+        ),
+    ],
+)
+def test_raw_xrefs(request, string, offset, encoding, rust_strings):
+    assert StaticString(string=string, offset=offset, encoding=encoding) in request.getfixturevalue(rust_strings)

@@ -14,8 +14,8 @@ from floss.language.utils import (
     find_lea_xrefs,
     find_mov_xrefs,
     find_push_xrefs,
-    get_raw_xrefs_rdata_i386,
     get_rdata_section,
+    get_raw_xrefs_rdata_i386,
     get_struct_string_candidates,
 )
 
