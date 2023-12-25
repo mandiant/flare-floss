@@ -71,7 +71,7 @@ setuptools.setup(
             "types-PyYAML==6.0.10",
             "types-tabulate==0.9.0.3",
         ],
-        "build": ["pyinstaller==6.3.0", "setuptools==69.0.2", "build==1.0.3"],
+        "build": ["pyinstaller==6.3.0", "setuptools==69.0.3", "build==1.0.3"],
     },
     zip_safe=False,
     keywords="floss malware analysis obfuscation strings FLARE",
