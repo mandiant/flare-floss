@@ -356,13 +356,20 @@ def is_supported_file_type(sample_file_path: Path):
     :return: True if file type is supported, False otherwise
     """
     with sample_file_path.open("rb") as f:
-        magic = f.read(2)
+        magic = f.read(4)
 
     if magic in SUPPORTED_FILE_MAGIC:
+        return True
+    elif magic[:2] in SUPPORTED_FILE_MAGIC:
         return True
     else:
         return False
 
+def get_file_type(sample_file_path: Path):
+    with sample_file_path.open("rb") as f:
+            magic = f.read(4)
+
+    return magic
 
 def load_vw(
     sample_path: Path,
@@ -373,7 +380,7 @@ def load_vw(
     if format not in ("sc32", "sc64"):
         if not is_supported_file_type(sample_path):
             raise WorkspaceLoadError(
-                "FLOSS currently supports the following formats for string decoding and stackstrings: PE\n"
+                "FLOSS currently supports the following formats for string decoding and stackstrings: PE, ELF\n"
                 "You can analyze shellcode using the --format sc32|sc64 switch. See the help (-h) for more information."
             )
 
@@ -390,7 +397,8 @@ def load_vw(
     else:
         vw = viv_utils.getWorkspace(str(sample_path), analyze=False, should_save=False)
 
-    viv_utils.flirt.register_flirt_signature_analyzers(vw, list(map(str, sigpaths)))
+    if get_file_type(sample_path) != b'\x7fELF':
+        viv_utils.flirt.register_flirt_signature_analyzers(vw, list(map(str, sigpaths)))
 
     vw.analyze()
 

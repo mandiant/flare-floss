@@ -36,11 +36,11 @@ def identify_language_and_version(sample: Path, static_strings: Iterable[StaticS
     try:
         pe = pefile.PE(str(sample))
     except pefile.PEFormatError as err:
-        logger.debug(
+        logger.error(
             f"FLOSS currently only detects if Windows PE files were written in Go or .NET. "
             f"This is not a valid PE file: {err}"
         )
-        return Language.UNKNOWN, VERSION_UNKNOWN_OR_NA
+        exit(err)
 
     is_go, version = get_if_go_and_version(pe)
     if is_go:
