@@ -64,7 +64,7 @@ setuptools.setup(
             "pytest-instafail==0.5.0",
             "pytest-cov==4.1.0",
             "pycodestyle==2.11.1",
-            "black==23.11.0",
+            "black==23.12.1",
             "isort==5.13.2",
             "mypy==1.7.1",
             # type stubs for mypy
