@@ -598,7 +598,12 @@ def main(argv=None) -> int:
 
     if results.metadata.language not in ("", "unknown"):
         if args.enabled_types == [] and args.disabled_types == []:
-            prompt = input("Do you want to enable string deobfuscation? (this could take a long time) [y/N] ")
+            
+            # if floss foo.exe | less is used, we don't want to prompt the user
+            if sys.stdout.isatty():
+                prompt = input("Do you want to enable string deobfuscation? (this could take a long time) [y/N] ")
+            else:
+                prompt = "n"            
 
             if prompt.lower() == "y":
                 logger.info("enabled string deobfuscation")
