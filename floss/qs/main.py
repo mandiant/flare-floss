@@ -355,18 +355,6 @@ def render_string(width: int, s: TaggedString, tag_rules: TagRules) -> Text:
     return line
 
 
-def get_duplicate_strings(strings: Sequence[ExtractedString]) -> Set[str]:
-    seen = set()
-    duplicates = set()
-
-    for s in strings:
-        if s.string in seen:
-            duplicates.add(s.string)
-        seen.add(s.string)
-
-    return duplicates
-
-
 def get_reloc_offsets(slice: Slice, pe: pefile.PE) -> Set[int]:
     ret: Set[int] = set()
 
@@ -656,7 +644,7 @@ class Layout(abc.ABC):
         this can be overridden, if a subclass has more ways of tagging strings,
         such as a PE file and code/reloc regions.
         """
-        duplicate_strings = get_duplicate_strings(self.strings)
+        string_counts = {}
         
         tagged_strings: List[TaggedString] = []
 
@@ -666,10 +654,11 @@ class Layout(abc.ABC):
             assert isinstance(string, ExtractedString)
             tags: Set[Tag] = set()
 
-            # check for duplicates
-            if string.string in duplicate_strings:
-                tags.add("#duplicate")
+            string_counts[string.string] = string_counts.get(string.string, 0) + 1
 
+            if string_counts[string.string] > 1:
+                tags.add("#duplicate")
+                
             for tagger in taggers:
                 tags.update(tagger(string))
 
