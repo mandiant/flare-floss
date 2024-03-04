@@ -694,6 +694,9 @@ class SegmentLayout(Layout):
 
 @dataclass
 class PELayout(Layout):
+    # xor key if the file was xor decoded
+    xor_key: None
+
     # file offsets of bytes that are part of the relocation table
     reloc_offsets: Set[int]
 
@@ -733,7 +736,7 @@ class ResourceLayout(Layout):
     pass
 
 
-def compute_pe_layout(slice: Slice) -> Layout:
+def compute_pe_layout(slice: Slice, xor_key: int) -> Layout:
     data = slice.data
 
     try:
@@ -774,6 +777,7 @@ def compute_pe_layout(slice: Slice) -> Layout:
     layout = PELayout(
         slice=slice,
         name="pe",
+        xor_key=xor_key,
         reloc_offsets=reloc_offsets,
         code_offsets=code_offsets,
         structures_by_address=structures_by_address,
@@ -927,7 +931,7 @@ def compute_layout(slice: Slice) -> Layout:
     # Try to parse as PE file
     if slice.data.startswith(b"MZ"):
         try:
-            return compute_pe_layout(slice)
+            return compute_pe_layout(slice, xor_key)
         except ValueError as e:
             logger.debug("failed to parse as PE file: %s", e)
             # Fall back to using the default binary layout
@@ -1075,6 +1079,8 @@ def render_strings(
     BORDER_STYLE = MUTED_STYLE
 
     name = layout.name
+    if isinstance(layout, PELayout) and layout.xor_key:  # Check if the layout is PELayout and is xored
+        name += f" (XOR decoded with key: {layout.xor_key})"
     if name_hint:
         name = f"{name_hint} ({name})"
 
