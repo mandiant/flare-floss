@@ -8,6 +8,8 @@ from typing import Dict, List
 from pathlib import Path
 from dataclasses import field
 
+from pydantic import TypeAdapter, ValidationError
+
 # we use pydantic for dataclasses so that we can
 # easily load and validate JSON reports.
 #
@@ -16,7 +18,6 @@ from dataclasses import field
 #
 # really, you should just pretend we're using stock dataclasses.
 from pydantic.dataclasses import dataclass
-from pydantic.error_wrappers import ValidationError
 
 import floss.logging_
 from floss.render import Verbosity
@@ -212,9 +213,8 @@ class ResultDocument:
     strings: Strings = field(default_factory=Strings)
 
     @classmethod
-    def parse_file(cls, path):
-        # We're ignoring the following mypy error since this field is guaranteed by the Pydantic dataclass.
-        return cls.__pydantic_model__.parse_file(path)  # type: ignore
+    def parse_file(cls, path: Path) -> "ResultDocument":
+        return TypeAdapter(cls).validate_json(path.read_text(encoding="utf-8"))
 
 
 def log_result(decoded_string, verbosity):
