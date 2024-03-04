@@ -897,16 +897,40 @@ def compute_pe_layout(slice: Slice) -> Layout:
     return layout
 
 
-def compute_layout(slice: Slice) -> Layout:
-    data = slice.data
+def xor_static(data: bytes, i: int) -> bytes:
+    return bytes(c ^ i for c in data)
 
-    # try to parse as PE file
-    if data.startswith(b"MZ"):
+
+def compute_layout(slice: Slice) -> Layout:
+
+    mz_xor = [
+        (
+            xor_static(b"MZ", key),
+            key,
+        )
+        for key in range(256)
+    ]
+
+    xor_key = None
+
+    # Try to find the XOR key
+    for mz, key in mz_xor:
+        if slice.data.startswith(mz):
+            xor_key = key
+            break
+
+    # If XOR key is found, apply XOR decoding
+    if xor_key is not None:
+        decoded_data = xor_static(slice.data, xor_key)
+        slice = Slice(decoded_data, Range(0, len(decoded_data)))
+        
+    # Try to parse as PE file
+    if slice.data.startswith(b"MZ"):
         try:
             return compute_pe_layout(slice)
         except ValueError as e:
             logger.debug("failed to parse as PE file: %s", e)
-            # fall back to using the default binary layout
+            # Fall back to using the default binary layout
             pass
 
     return SegmentLayout(
