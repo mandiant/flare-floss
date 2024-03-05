@@ -11,7 +11,7 @@ import argparse
 import functools
 import itertools
 import contextlib
-from typing import Set, Dict, List, Tuple, Literal, Callable, Iterable, Optional, Sequence
+from typing import Set, Dict, List, Union, Tuple, Literal, Callable, Iterable, Optional, Sequence
 from dataclasses import field, dataclass
 
 import pefile
@@ -378,6 +378,13 @@ def get_reloc_offsets(slice: Slice, pe: pefile.PE) -> Set[int]:
     return ret
 
 
+def check_is_xor(xor_key: Union[int, None]):
+    if isinstance(xor_key, int):
+        return ("#decoded",)
+
+    return ()
+
+
 def check_is_reloc(reloc_offsets: Set[int], string: ExtractedString):
     for addr in string.slice.range:
         if addr in reloc_offsets:
@@ -706,6 +713,8 @@ class PELayout(Layout):
     structures_by_address: Dict[int, Structure]
 
     def tag_strings(self, taggers: Sequence[Tagger]):
+        def check_is_xor_tagger(s: ExtractedString) -> Sequence[Tag]:
+            return check_is_xor(self.xor_key)
         def check_is_reloc_tagger(s: ExtractedString) -> Sequence[Tag]:
             return check_is_reloc(self.reloc_offsets, s)
 
@@ -713,6 +722,7 @@ class PELayout(Layout):
             return check_is_code(self.code_offsets, s)
 
         taggers = tuple(taggers) + (
+            check_is_xor_tagger,
             check_is_reloc_tagger,
             check_is_code_tagger,
         )
@@ -736,7 +746,7 @@ class ResourceLayout(Layout):
     pass
 
 
-def compute_pe_layout(slice: Slice, xor_key: int) -> Layout:
+def compute_pe_layout(slice: Slice, xor_key: Union[int, None]) -> Layout:
     data = slice.data
 
     try:
@@ -912,7 +922,7 @@ def compute_layout(slice: Slice) -> Layout:
             xor_static(b"MZ", key),
             key,
         )
-        for key in range(256)
+        for key in range(1, 256)
     ]
 
     xor_key = None
