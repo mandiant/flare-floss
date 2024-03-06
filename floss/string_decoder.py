@@ -1,5 +1,5 @@
 # Copyright (C) 2017 Mandiant, Inc. All Rights Reserved.
-
+from collections import defaultdict
 from typing import Set, List
 from dataclasses import dataclass
 
@@ -145,10 +145,12 @@ def decode_strings(
 
     decoded_strings = list()
     function_index = viv_utils.InstructionFunctionIndex(vw)
+    call_counts = defaultdict(int)  # Call counter for each decoding function
 
     pb = floss.utils.get_progress_bar(functions, disable_progress, desc="decoding strings", unit=" functions")
     with tqdm.contrib.logging.logging_redirect_tqdm(), floss.utils.redirecting_print_to_tqdm():
         for fva in pb:
+            call_counts[fva] += 1  # Update call count
             seen: Set[str] = floss.utils.get_referenced_strings(vw, fva)
             ctxs = extract_decoding_contexts(vw, fva, function_index)
             n_calls = len(ctxs)
@@ -173,6 +175,8 @@ def decode_strings(
                             floss.results.log_result(ds, verbosity)
                             seen.add(ds.string)
                             decoded_strings.append(ds)
+        for fva, count in call_counts.items():
+            logger.info(f"Function at 0x{fva:x} was called {count} times")
         return decoded_strings
 
 
