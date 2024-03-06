@@ -1090,7 +1090,7 @@ def render_strings(
 
     name = layout.name
     if isinstance(layout, PELayout) and layout.xor_key:  # Check if the layout is PELayout and is xored
-        name += f" (XOR decoded with key: {layout.xor_key})"
+        name += f" (XOR decoded with key: 0x{layout.xor_key:x})"
     if name_hint:
         name = f"{name_hint} ({name})"
 
