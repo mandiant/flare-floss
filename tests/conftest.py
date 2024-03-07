@@ -152,7 +152,7 @@ class FLOSSTest(pytest.Item):
         self._test_strings(str(test_path))
 
     def reportinfo(self):
-        self.path, 0, "usecase: %s" % self.name
+        return self.path, 0, "usecase: %s" % self.name
 
     def repr_failure(self, excinfo):
         if isinstance(excinfo.value, FLOSSStringsNotExtracted):
