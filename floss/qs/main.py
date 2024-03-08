@@ -662,7 +662,7 @@ class Layout(abc.ABC):
             assert isinstance(string, ExtractedString)
             tags: Set[Tag] = set()
 
-            string_counts[string.string] = string_counts.get(string.string, 0) + 1
+            string_counts[string.string] += 1
 
             if string_counts[string.string] > 1:
                 tags.add("#duplicate")
