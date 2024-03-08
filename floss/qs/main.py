@@ -11,6 +11,7 @@ import argparse
 import functools
 import itertools
 import contextlib
+from collections import defaultdict
 from typing import Set, Dict, List, Union, Tuple, Literal, Callable, Iterable, Optional, Sequence
 from dataclasses import field, dataclass
 
@@ -651,7 +652,7 @@ class Layout(abc.ABC):
         this can be overridden, if a subclass has more ways of tagging strings,
         such as a PE file and code/reloc regions.
         """
-        string_counts = {}
+        string_counts = defaultdict(int)
         
         tagged_strings: List[TaggedString] = []
 
