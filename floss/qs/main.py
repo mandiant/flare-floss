@@ -11,6 +11,7 @@ import argparse
 import functools
 import itertools
 import contextlib
+from rapidfuzz import fuzz
 from collections import defaultdict
 from typing import Set, Dict, List, Union, Tuple, Literal, Callable, Iterable, Optional, Sequence
 from dataclasses import field, dataclass
@@ -1080,7 +1081,7 @@ def has_visible_successors(layout: Layout) -> bool:
 
 
 def render_strings(
-    console: Console, layout: Layout, tag_rules: TagRules, depth: int = 0, name_hint: Optional[str] = None
+    console: Console, layout: Layout, tag_rules: TagRules, depth: int = 0, name_hint: Optional[str] = None, search_string: Optional[str] = None
 ):
     if not is_visible(layout):
         return
@@ -1093,7 +1094,7 @@ def render_strings(
         # for example:
         #
         #     rsrc: BINARY/102/0 (pe)
-        return render_strings(console, layout.children[0], tag_rules, depth, name_hint=layout.name)
+        return render_strings(console, layout.children[0], tag_rules, depth, name_hint=layout.name, search_string=search_string)
 
     BORDER_STYLE = MUTED_STYLE
 
@@ -1130,6 +1131,9 @@ def render_strings(
         line.append_text(Span("┃" * (depth + 1), style=BORDER_STYLE))
         console.print(line)
 
+    if search_string:
+        layout.strings = [string for string in layout.strings if fuzz.ratio(string.string.string, search_string) >= 50]
+
     if not layout.children:
         # for string in layout.strings[:4]:
         for string in layout.strings:
@@ -1149,7 +1153,7 @@ def render_strings(
             for string in strings_before_child:
                 render_string_line(console, tag_rules, string, depth)
 
-            render_strings(console, child, tag_rules, depth + 1)
+            render_strings(console, child, tag_rules, depth + 1, search_string=search_string)
 
         # render strings after last child
         strings_after_children = list(filter(lambda s: child.end < s.offset < layout.end, layout.strings))
@@ -1181,6 +1185,12 @@ def main():
         default=MIN_STR_LEN,
         help="minimum string length",
     )
+    parser.add_argument(
+        "-s",
+        "--search-string",
+        dest="search_string",
+        type=str,
+        help="string to fuzzy search")
     logging_group = parser.add_argument_group("logging arguments")
     logging_group.add_argument("-d", "--debug", action="store_true", help="enable debugging output on STDERR")
     logging_group.add_argument(
@@ -1251,7 +1261,7 @@ def main():
     hide_strings_by_rules(layout, tag_rules)
 
     console = Console()
-    render_strings(console, layout, tag_rules)
+    render_strings(console, layout, tag_rules, search_string=args.search_string)
 
     return 0
 
