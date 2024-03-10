@@ -1132,7 +1132,15 @@ def render_strings(
         console.print(line)
 
     if search_string:
-        layout.strings = [string for string in layout.strings if fuzz.ratio(string.string.string, search_string) >= 50]
+        layout.strings = [
+            string
+            for string in layout.strings
+            if any(
+                fuzz.ratio(token, search_token) >= 50
+                for token in string.string.string.split(' ')
+                for search_token in search_string.split(' ')
+            )
+        ]
 
     if not layout.children:
         # for string in layout.strings[:4]:
