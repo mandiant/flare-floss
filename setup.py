@@ -59,7 +59,7 @@ setuptools.setup(
             "dnfile==0.13.0",
             "colorama==0.4.6",
             "msgspec==0.14.2",
-            "python-lancelot==0.8.7",
+            "python-lancelot==0.8.10",
         ],
         "dev": [
             "pyyaml==6.0",
