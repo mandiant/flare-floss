@@ -1,0 +1,84 @@
+# Copyright (C) 2024 Mandiant, Inc. All Rights Reserved.
+# Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at: [package root]/LICENSE.txt
+# Unless required by applicable law or agreed to in writing, software distributed under the License
+#  is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and limitations under the License.
+
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "flare-floss"
+description = "FLARE Obfuscated String Solver"
+license = {file = "LICENSE.txt"}
+authors = [
+    {name = "Willi Ballenthin", email = "william.ballenthin@mandiant.com"},
+    {name = "Moritz Raabe", email = "moritz.raabe@mandiant.com"},
+]
+requires-python=">=3.8"
+keywords = ["floss", "malware", "analysis", "obfuscation", "strings", "FLARE"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "License :: OSI Approved :: Apache Software License",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3",
+    "Topic :: Security",
+]
+
+dependencies = [
+    "tabulate==0.9.0",
+    "vivisect==1.1.1",
+    "viv-utils[flirt]==0.7.9",
+    "pydantic==1.10.9",
+    "tqdm==4.65.0",
+    "networkx==3.1",
+    "halo==0.0.31",
+    "rich==13.4.2",
+    "pefile>=2022.5.30",
+    "binary2strings==0.1.13",
+]
+dynamic = ["version", "readme"]
+
+[tool.setuptools.dynamic]
+version = {attr = "floss.version.__version__"}
+readme = {file = "README.md"}
+
+[tool.setuptools]
+packages = ["floss", "floss.sigs"]
+
+[project.optional-dependencies]
+dev = [
+    "pre-commit==3.5.0",
+    "pyyaml==6.0.1",
+    "pytest==8.0.2",
+    "pytest-sugar==0.9.4",
+    "pytest-instafail==0.5.0",
+    "pytest-cov==4.1.0",
+    "pycodestyle==2.11.1",
+    "black==23.12.1",
+    "isort==5.13.2",
+    "mypy==1.8.0",
+    # type stubs for mypy
+    "types-PyYAML==6.0.10",
+    "types-tabulate==0.9.0.20240106",
+]
+build = [
+    "pyinstaller==6.3.0",
+    "setuptools==69.1.1",
+    "build==1.0.3"
+]
+
+
+[project.urls]
+Homepage = "https://www.github.com/mandiant/flare-floss"
+Repository = "https://www.github.com/mandiant/flare-floss.git"
+Documentation = "https://github.com/mandiant/flare-floss/tree/master/doc"
+Signatures = "https://github.com/mandiant/flare-floss/tree/master/floss/sigs"
+
+[project.scripts]
+floss = "floss.main:main"
