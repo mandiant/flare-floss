@@ -3,6 +3,7 @@
 import copy
 import operator
 import collections
+import textwrap
 from typing import Dict, List, Tuple, DefaultDict
 
 import tqdm
@@ -151,8 +152,8 @@ def find_decoding_function_features(vw, functions, disable_progress=False) -> Tu
 
             f = viv_utils.Function(vw, function_address)
 
-            function_data = {"meta": get_function_meta(f), "features": list()}
-
+            # function_data = {"meta": get_function_meta(f), "features": [] }
+            function_data = {"meta": get_function_meta(f), "features": [] , "call_count":len(list(vw.getXrefsTo(function_address)))}
             # meta data features
             function_data["features"].append(BlockCount(function_data["meta"].get("block_count")))
             function_data["features"].append(InstructionCount(function_data["meta"].get("instruction_count")))
@@ -173,11 +174,14 @@ def find_decoding_function_features(vw, functions, disable_progress=False) -> Tu
                 function_data["features"].append(feature)
 
             function_data["score"] = get_function_score_weighted(function_data["features"])
-
-            logger.debug("analyzed function 0x%x - total score: %.3f", function_address, function_data["score"])
-            for feat in function_data["features"]:
-                logger.trace("  %s", feat)
-
             decoding_candidate_functions[function_address] = function_data
 
-        return decoding_candidate_functions, library_functions
+    # Log or return the summarized information about decoding functions, including their call counts
+    decoding_function_summaries = [
+        f"0x{fva:x} ({data['score']:.3f}, calls: {data['call_count']})"
+        for fva, data in decoding_candidate_functions.items()
+    ]
+    summary_string = textwrap.fill(", ".join(decoding_function_summaries))
+    logger.info(f"Identified decoding functions:\n{summary_string}")
+
+    return decoding_candidate_functions, library_functions

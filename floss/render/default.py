@@ -134,12 +134,12 @@ def render_function_analysis_rows(results) -> List[Tuple[str, str]]:
     if results.analysis.functions.decoding_function_scores:
         rows.append(
             (
-                "  identified decoding functions\n  (offset and score)",
+                "  identified decoding functions\n  (offset, score, and count of calls)",
                 textwrap.fill(
                     ", ".join(
                         [
-                            f"0x{fva:x} ({d:.3f})"
-                            for fva, d in results.analysis.functions.decoding_function_scores.items()
+                            f"0x{fva:x} ({data['score']:.3f}, calls: {data['call_count']})"
+                            for fva, data in results.analysis.functions.decoding_function_scores.items()
                         ]
                     ),
                     max(len(results.metadata.file_path), MIN_WIDTH_RIGHT_COL),

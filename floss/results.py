@@ -168,8 +168,7 @@ class Functions:
     analyzed_stack_strings: int = 0
     analyzed_tight_strings: int = 0
     analyzed_decoded_strings: int = 0
-    decoding_function_scores: Dict[int, float] = field(default_factory=dict)
-
+    decoding_function_scores: Dict[int, Dict[str, float]] = field(default_factory=dict)
 
 @dataclass
 class Analysis:

@@ -756,8 +756,10 @@ def main(argv=None) -> int:
             else:
                 logger.debug("identified %d candidate decoding functions", len(fvas_to_emulate))
                 for fva in fvas_to_emulate:
-                    results.analysis.functions.decoding_function_scores[fva] = decoding_function_features[fva]["score"]
-                    logger.debug("  - 0x%x: %.3f", fva, decoding_function_features[fva]["score"])
+                    score = decoding_function_features[fva]["score"]
+                    call_count = decoding_function_features[fva]["call_count"]  # Assuming this is how you track it
+                    results.analysis.functions.decoding_function_scores[fva] = {"score": score, "call_count": call_count}
+                    logger.debug("  - 0x%x: score: %.3f, calls: %d", fva, score, call_count)
 
             # TODO filter out strings decoded in library function or function only called by library function(s)
             results.strings.decoded_strings = decode_strings(
