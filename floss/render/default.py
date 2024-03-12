@@ -91,15 +91,19 @@ def render_string_type_rows(results: ResultDocument) -> List[Tuple[str, str]]:
     return [
         (
             " static strings",
-            f"{len_ss:>{len(str(len_ss))}} ({len_chars_ss:>{len(str(len_chars_ss))}d} characters)"
-            if results.analysis.enable_static_strings
-            else DISABLED,
+            (
+                f"{len_ss:>{len(str(len_ss))}} ({len_chars_ss:>{len(str(len_chars_ss))}d} characters)"
+                if results.analysis.enable_static_strings
+                else DISABLED
+            ),
         ),
         (
             "  language strings",
-            f"{len_ls:>{len(str(len_ss))}} ({len_chars_ls:>{len(str(len_chars_ss))}d} characters)"
-            if results.metadata.language
-            else DISABLED,
+            (
+                f"{len_ls:>{len(str(len_ss))}} ({len_chars_ls:>{len(str(len_chars_ss))}d} characters)"
+                if results.metadata.language
+                else DISABLED
+            ),
         ),
         (
             " stack strings",
