@@ -53,7 +53,7 @@ packages = ["floss", "floss.sigs"]
 
 [project.optional-dependencies]
 dev = [
-    "pre-commit==3.5.0",
+    "pre-commit==3.6.2",
     "pyyaml==6.0.1",
     "pytest==8.0.2",
     "pytest-sugar==0.9.4",
