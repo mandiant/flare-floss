@@ -757,9 +757,9 @@ def main(argv=None) -> int:
                 logger.debug("identified %d candidate decoding functions", len(fvas_to_emulate))
                 for fva in fvas_to_emulate:
                     score = decoding_function_features[fva]["score"]
-                    call_count = decoding_function_features[fva]["call_count"] 
-                    results.analysis.functions.decoding_function_scores[fva] = {"score": score, "call_count": call_count}
-                    logger.debug("  - 0x%x: score: %.3f, calls: %d", fva, score, call_count)
+                    xrefs_to = decoding_function_features[fva]["xrefs_to"] 
+                    results.analysis.functions.decoding_function_scores[fva] = {"score": score, "xrefs_to": xrefs_to}
+                    logger.debug("  - 0x%x: score: %.3f, calls: %d", fva, score, xrefs_to)
 
             # TODO filter out strings decoded in library function or function only called by library function(s)
             results.strings.decoded_strings = decode_strings(

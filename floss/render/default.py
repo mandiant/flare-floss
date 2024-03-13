@@ -138,7 +138,7 @@ def render_function_analysis_rows(results) -> List[Tuple[str, str]]:
                 textwrap.fill(
                     ", ".join(
                         [
-                            f"0x{fva:x} ({data['score']:.3f}, calls: {data['call_count']})"
+                            f"0x{fva:x} ({data['score']:.3f}, calls: {data['xrefs_to']})"
                             for fva, data in results.analysis.functions.decoding_function_scores.items()
                         ]
                     ),

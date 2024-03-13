@@ -152,7 +152,7 @@ def find_decoding_function_features(vw, functions, disable_progress=False) -> Tu
 
             f = viv_utils.Function(vw, function_address)
 
-            function_data = {"meta": get_function_meta(f), "features": [] , "call_count":len(list(vw.getXrefsTo(function_address)))}
+            function_data = {"meta": get_function_meta(f), "features": [] , "xrefs_to":len(list(vw.getXrefsTo(function_address)))}
             # meta data features
             function_data["features"].append(BlockCount(function_data["meta"].get("block_count")))
             function_data["features"].append(InstructionCount(function_data["meta"].get("instruction_count")))
@@ -177,7 +177,7 @@ def find_decoding_function_features(vw, functions, disable_progress=False) -> Tu
 
     # Log or return the summarized information about decoding functions, including their call counts
     decoding_function_summaries = [
-        f"0x{fva:x} ({data['score']:.3f}, calls: {data['call_count']})"
+        f"0x{fva:x} ({data['score']:.3f}, calls: {data['xrefs_to']})"
         for fva, data in decoding_candidate_functions.items()
     ]
     summary_string = textwrap.fill(", ".join(decoding_function_summaries))
