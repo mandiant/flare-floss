@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ master ]
+    branches: [ master, elf-support ]
   pull_request:
-    branches: [ master ]
+    branches: [ master, elf-support ]
 
 # save workspaces to speed up testing
 env:
