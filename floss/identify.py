@@ -152,7 +152,6 @@ def find_decoding_function_features(vw, functions, disable_progress=False) -> Tu
 
             f = viv_utils.Function(vw, function_address)
 
-            # function_data = {"meta": get_function_meta(f), "features": [] }
             function_data = {"meta": get_function_meta(f), "features": [] , "call_count":len(list(vw.getXrefsTo(function_address)))}
             # meta data features
             function_data["features"].append(BlockCount(function_data["meta"].get("block_count")))

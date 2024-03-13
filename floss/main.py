@@ -757,7 +757,7 @@ def main(argv=None) -> int:
                 logger.debug("identified %d candidate decoding functions", len(fvas_to_emulate))
                 for fva in fvas_to_emulate:
                     score = decoding_function_features[fva]["score"]
-                    call_count = decoding_function_features[fva]["call_count"]  # Assuming this is how you track it
+                    call_count = decoding_function_features[fva]["call_count"] 
                     results.analysis.functions.decoding_function_scores[fva] = {"score": score, "call_count": call_count}
                     logger.debug("  - 0x%x: score: %.3f, calls: %d", fva, score, call_count)
 
