@@ -123,6 +123,41 @@ class TaggedString:
         "convenience"
         return self.string.slice.range.offset
 
+    def to_dict(self):
+        return {
+            "string": self.string,
+            "structure": self.structure,
+            "tags": list(self.tags),
+            "offset": self.offset
+        }
+
+
+@dataclass
+class ResultDocument:
+    slice: Slice
+    name: str
+    strings: List[TaggedString]
+    parent: Optional['ResultDocument'] = field(default=None)
+    children: Sequence['ResultDocument'] = field(default_factory=list)
+
+    def add_string(self, string: TaggedString):
+        self.strings.append(string)
+
+    def add_child(self, child: 'ResultDocument'):
+        self.children.append(child)
+
+    def set_parent(self, parent: 'ResultDocument'):
+        self.parent = parent
+    
+    def to_dict(self):
+        return {
+            "slice": (self.slice.range.offset, self.slice.range.length),
+            "name": self.name,
+            "strings": [string.to_dict() for string in self.strings],
+            "parent": self.parent.name if self.parent else None,
+            "children": [child.to_dict() for child in self.children]
+        }
+
 
 MIN_STR_LEN = 6
 ASCII_BYTE = r" !\"#\$%&\'\(\)\*\+,-\./0123456789:;<=>\?@ABCDEFGHIJKLMNOPQRSTUVWXYZ\[\]\^_`abcdefghijklmnopqrstuvwxyz\{\|\}\\\~\t".encode(
@@ -1079,6 +1114,15 @@ def has_visible_successors(layout: Layout) -> bool:
     return any(map(is_visible, layout.successors))
 
 
+def to_qs(layout: Layout) -> ResultDocument:
+    doc = ResultDocument(layout.slice, layout.name, layout.strings)
+    for child in layout.children:
+        child_doc = to_qs(child)  # recursively convert all children
+        doc.add_child(child_doc)
+        child_doc.set_parent(doc)  # set parent of children to be the current doc
+    return doc
+
+
 def render_strings(
     console: Console, layout: Layout, tag_rules: TagRules, depth: int = 0, name_hint: Optional[str] = None
 ):
@@ -1249,6 +1293,8 @@ def main():
     }
     # hide (remove) strings according to the above rules
     hide_strings_by_rules(layout, tag_rules)
+
+    result_document = to_qs(layout)
 
     console = Console()
     render_strings(console, layout, tag_rules)
