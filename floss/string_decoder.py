@@ -29,15 +29,15 @@ logger = floss.logging_.getLogger(__name__)
 
 
 def memdiff_search(bytes1, bytes2):
-    """
-    Use binary searching to find the offset of the first difference
+    """Use binary searching to find the offset of the first difference
      between two strings.
 
-    :param bytes1: The original sequence of bytes
-    :param bytes2: A sequence of bytes to compare with bytes1
-    :type bytes1: str
-    :type bytes2: str
-    :rtype: int offset of the first location a and b differ, None if strings match
+    Args:
+        bytes1: The first sequence of bytes.
+        bytes2: The second sequence of bytes.
+
+    Returns:
+        int: The offset of the first difference between the two strings.
     """
 
     # Prevent infinite recursion on inputs with length of one
@@ -57,15 +57,15 @@ def memdiff_search(bytes1, bytes2):
 
 
 def memdiff(bytes1, bytes2):
-    """
-    Find all differences between two input strings.
+    """Find all differences between two input strings.
 
-    :param bytes1: The original sequence of bytes
-    :param bytes2: The sequence of bytes to compare to
-    :type bytes1: str
-    :type bytes2: str
-    :rtype: list of (offset, length) tuples indicating locations bytes1 and
-      bytes2 differ
+    Args:
+        bytes1: The first sequence of bytes.
+        bytes2: The second sequence of bytes.
+
+    Returns:
+        list: A list of tuples, where each tuple contains the offset and length of a difference between the two strings.
+
     """
     # Shortcut matching inputs
     if bytes1 == bytes2:
@@ -105,6 +105,19 @@ def memdiff(bytes1, bytes2):
 
 
 def should_shortcut(fva: int, n: int, n_calls: int, found_strings: int) -> bool:
+    """
+    Determine if the emulation of a decoding function should be shortcut.
+
+    Args:
+        fva: The address of the decoding function.
+        n: The current call number.
+        n_calls: The total number of calls to the decoding function.
+        found_strings: The number of strings found so far.
+
+    Returns:
+        bool: True if the emulation of the decoding function should be shortcut, False otherwise.
+    
+    """
     if n_calls < DS_FUNCTION_CALLS_RARE:
         # don't shortcut
         return False
@@ -130,16 +143,19 @@ def decode_strings(
     verbosity: int = Verbosity.DEFAULT,
     disable_progress: bool = False,
 ) -> List[DecodedString]:
-    """
-    FLOSS string decoding algorithm
+    """FLOSS string decoding algorithm
 
-    arguments:
-        vw: the workspace
-        functions: addresses of the candidate decoding routines
-        min_length: minimum string length
-        max_insn_count: max number of instructions to emulate per function
-        verbosity: verbosity level
-        disable_progress: no progress bar
+    Args:
+        vw: The vivisect workspace in which the function is defined.
+        functions: A list of virtual addresses of functions to emulate.
+        min_length: The minimum length of string to consider.
+        max_insn_count: The maximum number of instructions to emulate per function.
+        verbosity: The verbosity level.
+        disable_progress: Whether to disable progress bars.
+
+    Returns:
+        list: A list of DecodedString objects representing the decoded strings.
+
     """
     logger.info("decoding strings")
 
@@ -177,8 +193,7 @@ def decode_strings(
 
 
 def emulate_decoding_routine(vw, function_index, function: int, context, max_instruction_count: int) -> List[Delta]:
-    """
-    Emulate a function with a given context and extract the CPU and
+    """Emulate a function with a given context and extract the CPU and
      memory contexts at interesting points during emulation.
     These "interesting points" include calls to other functions and
      the final state.
@@ -188,15 +203,16 @@ def emulate_decoding_routine(vw, function_index, function: int, context, max_ins
      This prevents unexpected infinite loops.
      This number is taken from emulating the decoding of "Hello world" using RC4.
 
+    Args:
+        vw: The vivisect workspace.
+        function_index: The index of the function to emulate.
+        function: The address of the function to emulate.
+        context: The context of the function call.
+        max_instruction_count: The maximum number of instructions to emulate.
 
-    :param vw: The vivisect workspace in which the function is defined.
-    :type function_index: viv_utils.FunctionIndex
-    :param function: The address of the function to emulate.
-    :type context: funtion_argument_getter.FunctionContext
-    :param context: The initial state of the CPU and memory
-      prior to the function being called.
-    :param max_instruction_count: The maximum number of instructions to emulate per function.
-    :rtype: Sequence[decoding_manager.Delta]
+    Returns:
+        List[Delta]: A list of Deltas representing the emulator state at each interesting place.
+
     """
     emu = floss.utils.make_emulator(vw)
     emu.setEmuSnap(context.emu_snap)
@@ -214,6 +230,7 @@ def emulate_decoding_routine(vw, function_index, function: int, context, max_ins
 
 @dataclass
 class DeltaBytes:
+    """ """
     address: int
     address_type: AddressType
     bytes: bytes
@@ -222,14 +239,17 @@ class DeltaBytes:
 
 
 def extract_delta_bytes(delta: Delta, decoded_at_va: int, source_fva: int = 0x0) -> List[DeltaBytes]:
-    """
-    Extract the sequence of byte sequences that differ from before
+    """Extract the sequence of byte sequences that differ from before
      and after snapshots.
 
-    :param delta: The before and after snapshots of memory to diff.
-    :param decoded_at_va: The virtual address of a specific call to
-    the decoding function candidate that resulted in a memory diff
-    :param source_fva: function VA of the decoding routine candidate
+    Args:
+        delta: The delta object.
+        decoded_at_va: The address at which the decoding occurred.
+        source_fva: The address of the source function.
+
+    Returns:
+        List[DeltaBytes]: A list of DeltaBytes objects representing the byte sequences that differ from before and after snapshots.
+
     """
     delta_bytes = []
 

@@ -20,7 +20,14 @@ MAX_MAPS_SIZE = 1024 * 1024 * 100  # 100MB max memory allocated in an emulator i
 
 def is_import(emu, va):
     """
-    Return True if the given VA is that of an imported function.
+    Check if the given address is an import.
+
+    Args:
+        emu: The emulator.
+        va: The address to check.
+
+    Returns:
+        bool: True if the address is an import, False otherwise.
     """
     # TODO: also check location type
     t = emu.getVivTaint(va)
@@ -59,14 +66,7 @@ Memory = List[MemoryMap]
 
 @dataclass
 class Snapshot:
-    """
-    A snapshot of the state of the CPU and memory.
-
-    Attributes:
-        memory: a snapshot of the memory contents
-        sp: the stack counter
-        pc: the instruction pointer
-    """
+    """A snapshot of the state of the CPU and memory."""
 
     memory: Memory
     sp: int
@@ -74,6 +74,16 @@ class Snapshot:
 
 
 def get_map_size(emu):
+    """
+    Get the total size of all memory maps in the emulator.
+
+    Args:
+        emu: The emulator.
+
+    Returns:
+        int: The total size of all memory maps.
+    
+    """
     size = 0
     for mapva, mapsize, mperm, mfname in emu.getMemoryMaps():
         mapsize += size
@@ -81,12 +91,21 @@ def get_map_size(emu):
 
 
 class MapsTooLargeError(Exception):
+    """
+     Exception raised when the emulator has mapped too much memory.
+    """
     pass
 
 
 def make_snapshot(emu: Emulator) -> Snapshot:
-    """
-    Create a snapshot of the current CPU and memory.
+    """Create a snapshot of the current CPU and memory.
+
+    Args:
+        emu: The emulator.
+
+    Returns:
+        Snapshot: The snapshot of the emulator state.
+
     """
     if get_map_size(emu) > MAX_MAPS_SIZE:
         logger.debug("emulator mapped too much memory: 0x%x", get_map_size(emu))
@@ -96,9 +115,10 @@ def make_snapshot(emu: Emulator) -> Snapshot:
 
 @dataclass
 class Delta:
-    """
-    a pair of snapshots from before and after an operation.
+    """a pair of snapshots from before and after an operation.
     facilitates diffing the state of an emulator.
+
+
     """
 
     pre: Snapshot
@@ -106,9 +126,7 @@ class Delta:
 
 
 class DeltaCollectorHook(viv_utils.emulator_drivers.Hook):
-    """
-    hook that collects Deltas at each imported API call.
-    """
+    """hook that collects Deltas at each imported API call."""
 
     def __init__(self, pre_snap: Snapshot):
         super().__init__()
@@ -134,8 +152,7 @@ class DeltaCollectorHook(viv_utils.emulator_drivers.Hook):
 def emulate_function(
     emu: Emulator, function_index, fva: int, return_address: int, max_instruction_count: int
 ) -> List[Delta]:
-    """
-    Emulate a function and collect snapshots at each interesting place.
+    """Emulate a function and collect snapshots at each interesting place.
     These interesting places include calls to imported API functions
      and the final state of the emulator.
     Emulation continues until the return address is hit, or
@@ -148,12 +165,16 @@ def emulate_function(
       - AllocateHeap
       - malloc
 
-    :type function_index: viv_utils.FunctionIndex
-    :param fva: The start address of the function to emulate.
-    :param return_address: The expected return address of the function.
-     Emulation stops here.
-    :param max_instruction_count: The max number of instructions to emulate.
-     This helps avoid unexpected infinite loops.
+    Args:
+        emu: The emulator.
+        function_index: The index of the function to emulate.
+        fva: The address of the function to emulate.
+        return_address: The address to stop emulation at.
+        max_instruction_count: The maximum number of instructions to emulate.   
+
+    Returns:
+        List[Delta]: A list of Deltas representing the emulator state at each interesting place.     
+
     """
     try:
         pre_snap = make_snapshot(emu)
