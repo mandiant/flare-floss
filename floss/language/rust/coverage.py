@@ -18,6 +18,11 @@ MIN_STR_LEN = 4
 
 
 def main():
+    """
+     Parses command-line arguments and coordinates Rust string extraction.
+
+    Sets up logging, parses arguments, analyzes a potential PE file, extracts both generic and Rust-specific strings, and displays statistics.
+    """
     parser = argparse.ArgumentParser(description="Get Rust strings")
     parser.add_argument("path", help="file or path to analyze")
     parser.add_argument(

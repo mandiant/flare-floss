@@ -35,6 +35,7 @@ logger = floss.logging_.getLogger(__name__)
 
 
 class ExtendAction(argparse.Action):
+    """ """
     # stores a list, and extends each argument value to the list
     # Since Python 3.8 argparse supports this
     # TODO: remove this code when only supporting Python 3.8+
@@ -101,6 +102,11 @@ class UninstallContextMenu(argparse.Action):
 
 
 def set_vivisect_log_level(level) -> None:
+    """Set the log level for vivisect and related modules.
+
+    Args:
+        level: The log level to set.
+    """
     logging.getLogger("vivisect").setLevel(level)
     logging.getLogger("vivisect.base").setLevel(level)
     logging.getLogger("vivisect.impemu").setLevel(level)
@@ -110,8 +116,14 @@ def set_vivisect_log_level(level) -> None:
 
 
 def make_emulator(vw) -> Emulator:
-    """
-    create an emulator using consistent settings.
+    """create an emulator using consistent settings.
+
+    Args:
+        vw: The vivisect workspace.
+
+    Returns:
+        Emulator: The emulator instance.
+
     """
     emu = vw.getEmulator(logwrite=True, taintbyte=b"\xFE")
     remove_stack_memory(emu)
@@ -124,6 +136,13 @@ def make_emulator(vw) -> Emulator:
 
 
 def remove_stack_memory(emu: Emulator):
+    """
+    Remove the stack memory from the emulator.
+
+    Args:
+        emu: The emulator instance.
+
+    """
     # TODO this is a hack while vivisect's initStackMemory() has a bug
     memory_snap = emu.getMemorySnap()
     for i in range((len(memory_snap) - 1), -1, -1):
@@ -137,9 +156,15 @@ def remove_stack_memory(emu: Emulator):
 
 
 def dump_stack(emu):
-    """
-    Convenience debugging routine for showing
+    """Convenience debugging routine for showing
      state current state of the stack.
+
+    Args:
+        emu: The emulator instance.
+
+    Returns:
+        str: The stack state.
+
     """
     esp = emu.getStackCounter()
     stack_str = ""
@@ -154,10 +179,30 @@ def dump_stack(emu):
 
 
 def get_stack_value(emu, offset):
+    """
+    Get the value from the stack at the given offset.
+
+    Args:
+        emu: The emulator instance.
+        offset: The offset from the stack pointer.
+
+    Returns:
+        int: The value from the stack.
+    
+    """
     return emu.readMemoryFormat(emu.getStackCounter() + offset, "<P")[0]
 
 
 def getPointerSize(vw):
+    """
+    Get the size of a pointer for the given workspace.
+
+    Args:
+        vw: The vivisect workspace.
+
+    Returns:
+        int: The size of a pointer.
+    """
     arch = vw.getMeta("Architecture")
     if arch == "amd64":
         return 8
@@ -168,11 +213,32 @@ def getPointerSize(vw):
 
 
 def get_imagebase(vw):
+    """
+    Get the imagebase for the given workspace.
+
+    Args:
+        vw: The vivisect workspace.
+
+    Returns:
+        int: The imagebase.
+    """
     basename = vw.getFileByVa(vw.getEntryPoints()[0])
     return vw.getFileMeta(basename, "imagebase")
 
 
 def get_vivisect_meta_info(vw, selected_functions, decoding_function_features):
+    """
+    Get the meta information for the given workspace.
+
+    Args:
+        vw: The vivisect workspace.
+        selected_functions: The selected functions.
+        decoding_function_features: The decoding function features.
+
+    Returns:
+        OrderedDict: The meta information.
+    
+    """
     info = OrderedDict()
     entry_points = vw.getEntryPoints()
     basename = None
@@ -230,6 +296,15 @@ def get_vivisect_meta_info(vw, selected_functions, decoding_function_features):
 
 
 def hex(i):
+    """
+    Return the hexadecimal representation of the given integer.
+
+    Args:
+        i: The integer.
+
+    Returns:
+        str: The hexadecimal representation.
+    """
     return "0x%x" % (i)
 
 
@@ -269,6 +344,19 @@ FP_FLOSS_ARTIFACTS = (
 
 
 def extract_strings(buffer: bytes, min_length: int, exclude: Optional[Set[str]] = None) -> Iterable[StaticString]:
+    """
+    Extracts potential strings from a buffer and applies filtering.
+
+    Initial filtering includes length checks, common false-positive patterns, and optional exclusion based on a provided set.  Extracted strings are then stripped or sanitized before yielding.
+
+    Args:
+        buffer: The byte buffer to analyze.
+        min_length:  The minimum length for a string to be considered valid.
+        exclude:  An optional set of strings to exclude from the results.
+
+    Yields:
+        Iterable[StaticString]:  An iterator of StaticString objects representing the filtered and sanitized strings.
+    """
     if len(buffer) < min_length:
         return
 
@@ -327,10 +415,14 @@ FP_FILTER_STRICT_KNOWN_FP = re.compile(r"^O.*A$")
 
 
 def strip_string(s) -> str:
-    """
-    Return string stripped from false positive (FP) pre- or suffixes.
-    :param s: input string
-    :return: string stripped from FP pre- or suffixes
+    """Return string stripped from false positive (FP) pre- or suffixes.
+
+    Args:
+        s: The string to strip.
+
+    Returns:
+        str: The stripped string.
+
     """
     for reg in (
         FP_FILTER_PREFIX_1,
@@ -352,16 +444,23 @@ def strip_string(s) -> str:
 
 @contextlib.contextmanager
 def redirecting_print_to_tqdm():
-    """
-    tqdm (progress bar) expects to have fairly tight control over console output.
+    """tqdm (progress bar) expects to have fairly tight control over console output.
     so calls to `print()` will break the progress bar and make things look bad.
     so, this context manager temporarily replaces the `print` implementation
     with one that is compatible with tqdm.
     via: https://stackoverflow.com/a/42424890/87207
+
+
     """
     old_print = print
 
     def new_print(*args, **kwargs):
+        """
+        Provides a flexible printing function, prioritizing tqdm progress bars.
+
+        Attempts to print using `tqdm.tqdm.write` for integration with progress bars. If that fails, it falls back to the standard built-in `print` function.
+
+        """
         # If tqdm.tqdm.write raises error, use builtin print
         try:
             tqdm.tqdm.write(*args, **kwargs)
@@ -378,6 +477,10 @@ def redirecting_print_to_tqdm():
 
 @contextlib.contextmanager
 def timing(msg):
+    """
+    A context manager for timing a block of code.
+    
+    """
     t0 = time.time()
     yield
     t1 = time.time()
@@ -385,14 +488,46 @@ def timing(msg):
 
 
 def get_runtime_diff(time0):
+    """
+    Get the runtime difference from the given time.
+
+    Args:
+        time0: The start time.
+
+    Returns:
+        float: The runtime difference.
+    
+    """
     return round(time.time() - time0, 4)
 
 
 def is_all_zeros(buffer: bytes):
+    """
+    Determines if a buffer is entirely filled with null bytes.
+
+    Args:
+        buffer: The buffer to analyze.
+
+    Returns:
+        bool: True if the buffer is entirely filled with null bytes, False otherwise.
+    """
     return all([b == 0 for b in buffer])
 
 
 def get_progress_bar(functions, disable_progress, desc="", unit=""):
+    """
+    Get a progress bar for the given functions.
+
+    Args:
+        functions: The functions to process.
+        disable_progress: Whether to disable the progress bar.
+        desc: The description for the progress bar.
+        unit: The unit for the progress bar.
+
+    Returns:
+        tqdm.tqdm: The progress bar.
+    
+    """
     pbar = tqdm.tqdm
     if disable_progress:
         # do not use tqdm to avoid unnecessary side effects when caller intends
@@ -402,12 +537,30 @@ def get_progress_bar(functions, disable_progress, desc="", unit=""):
 
 
 def is_thunk_function(vw, function_address):
+    """
+    Determines if a function is a thunk.
+
+    Args:
+        vw: The vivisect workspace.
+        function_address: The address of the function.
+
+    Returns:
+        bool: True if the function is a thunk, False otherwise.
+
+    
+    """
     return vw.getFunctionMetaDict(function_address).get("Thunk", False)
 
 
 def round_(i: int, size: int) -> int:
-    """
-    Round `i` to the nearest greater-or-equal-to multiple of `size`.
+    """Round `i` to the nearest greater-or-equal-to multiple of `size`.
+
+    Args:
+        i: The integer to round.
+        size: The size of the multiple.
+
+    Returns:
+        int: The rounded integer.
     """
     if i % size == 0:
         return i
@@ -415,13 +568,18 @@ def round_(i: int, size: int) -> int:
 
 
 def readStringAtRva(emu, rva, maxsize=None, charsize=1):
-    """
-    Borrowed from vivisect/PE/__init__.py
-    :param emu: emulator
-    :param rva: virtual address of string
-    :param maxsize: maxsize of string
-    :param charsize: size of character (2 for wide string)
-    :return: the read string
+    """Reads a null-terminated string from an emulator at a specified RVA.
+
+    Reads bytes sequentially from the emulator until a null terminator is encountered or the maximum size is reached.
+
+    Args:
+        emu: The Vivisect emulator object.
+        rva: The starting RVA (Relative Virtual Address) of the string.
+        maxsize: An optional maximum number of bytes to read.
+        charsize: The width of a single character (e.g., 1 for ASCII, 2 for UTF-16).
+
+    Returns:
+        bytes: The extracted string.
     """
     ret = bytearray()
     # avoid infinite loop
@@ -439,9 +597,15 @@ def readStringAtRva(emu, rva, maxsize=None, charsize=1):
 
 
 def contains_funcname(api, function_names: Tuple[str, ...]):
-    """
-    Returns True if the function name from the call API is part of any of the `function_names`
+    """Returns True if the function name from the call API is part of any of the `function_names`
     This ignores casing and underscore prefixes like `_malloc` or `__malloc`
+
+    Args:
+        api: The call API.
+        function_names: The function names to check.
+
+    Returns:
+        bool: True if the function name from the call API is part of any of the `function_names`, False otherwise.
     """
     funcname = get_call_funcname(api)
     if not funcname or funcname in ("UnknownApi", "?"):
@@ -451,20 +615,53 @@ def contains_funcname(api, function_names: Tuple[str, ...]):
 
 
 def call_return(emu, api, argv, value):
+    """
+    Call the return function for the given emulator, API, arguments, and value.
+
+    Args:
+        emu: The Vivisect emulator object.
+        api: The call API.
+        argv: The arguments.
+        value: The value to return.
+
+    Returns:
+        None
+    
+    """
     call_conv = get_call_conv(api)
     cconv = emu.getCallingConvention(call_conv)
     cconv.execCallReturn(emu, value, len(argv))
 
 
 def get_call_conv(api):
+    """
+    Get the calling convention for the given API.
+    
+    """
     return api[2]
 
 
 def get_call_funcname(api):
+    """
+
+    Get the function name for the given API.
+    """
     return api[3]
 
 
 def is_string_type_enabled(type_, disabled_types, enabled_types):
+    """
+    Determine if a string type is enabled.
+
+    Args:
+        type_: The string type.
+        disabled_types: The disabled types.
+        enabled_types: The enabled types.
+
+    Returns:
+        bool: True if the string type is enabled, False otherwise.
+    
+    """
     if disabled_types:
         return type_ not in disabled_types
     elif enabled_types:
@@ -474,6 +671,19 @@ def is_string_type_enabled(type_, disabled_types, enabled_types):
 
 
 def get_max_size(size: int, max_: int, api: Optional[Tuple] = None, argv: Optional[Tuple] = None) -> int:
+    """
+    Get the maximum size for the given size.
+
+    Args:
+        size: The size.
+        max_: The maximum size.
+        api: The call API.
+        argv: The arguments.
+
+    Returns:
+        int: The maximum size.
+    
+    """
     if size > max_:
         post = ""
         if api:
@@ -486,6 +696,17 @@ def get_max_size(size: int, max_: int, api: Optional[Tuple] = None, argv: Option
 
 
 def get_referenced_strings(vw: vivisect.VivWorkspace, fva: int) -> Set[str]:
+    """Collects potential string references from instructions within a function.
+
+        Analyzes instructions within the specified function, seeking operands that might be addresses referencing strings within the workspace. Leverages Vivisect functionality to attempt string extraction.
+
+        Args:
+            vw:  A Vivisect workspace object.
+            fva: The function virtual address (FVA) to analyze.
+
+        Returns:
+            Set[str]: A set of potential strings extracted from instruction operands.
+        """
     # modified from capa
     f: viv_utils.Function = viv_utils.Function(vw, fva)
     strings: Set[str] = set()
@@ -517,11 +738,18 @@ def get_referenced_strings(vw: vivisect.VivWorkspace, fva: int) -> Set[str]:
 
 
 def derefs(vw, p):
-    """
-    recursively follow the given pointer, yielding the valid memory addresses along the way.
+    """recursively follow the given pointer, yielding the valid memory addresses along the way.
     useful when you may have a pointer to string, or pointer to pointer to string, etc.
-
+    
     this is a "do what i mean" type of helper function.
+
+    Args:
+        vw: A Vivisect workspace object.
+        p:  The initial pointer address.
+
+    Yields:
+        Valid memory addresses encountered during dereferencing.
+
     """
     depth = 0
     while True:
@@ -549,6 +777,20 @@ def derefs(vw, p):
 
 
 def read_string(vw, offset: int) -> str:
+    """Attempts to read a string from a Vivisect workspace at the specified offset.
+
+    Handles potential encoding types (UTF-8, UTF-16), segmentation violations, and works around possible Vivisect quirks when detecting string boundaries.
+
+    Args:
+        vw: A Vivisect workspace object.
+        offset:  The memory offset where the string is suspected to begin.
+
+    Returns:
+        str: The extracted string.
+
+    Raises:
+        ValueError: If a valid string cannot be extracted at the given offset.
+    """
     try:
         alen = vw.detectString(offset)
     except envi.exc.SegmentationViolation:
@@ -580,6 +822,18 @@ def read_string(vw, offset: int) -> str:
 
 
 def read_memory(vw, va: int, size: int) -> bytes:
+    """
+    Read memory from a Vivisect workspace at the specified virtual address.
+
+    Args:
+        vw: A Vivisect workspace object.
+        va: The virtual address to read from.
+        size: The number of bytes to read.
+
+    Returns:
+        bytes: The extracted memory.
+    
+    """
     # as documented in #176, vivisect will not readMemory() when the section is not marked readable.
     #
     # but here, we don't care about permissions.
@@ -596,8 +850,14 @@ def read_memory(vw, va: int, size: int) -> bytes:
 
 
 def get_static_strings(sample: Path, min_length: int) -> list:
-    """
-    Returns list of static strings from the file which are above the minimum length
+    """Returns list of static strings from the file which are above the minimum length
+
+    Args:
+        sample: The file to analyze.
+        min_length: The minimum length of strings to extract.
+
+    Returns:
+        list: A list of extracted static strings.
     """
 
     if sample.stat().st_size == 0:

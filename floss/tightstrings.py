@@ -20,6 +20,11 @@ logger = floss.logging_.getLogger(__name__)
 
 
 class TightstringContextMonitor(StackstringContextMonitor):
+    """
+    Observes emulation and extracts the active stack frame contents:
+        - at each function call in a function, and
+        - based on heuristics looking for mov instructions to a hardcoded buffer.
+    """
     def __init__(self, sp, min_length):
         super().__init__(sp, [])
         self.min_length = min_length
@@ -44,6 +49,18 @@ class TightstringContextMonitor(StackstringContextMonitor):
 
 
 def extract_tightstring_contexts(vw, fva, min_length, tloops) -> Iterator[CallContext]:
+    """
+    Extracts tightstring contexts from a function containing tight loops.
+
+    Args:
+        vw: The vivisect workspace
+        fva: The function address
+        min_length: The minimum string length
+        tloops: The tight loops in the function
+
+    Returns:
+        Iterator[CallContext]: An iterator of CallContext objects representing the extracted tightstring contexts.
+    """
     emu = floss.utils.make_emulator(vw)
     monitor = TightstringContextMonitor(emu.getStackCounter(), min_length)
     driver_single_path = viv_utils.emulator_drivers.SinglePathEmulatorDriver(emu, repmax=256)
@@ -82,11 +99,15 @@ def extract_tightstrings(
 
     To reduce computation time we only run this on previously identified functions that contain tight loops.
 
-    :param vw: The vivisect workspace
-    :param tightloop_functions: functions containing tight loops
-    :param min_length: minimum string length
-    :param verbosity: verbosity level
-    :param disable_progress: do NOT show progress bar
+    Args:
+        vw: The vivisect workspace
+        tightloop_functions: A dictionary of functions containing tight loops
+        min_length: The minimum string length
+        verbosity: The verbosity level
+        disable_progress: A flag to disable the progress bar
+
+    Returns:
+        List[TightString]: A list of TightString objects representing the extracted tightstrings.
     """
     logger.info("extracting tightstrings from %d functions...", len(tightloop_functions))
 

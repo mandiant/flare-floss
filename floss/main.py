@@ -64,6 +64,10 @@ logger = floss.logging_.getLogger("floss")
 
 
 class StringType(str, Enum):
+    """
+     Enumerates the types of strings that FLOSS can extract from a binary.
+     
+    """
     STATIC = "static"
     STACK = "stack"
     TIGHT = "tight"
@@ -71,29 +75,53 @@ class StringType(str, Enum):
 
 
 class WorkspaceLoadError(ValueError):
+    """
+    Indicates an error occurred while loading a workspace.
+
+    This exception inherits from ValueError, making it suitable for signaling issues encountered during the process of loading or initializing a workspace (e.g., in an analysis tool).
+    """
     pass
 
 
 class ArgumentValueError(ValueError):
+    """
+     Indicates an error occurred while parsing command-line arguments.
+    """
     pass
 
 
 class ArgumentParser(argparse.ArgumentParser):
-    """
-    argparse will call sys.exit upon parsing invalid arguments.
+    """argparse will call sys.exit upon parsing invalid arguments.
     we don't want that, because we might be parsing args within test cases, run as a module, etc.
     so, we override the behavior to raise a ArgumentValueError instead.
-
+    
     this strategy is originally described here: https://stackoverflow.com/a/16942165/87207
+
+
     """
 
     def error(self, message):
+        """
+        override the default behavior to raise an exception instead of calling sys.exit.
+
+        Args:
+            message: The error message to display. 
+        """
         self.print_usage(sys.stderr)
         args = {"prog": self.prog, "message": message}
         raise ArgumentValueError("%(prog)s: error: %(message)s" % args)
 
 
 def make_parser(argv):
+    """
+    Create the command-line argument parser for FLOSS.
+
+    Args:
+        argv: The command-line arguments.
+
+    Returns:
+        ArgumentParser: The command-line argument parser for FLOSS.
+    """
     desc = (
         "The FLARE team's open-source tool to extract ALL strings from malware.\n"
         f"  %(prog)s {__version__} - https://github.com/mandiant/flare-floss/\n\n"
@@ -307,6 +335,14 @@ def make_parser(argv):
 
 
 def set_log_config(debug, quiet):
+    """
+    Set the logging configuration for FLOSS.
+
+    Args:
+        debug: The debug level.
+        quiet: Whether to suppress all status output except fatal errors.
+    
+    """
     if quiet:
         log_level = logging.WARNING
     elif debug >= DebugLevel.TRACE:
@@ -346,16 +382,17 @@ def set_log_config(debug, quiet):
 
 
 def select_functions(vw, asked_functions: Optional[List[int]]) -> Set[int]:
-    """
-    Given a workspace and an optional list of function addresses,
+    """Given a workspace and an optional list of function addresses,
     collect the set of valid functions,
     or all valid function addresses.
 
-    arguments:
-      asked_functions: the functions a user wants, or None.
+    Args:
+        vw: The vivisect workspace.
+        asked_functions: The list of function addresses to analyze.
 
-    raises:
-      ValueError: if an asked for function does not exist in the workspace.
+    Returns:
+        Set[int]: The set of valid function addresses.
+
     """
     functions = set(vw.getFunctions())
     if not asked_functions:
@@ -377,10 +414,14 @@ def select_functions(vw, asked_functions: Optional[List[int]]) -> Set[int]:
 
 
 def is_supported_file_type(sample_file_path: Path):
-    """
-    Return if FLOSS supports the input file type, based on header bytes
-    :param sample_file_path:
-    :return: True if file type is supported, False otherwise
+    """Return if FLOSS supports the input file type, based on header bytes
+
+    Args:
+        sample_file_path: The path to the sample file.
+
+    Returns:
+        bool: True if the file type is supported, False otherwise.
+
     """
     with sample_file_path.open("rb") as f:
         magic = f.read(2)
@@ -397,6 +438,19 @@ def load_vw(
     sigpaths: List[Path],
     should_save_workspace: bool = False,
 ) -> VivWorkspace:
+    """
+    Load a Vivisect workspace from a file.
+
+    Args:
+        sample_path: The path to the sample file.
+        format: The format of the sample file.
+        sigpaths: The list of paths to signature files.
+        should_save_workspace: Whether to save the workspace.
+
+    Returns:
+        VivWorkspace: The Vivisect workspace.
+    
+    """
     if format not in ("sc32", "sc64"):
         if not is_supported_file_type(sample_path):
             raise WorkspaceLoadError(
@@ -434,18 +488,23 @@ def load_vw(
 
 
 def is_running_standalone() -> bool:
-    """
-    are we running from a PyInstaller'd executable?
+    """are we running from a PyInstaller'd executable?
     if so, then we'll be able to access `sys._MEIPASS` for the packaged resources.
+
+    Returns:
+        bool: True if running standalone, False otherwise.
     """
     return hasattr(sys, "frozen") and hasattr(sys, "_MEIPASS")
 
 
 def get_default_root() -> Path:
-    """
-    get the file system path to the default resources directory.
+    """get the file system path to the default resources directory.
     under PyInstaller, this comes from _MEIPASS.
     under source, this is the root directory of the project.
+
+    Returns:
+        Path: The file system path to the default resources directory.
+
     """
     if is_running_standalone():
         # pylance/mypy don't like `sys._MEIPASS` because this isn't standard.
@@ -457,6 +516,16 @@ def get_default_root() -> Path:
 
 
 def get_signatures(sigs_path: Path) -> List[Path]:
+    """
+    Get the paths to the signature files.
+
+    Args:
+        sigs_path: The path to the signature files.
+
+    Returns:
+        List[Path]: The paths to the signature files.
+  
+    """
     if not sigs_path.exists():
         raise IOError("signatures path %s does not exist or cannot be accessed" % str(sigs_path))
 
@@ -486,8 +555,13 @@ def get_signatures(sigs_path: Path) -> List[Path]:
 
 def main(argv=None) -> int:
     """
-    arguments:
-      argv: the command line arguments
+
+    Args:
+        argv: The command-line arguments.
+
+    Returns:
+        int: The return code.
+
     """
     # use rich as default Traceback handler
     rich.traceback.install(show_locals=True)

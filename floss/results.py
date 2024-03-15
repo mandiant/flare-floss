@@ -28,14 +28,17 @@ logger = floss.logging_.getLogger(__name__)
 
 
 class InvalidResultsFile(Exception):
+    """Indicates that a results file is invalid, corrupt, or in an incompatible format."""
     pass
 
 
 class InvalidLoadConfig(Exception):
+    """Indicates that the load configuration is invalid."""
     pass
 
 
 class StringEncoding(str, Enum):
+    """Enumeration of string encodings."""
     ASCII = "ASCII"
     UTF16LE = "UTF-16LE"
     UTF8 = "UTF-8"
@@ -43,12 +46,11 @@ class StringEncoding(str, Enum):
 
 @dataclass(frozen=True)
 class StackString:
-    """
-    here's what the following members represent:
-        
-        
+    """here's what the following members represent:
+    
+    
         [smaller addresses]
-       
+    
         +---------------+  <- stack_pointer (top of stack)
         |               | \
         +---------------+  | offset
@@ -62,19 +64,10 @@ class StackString:
         +---------------+  |
         |               | /
         +---------------+  <- original_stack_pointer (bottom of stack, probably bp)
-        
+    
         [bigger addresses]
 
 
-    Attributes:
-      function: the address of the function from which the stackstring was extracted
-      string: the extracted string
-      encoding: string encoding
-      program_counter: the program counter at the moment the string was extracted
-      stack_pointer: the stack counter at the moment the string was extracted
-      original_stack_pointer: the initial stack counter when the function was entered
-      offset: the offset into the stack from at which the stack string was found
-      frame_offset: the offset from the function frame at which the stack string was found
     """
 
     function: int
@@ -88,10 +81,12 @@ class StackString:
 
 
 class TightString(StackString):
+    """A string that is tightly packed in memory."""
     pass
 
 
 class AddressType(str, Enum):
+    """ Enumeration of address types."""
     STACK = "STACK"
     GLOBAL = "GLOBAL"
     HEAP = "HEAP"
@@ -99,17 +94,7 @@ class AddressType(str, Enum):
 
 @dataclass(frozen=True)
 class DecodedString:
-    """
-    A decoding string and details about where it was found.
-
-    Attributes:
-        address: address of the string in memory
-        address_type: type of the address of the string in memory
-        string: the decoded string
-        encoding: the string encoding, like ASCII or unicode
-        decoded_at: the address at which the decoding routine is called
-        decoding_routine: the address of the decoding routine
-    """
+    """A decoding string and details about where it was found."""
 
     address: int
     address_type: AddressType
@@ -121,14 +106,7 @@ class DecodedString:
 
 @dataclass(frozen=True)
 class StaticString:
-    """
-    A string extracted from the raw bytes of the input.
-
-    Attributes:
-        string: the string
-        offset: the offset into the input where the string is found
-        encoding: the string encoding, like ASCII or unicode
-    """
+    """A string extracted from the raw bytes of the input."""
 
     string: str
     offset: int
@@ -136,6 +114,18 @@ class StaticString:
 
     @classmethod
     def from_utf8(cls, buf, addr, min_length):
+        """
+        Create a StaticString from a buffer of bytes.
+
+        Args:
+            buf: The buffer of bytes.
+            addr: The address of the buffer.
+            min_length: The minimum length of the string.
+
+        Returns:
+            StaticString: The created string.
+
+        """
         try:
             decoded_string = buf.decode("utf-8")
         except UnicodeDecodeError:
@@ -151,6 +141,7 @@ class StaticString:
 
 @dataclass
 class Runtime:
+    """ The runtime of the analysis."""
     start_date: datetime.datetime = datetime.datetime.now()
     total: float = 0
     vivisect: float = 0
@@ -164,6 +155,7 @@ class Runtime:
 
 @dataclass
 class Functions:
+    """ The functions that were analyzed."""
     discovered: int = 0
     library: int = 0
     analyzed_stack_strings: int = 0
@@ -174,6 +166,7 @@ class Functions:
 
 @dataclass
 class Analysis:
+    """ The analysis configuration."""
     enable_static_strings: bool = True
     enable_stack_strings: bool = True
     enable_tight_strings: bool = True
@@ -186,6 +179,7 @@ STRING_TYPE_FIELDS = set([field for field in Analysis.__annotations__ if field.s
 
 @dataclass
 class Metadata:
+    """ Metadata about the analysis."""
     file_path: str
     version: str = __version__
     imagebase: int = 0
@@ -198,6 +192,7 @@ class Metadata:
 
 @dataclass
 class Strings:
+    """ The strings that were found."""
     stack_strings: List[StackString] = field(default_factory=list)
     tight_strings: List[TightString] = field(default_factory=list)
     decoded_strings: List[DecodedString] = field(default_factory=list)
@@ -208,16 +203,35 @@ class Strings:
 
 @dataclass
 class ResultDocument:
+    """ The result document."""
     metadata: Metadata
     analysis: Analysis = field(default_factory=Analysis)
     strings: Strings = field(default_factory=Strings)
 
     @classmethod
-    def parse_file(cls, path: Path) -> "ResultDocument":
-        return TypeAdapter(cls).validate_json(path.read_text(encoding="utf-8"))
+    def parse_file(cls, path):
+        """
+        Parse a result document from a file.
+
+        Args:
+            path: The path to the file.
+
+        Returns:
+            ResultDocument: The parsed result document.  
+        """
+        # We're ignoring the following mypy error since this field is guaranteed by the Pydantic dataclass.
+        return cls.__pydantic_model__.parse_file(path)  # type: ignore
 
 
 def log_result(decoded_string, verbosity):
+    """
+    Log a decoded string.
+
+    Args:
+        decoded_string: The decoded string.
+        verbosity: The verbosity level.
+    
+    """
     string = sanitize(decoded_string.string)
     if verbosity < Verbosity.VERBOSE:
         logger.info("%s", string)
@@ -243,6 +257,20 @@ def log_result(decoded_string, verbosity):
 
 
 def load(sample: Path, analysis: Analysis, functions: List[int], min_length: int) -> ResultDocument:
+    """
+    Load a result document from a file, applying filters as needed.
+
+    Args:
+        sample: Path: 
+        analysis: Analysis: 
+        functions: List[int]: 
+        min_length: int:
+
+    Returns:
+        ResultDocument: The loaded result document.
+
+    
+    """
     logger.debug("loading results document: %s", str(sample))
     results = read(sample)
     results.metadata.file_path = f"{sample}\n{results.metadata.file_path}"
@@ -256,6 +284,20 @@ def load(sample: Path, analysis: Analysis, functions: List[int], min_length: int
 
 
 def read(sample: Path) -> ResultDocument:
+    """
+    Loads a ResultDocument from a file.
+
+    Attempts to read a file as JSON and deserialize it into a ResultDocument object. Handles potential JSON decoding errors, Unicode-related errors, and validation failures.
+
+    Args:
+        sample:  A Path object representing the file to load. 
+
+    Returns:
+        ResultDocument: The deserialized ResultDocument.
+
+    Raises:
+        InvalidResultsFile: If the file cannot be loaded as a valid ResultDocument (e.g., due to incorrect formatting or validation errors). 
+    """
     try:
         with sample.open("rb") as f:
             results = json.loads(f.read().decode("utf-8"))
@@ -271,6 +313,15 @@ def read(sample: Path) -> ResultDocument:
 
 
 def check_set_string_types(results: ResultDocument, wanted_analysis: Analysis) -> None:
+    """
+    Ensures consistency in string type analysis settings between loaded results and desired analysis.
+
+    This function checks if specific string analysis types were enabled in a desired analysis configuration (`wanted_analysis`) but are missing from the loaded analysis results (`results`). If found, it issues warnings and updates the `results` object to match the `wanted_analysis` settings.
+
+    Args:
+        results: A ResultDocument object containing loaded analysis results.
+        wanted_analysis: An Analysis object representing the desired analysis configuration.  
+    """
     for string_type in STRING_TYPE_FIELDS:
         if getattr(wanted_analysis, string_type) and not getattr(results.analysis, string_type):
             logger.warning(f"{string_type} not in loaded data, use --only/--no to enable/disable type(s)")
@@ -278,6 +329,17 @@ def check_set_string_types(results: ResultDocument, wanted_analysis: Analysis) -
 
 
 def filter_functions(results: ResultDocument, functions: List[int]) -> None:
+    """Updates a ResultDocument to include analysis data only from specified functions.
+
+    Removes function-related data from the `results` object if the function's address (virtual address) is not present in the provided `functions` list.  
+
+    Args:
+        results: A ResultDocument object containing analysis results.
+        functions: A list of function virtual addresses to keep in the results.
+
+    Raises:
+        InvalidLoadConfig:  If a specified function address is not found in the loaded results.
+    """
     filtered_scores = dict()
     for fva in functions:
         try:
@@ -298,6 +360,15 @@ def filter_functions(results: ResultDocument, functions: List[int]) -> None:
 
 
 def filter_string_len(results: ResultDocument, min_length: int) -> None:
+    """
+    Removes strings shorter than a specified length from the ResultDocument.
+
+    Filters various string collections within the `results` object, keeping only strings that meet the minimum length criterion.
+
+    Args:
+        results: A ResultDocument object containing analysis results.
+        min_length:  The minimum length a string must have to be retained.
+    """
     results.strings.static_strings = list(filter(lambda s: len(s.string) >= min_length, results.strings.static_strings))
     results.strings.stack_strings = list(filter(lambda s: len(s.string) >= min_length, results.strings.stack_strings))
     results.strings.tight_strings = list(filter(lambda s: len(s.string) >= min_length, results.strings.tight_strings))

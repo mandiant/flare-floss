@@ -72,8 +72,21 @@ class StackstringContextMonitor(viv_utils.emulator_drivers.Monitor):
     # TODO get va here from emu?
     def get_call_context(self, emu, va, pre_ctx_strings: Optional[Set[str]] = None) -> CallContext:
         """
-        Returns a context with the bytes on the stack between the base pointer
-         (specifically, stack pointer at function entry), and stack pointer.
+        Collects context information related to a function call.
+
+        Retrieves the stack boundaries, reads the stack memory, and creates a `CallContext` object to encapsulate the extracted information.  Optionally integrates pre-existing context strings.
+
+        Args:
+            self: Likely a reference to an analysis object or a context tracker.
+            emu:  The Vivisect emulator object.
+            va: The virtual address of the function call.
+            pre_ctx_strings:  An optional set of strings for filtering or refining context generation.
+
+        Returns:
+            CallContext:  An object representing the context of the function call.
+
+        Raises:
+            ValueError: If the calculated stack size exceeds a maximum threshold (`MAX_STACK_SIZE`).
         """
         stack_top = emu.getStackCounter()
         stack_bottom = self._init_sp
@@ -94,6 +107,11 @@ class StackstringContextMonitor(viv_utils.emulator_drivers.Monitor):
     def check_mov_heuristics(self, emu, op, endpc):
         """
         Extract contexts at end of a basic block (bb) if bb contains enough movs to a harcoded buffer.
+
+        Args:
+            emu: The Vivisect emulator object.
+            op: The current instruction.
+            endpc: The virtual address of the end of the basic block.
         """
         # TODO check number of written bytes via writelog?
         # count movs, shortcut if this basic block has enough writes to trigger context extraction already
@@ -107,6 +125,15 @@ class StackstringContextMonitor(viv_utils.emulator_drivers.Monitor):
             self._mov_count = 0
 
     def is_stack_mov(self, op):
+        """
+        Check if the given instruction is a move to a stack address.
+
+        Args:
+            op: The current instruction.
+
+        Returns:
+            bool: True if the instruction is a move to a stack address, False otherwise.
+        """
         if not op.mnem.startswith("mov"):
             return False
 
@@ -121,6 +148,17 @@ class StackstringContextMonitor(viv_utils.emulator_drivers.Monitor):
 
 
 def extract_call_contexts(vw, fva, bb_ends):
+    """
+    Extracts call contexts from a function.
+
+    Args:
+        vw: The vivisect workspace.
+        fva: The function virtual address.
+        bb_ends: The set of virtual addresses that are the last instructions of basic blocks.
+
+    Returns:
+        List[CallContext]: A list of call contexts.
+    """
     emu = floss.utils.make_emulator(vw)
     monitor = StackstringContextMonitor(emu.getStackCounter(), bb_ends)
     driver = viv_utils.emulator_drivers.FullCoverageEmulatorDriver(emu, repmax=256)
@@ -136,6 +174,12 @@ def extract_call_contexts(vw, fva, bb_ends):
 def get_basic_block_ends(vw):
     """
     Return the set of VAs that are the last instructions of basic blocks.
+
+    Args:
+        vw: The vivisect workspace.
+
+    Returns:
+        Set[int]: A set of virtual addresses.
     """
     index = set([])
     for funcva in vw.getFunctions():
@@ -153,11 +197,15 @@ def extract_stackstrings(
     """
     Extracts the stackstrings from functions in the given workspace.
 
-    :param vw: The vivisect workspace from which to extract stackstrings.
-    :param selected_functions: list of selected functions
-    :param min_length: minimum string length
-    :param verbosity: verbosity level
-    :param disable_progress: do NOT show progress bar
+    Args:
+        vw: The vivisect workspace.
+        selected_functions: A list of virtual addresses of functions to analyze.
+        min_length: The minimum length of a string to extract.
+        verbosity: The verbosity level.
+        disable_progress: A flag to disable the progress bar.
+
+    Returns:
+        List[StackString]: A list of stackstrings.
     """
     logger.info("extracting stackstrings from %d functions", len(selected_functions))
 

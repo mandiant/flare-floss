@@ -19,6 +19,9 @@ VERSION_UNKNOWN_OR_NA = "version unknown"
 
 
 class Language(Enum):
+    """
+    Enumerates programming languages that can be identified in binary samples.
+    """
     GO = "go"
     RUST = "rust"
     DOTNET = "dotnet"
@@ -27,6 +30,17 @@ class Language(Enum):
 
 
 def identify_language_and_version(sample: Path, static_strings: Iterable[StaticString]) -> Tuple[Language, str]:
+    """
+    Identifies the programming language and version of a given binary sample based on static strings found within.
+
+    Args:
+        sample (Path): The path to the binary sample to be analyzed.
+        static_strings (Iterable[StaticString]): An iterable of static strings extracted from the binary sample.
+
+    Returns:
+        Tuple[Language, str]: A tuple containing the identified programming language and its version. If the language 
+        cannot be identified, returns (Language.UNKNOWN, "unknown").
+    """
     is_rust, version = get_if_rust_and_version(static_strings)
     if is_rust:
         logger.info("Rust binary found with version: %s", version)
@@ -54,8 +68,14 @@ def identify_language_and_version(sample: Path, static_strings: Iterable[StaticS
 
 def get_if_rust_and_version(static_strings: Iterable[StaticString]) -> Tuple[bool, str]:
     """
-    Return if the binary given is compiled with Rust compiler and its version
-    reference: https://github.com/mandiant/flare-floss/issues/766
+    Determines if a binary sample is written in Rust and identifies its version.
+
+    Args:
+        static_strings (Iterable[StaticString]): An iterable of static strings extracted from the binary sample.
+
+    Returns:
+        Tuple[bool, str]: A tuple where the first element is a boolean indicating whether the sample is identified as Rust,
+        and the second element is the version of Rust identified. If the version cannot be determined, returns "unknown".
     """
 
     # Check if the binary contains the rustc/commit-hash string
@@ -87,10 +107,19 @@ def get_if_rust_and_version(static_strings: Iterable[StaticString]) -> Tuple[boo
 
 def get_if_go_and_version(pe: pefile.PE) -> Tuple[bool, str]:
     """
-    Return if the binary given is compiled with Go compiler and its version
-    this checks the magic header of the pclntab structure -pcHeader-
-    the magic values varies through the version
-    reference:
+    Determines if the provided PE file is compiled with Go and identifies the Go version.
+
+    Args:
+        pe (pefile.PE): The PE file to be analyzed.
+
+    Returns:
+        Tuple[bool, str]: A tuple containing a boolean indicating if the file is compiled with Go,
+                          and a string representing the version of Go, or 'VERSION_UNKNOWN_OR_NA' if the version cannot be determined.
+                          
+    This function checks the pclntab structure's magic header -pcHeader- to identify the Go version.
+    The magic values vary with the version. It first searches the .rdata section, then all available sections for magic headers and common Go functions.
+    
+    Reference:
     https://github.com/0xjiayu/go_parser/blob/865359c297257e00165beb1683ef6a679edc2c7f/pclntbl.py#L46
     """
 
@@ -165,7 +194,15 @@ def get_if_go_and_version(pe: pefile.PE) -> Tuple[bool, str]:
 
 
 def get_go_version(magic):
-    """get the version of the go compiler used to compile the binary"""
+    """
+    Determines the Go compiler version used to compile the binary based on the magic header.
+
+    Args:
+        magic (bytes): The magic header bytes found in the binary.
+
+    Returns:
+        str: The identified Go version, or VERSION_UNKNOWN_OR_NA if the version cannot be determined.
+    """
 
     MAGIC_112 = b"\xfb\xff\xff\xff\x00\x00"  # Magic Number from version 1.12
     MAGIC_116 = b"\xfa\xff\xff\xff\x00\x00"  # Magic Number from version 1.16
@@ -186,8 +223,14 @@ def get_go_version(magic):
 
 def verify_pclntab(section, pclntab_va: int) -> bool:
     """
-    Parse headers of pclntab to verify it is legit
-    used in go parser itself https://go.dev/src/debug/gosym/pclntab.go
+    Verifies the legitimacy of the pclntab section by parsing its headers.
+
+    Args:
+        section: The section object from pefile where pclntab is located.
+        pclntab_va (int): The virtual address of the pclntab header.
+
+    Returns:
+        bool: True if the pclntab header is valid, False otherwise.
     """
     try:
         pc_quanum = section.get_data(pclntab_va + 6, 1)[0]
@@ -200,9 +243,13 @@ def verify_pclntab(section, pclntab_va: int) -> bool:
 
 def is_dotnet_bin(pe: pefile.PE) -> bool:
     """
-    Check if the binary is .net or not
-    Checks the IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR entry in the OPTIONAL_HEADER of the file.
-    If the entry is not found, or if its size is 0, the file is not a .net file.
+    Checks whether the binary is a .NET assembly.
+
+    Args:
+        pe (pefile.PE): The PE file to check.
+
+    Returns:
+        bool: True if the file is a .NET assembly, False otherwise.
     """
     try:
         directory_index = pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR"]
