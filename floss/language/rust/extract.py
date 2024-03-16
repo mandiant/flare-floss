@@ -28,8 +28,7 @@ def fix_b2s_wide_strings(
     min_length: int,
     buffer: bytes,
 ) -> List[Tuple[str, str, Tuple[int, int], bool]]:
-    """
-    Handles potential misidentification of UTF-16 strings during extraction.
+    """Handles potential misidentification of UTF-16 strings during extraction.
 
     This function attempts to correct cases where wide strings (likely UTF-16 encoded) have been incorrectly parsed as UTF-8 strings. It does this by re-encoding and re-extracting the string.
 
@@ -77,8 +76,7 @@ def filter_and_transform_utf8_strings(
     strings: List[Tuple[str, str, Tuple[int, int], bool]],
     start_rdata: int,
 ) -> List[StaticString]:
-    """
-    Filters extracted strings, transforms UTF-8 strings, and creates StaticString objects.
+    """Filters extracted strings, transforms UTF-8 strings, and creates StaticString objects.
 
     This function focuses on UTF-8 encoded strings. It removes newline characters, calculates the correct offsets within the file, and constructs StaticString objects.
 
@@ -111,8 +109,7 @@ def filter_and_transform_utf8_strings(
 def split_strings(
     static_strings: List[StaticString], address: int, min_length: int
 ) -> None:
-    """
-    Splits StaticString objects if an address falls within their string data.
+    """Splits StaticString objects if an address falls within their string data.
 
     This function operates directly on the provided `static_strings` list.  It checks if a given address lies within an existing StaticString. If so, it splits the string into two, preserving both parts if they meet the minimum length requirement.
 
@@ -152,8 +149,7 @@ def split_strings(
 
 
 def extract_rust_strings(sample: pathlib.Path, min_length: int) -> List[StaticString]:
-    """
-    Extracts potential Rust strings from a file.
+    """Extracts potential Rust strings from a file.
 
     This function likely employs heuristics and techniques tailored to identifying strings that are typically present in Rust-compiled binaries. It leverages the `get_string_blob_strings` function, implying a focus on the string blob region.
 
@@ -176,8 +172,7 @@ def extract_rust_strings(sample: pathlib.Path, min_length: int) -> List[StaticSt
 
 
 def get_static_strings_from_rdata(sample, static_strings) -> List[StaticString]:
-    """
-    Filters StaticString objects based on the .rdata section of a PE file.
+    """Filters StaticString objects based on the .rdata section of a PE file.
 
     This function assumes the existence of a pre-populated list of StaticString objects. It filters these strings, keeping only those whose offsets fall within the boundaries of the .rdata section of a PE file.
 
@@ -202,8 +197,7 @@ def get_static_strings_from_rdata(sample, static_strings) -> List[StaticString]:
 
 
 def get_string_blob_strings(pe: pefile.PE, min_length: int) -> Iterable[StaticString]:
-    """
-     Extracts strings from the .rdata section of a PE file, focusing on UTF-8 strings with a minimum length.
+    """Extracts strings from the .rdata section of a PE file, focusing on UTF-8 strings with a minimum length.
 
     This function handles architecture-specific xrefs to find strings efficiently without reading all candidate strings, which may be numerous. It's tailored for Rust binaries but applicable to other PE files.
 
@@ -276,8 +270,7 @@ def get_string_blob_strings(pe: pefile.PE, min_length: int) -> Iterable[StaticSt
 
 
 def main(argv=None):
-    """
-    Parses command-line arguments, coordinates Rust string extraction, and displays results.
+    """Parses command-line arguments, coordinates Rust string extraction, and displays results.
 
     Sets up logging, parses arguments, extracts strings using the `extract_rust_strings` function, sorts the results, and prints them to the console.
 

@@ -16,8 +16,7 @@ SLICE_SIZE = 4096
 
 
 def buf_filled_with(buf, character):
-    """
-    Determines if a buffer is entirely filled with a specified character.
+    """Determines if a buffer is entirely filled with a specified character.
 
     Checks the buffer in chunks and compares them against a reference chunk created from the provided character.
 
@@ -37,13 +36,11 @@ def buf_filled_with(buf, character):
 
 
 def extract_ascii_unicode_strings(buf, n=MIN_LENGTH) -> Iterable[StaticString]:
-    """
-    Extract ASCII and Unicode strings from the given binary data.
+    """Extract ASCII and Unicode strings from the given binary data.
 
     Args:
         buf: A bytestring.
         n: The minimum length of strings to extract. (Default value = MIN_LENGTH)
-
     """
     yield from chain(extract_ascii_strings(buf, n), extract_unicode_strings(buf, n))
 
@@ -57,7 +54,6 @@ def extract_ascii_strings(buf, n=MIN_LENGTH) -> Iterable[StaticString]:
 
     Returns:
         Iterable[StaticString]: An iterable of StaticString objects representing the extracted strings.
-
     """
 
     if not buf:
@@ -89,7 +85,6 @@ def extract_unicode_strings(buf, n=MIN_LENGTH) -> Iterable[StaticString]:
 
     Returns:
         Iterable[StaticString]: An iterable of StaticString objects representing the extracted strings.
-
     """
 
     if not buf:
@@ -115,9 +110,7 @@ def extract_unicode_strings(buf, n=MIN_LENGTH) -> Iterable[StaticString]:
 
 
 def main():
-    """
-    Main function for standalone usage.
-    """
+    """Main function for standalone usage."""
     import sys
 
     with open(sys.argv[1], "rb") as f:

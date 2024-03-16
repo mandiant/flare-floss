@@ -29,8 +29,7 @@ logger = floss.logging_.getLogger(__name__)
 
 
 def get_function_api(f):
-    """
-    Retrieves API metadata for a function using Vivisect.
+    """Retrieves API metadata for a function using Vivisect.
 
     Queries the Vivisect workspace for information about a function's return type, name, calling convention, and arguments.
 
@@ -57,8 +56,7 @@ def get_function_api(f):
 
 
 def get_function_meta(f):
-    """
-    Retrieves metadata for a function using Vivisect.
+    """Retrieves metadata for a function using Vivisect.
 
     Queries the Vivisect workspace for information about a function's size, block count, and instruction count.
 
@@ -70,7 +68,6 @@ def get_function_meta(f):
             *   size: The function's size in bytes.
             *   block_count: The number of basic blocks in the function.
             *   instruction_count: The number of instructions in the function.
-
     """
     meta = f.vw.getFunctionMetaDict(int(f))
 
@@ -83,8 +80,7 @@ def get_function_meta(f):
 
 
 def get_max_calls_to(vw, skip_thunks=True, skip_libs=True):
-    """
-    Retrieves the maximum number of calls to a function in a Vivisect workspace.
+    """Retrieves the maximum number of calls to a function in a Vivisect workspace.
 
     Args:
         vw: The Vivisect workspace.
@@ -93,7 +89,6 @@ def get_max_calls_to(vw, skip_thunks=True, skip_libs=True):
 
     Returns:
         int: The maximum number of calls to a function in the workspace.
-
     """
     calls_to = set()
 
@@ -110,15 +105,13 @@ def get_max_calls_to(vw, skip_thunks=True, skip_libs=True):
 
 
 def get_function_score_weighted(features):
-    """
-    Calculates a weighted score for a function based on its features.
+    """Calculates a weighted score for a function based on its features.
 
     Args:
         features: The features of the function.
 
     Returns:
         float: The weighted score of the function.
-
     """
     return round(
         sum(feature.weighted_score() for feature in features)
@@ -128,8 +121,7 @@ def get_function_score_weighted(features):
 
 
 def get_top_functions(candidate_functions, count=20) -> List[Dict[int, Dict]]:
-    """
-    Retrieves the top scoring functions from a set of candidate functions.
+    """Retrieves the top scoring functions from a set of candidate functions.
 
     Args:
         candidate_functions: A dictionary of candidate functions and their scores.
@@ -137,7 +129,6 @@ def get_top_functions(candidate_functions, count=20) -> List[Dict[int, Dict]]:
 
     Returns:
         List[Dict[int, Dict]]: A list of the top scoring functions.
-
     """
     return sorted(
         candidate_functions.items(),
@@ -147,8 +138,7 @@ def get_top_functions(candidate_functions, count=20) -> List[Dict[int, Dict]]:
 
 
 def get_tight_function_fvas(decoding_function_features) -> List[int]:
-    """
-    Retrieves the function virtual addresses of functions with tight loops.
+    """Retrieves the function virtual addresses of functions with tight loops.
 
     Args:
         decoding_function_features: A dictionary of decoding function features.
@@ -166,8 +156,7 @@ def get_tight_function_fvas(decoding_function_features) -> List[int]:
 
 
 def append_unique(fvas, fvas_to_append):
-    """
-    Appends unique function virtual addresses to a list.
+    """Appends unique function virtual addresses to a list.
 
     Args:
         fvas: The list of function virtual addresses.
@@ -175,7 +164,6 @@ def append_unique(fvas, fvas_to_append):
 
     Returns:
         List[int]: The updated list of function virtual addresses.
-
     """
     for fva in fvas_to_append:
         if fva not in fvas:
@@ -184,29 +172,25 @@ def append_unique(fvas, fvas_to_append):
 
 
 def get_function_fvas(functions) -> List[int]:
-    """
-    Retrieves the function virtual addresses from a dictionary of functions.
+    """Retrieves the function virtual addresses from a dictionary of functions.
 
     Args:
         functions: A dictionary of functions.
 
     Returns:
         List[int]: A list of function virtual addresses.
-
     """
     return list(map(lambda p: p[0], functions))
 
 
 def get_functions_with_tightloops(functions):
-    """
-    Retrieves functions with tight loops from a dictionary of functions.
+    """Retrieves functions with tight loops from a dictionary of functions.
 
     Args:
         functions: A dictionary of functions.
 
     Returns:
         Dict[int, List]: A dictionary of functions with tight loops.
-
     """
     return get_functions_with_features(
         functions,
@@ -215,8 +199,7 @@ def get_functions_with_tightloops(functions):
 
 
 def get_functions_without_tightloops(functions):
-    """
-    Retrieves functions without tight loops from a dictionary of functions.
+    """Retrieves functions without tight loops from a dictionary of functions.
 
     Args:
         functions: A dictionary of functions.
@@ -232,8 +215,7 @@ def get_functions_without_tightloops(functions):
 
 
 def get_functions_with_features(functions, features) -> Dict[int, List]:
-    """
-    Retrieves functions with specified features from a dictionary of functions.
+    """Retrieves functions with specified features from a dictionary of functions.
 
     Args:
         functions: A dictionary of functions.
@@ -241,7 +223,6 @@ def get_functions_with_features(functions, features) -> Dict[int, List]:
 
     Returns:
         Dict[int, List]: A dictionary of functions with specified features.
-
     """
     functions_by_features = dict()
     for fva, function_data in functions.items():
@@ -256,8 +237,7 @@ def get_functions_with_features(functions, features) -> Dict[int, List]:
 def find_decoding_function_features(
     vw, functions, disable_progress=False
 ) -> Tuple[Dict[int, Dict], Dict[int, str]]:
-    """
-    Identifies decoding function features from a set of functions.
+    """Identifies decoding function features from a set of functions.
 
     Args:
         vw: The Vivisect workspace.
@@ -266,7 +246,6 @@ def find_decoding_function_features(
 
     Returns:
         Tuple[Dict[int, Dict], Dict[int, str]]: A tuple containing the decoding function features and library functions.
-
     """
     decoding_candidate_functions: DefaultDict[int, Dict] = collections.defaultdict(dict)
 

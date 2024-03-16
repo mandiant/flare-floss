@@ -43,8 +43,7 @@ logger = floss.logging_.getLogger(__name__)
 
 
 def extract_insn_nzxor(f, bb, insn):
-    """
-    Analyzes a given instruction within a function's basic block to identify non-zeroing XOR operations that are not associated with security cookie checks.
+    """Analyzes a given instruction within a function's basic block to identify non-zeroing XOR operations that are not associated with security cookie checks.
 
     Args:
         f: The current function being analyzed.
@@ -67,8 +66,7 @@ def extract_insn_nzxor(f, bb, insn):
 
 
 def is_security_cookie(f, bb, insn) -> bool:
-    """
-    Determines if the given instruction is related to security cookie checks.
+    """Determines if the given instruction is related to security cookie checks.
 
     Args:
         f: The function object being analyzed.
@@ -105,8 +103,7 @@ def is_security_cookie(f, bb, insn) -> bool:
 
 
 def extract_insn_shift(f, bb, insn):
-    """
-    Extracts shift or rotate instructions from the given instruction within a basic block.
+    """Extracts shift or rotate instructions from the given instruction within a basic block.
 
     Args:
         f: The function object being analyzed.
@@ -121,8 +118,7 @@ def extract_insn_shift(f, bb, insn):
 
 
 def extract_insn_mov(f, bb, insn):
-    """
-    Identifies MOV instructions that write to memory in a given basic block.
+    """Identifies MOV instructions that write to memory in a given basic block.
 
     Args:
         f: The function object being analyzed.
@@ -162,8 +158,7 @@ def extract_insn_mov(f, bb, insn):
 
 
 def extract_function_calls_to(f):
-    """
-    Identifies all function calls within the given function.
+    """Identifies all function calls within the given function.
 
     Args:
         f: The function object being analyzed.
@@ -177,8 +172,7 @@ def extract_function_calls_to(f):
 
 
 def extract_function_kinda_tight_loop(f):
-    """
-    Identifies tight and kinda tight loops within the provided function using a specific algorithm.
+    """Identifies tight and kinda tight loops within the provided function using a specific algorithm.
 
     Args:
         f: The function object to analyze for loop structures.
@@ -276,8 +270,7 @@ def extract_function_kinda_tight_loop(f):
 
 
 def skip_tightloop(bb: BasicBlock, loop_bb: BasicBlock) -> bool:
-    """
-    Determines whether a tight loop should be skipped based on the presence of function calls and memory writes.
+    """Determines whether a tight loop should be skipped based on the presence of function calls and memory writes.
 
     Args:
         bb: The basic block being analyzed.
@@ -298,8 +291,7 @@ def skip_tightloop(bb: BasicBlock, loop_bb: BasicBlock) -> bool:
 
 
 def contains_call(bb):
-    """
-    Checks if the given basic block contains any call instructions.
+    """Checks if the given basic block contains any call instructions.
 
     Args:
         bb: The basic block to inspect.
@@ -314,8 +306,7 @@ def contains_call(bb):
 
 
 def writes_memory(bb):
-    """
-    Determines if any instruction within the basic block writes to memory.
+    """Determines if any instruction within the basic block writes to memory.
 
     Args:
         bb: The basic block to check.
@@ -457,8 +448,7 @@ BASIC_BLOCK_HANDLERS: Tuple[Callable[[Any, Any], Iterator], ...] = ()
 
 
 def extract_basic_block_features(f: Any, bb: Any) -> Iterator:
-    """
-    Extracts features from a given basic block within a function.
+    """Extracts features from a given basic block within a function.
 
     Args:
         f: The function object containing the basic block.
@@ -480,8 +470,7 @@ INSTRUCTION_HANDLERS = (
 
 
 def extract_insn_features(f, bb, insn):
-    """
-    Extracts features from a given instruction within a basic block of a function.
+    """Extracts features from a given instruction within a basic block of a function.
 
     Args:
         f: The function object containing the basic block and instruction.
@@ -504,8 +493,7 @@ ABSTRACTION_HANDLERS = (
 
 
 def abstract_features(features):
-    """
-    Abstracts higher-level features from a collection of lower-level features.
+    """Abstracts higher-level features from a collection of lower-level features.
 
     Args:
         features: A list of features extracted from a function.

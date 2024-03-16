@@ -18,9 +18,7 @@ MIN_STR_LEN = 4
 
 
 def main():
-    """
-    Parses command-line arguments, sets up logging, and coordinates string extraction.
-    """
+    """Parses command-line arguments, sets up logging, and coordinates string extraction."""
     parser = argparse.ArgumentParser(description="Get Go strings")
     parser.add_argument("path", help="file or path to analyze")
     parser.add_argument(

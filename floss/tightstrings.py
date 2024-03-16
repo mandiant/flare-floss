@@ -20,8 +20,7 @@ logger = floss.logging_.getLogger(__name__)
 
 
 class TightstringContextMonitor(StackstringContextMonitor):
-    """
-    Observes emulation and extracts the active stack frame contents:
+    """Observes emulation and extracts the active stack frame contents:
         - at each function call in a function, and
         - based on heuristics looking for mov instructions to a hardcoded buffer.
     """
@@ -54,8 +53,7 @@ class TightstringContextMonitor(StackstringContextMonitor):
 
 
 def extract_tightstring_contexts(vw, fva, min_length, tloops) -> Iterator[CallContext]:
-    """
-    Extracts tightstring contexts from a function containing tight loops.
+    """Extracts tightstring contexts from a function containing tight loops.
 
     Args:
         vw: The vivisect workspace
@@ -113,8 +111,8 @@ def extract_tightstrings(
     verbosity=Verbosity.DEFAULT,
     disable_progress=False,
 ) -> List[TightString]:
-    """
-    Extracts tightstrings from functions that contain tight loops.
+    """Extracts tightstrings from functions that contain tight loops.
+    
     Tightstrings are a special form of stackstrings. Their bytes are loaded on the stack and then modified in a
     tight loop. To extract tightstrings we use a mix between the string decoding and stackstring algorithms.
 

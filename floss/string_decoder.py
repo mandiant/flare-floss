@@ -39,7 +39,6 @@ def memdiff_search(bytes1, bytes2):
     Returns:
         int: The offset of the first difference between the two strings.
     """
-
     # Prevent infinite recursion on inputs with length of one
     half = (len(bytes1) // 2) or 1
 
@@ -65,7 +64,6 @@ def memdiff(bytes1, bytes2):
 
     Returns:
         list: A list of tuples, where each tuple contains the offset and length of a difference between the two strings.
-
     """
     # Shortcut matching inputs
     if bytes1 == bytes2:
@@ -105,8 +103,7 @@ def memdiff(bytes1, bytes2):
 
 
 def should_shortcut(fva: int, n: int, n_calls: int, found_strings: int) -> bool:
-    """
-    Determine if the emulation of a decoding function should be shortcut.
+    """Determine if the emulation of a decoding function should be shortcut.
 
     Args:
         fva: The address of the decoding function.
@@ -116,7 +113,6 @@ def should_shortcut(fva: int, n: int, n_calls: int, found_strings: int) -> bool:
 
     Returns:
         bool: True if the emulation of the decoding function should be shortcut, False otherwise.
-
     """
     if n_calls < DS_FUNCTION_CALLS_RARE:
         # don't shortcut
@@ -158,7 +154,6 @@ def decode_strings(
 
     Returns:
         list: A list of DecodedString objects representing the decoded strings.
-
     """
     logger.info("decoding strings")
 
@@ -227,7 +222,6 @@ def emulate_decoding_routine(
 
     Returns:
         List[Delta]: A list of Deltas representing the emulator state at each interesting place.
-
     """
     emu = floss.utils.make_emulator(vw)
     emu.setEmuSnap(context.emu_snap)
@@ -257,8 +251,7 @@ class DeltaBytes:
 def extract_delta_bytes(
     delta: Delta, decoded_at_va: int, source_fva: int = 0x0
 ) -> List[DeltaBytes]:
-    """Extract the sequence of byte sequences that differ from before
-     and after snapshots.
+    """Extract the sequence of byte sequences that differ from before and after snapshots.
 
     Args:
         delta: The delta object.
@@ -267,7 +260,6 @@ def extract_delta_bytes(
 
     Returns:
         List[DeltaBytes]: A list of DeltaBytes objects representing the byte sequences that differ from before and after snapshots.
-
     """
     delta_bytes = []
 

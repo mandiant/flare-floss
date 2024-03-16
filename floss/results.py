@@ -68,10 +68,7 @@ class StackString:
         +---------------+  <- original_stack_pointer (bottom of stack, probably bp)
     
         [bigger addresses]
-
-
     """
-
     function: int
     string: str
     encoding: StringEncoding
@@ -84,13 +81,11 @@ class StackString:
 
 class TightString(StackString):
     """A string that is tightly packed in memory."""
-
     pass
 
 
 class AddressType(str, Enum):
     """Enumeration of address types."""
-
     STACK = "STACK"
     GLOBAL = "GLOBAL"
     HEAP = "HEAP"
@@ -99,7 +94,6 @@ class AddressType(str, Enum):
 @dataclass(frozen=True)
 class DecodedString:
     """A decoding string and details about where it was found."""
-
     address: int
     address_type: AddressType
     string: str
@@ -111,15 +105,13 @@ class DecodedString:
 @dataclass(frozen=True)
 class StaticString:
     """A string extracted from the raw bytes of the input."""
-
     string: str
     offset: int
     encoding: StringEncoding
 
     @classmethod
     def from_utf8(cls, buf, addr, min_length):
-        """
-        Create a StaticString from a buffer of bytes.
+        """Create a StaticString from a buffer of bytes.
 
         Args:
             buf: The buffer of bytes.
@@ -128,7 +120,6 @@ class StaticString:
 
         Returns:
             StaticString: The created string.
-
         """
         try:
             decoded_string = buf.decode("utf-8")
@@ -146,7 +137,6 @@ class StaticString:
 @dataclass
 class Runtime:
     """The runtime of the analysis."""
-
     start_date: datetime.datetime = datetime.datetime.now()
     total: float = 0
     vivisect: float = 0
@@ -161,7 +151,6 @@ class Runtime:
 @dataclass
 class Functions:
     """The functions that were analyzed."""
-
     discovered: int = 0
     library: int = 0
     analyzed_stack_strings: int = 0
@@ -173,7 +162,6 @@ class Functions:
 @dataclass
 class Analysis:
     """The analysis configuration."""
-
     enable_static_strings: bool = True
     enable_stack_strings: bool = True
     enable_tight_strings: bool = True
@@ -189,7 +177,6 @@ STRING_TYPE_FIELDS = set(
 @dataclass
 class Metadata:
     """Metadata about the analysis."""
-
     file_path: str
     version: str = __version__
     imagebase: int = 0
@@ -203,7 +190,6 @@ class Metadata:
 @dataclass
 class Strings:
     """The strings that were found."""
-
     stack_strings: List[StackString] = field(default_factory=list)
     tight_strings: List[TightString] = field(default_factory=list)
     decoded_strings: List[DecodedString] = field(default_factory=list)
@@ -215,15 +201,13 @@ class Strings:
 @dataclass
 class ResultDocument:
     """The result document."""
-
     metadata: Metadata
     analysis: Analysis = field(default_factory=Analysis)
     strings: Strings = field(default_factory=Strings)
 
     @classmethod
     def parse_file(cls, path):
-        """
-        Parse a result document from a file.
+        """Parse a result document from a file.
 
         Args:
             path: The path to the file.
@@ -236,13 +220,11 @@ class ResultDocument:
 
 
 def log_result(decoded_string, verbosity):
-    """
-    Log a decoded string.
+    """Log a decoded string.
 
     Args:
         decoded_string: The decoded string.
         verbosity: The verbosity level.
-
     """
     string = sanitize(decoded_string.string)
     if verbosity < Verbosity.VERBOSE:
@@ -273,8 +255,7 @@ def log_result(decoded_string, verbosity):
 def load(
     sample: Path, analysis: Analysis, functions: List[int], min_length: int
 ) -> ResultDocument:
-    """
-    Load a result document from a file, applying filters as needed.
+    """Load a result document from a file, applying filters as needed.
 
     Args:
         sample: Path:
@@ -284,8 +265,6 @@ def load(
 
     Returns:
         ResultDocument: The loaded result document.
-
-
     """
     logger.debug("loading results document: %s", str(sample))
     results = read(sample)
@@ -300,8 +279,7 @@ def load(
 
 
 def read(sample: Path) -> ResultDocument:
-    """
-    Loads a ResultDocument from a file.
+    """Loads a ResultDocument from a file.
 
     Attempts to read a file as JSON and deserialize it into a ResultDocument object. Handles potential JSON decoding errors, Unicode-related errors, and validation failures.
 
@@ -331,8 +309,7 @@ def read(sample: Path) -> ResultDocument:
 
 
 def check_set_string_types(results: ResultDocument, wanted_analysis: Analysis) -> None:
-    """
-    Ensures consistency in string type analysis settings between loaded results and desired analysis.
+    """Ensures consistency in string type analysis settings between loaded results and desired analysis.
 
     This function checks if specific string analysis types were enabled in a desired analysis configuration (`wanted_analysis`) but are missing from the loaded analysis results (`results`). If found, it issues warnings and updates the `results` object to match the `wanted_analysis` settings.
 
@@ -396,8 +373,7 @@ def filter_functions(results: ResultDocument, functions: List[int]) -> None:
 
 
 def filter_string_len(results: ResultDocument, min_length: int) -> None:
-    """
-    Removes strings shorter than a specified length from the ResultDocument.
+    """Removes strings shorter than a specified length from the ResultDocument.
 
     Filters various string collections within the `results` object, keeping only strings that meet the minimum length criterion.
 
