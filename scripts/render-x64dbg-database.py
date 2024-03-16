@@ -79,14 +79,23 @@ def render_x64dbg_database(result_document: ResultDocument) -> str:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Generate an x64dbg script to apply FLOSS results.")
-    parser.add_argument("/path/to/report.json", help="path to JSON document from `floss --json`")
+    parser = argparse.ArgumentParser(
+        description="Generate an x64dbg script to apply FLOSS results."
+    )
+    parser.add_argument(
+        "/path/to/report.json", help="path to JSON document from `floss --json`"
+    )
 
     logging_group = parser.add_argument_group("logging arguments")
 
-    logging_group.add_argument("-d", "--debug", action="store_true", help="enable debugging output on STDERR")
     logging_group.add_argument(
-        "-q", "--quiet", action="store_true", help="disable all status output except fatal errors"
+        "-d", "--debug", action="store_true", help="enable debugging output on STDERR"
+    )
+    logging_group.add_argument(
+        "-q",
+        "--quiet",
+        action="store_true",
+        help="disable all status output except fatal errors",
     )
 
     args = parser.parse_args()

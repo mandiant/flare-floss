@@ -16,5 +16,12 @@ def exefile() -> str:
 
 @pytest.fixture
 def scfile() -> str:
-    path = CD / "data" / "src" / "shellcode-stackstrings" / "bin" / "shellcode-stackstrings.bin"
+    path = (
+        CD
+        / "data"
+        / "src"
+        / "shellcode-stackstrings"
+        / "bin"
+        / "shellcode-stackstrings.bin"
+    )
     return str(path)

@@ -25,7 +25,7 @@ class FlossJSONEncoder(json.JSONEncoder):
             o: The object to encode.
 
         Returns:
-            The JSON-serializable representation of the object. 
+            The JSON-serializable representation of the object.
 
         """
         if dataclasses.is_dataclass(o):

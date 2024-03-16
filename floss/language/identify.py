@@ -22,6 +22,7 @@ class Language(Enum):
     """
     Enumerates programming languages that can be identified in binary samples.
     """
+
     GO = "go"
     RUST = "rust"
     DOTNET = "dotnet"
@@ -29,7 +30,9 @@ class Language(Enum):
     DISABLED = "none"
 
 
-def identify_language_and_version(sample: Path, static_strings: Iterable[StaticString]) -> Tuple[Language, str]:
+def identify_language_and_version(
+    sample: Path, static_strings: Iterable[StaticString]
+) -> Tuple[Language, str]:
     """
     Identifies the programming language and version of a given binary sample based on static strings found within.
 
@@ -38,7 +41,7 @@ def identify_language_and_version(sample: Path, static_strings: Iterable[StaticS
         static_strings (Iterable[StaticString]): An iterable of static strings extracted from the binary sample.
 
     Returns:
-        Tuple[Language, str]: A tuple containing the identified programming language and its version. If the language 
+        Tuple[Language, str]: A tuple containing the identified programming language and its version. If the language
         cannot be identified, returns (Language.UNKNOWN, "unknown").
     """
     is_rust, version = get_if_rust_and_version(static_strings)
@@ -99,7 +102,9 @@ def get_if_rust_and_version(static_strings: Iterable[StaticString]) -> Tuple[boo
                 version = rust_commit_hash[matches["hash"]]
                 return True, version
             else:
-                logger.debug("hash %s not found in Rust commit hash database", matches["hash"])
+                logger.debug(
+                    "hash %s not found in Rust commit hash database", matches["hash"]
+                )
                 return True, VERSION_UNKNOWN_OR_NA
 
     return False, VERSION_UNKNOWN_OR_NA
@@ -115,10 +120,10 @@ def get_if_go_and_version(pe: pefile.PE) -> Tuple[bool, str]:
     Returns:
         Tuple[bool, str]: A tuple containing a boolean indicating if the file is compiled with Go,
                           and a string representing the version of Go, or 'VERSION_UNKNOWN_OR_NA' if the version cannot be determined.
-                          
+
     This function checks the pclntab structure's magic header -pcHeader- to identify the Go version.
     The magic values vary with the version. It first searches the .rdata section, then all available sections for magic headers and common Go functions.
-    
+
     Reference:
     https://github.com/0xjiayu/go_parser/blob/865359c297257e00165beb1683ef6a679edc2c7f/pclntbl.py#L46
     """

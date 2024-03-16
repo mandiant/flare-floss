@@ -33,7 +33,9 @@ def run_program(script_path: Path, args):
 @lru_cache()
 def get_results_file_path():
     res_path = Path("results.json")
-    p = run_program(Path("floss/main.py"), ["--no", "static", "-j", str(get_file_path())])
+    p = run_program(
+        Path("floss/main.py"), ["--no", "static", "-j", str(get_file_path())]
+    )
     with res_path.open("w") as f:
         f.write(p.stdout.decode("utf-8"))
     return str(res_path)

@@ -6,7 +6,7 @@ import string
 def sanitize(s: str, is_ascii_only=True) -> str:
     """
     Sanitize a string for printing.
-    
+
     Args:
         s: The string to sanitize.
         is_ascii_only: Whether to only allow ASCII characters.

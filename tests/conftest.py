@@ -32,20 +32,26 @@ def extract_strings(vw):
     ):
         yield s_decoded.string
 
-    no_tightloop_functions = get_functions_without_tightloops(decoding_function_features)
+    no_tightloop_functions = get_functions_without_tightloops(
+        decoding_function_features
+    )
     for s_stack in stackstrings.extract_stackstrings(
         vw, no_tightloop_functions, MIN_STRING_LENGTH, disable_progress=True
     ):
         yield s_stack.string
 
     tightloop_functions = get_functions_with_tightloops(decoding_function_features)
-    for s_tight in tightstrings.extract_tightstrings(vw, tightloop_functions, MIN_STRING_LENGTH, disable_progress=True):
+    for s_tight in tightstrings.extract_tightstrings(
+        vw, tightloop_functions, MIN_STRING_LENGTH, disable_progress=True
+    ):
         yield s_tight.string
 
 
 def identify_decoding_functions(vw):
     selected_functions = floss_main.select_functions(vw, None)
-    decoding_function_features, _ = find_decoding_function_features(vw, selected_functions, disable_progress=True)
+    decoding_function_features, _ = find_decoding_function_features(
+        vw, selected_functions, disable_progress=True
+    )
     top_functions = get_top_functions(decoding_function_features, 20)
     return top_functions, decoding_function_features
 
@@ -76,7 +82,12 @@ class YamlFile(pytest.File):
                 filepath = test_dir / filename
                 if filepath.exists():
                     yield FLOSSTest.from_parent(
-                        self, path=str(filepath), platform=platform, arch=arch, filename=filename, spec=spec
+                        self,
+                        path=str(filepath),
+                        platform=platform,
+                        arch=arch,
+                        filename=filename,
+                        spec=spec,
                     )
 
 
@@ -96,7 +107,9 @@ class FLOSSDecodingFunctionNotFound(Exception):
 
 class FLOSSTest(pytest.Item):
     def __init__(self, parent, path, platform, arch, filename, spec):
-        name = "{name:s}::{platform:s}::{arch:s}".format(name=spec["Test Name"], platform=platform, arch=arch)
+        name = "{name:s}::{platform:s}::{arch:s}".format(
+            name=spec["Test Name"], platform=platform, arch=arch
+        )
         super(FLOSSTest, self).__init__(name, parent)
         self.spec = spec
         self.platform = platform
@@ -122,7 +135,9 @@ class FLOSSTest(pytest.Item):
 
     def _test_detection(self, test_path):
         try:
-            expected_functions = set(self.spec["Decoding routines"][self.platform][self.arch])
+            expected_functions = set(
+                self.spec["Decoding routines"][self.platform][self.arch]
+            )
         except KeyError:
             expected_functions = set([])
 

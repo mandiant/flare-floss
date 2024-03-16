@@ -70,7 +70,9 @@ class StackstringContextMonitor(viv_utils.emulator_drivers.Monitor):
             logger.debug("%s", e)
 
     # TODO get va here from emu?
-    def get_call_context(self, emu, va, pre_ctx_strings: Optional[Set[str]] = None) -> CallContext:
+    def get_call_context(
+        self, emu, va, pre_ctx_strings: Optional[Set[str]] = None
+    ) -> CallContext:
         """
         Collects context information related to a function call.
 
@@ -192,7 +194,11 @@ def get_basic_block_ends(vw):
 
 
 def extract_stackstrings(
-    vw, selected_functions, min_length, verbosity=Verbosity.DEFAULT, disable_progress=False
+    vw,
+    selected_functions,
+    min_length,
+    verbosity=Verbosity.DEFAULT,
+    disable_progress=False,
 ) -> List[StackString]:
     """
     Extracts the stackstrings from functions in the given workspace.
@@ -213,7 +219,10 @@ def extract_stackstrings(
     bb_ends = get_basic_block_ends(vw)
 
     pb = floss.utils.get_progress_bar(
-        selected_functions, disable_progress, desc="extracting stackstrings", unit=" functions"
+        selected_functions,
+        disable_progress,
+        desc="extracting stackstrings",
+        unit=" functions",
     )
     with tqdm.contrib.logging.logging_redirect_tqdm(), floss.utils.redirecting_print_to_tqdm():
         for fva in pb:
@@ -222,10 +231,14 @@ def extract_stackstrings(
             ctxs = extract_call_contexts(vw, fva, bb_ends)
             for n, ctx in enumerate(ctxs, 1):
                 logger.trace(
-                    "extracting stackstrings at checkpoint: 0x%x stacksize: 0x%x", ctx.pc, ctx.init_sp - ctx.sp
+                    "extracting stackstrings at checkpoint: 0x%x stacksize: 0x%x",
+                    ctx.pc,
+                    ctx.init_sp - ctx.sp,
                 )
                 for s in extract_strings(ctx.stack_memory, min_length, seen):
-                    frame_offset = (ctx.init_sp - ctx.sp) - s.offset - getPointerSize(vw)
+                    frame_offset = (
+                        (ctx.init_sp - ctx.sp) - s.offset - getPointerSize(vw)
+                    )
                     ss = StackString(
                         function=fva,
                         string=s.string,

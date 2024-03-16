@@ -7,7 +7,15 @@ import vivisect
 import viv_utils
 from networkx import strongly_connected_components
 from viv_utils import BasicBlock
-from envi.archs.i386.opconst import INS_MOV, INS_ROL, INS_ROR, INS_SHL, INS_SHR, INS_XOR, INS_CALL
+from envi.archs.i386.opconst import (
+    INS_MOV,
+    INS_ROL,
+    INS_ROR,
+    INS_SHL,
+    INS_SHR,
+    INS_XOR,
+    INS_CALL,
+)
 
 import floss.logging_
 from floss.const import TS_TIGHT_FUNCTION_MAX_BLOCKS
@@ -88,7 +96,9 @@ def is_security_cookie(f, bb, insn) -> bool:
         return True
 
     # ... or within last bytes (instructions) before a return
-    elif bb.instructions[-1].isReturn() and insn.va > (bb.va + bb.size - SECURITY_COOKIE_BYTES_DELTA):
+    elif bb.instructions[-1].isReturn() and insn.va > (
+        bb.va + bb.size - SECURITY_COOKIE_BYTES_DELTA
+    ):
         return True
 
     return False
@@ -161,7 +171,9 @@ def extract_function_calls_to(f):
     Returns:
         An iterator over CallsTo features, each representing a call made from the given function.
     """
-    yield CallsTo(f.vw, [x[0] for x in f.vw.getXrefsTo(f.va, rtype=vivisect.const.REF_CODE)])
+    yield CallsTo(
+        f.vw, [x[0] for x in f.vw.getXrefsTo(f.va, rtype=vivisect.const.REF_CODE)]
+    )
 
 
 def extract_function_kinda_tight_loop(f):
@@ -339,7 +351,7 @@ def abstract_nzxor_tightloop(features):
     Returns:
         An iterator over NzxorTightLoop features for each identified pattern.
     """
-     
+
     for tl in filter(lambda f: isinstance(f, TightLoop), features):
         for nzxor in filter(lambda f: isinstance(f, Nzxor), features):
             if tl.startva <= nzxor.insn.va <= tl.endva:
@@ -356,7 +368,9 @@ def abstract_nzxor_loop(features):
     Returns:
         An iterator over NzxorLoop features for each identified pattern.
     """
-    if any(isinstance(f, Nzxor) for f in features) and any(isinstance(f, Loop) for f in features):
+    if any(isinstance(f, Nzxor) for f in features) and any(
+        isinstance(f, Loop) for f in features
+    ):
         yield NzxorLoop()
 
 

@@ -10,6 +10,7 @@ logging.addLevelName(TRACE, "TRACE")
 
 class DebugLevel(int, Enum):
     """ """
+
     NONE = 0
     DEFAULT = 1
     TRACE = 2
@@ -54,7 +55,7 @@ FORMATTERS = {level: logging.Formatter(FORMATS[level]) for level in FORMATS.keys
 
 class ColorFormatter(logging.Formatter):
     """Logging Formatter to add colors and count warning / errors
-    
+
     via: https://stackoverflow.com/a/56944256/87207
 
 
@@ -69,16 +70,17 @@ class ColorFormatter(logging.Formatter):
 
         Returns:
             str: The formatted log message.
-        
+
         """
         return FORMATTERS[record.levelno].format(record)
 
 
 class LoggerWithTrace(logging.getLoggerClass()):  # type: ignore
     """
-     A custom logger class that includes a TRACE level and color formatting.
-     
+    A custom logger class that includes a TRACE level and color formatting.
+
     """
+
     def trace(self, msg, *args, **kwargs):
         """
         Log a message with severity 'TRACE' on this logger.
@@ -97,7 +99,7 @@ logging.setLoggerClass(LoggerWithTrace)
 def getLogger(name) -> LoggerWithTrace:
     """a logging constructor that guarantees that the TRACE level is available.
     use this just like `logging.getLogger`.
-    
+
     because we patch stdlib logging upon import of this module (side-effect),
     and we can't be sure how callers order their imports,
     then we want to provide a way to ensure that callers can access TRACE consistently.

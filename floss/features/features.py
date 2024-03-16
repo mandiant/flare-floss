@@ -17,6 +17,7 @@ class Feature:
         name (str): Automatically derived from the class name.
         value: The specific value of the feature being analyzed.
     """
+
     def __init__(self, value):
         """
         Initializes the Feature instance.
@@ -61,9 +62,7 @@ class Feature:
         return self.weight * self.score()
 
     def __str__(self):
-        return (
-            f"{self.name.ljust(20)} = {self.value} (score: {self.score():.2f}, weighted: {self.weighted_score():.2f})"
-        )
+        return f"{self.name.ljust(20)} = {self.value} (score: {self.score():.2f}, weighted: {self.weighted_score():.2f})"
 
     def __repr__(self):
         return str(self)
@@ -75,6 +74,7 @@ class BlockCount(Feature):
 
     Inherits from Feature.
     """
+
     weight = LOW
 
     def __init__(self, block_count):
@@ -112,6 +112,7 @@ class InstructionCount(Feature):
     Attributes:
         weight (float): Importance of instruction count, predefined as LOW.
     """
+
     weight = LOW
 
     def __init__(self, instruction_count):
@@ -144,6 +145,7 @@ class Arguments(Feature):
     Attributes:
         weight (float): Importance of the argument count, predefined as LOW.
     """
+
     weight = LOW
 
     def __init__(self, args):
@@ -173,6 +175,7 @@ class TightLoop(Feature):
     Attributes:
         weight (float): Importance of this feature, predefined as HIGH.
     """
+
     # basic block (BB) that jumps to itself
     weight = HIGH
 
@@ -194,12 +197,14 @@ class TightLoop(Feature):
 
 class KindaTightLoop(TightLoop):
     """ """
+
     # BB that jumps to itself via one intermediate BB
     pass
 
 
 class TightFunction(Feature):
     """ """
+
     # function that basically just wraps a tight loop
     weight = SEVERE
 
@@ -214,6 +219,7 @@ class TightFunction(Feature):
 
 class Mnem(Feature):
     """ """
+
     def __init__(self, insn):
         super(Mnem, self).__init__(f"0x{insn.va:x}  {insn}")
 
@@ -226,16 +232,19 @@ class Mnem(Feature):
 
 class Nzxor(Mnem):
     """ """
+
     weight = HIGH
 
 
 class Shift(Mnem):
     """ """
+
     weight = HIGH
 
 
 class Mov(Mnem):
     """ """
+
     weight = MEDIUM
 
 
@@ -253,7 +262,7 @@ class CallsTo(Feature):
         vw: The vivisect workspace instance for analysis.
         locations (list): A list of locations (addresses) where calls are made.
     """
-    
+
     weight = MEDIUM
     max_calls_to = None
 
@@ -287,6 +296,7 @@ class Loop(Feature):
     Args:
         comp: A collection representing the loop's components.
     """
+
     weight = MEDIUM
 
     def __init__(self, comp):
@@ -306,6 +316,7 @@ class NzxorTightLoop(Feature):
     Attributes:
         weight (float): The severity of this feature, set to SEVERE.
     """
+
     weight = SEVERE
 
     def __init__(self):
@@ -328,6 +339,7 @@ class NzxorLoop(Feature):
     Attributes:
         weight (float): The severity of this feature, also set to SEVERE.
     """
+
     weight = SEVERE
 
     def __init__(self):
