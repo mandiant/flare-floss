@@ -42,7 +42,7 @@ class ApiMonitor(viv_utils.emulator_drivers.Monitor):
     def apicall(self, emu, api, argv):
         """
         Log API calls and their arguments.
-        
+
         """
         pc = emu.getProgramCounter()
         logger.trace("apicall: 0x%x %s %s", pc, api, argv)
@@ -60,7 +60,7 @@ class ApiMonitor(viv_utils.emulator_drivers.Monitor):
         """
 
         Log the end of an instruction.
-        
+
         """
         # overridden from Monitor
         if op.mnem == "ret":
@@ -153,8 +153,12 @@ class DemoHook:
     """
     A demo hook to demonstrate the API of the hook classes.
     """
+
     def __call__(
-        self, emu: viv_utils.emulator_drivers.EmulatorDriver, api: Tuple[str, Any, str, str, List], argv: List
+        self,
+        emu: viv_utils.emulator_drivers.EmulatorDriver,
+        api: Tuple[str, Any, str, str, List],
+        argv: List,
     ):
         # api: (rettype, retname, callconv, funcname, [(argtype, argname), ...)]
         ...
@@ -162,8 +166,9 @@ class DemoHook:
 
 class GetProcessHeapHook:
     """
-    Hook calls to GetProcessHeap and return a fake heap handle. 
+    Hook calls to GetProcessHeap and return a fake heap handle.
     """
+
     def __call__(self, emu, api, argv):
         if fu.contains_funcname(api, ("GetProcessHeap",)):
             fu.call_return(emu, api, argv, 42)
@@ -174,6 +179,7 @@ class GetModuleFileNameHook:
     """
     Hook calls to GetModuleFileName and return the name of the current module.
     """
+
     def __call__(self, emu, api, argv):
         if fu.contains_funcname(api, ("GetModuleFileNameA",)):
             unicode = False
@@ -220,14 +226,16 @@ class MemoryAllocationHook:
 
         Returns:
             The address of the allocated memory.
-        
+
         """
         va = self._heap_addr
         # align to 16-byte boundary (64-bit), also works for 32-bit, which is normally 8-bytes
         size = fu.round_(size, 16)
         size = fu.get_max_size(size, MAX_MEMORY_ALLOC_SIZE)
         logger.trace("mapping 0x%x bytes at 0x%x", size, va)
-        emu.addMemoryMap(va, envi.memory.MM_RWX, "[heap allocation]", b"\x00" * (size + 4))
+        emu.addMemoryMap(
+            va, envi.memory.MM_RWX, "[heap allocation]", b"\x00" * (size + 4)
+        )
         self._heap_addr += size
         return va
 
@@ -236,7 +244,9 @@ class MemoryAllocationHook:
             size = argv[0]
         elif fu.contains_funcname(api, ("VirtualAlloc", "LocalAlloc", "GlobalAlloc")):
             size = argv[1]
-        elif fu.contains_funcname(api, ("VirtualAllocEx", "HeapAlloc", "RtlAllocateHeap")):
+        elif fu.contains_funcname(
+            api, ("VirtualAllocEx", "HeapAlloc", "RtlAllocateHeap")
+        ):
             size = argv[2]
         elif fu.contains_funcname(api, ("calloc", "calloc_base")):
             # size, count
@@ -261,18 +271,24 @@ class CppNewObjectHook(MemoryAllocationHook):
     ZNWJ = "Znwj"  # operator new(unsigned int)
     ZNAJ = "Znaj"  # operator new[](unsigned int)
     YAPAXI_Z_32 = "??2@YAPAXI@Z"  # void * __cdecl operator new(unsigned int)
-    YAPEAX_K_Z_64 = "??2@YAPEAX_K@Z"  # void * __ptr64 __cdecl operator new(unsigned __int64)
+    YAPEAX_K_Z_64 = (
+        "??2@YAPEAX_K@Z"  # void * __ptr64 __cdecl operator new(unsigned __int64)
+    )
     DEFAULT_SIZE = 0x1000
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
     def __call__(self, emu, api, argv):
-        if fu.contains_funcname(api, (self.ZNWJ, self.ZNWJ, self.YAPAXI_Z_32, self.YAPEAX_K_Z_64)):
+        if fu.contains_funcname(
+            api, (self.ZNWJ, self.ZNWJ, self.YAPAXI_Z_32, self.YAPEAX_K_Z_64)
+        ):
             if argv and len(argv) > 0:
                 size = argv[0]
             else:
-                size = self.DEFAULT_SIZE  # will allocate a default block size if vivisect failed to extract argv
+                size = (
+                    self.DEFAULT_SIZE
+                )  # will allocate a default block size if vivisect failed to extract argv
 
             va = self._allocate_mem(emu, size)
             fu.call_return(emu, api, argv, va)
@@ -281,11 +297,14 @@ class CppNewObjectHook(MemoryAllocationHook):
 
 class MemoryFreeHook:
     """
-     Hook calls to memory free functions: free memory and return success.
+    Hook calls to memory free functions: free memory and return success.
 
     """
+
     def __call__(self, emu, api, argv):
-        if fu.contains_funcname(api, ("free", "free_base", "VirtualFree", "HeapFree", "RtlFreeHeap")):
+        if fu.contains_funcname(
+            api, ("free", "free_base", "VirtualFree", "HeapFree", "RtlFreeHeap")
+        ):
             # If the function succeeds, the return value is nonzero.
             fu.call_return(emu, api, argv, 1)
             return True
@@ -293,9 +312,10 @@ class MemoryFreeHook:
 
 class MemcpyHook:
     """
-     Hook calls to memory copy functions: copy memory from source to destination.
-     
+    Hook calls to memory copy functions: copy memory from source to destination.
+
     """
+
     def __call__(self, emu, api, argv):
         if fu.contains_funcname(api, ("memcpy", "memmove")):
             dst, src, count = argv
@@ -313,8 +333,9 @@ class MemcpyHook:
 
 class StrlenHook:
     """
-     Hook calls to string length functions: return the length of the string.
+    Hook calls to string length functions: return the length of the string.
     """
+
     def __call__(self, emu, api, argv):
         if fu.contains_funcname(api, ("strlen", "lstrlena")):
             string_va = argv[0]
@@ -335,8 +356,9 @@ class StrlenHook:
 
 class StrncmpHook:
     """
-     Hook calls to string compare functions: compare two strings.
+    Hook calls to string compare functions: compare two strings.
     """
+
     def __call__(self, emu, api, argv):
         if fu.contains_funcname(api, ("strncmp",)):
             s1va, s2va, num = argv
@@ -347,10 +369,10 @@ class StrncmpHook:
             def cmp(a, b):
                 """
 
-                :param a: 
-                :param b: 
+                :param a:
+                :param b:
 
-                
+
                 """
                 return (a > b) - (a < b)
 
@@ -361,8 +383,9 @@ class StrncmpHook:
 
 class MemchrHook:
     """
-     Hook calls to memchr: search for a character in a memory block.
+    Hook calls to memchr: search for a character in a memory block.
     """
+
     def __call__(self, emu, api, argv):
         if fu.contains_funcname(api, ("memchr",)):
             ptr, value, num = argv
@@ -379,8 +402,9 @@ class MemchrHook:
 
 class MemsetHook:
     """
-     Hook calls to memset: fill memory with a constant byte.
+    Hook calls to memset: fill memory with a constant byte.
     """
+
     def __call__(self, emu, api, argv):
         if fu.contains_funcname(api, ("memset",)):
             ptr, value, num = argv
@@ -393,8 +417,9 @@ class MemsetHook:
 
 class PrintfHook:
     """
-     Hook calls to printf: write formatted data to stdout.
+    Hook calls to printf: write formatted data to stdout.
     """
+
     # TODO disabled for now as incomplete (need to implement string format) and could result in FP strings as is
     def __call__(self, emu, api, argv):
         # TODO vfprintf, vfwprintf, vfprintf_s, vfwprintf_s, vsnprintf, vsnwprintf, etc.
@@ -408,8 +433,9 @@ class PrintfHook:
 
 class ExitExceptionHook:
     """
-     Hook calls to exit and raise exception.
+    Hook calls to exit and raise exception.
     """
+
     def __call__(self, emu, api, argv):
         if fu.contains_funcname(api, ("ExitProcess", "RaiseException")):
             raise viv_utils.emulator_drivers.StopEmulation()
@@ -421,10 +447,20 @@ class ExitExceptionHook:
 
 class SehPrologEpilogHook:
     """
-     Hook calls to SEH prolog and epilog functions and return success.
+    Hook calls to SEH prolog and epilog functions and return success.
     """
+
     def __call__(self, emu, api, argv):
-        if fu.contains_funcname(api, ("__EH_prolog", "__EH_prolog3", "__SEH_prolog4", "seh4_prolog", "__SEH_epilog4")):
+        if fu.contains_funcname(
+            api,
+            (
+                "__EH_prolog",
+                "__EH_prolog3",
+                "__SEH_prolog4",
+                "seh4_prolog",
+                "__SEH_epilog4",
+            ),
+        ):
             # nop
             fu.call_return(emu, api, argv, 0)
             return True
@@ -432,10 +468,13 @@ class SehPrologEpilogHook:
 
 class SecurityCheckCookieHook:
     """
-     Hook calls to __security_check_cookie and return success.
+    Hook calls to __security_check_cookie and return success.
     """
+
     def __call__(self, emu, api, argv):
-        if fu.contains_funcname(api, ("__security_check_cookie", "@__security_check_cookie@4")):
+        if fu.contains_funcname(
+            api, ("__security_check_cookie", "@__security_check_cookie@4")
+        ):
             # nop
             fu.call_return(emu, api, argv, 0)
             return True
@@ -443,8 +482,9 @@ class SecurityCheckCookieHook:
 
 class GetLastErrorHook:
     """
-     Hook calls to GetLastError and return success.
+    Hook calls to GetLastError and return success.
     """
+
     def __call__(self, emu, api, argv):
         if fu.contains_funcname(api, ("GetLastError",)):
             # always assuming success
@@ -455,8 +495,9 @@ class GetLastErrorHook:
 
 class GetCurrentProcessHook:
     """
-     Hook calls to GetCurrentProcess and return a fake process handle.
+    Hook calls to GetCurrentProcess and return a fake process handle.
     """
+
     def __call__(self, emu, api, argv):
         if fu.contains_funcname(api, ("GetCurrentProcess",)):
             fu.call_return(emu, api, argv, CURRENT_PROCESS_ID)
@@ -465,8 +506,9 @@ class GetCurrentProcessHook:
 
 class CriticalSectionHook:
     """
-     Hook calls to InitializeCriticalSection and return a fake critical section handle.
+    Hook calls to InitializeCriticalSection and return a fake critical section handle.
     """
+
     def __call__(self, emu, api, argv):
         if fu.contains_funcname(api, ("InitializeCriticalSection",)):
             (hsection,) = argv
@@ -499,9 +541,9 @@ DEFAULT_HOOKS = (
 @contextlib.contextmanager
 def defaultHooks(driver):
     """Install and remove the default set of hooks to handle common functions.
-    
+
     intended usage:
-    
+
         with defaultHooks(driver):
             driver.runFunction()
             ...

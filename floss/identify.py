@@ -18,7 +18,12 @@ from floss.features.extract import (
     extract_function_features,
     extract_basic_block_features,
 )
-from floss.features.features import Arguments, BlockCount, TightFunction, InstructionCount
+from floss.features.features import (
+    Arguments,
+    BlockCount,
+    TightFunction,
+    InstructionCount,
+)
 
 logger = floss.logging_.getLogger(__name__)
 
@@ -27,7 +32,7 @@ def get_function_api(f):
     """
     Retrieves API metadata for a function using Vivisect.
 
-    Queries the Vivisect workspace for information about a function's return type, name, calling convention, and arguments. 
+    Queries the Vivisect workspace for information about a function's return type, name, calling convention, and arguments.
 
     Args:
         f:  The function object (likely within a Vivisect workspace context).
@@ -38,7 +43,7 @@ def get_function_api(f):
             *   ret_name: The name of the return value (if any).
             *   call_conv:  The function's calling convention.
             *   func_name: The function's name.
-            *   arguments: A list of argument descriptions. 
+            *   arguments: A list of argument descriptions.
     """
     ret_type, ret_name, call_conv, func_name, args = f.vw.getFunctionApi(int(f))
 
@@ -115,7 +120,11 @@ def get_function_score_weighted(features):
         float: The weighted score of the function.
 
     """
-    return round(sum(feature.weighted_score() for feature in features) / sum(feature.weight for feature in features), 3)
+    return round(
+        sum(feature.weighted_score() for feature in features)
+        / sum(feature.weight for feature in features),
+        3,
+    )
 
 
 def get_top_functions(candidate_functions, count=20) -> List[Dict[int, Dict]]:
@@ -130,12 +139,16 @@ def get_top_functions(candidate_functions, count=20) -> List[Dict[int, Dict]]:
         List[Dict[int, Dict]]: A list of the top scoring functions.
 
     """
-    return sorted(candidate_functions.items(), key=lambda x: operator.getitem(x[1], "score"), reverse=True)[:count]
+    return sorted(
+        candidate_functions.items(),
+        key=lambda x: operator.getitem(x[1], "score"),
+        reverse=True,
+    )[:count]
 
 
 def get_tight_function_fvas(decoding_function_features) -> List[int]:
     """
-    Retrieves the function virtual addresses of functions with tight loops. 
+    Retrieves the function virtual addresses of functions with tight loops.
 
     Args:
         decoding_function_features: A dictionary of decoding function features.
@@ -145,7 +158,9 @@ def get_tight_function_fvas(decoding_function_features) -> List[int]:
     """
     tight_function_fvas = list()
     for fva, function_data in decoding_function_features.items():
-        if any(filter(lambda f: isinstance(f, TightFunction), function_data["features"])):
+        if any(
+            filter(lambda f: isinstance(f, TightFunction), function_data["features"])
+        ):
             tight_function_fvas.append(fva)
     return tight_function_fvas
 
@@ -190,11 +205,12 @@ def get_functions_with_tightloops(functions):
         functions: A dictionary of functions.
 
     Returns:
-        Dict[int, List]: A dictionary of functions with tight loops.  
+        Dict[int, List]: A dictionary of functions with tight loops.
 
     """
     return get_functions_with_features(
-        functions, (floss.features.features.TightLoop, floss.features.features.KindaTightLoop)
+        functions,
+        (floss.features.features.TightLoop, floss.features.features.KindaTightLoop),
     )
 
 
@@ -229,13 +245,17 @@ def get_functions_with_features(functions, features) -> Dict[int, List]:
     """
     functions_by_features = dict()
     for fva, function_data in functions.items():
-        func_features = list(filter(lambda f: isinstance(f, features), function_data["features"]))
+        func_features = list(
+            filter(lambda f: isinstance(f, features), function_data["features"])
+        )
         if func_features:
             functions_by_features[fva] = func_features
     return functions_by_features
 
 
-def find_decoding_function_features(vw, functions, disable_progress=False) -> Tuple[Dict[int, Dict], Dict[int, str]]:
+def find_decoding_function_features(
+    vw, functions, disable_progress=False
+) -> Tuple[Dict[int, Dict], Dict[int, str]]:
     """
     Identifies decoding function features from a set of functions.
 
@@ -263,7 +283,10 @@ def find_decoding_function_features(vw, functions, disable_progress=False) -> Tu
     n_funcs = len(functions)
 
     pb = pbar(
-        functions, desc="finding decoding function features", unit=" functions", postfix="skipped 0 library functions"
+        functions,
+        desc="finding decoding function features",
+        unit=" functions",
+        postfix="skipped 0 library functions",
     )
     with logging_redirect_tqdm(), redirecting_print_to_tqdm():
         for f in pb:
@@ -276,12 +299,18 @@ def find_decoding_function_features(vw, functions, disable_progress=False) -> Tu
                 # TODO handle j_j_j__free_base (lib function wrappers), e.g. 0x140035AF0 in d2ca76...
                 # TODO ignore function called to by library functions
                 function_name = viv_utils.get_function_name(vw, function_address)
-                logger.debug("skipping library function 0x%x (%s)", function_address, function_name)
+                logger.debug(
+                    "skipping library function 0x%x (%s)",
+                    function_address,
+                    function_name,
+                )
                 library_functions[function_address] = function_name
                 n_libs = len(library_functions)
                 percentage = 100 * (n_libs / n_funcs)
                 if isinstance(pb, tqdm.tqdm):
-                    pb.set_postfix_str("skipped %d library functions (%d%%)" % (n_libs, percentage))
+                    pb.set_postfix_str(
+                        "skipped %d library functions (%d%%)" % (n_libs, percentage)
+                    )
                 continue
 
             f = viv_utils.Function(vw, function_address)
@@ -293,9 +322,15 @@ def find_decoding_function_features(vw, functions, disable_progress=False) -> Tu
             }
 
             # meta data features
-            function_data["features"].append(BlockCount(function_data["meta"].get("block_count")))
-            function_data["features"].append(InstructionCount(function_data["meta"].get("instruction_count")))
-            function_data["features"].append(Arguments(function_data["meta"].get("api", []).get("arguments")))
+            function_data["features"].append(
+                BlockCount(function_data["meta"].get("block_count"))
+            )
+            function_data["features"].append(
+                InstructionCount(function_data["meta"].get("instruction_count"))
+            )
+            function_data["features"].append(
+                Arguments(function_data["meta"].get("api", []).get("arguments"))
+            )
 
             for feature in extract_function_features(f):
                 function_data["features"].append(feature)
@@ -311,9 +346,15 @@ def find_decoding_function_features(vw, functions, disable_progress=False) -> Tu
             for feature in abstract_features(function_data["features"]):
                 function_data["features"].append(feature)
 
-            function_data["score"] = get_function_score_weighted(function_data["features"])
+            function_data["score"] = get_function_score_weighted(
+                function_data["features"]
+            )
 
-            logger.debug("analyzed function 0x%x - total score: %.3f", function_address, function_data["score"])
+            logger.debug(
+                "analyzed function 0x%x - total score: %.3f",
+                function_address,
+                function_data["score"],
+            )
             for feat in function_data["features"]:
                 logger.trace("  %s", feat)
 

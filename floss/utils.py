@@ -36,6 +36,7 @@ logger = floss.logging_.getLogger(__name__)
 
 class ExtendAction(argparse.Action):
     """ """
+
     # stores a list, and extends each argument value to the list
     # Since Python 3.8 argparse supports this
     # TODO: remove this code when only supporting Python 3.8+
@@ -131,7 +132,9 @@ def make_emulator(vw) -> Emulator:
     emu.setStackCounter(emu.getStackCounter() - int(0.25 * MEGABYTE))
     # do not short circuit rep prefix
     emu.setEmuOpt("i386:repmax", 256)  # 0 == no limit on rep prefix
-    viv_utils.emulator_drivers.remove_default_viv_hooks(emu, allow_list=ENABLED_VIV_DEFAULT_HOOKS)
+    viv_utils.emulator_drivers.remove_default_viv_hooks(
+        emu, allow_list=ENABLED_VIV_DEFAULT_HOOKS
+    )
     return emu
 
 
@@ -173,7 +176,12 @@ def dump_stack(emu):
             sp = "<= SP"
         else:
             sp = "%02x" % (-i)
-        stack_str = "%s\n0x%08x - 0x%08x %s" % (stack_str, (esp - i), floss.utils.get_stack_value(emu, -i), sp)
+        stack_str = "%s\n0x%08x - 0x%08x %s" % (
+            stack_str,
+            (esp - i),
+            floss.utils.get_stack_value(emu, -i),
+            sp,
+        )
     logger.trace(stack_str)
     return stack_str
 
@@ -188,7 +196,7 @@ def get_stack_value(emu, offset):
 
     Returns:
         int: The value from the stack.
-    
+
     """
     return emu.readMemoryFormat(emu.getStackCounter() + offset, "<P")[0]
 
@@ -209,7 +217,9 @@ def getPointerSize(vw):
     elif arch == "i386":
         return 4
     else:
-        raise NotImplementedError("unexpected architecture: %s" % (vw.arch.__class__.__name__))
+        raise NotImplementedError(
+            "unexpected architecture: %s" % (vw.arch.__class__.__name__)
+        )
 
 
 def get_imagebase(vw):
@@ -237,7 +247,7 @@ def get_vivisect_meta_info(vw, selected_functions, decoding_function_features):
 
     Returns:
         OrderedDict: The meta information.
-    
+
     """
     info = OrderedDict()
     entry_points = vw.getEntryPoints()
@@ -263,10 +273,13 @@ def get_vivisect_meta_info(vw, selected_functions, decoding_function_features):
     disc = vw.getDiscoveredInfo()[0]
     undisc = vw.getDiscoveredInfo()[1]
     if disc + undisc > 0:
-        info["percentage of discovered executable surface area"] = "%.1f%% (%s / %s)" % (
-            disc * 100.0 / (disc + undisc),
-            disc,
-            disc + undisc,
+        info["percentage of discovered executable surface area"] = (
+            "%.1f%% (%s / %s)"
+            % (
+                disc * 100.0 / (disc + undisc),
+                disc,
+                disc + undisc,
+            )
         )
     info["base VA"] = baseva
     info["entry point(s)"] = ", ".join(map(hex, entry_points))
@@ -277,7 +290,9 @@ def get_vivisect_meta_info(vw, selected_functions, decoding_function_features):
     if selected_functions:
         meta = []
         for fva in selected_functions:
-            if is_thunk_function(vw, fva) or viv_utils.flirt.is_library_function(vw, fva):
+            if is_thunk_function(vw, fva) or viv_utils.flirt.is_library_function(
+                vw, fva
+            ):
                 continue
 
             xrefs_to = len(vw.getXrefsTo(fva))
@@ -287,9 +302,20 @@ def get_vivisect_meta_info(vw, selected_functions, decoding_function_features):
             block_count = function_meta.get("BlockCount")
             size = function_meta.get("Size")
             score = round(decoding_function_features.get(fva, {}).get("score", 0), 3)
-            meta.append((hex(fva), score, xrefs_to, num_args, size, block_count, instr_count))
+            meta.append(
+                (hex(fva), score, xrefs_to, num_args, size, block_count, instr_count)
+            )
         info["selected functions' info"] = "\n%s" % tabulate.tabulate(
-            meta, headers=["fva", "score", "#xrefs", "#args", "size", "#blocks", "#instructions"]
+            meta,
+            headers=[
+                "fva",
+                "score",
+                "#xrefs",
+                "#args",
+                "size",
+                "#blocks",
+                "#instructions",
+            ],
         )
 
     return info
@@ -343,7 +369,9 @@ FP_FLOSS_ARTIFACTS = (
 )
 
 
-def extract_strings(buffer: bytes, min_length: int, exclude: Optional[Set[str]] = None) -> Iterable[StaticString]:
+def extract_strings(
+    buffer: bytes, min_length: int, exclude: Optional[Set[str]] = None
+) -> Iterable[StaticString]:
     """
     Extracts potential strings from a buffer and applies filtering.
 
@@ -479,7 +507,7 @@ def redirecting_print_to_tqdm():
 def timing(msg):
     """
     A context manager for timing a block of code.
-    
+
     """
     t0 = time.time()
     yield
@@ -496,7 +524,7 @@ def get_runtime_diff(time0):
 
     Returns:
         float: The runtime difference.
-    
+
     """
     return round(time.time() - time0, 4)
 
@@ -526,7 +554,7 @@ def get_progress_bar(functions, disable_progress, desc="", unit=""):
 
     Returns:
         tqdm.tqdm: The progress bar.
-    
+
     """
     pbar = tqdm.tqdm
     if disable_progress:
@@ -547,7 +575,7 @@ def is_thunk_function(vw, function_address):
     Returns:
         bool: True if the function is a thunk, False otherwise.
 
-    
+
     """
     return vw.getFunctionMetaDict(function_address).get("Thunk", False)
 
@@ -626,7 +654,7 @@ def call_return(emu, api, argv, value):
 
     Returns:
         None
-    
+
     """
     call_conv = get_call_conv(api)
     cconv = emu.getCallingConvention(call_conv)
@@ -636,7 +664,7 @@ def call_return(emu, api, argv, value):
 def get_call_conv(api):
     """
     Get the calling convention for the given API.
-    
+
     """
     return api[2]
 
@@ -660,7 +688,7 @@ def is_string_type_enabled(type_, disabled_types, enabled_types):
 
     Returns:
         bool: True if the string type is enabled, False otherwise.
-    
+
     """
     if disabled_types:
         return type_ not in disabled_types
@@ -670,7 +698,9 @@ def is_string_type_enabled(type_, disabled_types, enabled_types):
         return True
 
 
-def get_max_size(size: int, max_: int, api: Optional[Tuple] = None, argv: Optional[Tuple] = None) -> int:
+def get_max_size(
+    size: int, max_: int, api: Optional[Tuple] = None, argv: Optional[Tuple] = None
+) -> int:
     """
     Get the maximum size for the given size.
 
@@ -682,7 +712,7 @@ def get_max_size(size: int, max_: int, api: Optional[Tuple] = None, argv: Option
 
     Returns:
         int: The maximum size.
-    
+
     """
     if size > max_:
         post = ""
@@ -698,15 +728,15 @@ def get_max_size(size: int, max_: int, api: Optional[Tuple] = None, argv: Option
 def get_referenced_strings(vw: vivisect.VivWorkspace, fva: int) -> Set[str]:
     """Collects potential string references from instructions within a function.
 
-        Analyzes instructions within the specified function, seeking operands that might be addresses referencing strings within the workspace. Leverages Vivisect functionality to attempt string extraction.
+    Analyzes instructions within the specified function, seeking operands that might be addresses referencing strings within the workspace. Leverages Vivisect functionality to attempt string extraction.
 
-        Args:
-            vw:  A Vivisect workspace object.
-            fva: The function virtual address (FVA) to analyze.
+    Args:
+        vw:  A Vivisect workspace object.
+        fva: The function virtual address (FVA) to analyze.
 
-        Returns:
-            Set[str]: A set of potential strings extracted from instruction operands.
-        """
+    Returns:
+        Set[str]: A set of potential strings extracted from instruction operands.
+    """
     # modified from capa
     f: viv_utils.Function = viv_utils.Function(vw, fva)
     strings: Set[str] = set()
@@ -733,14 +763,16 @@ def get_referenced_strings(vw: vivisect.VivWorkspace, fva: int) -> Set[str]:
                         continue
                     else:
                         # see strings.py for why we don't include \r and \n
-                        strings.update([ss.rstrip("\x00") for ss in re.split("\r\n", s)])
+                        strings.update(
+                            [ss.rstrip("\x00") for ss in re.split("\r\n", s)]
+                        )
     return strings
 
 
 def derefs(vw, p):
     """recursively follow the given pointer, yielding the valid memory addresses along the way.
     useful when you may have a pointer to string, or pointer to pointer to string, etc.
-    
+
     this is a "do what i mean" type of helper function.
 
     Args:
@@ -832,7 +864,7 @@ def read_memory(vw, va: int, size: int) -> bytes:
 
     Returns:
         bytes: The extracted memory.
-    
+
     """
     # as documented in #176, vivisect will not readMemory() when the section is not marked readable.
     #

@@ -29,16 +29,19 @@ logger = floss.logging_.getLogger(__name__)
 
 class InvalidResultsFile(Exception):
     """Indicates that a results file is invalid, corrupt, or in an incompatible format."""
+
     pass
 
 
 class InvalidLoadConfig(Exception):
     """Indicates that the load configuration is invalid."""
+
     pass
 
 
 class StringEncoding(str, Enum):
     """Enumeration of string encodings."""
+
     ASCII = "ASCII"
     UTF16LE = "UTF-16LE"
     UTF8 = "UTF-8"
@@ -82,11 +85,13 @@ class StackString:
 
 class TightString(StackString):
     """A string that is tightly packed in memory."""
+
     pass
 
 
 class AddressType(str, Enum):
-    """ Enumeration of address types."""
+    """Enumeration of address types."""
+
     STACK = "STACK"
     GLOBAL = "GLOBAL"
     HEAP = "HEAP"
@@ -141,7 +146,8 @@ class StaticString:
 
 @dataclass
 class Runtime:
-    """ The runtime of the analysis."""
+    """The runtime of the analysis."""
+
     start_date: datetime.datetime = datetime.datetime.now()
     total: float = 0
     vivisect: float = 0
@@ -155,7 +161,8 @@ class Runtime:
 
 @dataclass
 class Functions:
-    """ The functions that were analyzed."""
+    """The functions that were analyzed."""
+
     discovered: int = 0
     library: int = 0
     analyzed_stack_strings: int = 0
@@ -166,7 +173,8 @@ class Functions:
 
 @dataclass
 class Analysis:
-    """ The analysis configuration."""
+    """The analysis configuration."""
+
     enable_static_strings: bool = True
     enable_stack_strings: bool = True
     enable_tight_strings: bool = True
@@ -174,12 +182,15 @@ class Analysis:
     functions: Functions = field(default_factory=Functions)
 
 
-STRING_TYPE_FIELDS = set([field for field in Analysis.__annotations__ if field.startswith("enable_")])
+STRING_TYPE_FIELDS = set(
+    [field for field in Analysis.__annotations__ if field.startswith("enable_")]
+)
 
 
 @dataclass
 class Metadata:
-    """ Metadata about the analysis."""
+    """Metadata about the analysis."""
+
     file_path: str
     version: str = __version__
     imagebase: int = 0
@@ -192,7 +203,8 @@ class Metadata:
 
 @dataclass
 class Strings:
-    """ The strings that were found."""
+    """The strings that were found."""
+
     stack_strings: List[StackString] = field(default_factory=list)
     tight_strings: List[TightString] = field(default_factory=list)
     decoded_strings: List[DecodedString] = field(default_factory=list)
@@ -203,7 +215,8 @@ class Strings:
 
 @dataclass
 class ResultDocument:
-    """ The result document."""
+    """The result document."""
+
     metadata: Metadata
     analysis: Analysis = field(default_factory=Analysis)
     strings: Strings = field(default_factory=Strings)
@@ -217,7 +230,7 @@ class ResultDocument:
             path: The path to the file.
 
         Returns:
-            ResultDocument: The parsed result document.  
+            ResultDocument: The parsed result document.
         """
         # We're ignoring the following mypy error since this field is guaranteed by the Pydantic dataclass.
         return cls.__pydantic_model__.parse_file(path)  # type: ignore
@@ -230,7 +243,7 @@ def log_result(decoded_string, verbosity):
     Args:
         decoded_string: The decoded string.
         verbosity: The verbosity level.
-    
+
     """
     string = sanitize(decoded_string.string)
     if verbosity < Verbosity.VERBOSE:
@@ -253,23 +266,27 @@ def log_result(decoded_string, verbosity):
                 decoded_string.program_counter,
             )
         else:
-            ValueError("unknown decoded or extracted string type: %s", type(decoded_string))
+            ValueError(
+                "unknown decoded or extracted string type: %s", type(decoded_string)
+            )
 
 
-def load(sample: Path, analysis: Analysis, functions: List[int], min_length: int) -> ResultDocument:
+def load(
+    sample: Path, analysis: Analysis, functions: List[int], min_length: int
+) -> ResultDocument:
     """
     Load a result document from a file, applying filters as needed.
 
     Args:
-        sample: Path: 
-        analysis: Analysis: 
-        functions: List[int]: 
+        sample: Path:
+        analysis: Analysis:
+        functions: List[int]:
         min_length: int:
 
     Returns:
         ResultDocument: The loaded result document.
 
-    
+
     """
     logger.debug("loading results document: %s", str(sample))
     results = read(sample)
@@ -290,13 +307,13 @@ def read(sample: Path) -> ResultDocument:
     Attempts to read a file as JSON and deserialize it into a ResultDocument object. Handles potential JSON decoding errors, Unicode-related errors, and validation failures.
 
     Args:
-        sample:  A Path object representing the file to load. 
+        sample:  A Path object representing the file to load.
 
     Returns:
         ResultDocument: The deserialized ResultDocument.
 
     Raises:
-        InvalidResultsFile: If the file cannot be loaded as a valid ResultDocument (e.g., due to incorrect formatting or validation errors). 
+        InvalidResultsFile: If the file cannot be loaded as a valid ResultDocument (e.g., due to incorrect formatting or validation errors).
     """
     try:
         with sample.open("rb") as f:
@@ -307,7 +324,9 @@ def read(sample: Path) -> ResultDocument:
     try:
         results = ResultDocument(**results)
     except (TypeError, ValidationError) as e:
-        raise InvalidResultsFile(f"{str(sample)} is not a valid FLOSS result document: {e}")
+        raise InvalidResultsFile(
+            f"{str(sample)} is not a valid FLOSS result document: {e}"
+        )
 
     return results
 
@@ -320,18 +339,22 @@ def check_set_string_types(results: ResultDocument, wanted_analysis: Analysis) -
 
     Args:
         results: A ResultDocument object containing loaded analysis results.
-        wanted_analysis: An Analysis object representing the desired analysis configuration.  
+        wanted_analysis: An Analysis object representing the desired analysis configuration.
     """
     for string_type in STRING_TYPE_FIELDS:
-        if getattr(wanted_analysis, string_type) and not getattr(results.analysis, string_type):
-            logger.warning(f"{string_type} not in loaded data, use --only/--no to enable/disable type(s)")
+        if getattr(wanted_analysis, string_type) and not getattr(
+            results.analysis, string_type
+        ):
+            logger.warning(
+                f"{string_type} not in loaded data, use --only/--no to enable/disable type(s)"
+            )
         setattr(results.analysis, string_type, getattr(wanted_analysis, string_type))
 
 
 def filter_functions(results: ResultDocument, functions: List[int]) -> None:
     """Updates a ResultDocument to include analysis data only from specified functions.
 
-    Removes function-related data from the `results` object if the function's address (virtual address) is not present in the provided `functions` list.  
+    Removes function-related data from the `results` object if the function's address (virtual address) is not present in the provided `functions` list.
 
     Args:
         results: A ResultDocument object containing analysis results.
@@ -343,20 +366,34 @@ def filter_functions(results: ResultDocument, functions: List[int]) -> None:
     filtered_scores = dict()
     for fva in functions:
         try:
-            filtered_scores[fva] = results.analysis.functions.decoding_function_scores[fva]
+            filtered_scores[fva] = results.analysis.functions.decoding_function_scores[
+                fva
+            ]
         except KeyError:
             raise InvalidLoadConfig(f"function 0x{fva:x} not found in loaded data")
     results.analysis.functions.decoding_function_scores = filtered_scores
 
-    results.strings.stack_strings = list(filter(lambda f: f.function in functions, results.strings.stack_strings))
-    results.strings.tight_strings = list(filter(lambda f: f.function in functions, results.strings.tight_strings))
+    results.strings.stack_strings = list(
+        filter(lambda f: f.function in functions, results.strings.stack_strings)
+    )
+    results.strings.tight_strings = list(
+        filter(lambda f: f.function in functions, results.strings.tight_strings)
+    )
     results.strings.decoded_strings = list(
-        filter(lambda f: f.decoding_routine in functions, results.strings.decoded_strings)
+        filter(
+            lambda f: f.decoding_routine in functions, results.strings.decoded_strings
+        )
     )
 
-    results.analysis.functions.analyzed_stack_strings = len(results.strings.stack_strings)
-    results.analysis.functions.analyzed_tight_strings = len(results.strings.tight_strings)
-    results.analysis.functions.analyzed_decoded_strings = len(results.strings.decoded_strings)
+    results.analysis.functions.analyzed_stack_strings = len(
+        results.strings.stack_strings
+    )
+    results.analysis.functions.analyzed_tight_strings = len(
+        results.strings.tight_strings
+    )
+    results.analysis.functions.analyzed_decoded_strings = len(
+        results.strings.decoded_strings
+    )
 
 
 def filter_string_len(results: ResultDocument, min_length: int) -> None:
@@ -369,9 +406,15 @@ def filter_string_len(results: ResultDocument, min_length: int) -> None:
         results: A ResultDocument object containing analysis results.
         min_length:  The minimum length a string must have to be retained.
     """
-    results.strings.static_strings = list(filter(lambda s: len(s.string) >= min_length, results.strings.static_strings))
-    results.strings.stack_strings = list(filter(lambda s: len(s.string) >= min_length, results.strings.stack_strings))
-    results.strings.tight_strings = list(filter(lambda s: len(s.string) >= min_length, results.strings.tight_strings))
+    results.strings.static_strings = list(
+        filter(lambda s: len(s.string) >= min_length, results.strings.static_strings)
+    )
+    results.strings.stack_strings = list(
+        filter(lambda s: len(s.string) >= min_length, results.strings.stack_strings)
+    )
+    results.strings.tight_strings = list(
+        filter(lambda s: len(s.string) >= min_length, results.strings.tight_strings)
+    )
     results.strings.decoded_strings = list(
         filter(lambda s: len(s.string) >= min_length, results.strings.decoded_strings)
     )
