@@ -34,8 +34,7 @@ logger = floss.logging_.getLogger(__name__)
 
 
 def heading_style(s: str):
-    """
-    Adds cyan color formatting to a string (likely for headings).
+    """Adds cyan color formatting to a string (likely for headings).
 
     Args:
         s: The string to be formatted.
@@ -48,23 +47,20 @@ def heading_style(s: str):
 
 
 def string_style(s: str):
-    """
-    Adds green color formatting to a string (likely for strings).
+    """Adds green color formatting to a string (likely for strings).
 
     Args:
         s: The string to be formatted.
 
     Returns:
         str: The formatted string with color markup.
-
     """
     colored_string = "[green]" + escape(s) + " [/green]"
     return colored_string
 
 
 def width(s: str, character_count: int) -> str:
-    """
-    Pads a string with spaces to a specified length.
+    """Pads a string with spaces to a specified length.
 
     Args:
         s: The string to be padded.
@@ -72,7 +68,6 @@ def width(s: str, character_count: int) -> str:
 
     Returns:
         str: The padded string.
-
     """
     if len(s) < character_count:
         return s + " " * (character_count - len(s))
@@ -81,8 +76,7 @@ def width(s: str, character_count: int) -> str:
 
 
 def render_meta(results: ResultDocument, console, verbose):
-    """
-    Formats analysis results and metadata for display.
+    """Formats analysis results and metadata for display.
 
     Prepares metadata extracted from a file and analysis statistics into a structured table-like format. It adjusts the level of detail based on the provided verbosity setting.
 
@@ -145,8 +139,8 @@ def render_meta(results: ResultDocument, console, verbose):
 
 
 def render_string_type_rows(results: ResultDocument) -> List[Tuple[str, str]]:
-    """
-    Formats analysis results for display.
+    """Formats analysis results for display.
+
     Prepares analysis statistics into a structured table-like format.
 
     Args:
@@ -154,7 +148,6 @@ def render_string_type_rows(results: ResultDocument) -> List[Tuple[str, str]]:
 
     Returns:
         List[Tuple[str, str]]: A list of tuples containing the analysis statistics.
-
     """
     len_ss = len(results.strings.static_strings)
     len_ls = len(results.strings.language_strings)
@@ -205,8 +198,8 @@ def render_string_type_rows(results: ResultDocument) -> List[Tuple[str, str]]:
 
 
 def render_function_analysis_rows(results) -> List[Tuple[str, str]]:
-    """
-    Formats function analysis results for display.
+    """Formats function analysis results for display.
+
     Prepares function analysis statistics into a structured table-like format.
 
     Args:
@@ -214,7 +207,6 @@ def render_function_analysis_rows(results) -> List[Tuple[str, str]]:
 
     Returns:
         List[Tuple[str, str]]: A list of tuples containing the function analysis statistics.
-
     """
     if results.metadata.runtime.vivisect == 0:
         return [("analyzed functions", DISABLED)]
@@ -258,15 +250,13 @@ def render_function_analysis_rows(results) -> List[Tuple[str, str]]:
 
 
 def strtime(seconds):
-    """
-    Converts seconds to a human-readable time format.
+    """Converts seconds to a human-readable time format.
 
     Args:
         seconds: The number of seconds to be converted.
 
     Returns:
         str: The human-readable time format.
-
     """
     m, s = divmod(seconds, 60)
     return f"{m:02.0f}:{s:02.0f}"
@@ -280,8 +270,7 @@ def render_language_strings(
     verbose,
     disable_headers,
 ):
-    """
-    Displays language-specific strings to the console.
+    """Displays language-specific strings to the console.
 
     Sorts the provided strings, optionally displays a heading, and then prints each string to the console. Formatting (e.g., colors) and string sanitation are controlled by verbosity settings.
 
@@ -312,8 +301,7 @@ def render_language_strings(
 def render_static_substrings(
     strings, encoding, offset_len, console, verbose, disable_headers
 ):
-    """
-    Displays static strings with their encoding information to the console.
+    """Displays static strings with their encoding information to the console.
 
     Optionally displays a heading, and then prints each string with its offset to the console. Formatting of strings is influenced by verbosity settings.
 
@@ -339,8 +327,7 @@ def render_static_substrings(
 
 
 def render_staticstrings(strings, console, verbose, disable_headers):
-    """
-    Displays static strings to the console.
+    """Displays static strings to the console.
 
     Sorts the provided strings, optionally displays a heading, and then prints each string to the console. Formatting (e.g., colors) and string sanitation are controlled by verbosity settings.
 
@@ -349,7 +336,6 @@ def render_staticstrings(strings, console, verbose, disable_headers):
         console: An object used for output to the terminal.
         verbose: Verbosity level influencing formatting.
         disable_headers: A flag to suppress the display of headers.
-
     """
     render_heading(
         f"FLOSS STATIC STRINGS ({len(strings)})", console, verbose, disable_headers
@@ -383,8 +369,7 @@ def render_stackstrings(
     verbose: bool,
     disable_headers: bool,
 ):
-    """
-    Renders the results of the stack string extraction phase.
+    """Renders the results of the stack string extraction phase.
 
     Optionally displays a heading, and then prints each string with its offset to the console. Formatting of strings is influenced by verbosity settings.
 
@@ -393,7 +378,6 @@ def render_stackstrings(
         console: An object used for output to the terminal.
         verbose: Verbosity level influencing formatting.
         disable_headers: A flag to suppress the display of headers.
-
     """
     if verbose == Verbosity.DEFAULT:
         for s in strings:
@@ -423,8 +407,7 @@ def render_stackstrings(
 def render_decoded_strings(
     decoded_strings: List[DecodedString], console, verbose, disable_headers
 ):
-    """
-    Renders the results of the string decoding phase.
+    """Renders the results of the string decoding phase.
 
     Optionally displays a heading, and then prints each string with its offset to the console. Formatting of strings is influenced by verbosity settings.
 
@@ -433,7 +416,6 @@ def render_decoded_strings(
         console: An object used for output to the terminal.
         verbose: Verbosity level influencing formatting.
         disable_headers: A flag to suppress the display of headers.
-
     """
     if verbose == Verbosity.DEFAULT:
         for ds in decoded_strings:
@@ -496,7 +478,6 @@ def render_heading(heading, console, verbose, disable_headers):
         console: An object used for output to the terminal.
         verbose: Verbosity level influencing formatting.
         disable_headers: A flag to suppress the display of the heading entirely.
-
     """
     if disable_headers:
         return
@@ -528,7 +509,6 @@ def render_sub_heading(heading, n, console, disable_headers):
         n: The count associated with the section.
         console: An object used for output to the terminal.
         disable_headers: A flag to suppress the display of the subheading entirely.
-
     """
     if disable_headers:
         return
@@ -539,15 +519,13 @@ def render_sub_heading(heading, n, console, disable_headers):
 
 
 def get_color(color):
-    """
-    Converts a string color setting to a rich color system.
+    """Converts a string color setting to a rich color system.
 
     Args:
         color: A string representing a color setting.
 
     Returns:
         str: A string representing a rich color system.
-
     """
     if color == "always":
         color_system = "256"
@@ -562,8 +540,7 @@ def get_color(color):
 
 
 def render(results: floss.results.ResultDocument, verbose, disable_headers, color):
-    """
-    Renders analysis results to a string.
+    """Renders analysis results to a string.
 
     Args:
         results: A ResultDocument object containing analysis metadata and results.
@@ -573,7 +550,6 @@ def render(results: floss.results.ResultDocument, verbose, disable_headers, colo
 
     Returns:
         str: A string containing the formatted analysis results.
-
     """
     sys.__stdout__.reconfigure(encoding="utf-8")
     console = Console(

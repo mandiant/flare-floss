@@ -4,8 +4,7 @@ import string
 
 
 def sanitize(s: str, is_ascii_only=True) -> str:
-    """
-    Sanitize a string for printing.
+    """Sanitize a string for printing.
 
     Args:
         s: The string to sanitize.
@@ -13,7 +12,6 @@ def sanitize(s: str, is_ascii_only=True) -> str:
 
     Returns:
         The sanitized string.
-
     """
     s = s.replace("\n", "\\n")
     s = s.replace("\r", "\\r")

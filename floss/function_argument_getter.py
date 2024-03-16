@@ -30,13 +30,12 @@ class CallMonitor(viv_utils.emulator_drivers.Monitor):
         self.function_contexts: List[FunctionContext] = list()
 
     def prehook(self, emu, op, pc):
-        """
-
-        :param emu:
-        :param op:
-        :param pc:
-
-
+        """collect function contexts at call sites
+        
+        Args:
+            emu: The emulator.
+            op: The operation.
+            pc: The program counter.
         """
         logger.trace("%s: %s", hex(pc), op)
         if pc == self.call_site_va:
@@ -47,21 +46,17 @@ class CallMonitor(viv_utils.emulator_drivers.Monitor):
             )
 
     def get_contexts(self) -> List[FunctionContext]:
-        """
-        return the collected function contexts
-        """
+        """return the collected function contexts"""
         return self.function_contexts
 
 
 @contextlib.contextmanager
 def installed_monitor(driver, monitor):
-    """
-    install a monitor on an emulator driver for the duration of a context
+    """install a monitor on an emulator driver for the duration of a context
 
     Args:
         driver:
         monitor:
-
     """
     try:
         driver.add_monitor(monitor)
@@ -87,7 +82,6 @@ def extract_decoding_contexts(
 
     Returns:
         List[FunctionContext]:
-
     """
     logger.trace("Getting function context for function at 0x%08x...", decoder_fva)
 
@@ -105,8 +99,7 @@ def extract_decoding_contexts(
 
 
 def get_caller_vas(vw, fva) -> Set[int]:
-    """
-    Finds the virtual addresses of functions that call a specified function.
+    """Finds the virtual addresses of functions that call a specified function.
 
      Analyzes a workspace to identify instructions that call the  function at the provided virtual address (`fva`).  Handles filtering of non-call instructions and recursive calls.
 
@@ -158,8 +151,7 @@ def is_call(vw: vivisect.VivWorkspace, va: int) -> bool:
 def get_contexts_via_monitor(
     driver, caller_va, decoder_fva: int, index: viv_utils.InstructionFunctionIndex
 ):
-    """
-    Collects function call context information via dynamic monitoring.
+    """Collects function call context information via dynamic monitoring.
 
     This function sets up a monitor to intercept calls to a target function (`decoder_fva`) made from within a caller function (`caller_va`). It achieves this by emulating the caller function and collecting data about the arguments passed to the target function.
 

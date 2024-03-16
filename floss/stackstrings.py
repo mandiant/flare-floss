@@ -23,8 +23,7 @@ MIN_NUMBER_OF_MOVS = 5
 
 @dataclass(frozen=True)
 class CallContext:
-    """
-    Context for stackstring extraction.
+    """Context for stackstring extraction.
 
     Attributes:
         pc: the current program counter
@@ -33,7 +32,6 @@ class CallContext:
         stack_memory: the active stack frame contents
         pre_ctx_strings: strings identified before this context
     """
-
     pc: int
     sp: int
     init_sp: int
@@ -42,12 +40,11 @@ class CallContext:
 
 
 class StackstringContextMonitor(viv_utils.emulator_drivers.Monitor):
-    """
-    Observes emulation and extracts the active stack frame contents:
+    """Observes emulation and extracts the active stack frame contents:
+
       - at each function call in a function, and
       - based on heuristics looking for mov instructions to a hardcoded buffer.
     """
-
     def __init__(self, init_sp, bb_ends):
         super().__init__()
         self.ctxs: List[CallContext] = []
@@ -73,8 +70,7 @@ class StackstringContextMonitor(viv_utils.emulator_drivers.Monitor):
     def get_call_context(
         self, emu, va, pre_ctx_strings: Optional[Set[str]] = None
     ) -> CallContext:
-        """
-        Collects context information related to a function call.
+        """Collects context information related to a function call.
 
         Retrieves the stack boundaries, reads the stack memory, and creates a `CallContext` object to encapsulate the extracted information.  Optionally integrates pre-existing context strings.
 
@@ -107,8 +103,7 @@ class StackstringContextMonitor(viv_utils.emulator_drivers.Monitor):
         self.check_mov_heuristics(emu, op, endpc)
 
     def check_mov_heuristics(self, emu, op, endpc):
-        """
-        Extract contexts at end of a basic block (bb) if bb contains enough movs to a harcoded buffer.
+        """Extract contexts at end of a basic block (bb) if bb contains enough movs to a harcoded buffer.
 
         Args:
             emu: The Vivisect emulator object.
@@ -127,8 +122,7 @@ class StackstringContextMonitor(viv_utils.emulator_drivers.Monitor):
             self._mov_count = 0
 
     def is_stack_mov(self, op):
-        """
-        Check if the given instruction is a move to a stack address.
+        """Check if the given instruction is a move to a stack address.
 
         Args:
             op: The current instruction.
@@ -150,8 +144,7 @@ class StackstringContextMonitor(viv_utils.emulator_drivers.Monitor):
 
 
 def extract_call_contexts(vw, fva, bb_ends):
-    """
-    Extracts call contexts from a function.
+    """Extracts call contexts from a function.
 
     Args:
         vw: The vivisect workspace.
@@ -174,8 +167,7 @@ def extract_call_contexts(vw, fva, bb_ends):
 
 
 def get_basic_block_ends(vw):
-    """
-    Return the set of VAs that are the last instructions of basic blocks.
+    """Return the set of VAs that are the last instructions of basic blocks.
 
     Args:
         vw: The vivisect workspace.
@@ -200,8 +192,7 @@ def extract_stackstrings(
     verbosity=Verbosity.DEFAULT,
     disable_progress=False,
 ) -> List[StackString]:
-    """
-    Extracts the stackstrings from functions in the given workspace.
+    """Extracts the stackstrings from functions in the given workspace.
 
     Args:
         vw: The vivisect workspace.

@@ -27,8 +27,7 @@ RESET = "\x1b[0m"
 
 
 def make_format(color):
-    """
-    Constructs a log message format string with color formatting.
+    """Constructs a log message format string with color formatting.
 
     Inserts a color code, along with placeholders for log level, logger name, and the log message itself.
 
@@ -57,8 +56,6 @@ class ColorFormatter(logging.Formatter):
     """Logging Formatter to add colors and count warning / errors
 
     via: https://stackoverflow.com/a/56944256/87207
-
-
     """
 
     def format(self, record):
@@ -76,14 +73,10 @@ class ColorFormatter(logging.Formatter):
 
 
 class LoggerWithTrace(logging.getLoggerClass()):  # type: ignore
-    """
-    A custom logger class that includes a TRACE level and color formatting.
-
-    """
+    """A custom logger class that includes a TRACE level and color formatting."""
 
     def trace(self, msg, *args, **kwargs):
-        """
-        Log a message with severity 'TRACE' on this logger.
+        """Log a message with severity 'TRACE' on this logger.
 
         Args:
             msg: The message to log.
@@ -111,6 +104,5 @@ def getLogger(name) -> LoggerWithTrace:
 
     Returns:
         LoggerWithTrace: The logger object.
-
     """
     return logging.getLogger(name)  # type: ignore

@@ -19,8 +19,7 @@ MAX_MAPS_SIZE = 1024 * 1024 * 100  # 100MB max memory allocated in an emulator i
 
 
 def is_import(emu, va):
-    """
-    Check if the given address is an import.
+    """Check if the given address is an import.
 
     Args:
         emu: The emulator.
@@ -66,7 +65,13 @@ Memory = List[MemoryMap]
 
 @dataclass
 class Snapshot:
-    """A snapshot of the state of the CPU and memory."""
+    """A snapshot of the state of the CPU and memory.
+
+    Attributes:
+        memory: a snapshot of the memory contents
+        sp: the stack counter
+        pc: the instruction pointer
+    """
 
     memory: Memory
     sp: int
@@ -74,15 +79,13 @@ class Snapshot:
 
 
 def get_map_size(emu):
-    """
-    Get the total size of all memory maps in the emulator.
+    """Get the total size of all memory maps in the emulator.
 
     Args:
         emu: The emulator.
 
     Returns:
         int: The total size of all memory maps.
-
     """
     size = 0
     for mapva, mapsize, mperm, mfname in emu.getMemoryMaps():
@@ -91,10 +94,7 @@ def get_map_size(emu):
 
 
 class MapsTooLargeError(Exception):
-    """
-    Exception raised when the emulator has mapped too much memory.
-    """
-
+    """Exception raised when the emulator has mapped too much memory."""
     pass
 
 
@@ -106,7 +106,6 @@ def make_snapshot(emu: Emulator) -> Snapshot:
 
     Returns:
         Snapshot: The snapshot of the emulator state.
-
     """
     if get_map_size(emu) > MAX_MAPS_SIZE:
         logger.debug("emulator mapped too much memory: 0x%x", get_map_size(emu))
@@ -116,10 +115,9 @@ def make_snapshot(emu: Emulator) -> Snapshot:
 
 @dataclass
 class Delta:
-    """a pair of snapshots from before and after an operation.
-    facilitates diffing the state of an emulator.
+    """a pair of snapshots from before and after an operation. 
 
-
+    facilitates diffing the state of an emulator. 
     """
 
     pre: Snapshot
@@ -182,7 +180,6 @@ def emulate_function(
 
     Returns:
         List[Delta]: A list of Deltas representing the emulator state at each interesting place.
-
     """
     try:
         pre_snap = make_snapshot(emu)
