@@ -11,6 +11,7 @@ import argparse
 import functools
 import itertools
 import contextlib
+import dataclasses
 from collections import defaultdict
 from typing import Set, Dict, List, Union, Tuple, Literal, Callable, Iterable, Optional, Sequence
 from dataclasses import field, dataclass
@@ -123,40 +124,29 @@ class TaggedString:
         "convenience"
         return self.string.slice.range.offset
 
-    def to_dict(self):
-        return {
-            "string": self.string,
-            "structure": self.structure,
-            "tags": list(self.tags),
-            "offset": self.offset
-        }
-
 
 @dataclass
 class ResultDocument:
     slice: Slice
     name: str
-    strings: List[TaggedString]
-    parent: Optional['ResultDocument'] = field(default=None)
+    strings: Sequence[TaggedString] = field(default_factory=list)
     children: Sequence['ResultDocument'] = field(default_factory=list)
 
-    def add_string(self, string: TaggedString):
-        self.strings.append(string)
+    @classmethod
+    def from_layout(cls, layout: 'Layout') -> "ResultDocument":
+        result = cls(
+            Slice(layout.slice.buf, (layout.slice.range.offset, layout.slice.range.length)),
+            layout.name,
+            [TaggedString(
+                string.string,
+                string.tags,
+                string.structure,
+            ) for string in layout.strings if isinstance(string, TaggedString)],
+        )
 
-    def add_child(self, child: 'ResultDocument'):
-        self.children.append(child)
+        result.children = [cls.from_layout(child) for child in layout.children]
 
-    def set_parent(self, parent: 'ResultDocument'):
-        self.parent = parent
-    
-    def to_dict(self):
-        return {
-            "slice": (self.slice.range.offset, self.slice.range.length),
-            "name": self.name,
-            "strings": [string.to_dict() for string in self.strings],
-            "parent": self.parent.name if self.parent else None,
-            "children": [child.to_dict() for child in self.children]
-        }
+        return result
 
 
 MIN_STR_LEN = 6
@@ -1114,13 +1104,26 @@ def has_visible_successors(layout: Layout) -> bool:
     return any(map(is_visible, layout.successors))
 
 
-def to_qs(layout: Layout) -> ResultDocument:
-    doc = ResultDocument(layout.slice, layout.name, layout.strings)
-    for child in layout.children:
-        child_doc = to_qs(child)  # recursively convert all children
-        doc.add_child(child_doc)
-        child_doc.set_parent(doc)  # set parent of children to be the current doc
-    return doc
+class QSJSONEncoder(json.JSONEncoder):
+    """
+    serializes QS into JSON.
+    """
+
+    def default(self, o):
+        if dataclasses.is_dataclass(o):
+            if isinstance(o, Slice):
+                return o.range
+            elif isinstance(o, set):
+                return list(o)
+            else:
+                return dataclasses.asdict(o)
+
+
+def render_json(console: Console, doc: ResultDocument):
+    console.print(json.dumps(
+        doc,
+        cls=QSJSONEncoder,
+    ))
 
 
 def render_strings(
@@ -1225,6 +1228,7 @@ def main():
         default=MIN_STR_LEN,
         help="minimum string length",
     )
+    parser.add_argument("--json", action="store_true", help="print JSON representation of result")
     logging_group = parser.add_argument_group("logging arguments")
     logging_group.add_argument("-d", "--debug", action="store_true", help="enable debugging output on STDERR")
     logging_group.add_argument(
@@ -1294,10 +1298,14 @@ def main():
     # hide (remove) strings according to the above rules
     hide_strings_by_rules(layout, tag_rules)
 
-    result_document = to_qs(layout)
+    result_document = ResultDocument.from_layout(layout)
 
     console = Console()
-    render_strings(console, layout, tag_rules)
+
+    if args.json:
+        render_json(console, result_document)
+    else:
+        render_strings(console, layout, tag_rules)
 
     return 0
 
