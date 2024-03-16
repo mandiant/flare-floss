@@ -72,7 +72,6 @@ class Snapshot:
         sp: the stack counter
         pc: the instruction pointer
     """
-
     memory: Memory
     sp: int
     pc: int
@@ -117,16 +116,14 @@ def make_snapshot(emu: Emulator) -> Snapshot:
 class Delta:
     """a pair of snapshots from before and after an operation. 
 
-    facilitates diffing the state of an emulator. 
+    Facilitates diffing the state of an emulator. 
     """
-
     pre: Snapshot
     post: Snapshot
 
 
 class DeltaCollectorHook(viv_utils.emulator_drivers.Hook):
     """hook that collects Deltas at each imported API call."""
-
     def __init__(self, pre_snap: Snapshot):
         super().__init__()
         self._pre_snap = pre_snap
