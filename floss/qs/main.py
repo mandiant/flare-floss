@@ -133,25 +133,54 @@ class ResultDocument:
     xor_key: Optional[str] = None
     children: Sequence['ResultDocument'] = field(default_factory=list)
 
+    parent: Optional['ResultDocument'] = field(default=None)
 
-    def __post_init__(self):
-        for child in self.children:
-            child.parent = self 
+    @property
+    def predecessors(self) -> Iterable['ResultDocument']:
+        """traverse to the prior siblings"""
+        if self.parent is None:
+            return None
+
+        index = self.parent.children.index(self)
+        if index == 0:
+            return None
+
+        for i in range(index - 1, -1, -1):
+            yield self.parent.children[i]
+
+    @property
+    def predecessor(self) -> Optional['ResultDocument']:
+        """traverse to the prior sibling"""
+        return next(iter(self.predecessors), None)
+
+    @property
+    def successors(self) -> Iterable['ResultDocument']:
+        """traverse to the next siblings"""
+        if self.parent is None:
+            return None
+
+        index = self.parent.children.index(self)
+        if index == len(self.parent.children) - 1:
+            return None
+
+        for i in range(index + 1, len(self.parent.children)):
+            yield self.parent.children[i]
+
+    @property
+    def successor(self) -> Optional['ResultDocument']:
+        """traverse to the next sibling"""
+        return next(iter(self.successors), None)
 
     @property
     def visible_predecessors(self) -> bool:
-        current = self
-        while current is not None:
-            if current.strings:
-                return True
-            current = getattr(current, "parent", None)
-        return False
+        """Check if there is any predecessor with strings."""
+        return any(predecessor.strings for predecessor in self.predecessors)
 
     @property
     def visible_successors(self) -> bool:
-        return any(child.strings for child in self.children) or \
-            any(child.visible_successors for child in self.children)
-
+        """Check if there is any successor or further descendant with strings."""
+        return any(successor.strings or successor.visible_successors for successor in self.successors)
+    
     @classmethod
     def from_layout(cls, layout: 'Layout') -> 'ResultDocument':
         result = cls(layout.slice, layout.name, 
@@ -163,7 +192,8 @@ class ResultDocument:
         if isinstance(layout, PELayout):
             result.xor_key = layout.xor_key
         result.children = [cls.from_layout(child) for child in layout.children]
-
+        for child in result.children:
+            child.parent = result
         return result
     
     def asdict(self):
@@ -642,20 +672,6 @@ class Layout(abc.ABC):
     # only strings not contained by the children are in this list.
     # so they come from before/between/after the children ranges.
     strings: List[TaggedString] = field(init=False, default_factory=list)
-
-    @property
-    def predecessors(self) -> Iterable["Layout"]:
-        """traverse to the prior siblings`"""
-        if self.parent is None:
-            return None
-
-        index = self.parent.children.index(self)
-        if index == 0:
-            return None
-
-        for i in range(index - 1, -1, -1):
-            yield self.parent.children[i]
-
 
     def add_child(self, child: "Layout"):
         # this works in py3.11, though mypy gets confused,
