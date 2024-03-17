@@ -372,8 +372,8 @@ def get_file_type(sample_file_path: Path):
         return magic[:2]
     else:
         raise WorkspaceLoadError(
-                "FLOSS currently supports the following formats for string decoding and stackstrings: PE\n"
-                "You can analyze shellcode using the --format sc32|sc64 switch. See the help (-h) for more information."
+            "FLOSS currently supports the following formats for string decoding and stackstrings: PE\n"
+            "You can analyze shellcode using the --format sc32|sc64 switch. See the help (-h) for more information."
         )
 
 
@@ -399,7 +399,7 @@ def load_vw(
     else:
         vw = viv_utils.getWorkspace(str(sample_path), analyze=False, should_save=False)
 
-    if file_type == SUPPORTED_FILE_MAGIC['ELF']:
+    if file_type == SUPPORTED_FILE_MAGIC["ELF"]:
         viv_utils.flirt.register_flirt_signature_analyzers(vw, list(map(str, sigpaths)))
 
     vw.analyze()
@@ -564,7 +564,7 @@ def main(argv=None) -> int:
         results.metadata.language = ""
         results.metadata.language_version = ""
         results.metadata.language_selected = ""
-    elif file_type == SUPPORTED_FILE_MAGIC['PE']:
+    elif file_type == SUPPORTED_FILE_MAGIC["PE"]:
         lang_id, lang_version = identify_language_and_version(sample, static_strings)
 
         if selected_lang == Language.UNKNOWN:
