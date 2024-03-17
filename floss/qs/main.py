@@ -127,26 +127,53 @@ class TaggedString:
 
 @dataclass
 class ResultDocument:
-    slice: Slice
+    slice: 'Slice'
     name: str
-    strings: Sequence[TaggedString] = field(default_factory=list)
+    strings: Sequence['TaggedString'] = field(default_factory=list)
+    xor_key: Optional[str] = None
     children: Sequence['ResultDocument'] = field(default_factory=list)
 
-    @classmethod
-    def from_layout(cls, layout: 'Layout') -> "ResultDocument":
-        result = cls(
-            Slice(layout.slice.buf, (layout.slice.range.offset, layout.slice.range.length)),
-            layout.name,
-            [TaggedString(
-                string.string,
-                string.tags,
-                string.structure,
-            ) for string in layout.strings if isinstance(string, TaggedString)],
-        )
 
+    def __post_init__(self):
+        for child in self.children:
+            child.parent = self 
+
+    @property
+    def visible_predecessors(self) -> bool:
+        current = self
+        while current is not None:
+            if current.strings:
+                return True
+            current = getattr(current, "parent", None)
+        return False
+
+    @property
+    def visible_successors(self) -> bool:
+        return any(child.strings for child in self.children) or \
+            any(child.visible_successors for child in self.children)
+
+    @classmethod
+    def from_layout(cls, layout: 'Layout') -> 'ResultDocument':
+        result = cls(layout.slice, layout.name, 
+                     [TaggedString(string.string, 
+                                   string.tags, 
+                                   string.structure) 
+                      for string in layout.strings],
+                    )
+        if isinstance(layout, PELayout):
+            result.xor_key = layout.xor_key
         result.children = [cls.from_layout(child) for child in layout.children]
 
         return result
+    
+    def asdict(self):
+        return { 'slice': self.slice,
+                 'name': self.name,
+                 'strings': self.strings,
+                 'xor_key': self.xor_key,
+                 'children': [child.asdict() for child in self.children],
+                 'visible_predecessors': self.visible_predecessors,
+                 'visible_successors': self.visible_successors }
 
 
 MIN_STR_LEN = 6
@@ -629,28 +656,6 @@ class Layout(abc.ABC):
         for i in range(index - 1, -1, -1):
             yield self.parent.children[i]
 
-    @property
-    def predecessor(self) -> Optional["Layout"]:
-        """traverse to the prior sibling"""
-        return next(iter(self.predecessors), None)
-
-    @property
-    def successors(self) -> Iterable["Layout"]:
-        """traverse to the next siblings"""
-        if self.parent is None:
-            return None
-
-        index = self.parent.children.index(self)
-        if index == len(self.parent.children) - 1:
-            return None
-
-        for i in range(index + 1, len(self.parent.children)):
-            yield self.parent.children[i]
-
-    @property
-    def successor(self) -> Optional["Layout"]:
-        """traverse to the next sibling"""
-        return next(iter(self.successors), None)
 
     def add_child(self, child: "Layout"):
         # this works in py3.11, though mypy gets confused,
@@ -1087,21 +1092,13 @@ def hide_strings_by_rules(layout: Layout, tag_rules: TagRules):
         hide_strings_by_rules(child, tag_rules)
 
 
-def has_visible_children(layout: Layout) -> bool:
+def has_visible_children(layout: ResultDocument) -> bool:
     return any(map(is_visible, layout.children))
 
 
-def is_visible(layout: Layout) -> bool:
+def is_visible(layout: ResultDocument) -> bool:
     "a layout is visible if it has any strings (or its children do)"
     return bool(layout.strings) or has_visible_children(layout)
-
-
-def has_visible_predecessors(layout: Layout) -> bool:
-    return any(map(is_visible, layout.predecessors))
-
-
-def has_visible_successors(layout: Layout) -> bool:
-    return any(map(is_visible, layout.successors))
 
 
 class QSJSONEncoder(json.JSONEncoder):
@@ -1121,18 +1118,18 @@ class QSJSONEncoder(json.JSONEncoder):
 
 def render_json(console: Console, doc: ResultDocument):
     console.print(json.dumps(
-        doc,
+        doc.asdict(),
         cls=QSJSONEncoder,
     ))
 
 
 def render_strings(
-    console: Console, layout: Layout, tag_rules: TagRules, depth: int = 0, name_hint: Optional[str] = None
+    console: Console, results: ResultDocument, tag_rules: TagRules, depth: int = 0, name_hint: Optional[str] = None
 ):
-    if not is_visible(layout):
+    if not is_visible(results):
         return
 
-    if len(layout.children) == 1 and layout.slice.range == layout.children[0].slice.range:
+    if len(results.children) == 1 and results.slice.range == results.children[0].slice.range:
         # when a layout is completely dominated by its single child
         # then we can directly render the child,
         # retaining just a hint of the parent's name.
@@ -1140,13 +1137,13 @@ def render_strings(
         # for example:
         #
         #     rsrc: BINARY/102/0 (pe)
-        return render_strings(console, layout.children[0], tag_rules, depth, name_hint=layout.name)
+        return render_strings(console, results.children[0], tag_rules, depth, name_hint=results.name)
 
     BORDER_STYLE = MUTED_STYLE
 
-    name = layout.name
-    if isinstance(layout, PELayout) and layout.xor_key:  # Check if the layout is PELayout and is xored
-        name += f" (XOR decoded with key: 0x{layout.xor_key:x})"
+    name = results.name
+    if results.xor_key:  # Check if xor_key present
+        name += f" (XOR decoded with key: 0x{results.xor_key:x})"
     if name_hint:
         name = f"{name_hint} ({name})"
 
@@ -1159,7 +1156,7 @@ def render_strings(
     name_offset = header.plain.index(" ") + 1
     header.stylize(Style(color="blue"), name_offset, name_offset + len(name))
 
-    if not has_visible_predecessors(layout):
+    if not results.visible_predecessors:
         header_shape = "┓"
     else:
         header_shape = "┫"
@@ -1177,20 +1174,20 @@ def render_strings(
         line.append_text(Span("┃" * (depth + 1), style=BORDER_STYLE))
         console.print(line)
 
-    if not layout.children:
+    if not results.children:
         # for string in layout.strings[:4]:
-        for string in layout.strings:
+        for string in results.strings:
             render_string_line(console, tag_rules, string, depth)
 
     else:
-        for i, child in enumerate(layout.children):
+        for i, child in enumerate(results.children):
             if i == 0:
                 # render strings before first child
-                strings_before_child = list(filter(lambda s: layout.offset <= s.offset < child.offset, layout.strings))
+                strings_before_child = list(filter(lambda s: results.offset <= s.offset < child.offset, results.strings))
             else:
                 # render strings between children
-                last_child = layout.children[i - 1]
-                strings_before_child = list(filter(lambda s: last_child.end < s.offset < child.offset, layout.strings))
+                last_child = results.children[i - 1]
+                strings_before_child = list(filter(lambda s: last_child.end < s.offset < child.offset, results.strings))
 
             # for string in strings_before_child[:4]:
             for string in strings_before_child:
@@ -1199,12 +1196,12 @@ def render_strings(
             render_strings(console, child, tag_rules, depth + 1)
 
         # render strings after last child
-        strings_after_children = list(filter(lambda s: child.end < s.offset < layout.end, layout.strings))
+        strings_after_children = list(filter(lambda s: child.end < s.offset < results.end, results.strings))
         # for string in strings_after_children[:4]:
         for string in strings_after_children:
             render_string_line(console, tag_rules, string, depth)
 
-    if not has_visible_successors(layout):
+    if not results.visible_successors:
         footer = Span("", style=BORDER_STYLE)
         footer.align("center", width=console.width, character="━")
 
@@ -1305,7 +1302,7 @@ def main():
     if args.json:
         render_json(console, result_document)
     else:
-        render_strings(console, layout, tag_rules)
+        render_strings(console, result_document, tag_rules)
 
     return 0
 
