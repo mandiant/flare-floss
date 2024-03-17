@@ -70,11 +70,6 @@ class StringType(str, Enum):
     DECODED = "decoded"
 
 
-class FileType:
-    PE = False
-    ELF = False
-
-
 class WorkspaceLoadError(ValueError):
     pass
 
@@ -362,23 +357,24 @@ def select_functions(vw, asked_functions: Optional[List[int]]) -> Set[int]:
     return asked_functions_
 
 
-def is_supported_file_type(sample_file_path: Path):
+def get_file_type(sample_file_path: Path):
     """
-    Return if FLOSS supports the input file type, based on header bytes
+    Returns input file type, based on header bytes
     :param sample_file_path:
-    :return: True if file type is supported, False otherwise
+    :return: file type if it is supported, raise Error Otherwise
     """
     with sample_file_path.open("rb") as f:
         magic = f.read(4)
 
     if magic in SUPPORTED_FILE_MAGIC:
-        FileType.ELF = True
-        return True
+        return magic
     elif magic[:2] in SUPPORTED_FILE_MAGIC:
-        FileType.PE = True
-        return True
+        return magic[:2]
     else:
-        return False
+        raise WorkspaceLoadError(
+                "FLOSS currently supports the following formats for string decoding and stackstrings: PE\n"
+                "You can analyze shellcode using the --format sc32|sc64 switch. See the help (-h) for more information."
+        )
 
 
 def load_vw(
@@ -388,11 +384,7 @@ def load_vw(
     should_save_workspace: bool = False,
 ) -> VivWorkspace:
     if format not in ("sc32", "sc64"):
-        if not is_supported_file_type(sample_path):
-            raise WorkspaceLoadError(
-                "FLOSS currently supports the following formats for string decoding and stackstrings: PE\n"
-                "You can analyze shellcode using the --format sc32|sc64 switch. See the help (-h) for more information."
-            )
+        file_type = get_file_type(sample_path)
 
     # get shellcode type based on sample file extension
     if format == "auto" and sample_path.suffix.lower() in EXTENSIONS_SHELLCODE_32:
@@ -407,7 +399,7 @@ def load_vw(
     else:
         vw = viv_utils.getWorkspace(str(sample_path), analyze=False, should_save=False)
 
-    if not FileType.ELF:
+    if file_type == SUPPORTED_FILE_MAGIC['ELF']:
         viv_utils.flirt.register_flirt_signature_analyzers(vw, list(map(str, sigpaths)))
 
     vw.analyze()
@@ -565,16 +557,14 @@ def main(argv=None) -> int:
         return 0
 
     static_runtime = get_runtime_diff(interim)
-    if not is_supported_file_type(sample):
-        logger.error("FileType not Supported")
-
+    file_type = get_file_type(sample)
     # set language configurations
     selected_lang = Language(args.language)
     if selected_lang == Language.DISABLED:
         results.metadata.language = ""
         results.metadata.language_version = ""
         results.metadata.language_selected = ""
-    elif FileType.PE:
+    elif file_type == SUPPORTED_FILE_MAGIC['PE']:
         lang_id, lang_version = identify_language_and_version(sample, static_strings)
 
         if selected_lang == Language.UNKNOWN:
