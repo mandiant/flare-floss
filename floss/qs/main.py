@@ -132,6 +132,8 @@ class ResultDocument:
     strings: Sequence['TaggedString'] = field(default_factory=list)
     xor_key: Optional[str] = None
     children: Sequence['ResultDocument'] = field(default_factory=list)
+    visible_predecessor: Optional[bool] = field(default=None)
+    visible_successor: Optional[bool] = field(default=None)
 
     parent: Optional['ResultDocument'] = field(default=None)
 
@@ -191,9 +193,18 @@ class ResultDocument:
                     )
         if isinstance(layout, PELayout):
             result.xor_key = layout.xor_key
+
         result.children = [cls.from_layout(child) for child in layout.children]
+        
+        # Set parent for children
         for child in result.children:
             child.parent = result
+
+        # Set visible_predecessors and visible_successors
+        for child in result.children:
+            child.visible_predecessor = child.visible_predecessors
+            child.visible_successor = child.visible_successors
+
         return result
     
     def asdict(self):
