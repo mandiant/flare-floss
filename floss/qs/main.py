@@ -183,6 +183,16 @@ class ResultDocument:
         """Check if there is any successor or further descendant with strings."""
         return any(successor.strings or successor.visible_successors for successor in self.successors)
     
+    @property
+    def offset(self) -> int:
+        "convenience"
+        return self.slice.range.offset
+
+    @property
+    def end(self) -> int:
+        "convenience"
+        return self.slice.range.end
+    
     @classmethod
     def from_layout(cls, layout: 'Layout') -> 'ResultDocument':
         result = cls(layout.slice, layout.name, 
@@ -1183,7 +1193,7 @@ def render_strings(
     name_offset = header.plain.index(" ") + 1
     header.stylize(Style(color="blue"), name_offset, name_offset + len(name))
 
-    if not results.visible_predecessors:
+    if not results.visible_predecessor:
         header_shape = "┓"
     else:
         header_shape = "┫"
@@ -1228,7 +1238,7 @@ def render_strings(
         for string in strings_after_children:
             render_string_line(console, tag_rules, string, depth)
 
-    if not results.visible_successors:
+    if not results.visible_successor:
         footer = Span("", style=BORDER_STYLE)
         footer.align("center", width=console.width, character="━")
 
