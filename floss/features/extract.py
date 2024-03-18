@@ -12,6 +12,7 @@ from envi.archs.i386.opconst import INS_MOV, INS_ROL, INS_ROR, INS_SHL, INS_SHR,
 import floss.logging_
 from floss.const import TS_TIGHT_FUNCTION_MAX_BLOCKS
 from floss.features.features import (
+    Imm,
     Mov,
     Loop,
     Nzxor,
@@ -20,6 +21,7 @@ from floss.features.features import (
     NzxorLoop,
     TightLoop,
     BlockCount,
+    NzxorImmLoop,
     TightFunction,
     KindaTightLoop,
     NzxorTightLoop,
@@ -32,6 +34,16 @@ SECURITY_COOKIE_BYTES_DELTA = 0x40
 SHIFT_ROTATE_INS = (INS_SHL, INS_SHR, INS_ROL, INS_ROR)
 
 logger = floss.logging_.getLogger(__name__)
+
+
+def extract_insn_const(f, bb, insn):
+    """
+    parse const instruction operand: OP dst, src, imm
+    """
+    for op in insn.opers:
+        if op.isImmed():
+            print("Imm:", insn)
+            yield Imm(insn)
 
 
 def extract_insn_nzxor(f, bb, insn):
@@ -257,6 +269,15 @@ def abstract_nzxor_tightloop(features):
                 yield NzxorTightLoop()
 
 
+def abstract_nzxor_imm_loop(features):
+    if (
+        any(isinstance(f, Nzxor) for f in features)
+        and any(isinstance(f, Loop) for f in features)
+        and any(isinstance(f, Imm) for f in features)
+    ):
+        yield NzxorImmLoop()
+
+
 def abstract_nzxor_loop(features):
     if any(isinstance(f, Nzxor) for f in features) and any(isinstance(f, Loop) for f in features):
         yield NzxorLoop()
@@ -330,6 +351,7 @@ def extract_basic_block_features(f: Any, bb: Any) -> Iterator:
 
 
 INSTRUCTION_HANDLERS = (
+    extract_insn_const,
     extract_insn_nzxor,
     extract_insn_shift,
     extract_insn_mov,
@@ -343,6 +365,7 @@ def extract_insn_features(f, bb, insn):
 
 
 ABSTRACTION_HANDLERS = (
+    abstract_nzxor_imm_loop,
     abstract_nzxor_loop,
     abstract_nzxor_tightloop,
     abstract_tightfunction,
