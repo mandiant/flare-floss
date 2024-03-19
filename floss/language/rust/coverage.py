@@ -1,16 +1,16 @@
 # Copyright (C) 2023 Mandiant, Inc. All Rights Reserved.
 
-import sys
+import argparse
 import logging
 import pathlib
-import argparse
-from typing import List, Tuple, Iterable, Optional
+import sys
+from typing import Iterable, List, Optional, Tuple
 
 import pefile
 
-from floss.strings import extract_ascii_unicode_strings
-from floss.language.utils import get_extract_stats
 from floss.language.rust.extract import extract_rust_strings
+from floss.language.utils import get_extract_stats
+from floss.strings import extract_ascii_unicode_strings
 
 logger = logging.getLogger(__name__)
 

@@ -8,24 +8,24 @@ currently loaded module in IDA Pro.
 author: Willi Ballenthin
 email: willi.ballenthin@gmail.com
 """
+import logging
 import os
 import time
-import logging
-from typing import List, Union
 from pathlib import Path
+from typing import List, Union
 
 import idc
 import viv_utils
 
 import floss
-import floss.main
-import floss.utils
-import floss.render
 import floss.identify
+import floss.main
+import floss.render
 import floss.stackstrings
-import floss.tightstrings
 import floss.string_decoder
-from floss.results import AddressType, StackString, TightString, DecodedString
+import floss.tightstrings
+import floss.utils
+from floss.results import AddressType, DecodedString, StackString, TightString
 
 logger = logging.getLogger("floss.idaplugin")
 

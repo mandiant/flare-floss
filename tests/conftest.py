@@ -3,22 +3,19 @@
 import os
 from pathlib import Path
 
-import yaml
 import pytest
 import viv_utils
+import yaml
 
 import floss.main as floss_main
 import floss.stackstrings as stackstrings
-import floss.tightstrings as tightstrings
 import floss.string_decoder as string_decoder
+import floss.tightstrings as tightstrings
 from floss.const import MIN_STRING_LENGTH
-from floss.identify import (
-    get_function_fvas,
-    get_top_functions,
-    get_functions_with_tightloops,
-    find_decoding_function_features,
-    get_functions_without_tightloops,
-)
+from floss.identify import (find_decoding_function_features, get_function_fvas,
+                            get_functions_with_tightloops,
+                            get_functions_without_tightloops,
+                            get_top_functions)
 
 
 def extract_strings(vw):

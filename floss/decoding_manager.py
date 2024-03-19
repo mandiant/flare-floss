@@ -1,15 +1,15 @@
 # Copyright (C) 2017 Mandiant, Inc. All Rights Reserved.
 
-from typing import List, Tuple
 from dataclasses import dataclass
+from typing import List, Tuple
 
-import viv_utils
 import envi.memory
+import viv_utils
 import viv_utils.emulator_drivers
 from envi import Emulator
 
-import floss.utils
 import floss.logging_
+import floss.utils
 
 from . import api_hooks
 from .const import DS_MAX_ADDRESS_REVISITS_EMULATION

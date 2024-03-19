@@ -1,17 +1,17 @@
-import re
 import array
-import struct
 import hashlib
-from typing import List, Tuple, Iterable, Optional
+import re
+import struct
 from dataclasses import dataclass
+from typing import Iterable, List, Optional, Tuple
 
 import pefile
 import tabulate
 from typing_extensions import TypeAlias
 
 import floss.utils
-from floss.results import StaticString, StringEncoding
 from floss.render.sanitize import sanitize
+from floss.results import StaticString, StringEncoding
 
 VA: TypeAlias = int
 

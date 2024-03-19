@@ -20,14 +20,14 @@ Unless required by applicable law or agreed to in writing, software distributed 
  is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and limitations under the License.
 """
-import sys
-import json
-import logging
 import argparse
 import dataclasses
-from typing import Dict, List
-from pathlib import Path
+import json
+import logging
+import sys
 from dataclasses import field
+from pathlib import Path
+from typing import Dict, List
 
 from pydantic.dataclasses import dataclass
 

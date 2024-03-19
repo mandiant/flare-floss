@@ -1,15 +1,14 @@
 # Copyright (C) 2021 Mandiant, Inc. All Rights Reserved.
 
-import re
-import json
 import datetime
-from enum import Enum
-from typing import Dict, List
-from pathlib import Path
+import json
+import re
 from dataclasses import field
+from enum import Enum
+from pathlib import Path
+from typing import Dict, List
 
 from pydantic import TypeAdapter, ValidationError
-
 # we use pydantic for dataclasses so that we can
 # easily load and validate JSON reports.
 #
@@ -21,8 +20,8 @@ from pydantic.dataclasses import dataclass
 
 import floss.logging_
 from floss.render import Verbosity
-from floss.version import __version__
 from floss.render.sanitize import sanitize
+from floss.version import __version__
 
 logger = floss.logging_.getLogger(__name__)
 

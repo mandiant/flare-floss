@@ -2,15 +2,15 @@
 
 import re
 from enum import Enum
-from typing import Tuple, Iterable
 from pathlib import Path
+from typing import Iterable, Tuple
 
 import pefile
 
 import floss.logging_
-from floss.results import StaticString
-from floss.language.utils import get_rdata_section
 from floss.language.rust.rust_version_database import rust_commit_hash
+from floss.language.utils import get_rdata_section
+from floss.results import StaticString
 
 logger = floss.logging_.getLogger(__name__)
 

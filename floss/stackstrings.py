@@ -1,19 +1,19 @@
 # Copyright (C) 2017 Mandiant, Inc. All Rights Reserved.
 
-from typing import Set, List, Optional
 from dataclasses import dataclass
+from typing import List, Optional, Set
 
+import envi.archs.amd64
+import envi.archs.i386
 import tqdm
 import viv_utils
-import envi.archs.i386
-import envi.archs.amd64
 import viv_utils.emulator_drivers
 
-import floss.utils
 import floss.strings
-from floss.utils import getPointerSize, extract_strings
+import floss.utils
 from floss.render import Verbosity
 from floss.results import StackString
+from floss.utils import extract_strings, getPointerSize
 
 logger = floss.logging_.getLogger(__name__)
 MAX_STACK_SIZE = 0x10000

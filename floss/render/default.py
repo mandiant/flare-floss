@@ -1,29 +1,23 @@
 # Copyright (C) 2022 Mandiant, Inc. All Rights Reserved.
 
+import collections
 import io
 import sys
 import textwrap
-import collections
 from typing import Dict, List, Tuple, Union
 
 from rich import box
-from rich.table import Table
-from rich.markup import escape
 from rich.console import Console
+from rich.markup import escape
+from rich.table import Table
 
-import floss.utils as util
-import floss.logging_
 import floss.language.identify
+import floss.logging_
+import floss.utils as util
 from floss.render import Verbosity
-from floss.results import (
-    AddressType,
-    StackString,
-    TightString,
-    DecodedString,
-    ResultDocument,
-    StringEncoding,
-)
 from floss.render.sanitize import sanitize
+from floss.results import (AddressType, DecodedString, ResultDocument,
+                           StackString, StringEncoding, TightString)
 
 MIN_WIDTH_LEFT_COL = 22
 MIN_WIDTH_RIGHT_COL = 82

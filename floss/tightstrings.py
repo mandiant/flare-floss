@@ -1,20 +1,20 @@
 # Copyright (C) 2021 Mandiant, Inc. All Rights Reserved.
 
-from typing import Set, List, Tuple, Iterator, Optional
+from typing import Iterator, List, Optional, Set, Tuple
 
-import tqdm
 import envi.exc
-import viv_utils
+import tqdm
 import tqdm.contrib.logging
+import viv_utils
 import viv_utils.emulator_drivers
 
-import floss.utils
 import floss.features.features
-from floss.const import TS_MAX_INSN_COUNT, DS_MAX_ADDRESS_REVISITS_EMULATION
-from floss.utils import extract_strings
+import floss.utils
+from floss.const import DS_MAX_ADDRESS_REVISITS_EMULATION, TS_MAX_INSN_COUNT
 from floss.render import Verbosity
 from floss.results import TightString
 from floss.stackstrings import CallContext, StackstringContextMonitor
+from floss.utils import extract_strings
 
 logger = floss.logging_.getLogger(__name__)
 

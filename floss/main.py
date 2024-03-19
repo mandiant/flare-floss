@@ -1,60 +1,50 @@
 #!/usr/bin/env python
 # Copyright (C) 2017 Mandiant, Inc. All Rights Reserved.
-import os
-import sys
+import argparse
 import codecs
 import logging
-import argparse
+import os
+import sys
 import textwrap
 from enum import Enum
-from time import time
-from typing import Set, List, Optional
 from pathlib import Path
+from time import time
+from typing import List, Optional, Set
 
 import halo
-import viv_utils
 import rich.traceback
+import viv_utils
 import viv_utils.flirt
 from vivisect import VivWorkspace
 
-import floss.utils
-import floss.results
-import floss.version
-import floss.logging_
-import floss.render.json
-import floss.language.utils
-import floss.render.default
-import floss.language.go.extract
 import floss.language.go.coverage
-import floss.language.rust.extract
+import floss.language.go.extract
 import floss.language.rust.coverage
-from floss.const import MEGABYTE, MAX_FILE_SIZE, MIN_STRING_LENGTH, SUPPORTED_FILE_MAGIC
-from floss.utils import (
-    hex,
-    get_imagebase,
-    get_runtime_diff,
-    get_static_strings,
-    get_vivisect_meta_info,
-    is_string_type_enabled,
-    set_vivisect_log_level,
-)
+import floss.language.rust.extract
+import floss.language.utils
+import floss.logging_
+import floss.render.default
+import floss.render.json
+import floss.results
+import floss.utils
+import floss.version
+from floss.const import (MAX_FILE_SIZE, MEGABYTE, MIN_STRING_LENGTH,
+                         SUPPORTED_FILE_MAGIC)
+from floss.identify import (append_unique, find_decoding_function_features,
+                            get_function_fvas, get_functions_with_tightloops,
+                            get_functions_without_tightloops,
+                            get_tight_function_fvas, get_top_functions)
+from floss.language.identify import Language, identify_language_and_version
+from floss.logging_ import TRACE, DebugLevel
 from floss.render import Verbosity
 from floss.results import Analysis, Metadata, ResultDocument, load
-from floss.version import __version__
-from floss.identify import (
-    append_unique,
-    get_function_fvas,
-    get_top_functions,
-    get_tight_function_fvas,
-    get_functions_with_tightloops,
-    find_decoding_function_features,
-    get_functions_without_tightloops,
-)
-from floss.logging_ import TRACE, DebugLevel
 from floss.stackstrings import extract_stackstrings
-from floss.tightstrings import extract_tightstrings
 from floss.string_decoder import decode_strings
-from floss.language.identify import Language, identify_language_and_version
+from floss.tightstrings import extract_tightstrings
+from floss.utils import (get_imagebase, get_runtime_diff, get_static_strings,
+                         get_vivisect_meta_info, hex, is_string_type_enabled,
+                         set_vivisect_log_level)
+from floss.version import __version__
 
 SIGNATURES_PATH_DEFAULT_STRING = "(embedded signatures)"
 EXTENSIONS_SHELLCODE_32 = ("sc32", "raw32")
