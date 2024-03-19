@@ -38,9 +38,7 @@ def extract_files(request):
                     / extracted_dir_name
                     / zip_info.filename
                 ).resolve()
-                extracted_file = zip_ref.extract(
-                    zip_info, path=extracted_file_path.parent
-                )
+                extracted_file = zip_ref.extract(zip_info, path=extracted_file_path.parent)
                 extracted_files.append(extracted_file)
 
         yield
@@ -66,30 +64,14 @@ def extract_files_32(request, extract_files):
 @pytest.mark.parametrize(
     "binary_file",
     [
-        (
-            "data/language/rust/rust-binaries-all-versions/bin/extracted_64/rust1.56.0.exe"
-        ),
-        (
-            "data/language/rust/rust-binaries-all-versions/bin/extracted_64/rust1.58.0.exe"
-        ),
-        (
-            "data/language/rust/rust-binaries-all-versions/bin/extracted_64/rust1.60.0.exe"
-        ),
-        (
-            "data/language/rust/rust-binaries-all-versions/bin/extracted_64/rust1.62.0.exe"
-        ),
-        (
-            "data/language/rust/rust-binaries-all-versions/bin/extracted_64/rust1.64.0.exe"
-        ),
-        (
-            "data/language/rust/rust-binaries-all-versions/bin/extracted_64/rust1.66.0.exe"
-        ),
-        (
-            "data/language/rust/rust-binaries-all-versions/bin/extracted_64/rust1.68.0.exe"
-        ),
-        (
-            "data/language/rust/rust-binaries-all-versions/bin/extracted_64/rust1.70.0.exe"
-        ),
+        ("data/language/rust/rust-binaries-all-versions/bin/extracted_64/rust1.56.0.exe"),
+        ("data/language/rust/rust-binaries-all-versions/bin/extracted_64/rust1.58.0.exe"),
+        ("data/language/rust/rust-binaries-all-versions/bin/extracted_64/rust1.60.0.exe"),
+        ("data/language/rust/rust-binaries-all-versions/bin/extracted_64/rust1.62.0.exe"),
+        ("data/language/rust/rust-binaries-all-versions/bin/extracted_64/rust1.64.0.exe"),
+        ("data/language/rust/rust-binaries-all-versions/bin/extracted_64/rust1.66.0.exe"),
+        ("data/language/rust/rust-binaries-all-versions/bin/extracted_64/rust1.68.0.exe"),
+        ("data/language/rust/rust-binaries-all-versions/bin/extracted_64/rust1.70.0.exe"),
     ],
 )
 def test_language_detection_64(binary_file, extract_files_64):
@@ -119,30 +101,14 @@ def test_language_detection_64(binary_file, extract_files_64):
 @pytest.mark.parametrize(
     "binary_file",
     [
-        (
-            "data/language/rust/rust-binaries-all-versions/bin/extracted_32/rust1.56.0.exe"
-        ),
-        (
-            "data/language/rust/rust-binaries-all-versions/bin/extracted_32/rust1.58.0.exe"
-        ),
-        (
-            "data/language/rust/rust-binaries-all-versions/bin/extracted_32/rust1.60.0.exe"
-        ),
-        (
-            "data/language/rust/rust-binaries-all-versions/bin/extracted_32/rust1.62.0.exe"
-        ),
-        (
-            "data/language/rust/rust-binaries-all-versions/bin/extracted_32/rust1.64.0.exe"
-        ),
-        (
-            "data/language/rust/rust-binaries-all-versions/bin/extracted_32/rust1.66.0.exe"
-        ),
-        (
-            "data/language/rust/rust-binaries-all-versions/bin/extracted_32/rust1.68.0.exe"
-        ),
-        (
-            "data/language/rust/rust-binaries-all-versions/bin/extracted_32/rust1.70.0.exe"
-        ),
+        ("data/language/rust/rust-binaries-all-versions/bin/extracted_32/rust1.56.0.exe"),
+        ("data/language/rust/rust-binaries-all-versions/bin/extracted_32/rust1.58.0.exe"),
+        ("data/language/rust/rust-binaries-all-versions/bin/extracted_32/rust1.60.0.exe"),
+        ("data/language/rust/rust-binaries-all-versions/bin/extracted_32/rust1.62.0.exe"),
+        ("data/language/rust/rust-binaries-all-versions/bin/extracted_32/rust1.64.0.exe"),
+        ("data/language/rust/rust-binaries-all-versions/bin/extracted_32/rust1.66.0.exe"),
+        ("data/language/rust/rust-binaries-all-versions/bin/extracted_32/rust1.68.0.exe"),
+        ("data/language/rust/rust-binaries-all-versions/bin/extracted_32/rust1.70.0.exe"),
     ],
 )
 def test_language_detection_32(binary_file, extract_files_32):

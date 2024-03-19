@@ -9,30 +9,25 @@ import logging
 import argparse
 import builtins
 import contextlib
-import inspect
-import logging
-import mmap
-import re
-import time
-from collections import OrderedDict
+from typing import Set, Tuple, Iterable, Optional
 from pathlib import Path
-from typing import Iterable, Optional, Set, Tuple
+from collections import OrderedDict
 
-import envi.archs
-import tabulate
 import tqdm
-import viv_utils
-import viv_utils.emulator_drivers
+import tabulate
 import vivisect
+import viv_utils
+import envi.archs
+import viv_utils.emulator_drivers
 from envi import Emulator
 
-import floss.logging_
 import floss.strings
+import floss.logging_
 
-from .api_hooks import ENABLED_VIV_DEFAULT_HOOKS
-from .const import MAX_STRING_LENGTH, MEGABYTE, MOD_NAME
+from .const import MEGABYTE, MOD_NAME, MAX_STRING_LENGTH
 from .results import StaticString
 from .strings import extract_ascii_unicode_strings
+from .api_hooks import ENABLED_VIV_DEFAULT_HOOKS
 
 STACK_MEM_NAME = "[stack]"
 
@@ -136,9 +131,7 @@ def make_emulator(vw) -> Emulator:
     emu.setStackCounter(emu.getStackCounter() - int(0.25 * MEGABYTE))
     # do not short circuit rep prefix
     emu.setEmuOpt("i386:repmax", 256)  # 0 == no limit on rep prefix
-    viv_utils.emulator_drivers.remove_default_viv_hooks(
-        emu, allow_list=ENABLED_VIV_DEFAULT_HOOKS
-    )
+    viv_utils.emulator_drivers.remove_default_viv_hooks(emu, allow_list=ENABLED_VIV_DEFAULT_HOOKS)
     return emu
 
 
@@ -214,9 +207,7 @@ def getPointerSize(vw):
     elif arch == "i386":
         return 4
     else:
-        raise NotImplementedError(
-            "unexpected architecture: %s" % (vw.arch.__class__.__name__)
-        )
+        raise NotImplementedError("unexpected architecture: %s" % (vw.arch.__class__.__name__))
 
 
 def get_imagebase(vw):
@@ -267,13 +258,10 @@ def get_vivisect_meta_info(vw, selected_functions, decoding_function_features):
     disc = vw.getDiscoveredInfo()[0]
     undisc = vw.getDiscoveredInfo()[1]
     if disc + undisc > 0:
-        info["percentage of discovered executable surface area"] = (
-            "%.1f%% (%s / %s)"
-            % (
-                disc * 100.0 / (disc + undisc),
-                disc,
-                disc + undisc,
-            )
+        info["percentage of discovered executable surface area"] = "%.1f%% (%s / %s)" % (
+            disc * 100.0 / (disc + undisc),
+            disc,
+            disc + undisc,
         )
     info["base VA"] = baseva
     info["entry point(s)"] = ", ".join(map(hex, entry_points))
@@ -284,9 +272,7 @@ def get_vivisect_meta_info(vw, selected_functions, decoding_function_features):
     if selected_functions:
         meta = []
         for fva in selected_functions:
-            if is_thunk_function(vw, fva) or viv_utils.flirt.is_library_function(
-                vw, fva
-            ):
+            if is_thunk_function(vw, fva) or viv_utils.flirt.is_library_function(vw, fva):
                 continue
 
             xrefs_to = len(vw.getXrefsTo(fva))
@@ -296,9 +282,7 @@ def get_vivisect_meta_info(vw, selected_functions, decoding_function_features):
             block_count = function_meta.get("BlockCount")
             size = function_meta.get("Size")
             score = round(decoding_function_features.get(fva, {}).get("score", 0), 3)
-            meta.append(
-                (hex(fva), score, xrefs_to, num_args, size, block_count, instr_count)
-            )
+            meta.append((hex(fva), score, xrefs_to, num_args, size, block_count, instr_count))
         info["selected functions' info"] = "\n%s" % tabulate.tabulate(
             meta,
             headers=[
@@ -362,9 +346,7 @@ FP_FLOSS_ARTIFACTS = (
 )
 
 
-def extract_strings(
-    buffer: bytes, min_length: int, exclude: Optional[Set[str]] = None
-) -> Iterable[StaticString]:
+def extract_strings(buffer: bytes, min_length: int, exclude: Optional[Set[str]] = None) -> Iterable[StaticString]:
     """Extracts potential strings from a buffer and applies filtering.
 
     Initial filtering includes length checks, common false-positive patterns, and optional exclusion based on a provided set.  Extracted strings are then stripped or sanitized before yielding.
@@ -664,9 +646,7 @@ def is_string_type_enabled(type_, disabled_types, enabled_types):
         return True
 
 
-def get_max_size(
-    size: int, max_: int, api: Optional[Tuple] = None, argv: Optional[Tuple] = None
-) -> int:
+def get_max_size(size: int, max_: int, api: Optional[Tuple] = None, argv: Optional[Tuple] = None) -> int:
     """Get the maximum size for the given size.
 
     Args:
@@ -727,9 +707,7 @@ def get_referenced_strings(vw: vivisect.VivWorkspace, fva: int) -> Set[str]:
                         continue
                     else:
                         # see strings.py for why we don't include \r and \n
-                        strings.update(
-                            [ss.rstrip("\x00") for ss in re.split("\r\n", s)]
-                        )
+                        strings.update([ss.rstrip("\x00") for ss in re.split("\r\n", s)])
     return strings
 
 

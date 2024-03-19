@@ -20,10 +20,10 @@ Unless required by applicable law or agreed to in writing, software distributed 
  is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and limitations under the License.
 """
-import argparse
+import sys
 import base64
 import logging
-import sys
+import argparse
 from pathlib import Path
 
 from floss.results import AddressType, ResultDocument
@@ -41,21 +41,13 @@ def render_ida_script(result_document: ResultDocument) -> str:
             b64 = base64.b64encode(ds.string.encode("utf-8")).decode("ascii")
             b64 = 'base64.b64decode("%s").decode("utf-8")' % b64
             if ds.address_type == AddressType.GLOBAL:
-                main_commands.append(
-                    'print("FLOSS: string \\"%%s\\" at global VA 0x%x" %% (%s))'
-                    % (ds.address, b64)
-                )
-                main_commands.append(
-                    'AppendComment(%d, "FLOSS: " + %s, True)' % (ds.address, b64)
-                )
+                main_commands.append('print("FLOSS: string \\"%%s\\" at global VA 0x%x" %% (%s))' % (ds.address, b64))
+                main_commands.append('AppendComment(%d, "FLOSS: " + %s, True)' % (ds.address, b64))
             else:
                 main_commands.append(
-                    'print("FLOSS: string \\"%%s\\" decoded at VA 0x%x" %% (%s))'
-                    % (ds.decoded_at, b64)
+                    'print("FLOSS: string \\"%%s\\" decoded at VA 0x%x" %% (%s))' % (ds.decoded_at, b64)
                 )
-                main_commands.append(
-                    'AppendComment(%d, "FLOSS: " + %s)' % (ds.decoded_at, b64)
-                )
+                main_commands.append('AppendComment(%d, "FLOSS: " + %s)' % (ds.decoded_at, b64))
     main_commands.append('print("Imported decoded strings from FLOSS")')
 
     for ss in result_document.strings.stack_strings:
@@ -63,8 +55,7 @@ def render_ida_script(result_document: ResultDocument) -> str:
             b64 = base64.b64encode(ss.string.encode("utf-8")).decode("ascii")
             b64 = 'base64.b64decode("%s").decode("utf-8")' % b64
             main_commands.append(
-                'AppendLvarComment(%d, %d, "FLOSS stackstring: " + %s, True)'
-                % (ss.function, ss.frame_offset, b64)
+                'AppendLvarComment(%d, %d, "FLOSS stackstring: " + %s, True)' % (ss.function, ss.frame_offset, b64)
             )
     main_commands.append('print("Imported stackstrings from FLOSS")')
 
@@ -73,8 +64,7 @@ def render_ida_script(result_document: ResultDocument) -> str:
             b64 = base64.b64encode(ts.string.encode("utf-8")).decode("ascii")
             b64 = 'base64.b64decode("%s").decode("utf-8")' % b64
             main_commands.append(
-                'AppendLvarComment(%d, %d, "FLOSS tightstring: " + %s, True)'
-                % (ts.function, ts.frame_offset, b64)
+                'AppendLvarComment(%d, %d, "FLOSS tightstring: " + %s, True)' % (ts.function, ts.frame_offset, b64)
             )
     main_commands.append('print("Imported tightstrings from FLOSS")')
 
@@ -129,18 +119,12 @@ if __name__ == "__main__":
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Generate an IDA Python script to apply FLOSS results."
-    )
-    parser.add_argument(
-        "/path/to/report.json", help="path to JSON document from `floss --json`"
-    )
+    parser = argparse.ArgumentParser(description="Generate an IDA Python script to apply FLOSS results.")
+    parser.add_argument("/path/to/report.json", help="path to JSON document from `floss --json`")
 
     logging_group = parser.add_argument_group("logging arguments")
 
-    logging_group.add_argument(
-        "-d", "--debug", action="store_true", help="enable debugging output on STDERR"
-    )
+    logging_group.add_argument("-d", "--debug", action="store_true", help="enable debugging output on STDERR")
     logging_group.add_argument(
         "-q",
         "--quiet",

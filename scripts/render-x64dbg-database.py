@@ -20,14 +20,14 @@ Unless required by applicable law or agreed to in writing, software distributed 
  is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and limitations under the License.
 """
-import argparse
-import dataclasses
+import sys
 import json
 import logging
-import sys
-from dataclasses import field
-from pathlib import Path
+import argparse
+import dataclasses
 from typing import Dict, List
+from pathlib import Path
+from dataclasses import field
 
 from pydantic.dataclasses import dataclass
 
@@ -79,18 +79,12 @@ def render_x64dbg_database(result_document: ResultDocument) -> str:
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Generate an x64dbg script to apply FLOSS results."
-    )
-    parser.add_argument(
-        "/path/to/report.json", help="path to JSON document from `floss --json`"
-    )
+    parser = argparse.ArgumentParser(description="Generate an x64dbg script to apply FLOSS results.")
+    parser.add_argument("/path/to/report.json", help="path to JSON document from `floss --json`")
 
     logging_group = parser.add_argument_group("logging arguments")
 
-    logging_group.add_argument(
-        "-d", "--debug", action="store_true", help="enable debugging output on STDERR"
-    )
+    logging_group.add_argument("-d", "--debug", action="store_true", help="enable debugging output on STDERR")
     logging_group.add_argument(
         "-q",
         "--quiet",

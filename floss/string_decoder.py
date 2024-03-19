@@ -1,26 +1,29 @@
 # Copyright (C) 2017 Mandiant, Inc. All Rights Reserved.
 
+from typing import Set, List
 from dataclasses import dataclass
-from typing import List, Set
 
 import tqdm
 import viv_utils
 from vivisect import VivWorkspace
 
-import floss.decoding_manager
-import floss.logging_
+import floss.utils
 import floss.results
 import floss.strings
-import floss.utils
-from floss.const import (DS_FUNCTION_CALLS_OFTEN, DS_FUNCTION_CALLS_RARE,
-                         DS_FUNCTION_MIN_DECODED_STRINGS,
-                         DS_FUNCTION_SHORTCUT_THRESHOLD_VERY_OFTEN,
-                         DS_MAX_INSN_COUNT)
-from floss.decoding_manager import Delta
-from floss.function_argument_getter import extract_decoding_contexts
+import floss.logging_
+import floss.decoding_manager
+from floss.const import (
+    DS_MAX_INSN_COUNT,
+    DS_FUNCTION_CALLS_RARE,
+    DS_FUNCTION_CALLS_OFTEN,
+    DS_FUNCTION_MIN_DECODED_STRINGS,
+    DS_FUNCTION_SHORTCUT_THRESHOLD_VERY_OFTEN,
+)
+from floss.utils import is_all_zeros
 from floss.render import Verbosity
 from floss.results import AddressType, DecodedString
-from floss.utils import is_all_zeros
+from floss.decoding_manager import Delta
+from floss.function_argument_getter import extract_decoding_contexts
 
 logger = floss.logging_.getLogger(__name__)
 
@@ -157,9 +160,7 @@ def decode_strings(
     decoded_strings = list()
     function_index = viv_utils.InstructionFunctionIndex(vw)
 
-    pb = floss.utils.get_progress_bar(
-        functions, disable_progress, desc="decoding strings", unit=" functions"
-    )
+    pb = floss.utils.get_progress_bar(functions, disable_progress, desc="decoding strings", unit=" functions")
     with tqdm.contrib.logging.logging_redirect_tqdm(), floss.utils.redirecting_print_to_tqdm():
         for fva in pb:
             seen: Set[str] = floss.utils.get_referenced_strings(vw, fva)
@@ -167,22 +168,14 @@ def decode_strings(
             n_calls = len(ctxs)
             for n, ctx in enumerate(ctxs, 1):
                 if isinstance(pb, tqdm.tqdm):
-                    pb.set_description(
-                        f"emulating function 0x{fva:x} (call {n}/{n_calls})"
-                    )
+                    pb.set_description(f"emulating function 0x{fva:x} (call {n}/{n_calls})")
 
                 if should_shortcut(fva, n, n_calls, len(seen)):
                     break
 
-                for delta in emulate_decoding_routine(
-                    vw, function_index, fva, ctx, max_insn_count
-                ):
-                    for delta_bytes in extract_delta_bytes(
-                        delta, ctx.decoded_at_va, fva
-                    ):
-                        for s in floss.utils.extract_strings(
-                            delta_bytes.bytes, min_length, seen
-                        ):
+                for delta in emulate_decoding_routine(vw, function_index, fva, ctx, max_insn_count):
+                    for delta_bytes in extract_delta_bytes(delta, ctx.decoded_at_va, fva):
+                        for s in floss.utils.extract_strings(delta_bytes.bytes, min_length, seen):
                             ds = DecodedString(
                                 address=delta_bytes.address + s.offset,
                                 address_type=delta_bytes.address_type,
@@ -197,9 +190,7 @@ def decode_strings(
         return decoded_strings
 
 
-def emulate_decoding_routine(
-    vw, function_index, function: int, context, max_instruction_count: int
-) -> List[Delta]:
+def emulate_decoding_routine(vw, function_index, function: int, context, max_instruction_count: int) -> List[Delta]:
     """Emulate a function with a given context and extract the CPU and
      memory contexts at interesting points during emulation.
     These "interesting points" include calls to other functions and
@@ -245,9 +236,7 @@ class DeltaBytes:
     decoding_routine: int
 
 
-def extract_delta_bytes(
-    delta: Delta, decoded_at_va: int, source_fva: int = 0x0
-) -> List[DeltaBytes]:
+def extract_delta_bytes(delta: Delta, decoded_at_va: int, source_fva: int = 0x0) -> List[DeltaBytes]:
     """Extract the sequence of byte sequences that differ from before and after snapshots.
 
     Args:
@@ -312,10 +301,6 @@ def extract_delta_bytes(
                 location_type = AddressType.STACK
 
             if not is_all_zeros(diff_bytes):
-                delta_bytes.append(
-                    DeltaBytes(
-                        address, location_type, diff_bytes, decoded_at_va, source_fva
-                    )
-                )
+                delta_bytes.append(DeltaBytes(address, location_type, diff_bytes, decoded_at_va, source_fva))
 
     return delta_bytes

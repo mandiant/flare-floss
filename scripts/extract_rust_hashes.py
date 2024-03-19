@@ -31,9 +31,7 @@ rust_hashes = {}
 print("Fetching Rust hashes from https://github.com/rust-lang/rust/releases...")
 
 while True:
-    r = requests.get(
-        "https://github.com/rust-lang/rust/releases?page={}".format(page_number)
-    )
+    r = requests.get("https://github.com/rust-lang/rust/releases?page={}".format(page_number))
     soup = BeautifulSoup(r.text, "html.parser")
     tables = soup.find_all(
         "div",
@@ -46,9 +44,7 @@ while True:
 
     # for each table, get the hash and version
     for table in tables:
-        hash = str(
-            table.find("a", attrs={"class": "Link Link--muted mb-2"})["href"]
-        ).split("/")[-1]
+        hash = str(table.find("a", attrs={"class": "Link Link--muted mb-2"})["href"]).split("/")[-1]
         version = table.find("span").text.strip()
         rust_hashes[hash] = version
 

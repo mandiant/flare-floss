@@ -1,7 +1,7 @@
 # Copyright (C) 2017 Mandiant, Inc. All Rights Reserved.
 
-import envi.memory
 import pytest
+import envi.memory
 
 from floss.string_decoder import memdiff
 

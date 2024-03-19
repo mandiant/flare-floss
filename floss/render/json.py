@@ -1,8 +1,8 @@
 # Copyright (C) 2022 Mandiant, Inc. All Rights Reserved.
 
-import dataclasses
-import datetime
 import json
+import datetime
+import dataclasses
 
 from floss.results import ResultDocument
 
@@ -15,6 +15,7 @@ class FlossJSONEncoder(json.JSONEncoder):
     *   Dataclasses: Converts dataclass instances into their dictionary representations.
     *   Datetimes: Encodes datetime objects into ISO 8601 formatted strings (with timezone information).
     """
+
     def default(self, o):
         """Overrides the default JSON encoding behavior to handle dataclasses and datetime objects.
 

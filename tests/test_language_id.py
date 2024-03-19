@@ -2,9 +2,8 @@ from pathlib import Path
 
 import pytest
 
-from floss.language.identify import (VERSION_UNKNOWN_OR_NA, Language,
-                                     identify_language_and_version)
 from floss.utils import get_static_strings
+from floss.language.identify import VERSION_UNKNOWN_OR_NA, Language, identify_language_and_version
 
 
 @pytest.mark.parametrize(
@@ -41,9 +40,5 @@ def test_language_detection(binary_file, expected_result, expected_version):
 
     language, version = identify_language_and_version(abs_path, static_strings)
 
-    assert (
-        language == expected_result
-    ), f"Expected: {expected_result.value}, Actual: {language.value}"
-    assert (
-        version == expected_version
-    ), f"Expected: {expected_version}, Actual: {version}"
+    assert language == expected_result, f"Expected: {expected_result.value}, Actual: {language.value}"
+    assert version == expected_version, f"Expected: {expected_version}, Actual: {version}"

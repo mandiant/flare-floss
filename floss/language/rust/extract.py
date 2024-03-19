@@ -1,18 +1,22 @@
 # Copyright (C) 2023 Mandiant, Inc. All Rights Reserved.
-import argparse
-import itertools
+import sys
 import logging
 import pathlib
-import sys
-from typing import Iterable, List, Optional, Tuple
+import argparse
+import itertools
+from typing import List, Tuple, Iterable, Optional
 
-import binary2strings as b2s
 import pefile
+import binary2strings as b2s
 
-from floss.language.utils import (find_lea_xrefs, find_mov_xrefs,
-                                  find_push_xrefs, get_rdata_section,
-                                  get_struct_string_candidates)
 from floss.results import StaticString, StringEncoding
+from floss.language.utils import (
+    find_lea_xrefs,
+    find_mov_xrefs,
+    find_push_xrefs,
+    get_rdata_section,
+    get_struct_string_candidates,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -95,16 +99,12 @@ def filter_and_transform_utf8_strings(
 
         # our static algorithm does not extract new lines either
         s = s.replace("\n", "")
-        transformed_strings.append(
-            StaticString(string=s, offset=start, encoding=StringEncoding.UTF8)
-        )
+        transformed_strings.append(StaticString(string=s, offset=start, encoding=StringEncoding.UTF8))
 
     return transformed_strings
 
 
-def split_strings(
-    static_strings: List[StaticString], address: int, min_length: int
-) -> None:
+def split_strings(static_strings: List[StaticString], address: int, min_length: int) -> None:
     """Splits StaticString objects if an address falls within their string data.
 
     This function operates directly on the provided `static_strings` list.  It checks if a given address lies within an existing StaticString. If so, it splits the string into two, preserving both parts if they meet the minimum length requirement.
@@ -129,11 +129,7 @@ def split_strings(
                     )
                 )
             if len(rest) >= min_length:
-                static_strings.append(
-                    StaticString(
-                        string=rest, offset=address, encoding=StringEncoding.UTF8
-                    )
-                )
+                static_strings.append(StaticString(string=rest, offset=address, encoding=StringEncoding.UTF8))
 
             # remove string from static_strings
             for static_string in static_strings:
@@ -287,9 +283,7 @@ def main(argv=None):
 
     logging.basicConfig(level=logging.DEBUG)
 
-    rust_strings = sorted(
-        extract_rust_strings(args.path, args.min_length), key=lambda s: s.offset
-    )
+    rust_strings = sorted(extract_rust_strings(args.path, args.min_length), key=lambda s: s.offset)
     for string in rust_strings:
         print(f"{string.offset:#x}: {string.string}")
 

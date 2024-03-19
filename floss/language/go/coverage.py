@@ -1,16 +1,16 @@
 # Copyright (C) 2023 Mandiant, Inc. All Rights Reserved.
-import argparse
+import sys
 import logging
 import pathlib
-import sys
+import argparse
 from typing import List
 
 import pefile
 
-from floss.language.go.extract import extract_go_strings
-from floss.language.utils import get_extract_stats
-from floss.results import StaticString, StringEncoding
 from floss.utils import get_static_strings
+from floss.results import StaticString, StringEncoding
+from floss.language.utils import get_extract_stats
+from floss.language.go.extract import extract_go_strings
 
 logger = logging.getLogger(__name__)
 
@@ -30,9 +30,7 @@ def main():
         help="minimum string length",
     )
     logging_group = parser.add_argument_group("logging arguments")
-    logging_group.add_argument(
-        "-d", "--debug", action="store_true", help="enable debugging output on STDERR"
-    )
+    logging_group.add_argument("-d", "--debug", action="store_true", help="enable debugging output on STDERR")
     logging_group.add_argument(
         "-q",
         "--quiet",

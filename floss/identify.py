@@ -1,9 +1,9 @@
 # Copyright (C) 2017 Mandiant, Inc. All Rights Reserved.
 
-import collections
 import copy
 import operator
-from typing import DefaultDict, Dict, List, Tuple
+import collections
+from typing import Dict, List, Tuple, DefaultDict
 
 import tqdm
 import viv_utils
@@ -11,13 +11,14 @@ import viv_utils.flirt
 from tqdm.contrib.logging import logging_redirect_tqdm
 
 import floss.logging_
-from floss.features.extract import (abstract_features,
-                                    extract_basic_block_features,
-                                    extract_function_features,
-                                    extract_insn_features)
-from floss.features.features import (Arguments, BlockCount, InstructionCount,
-                                     TightFunction)
 from floss.utils import is_thunk_function, redirecting_print_to_tqdm
+from floss.features.extract import (
+    abstract_features,
+    extract_insn_features,
+    extract_function_features,
+    extract_basic_block_features,
+)
+from floss.features.features import Arguments, BlockCount, TightFunction, InstructionCount
 
 logger = floss.logging_.getLogger(__name__)
 
@@ -108,8 +109,7 @@ def get_function_score_weighted(features):
         float: The weighted score of the function.
     """
     return round(
-        sum(feature.weighted_score() for feature in features)
-        / sum(feature.weight for feature in features),
+        sum(feature.weighted_score() for feature in features) / sum(feature.weight for feature in features),
         3,
     )
 
@@ -142,9 +142,7 @@ def get_tight_function_fvas(decoding_function_features) -> List[int]:
     """
     tight_function_fvas = list()
     for fva, function_data in decoding_function_features.items():
-        if any(
-            filter(lambda f: isinstance(f, TightFunction), function_data["features"])
-        ):
+        if any(filter(lambda f: isinstance(f, TightFunction), function_data["features"])):
             tight_function_fvas.append(fva)
     return tight_function_fvas
 
@@ -220,17 +218,13 @@ def get_functions_with_features(functions, features) -> Dict[int, List]:
     """
     functions_by_features = dict()
     for fva, function_data in functions.items():
-        func_features = list(
-            filter(lambda f: isinstance(f, features), function_data["features"])
-        )
+        func_features = list(filter(lambda f: isinstance(f, features), function_data["features"]))
         if func_features:
             functions_by_features[fva] = func_features
     return functions_by_features
 
 
-def find_decoding_function_features(
-    vw, functions, disable_progress=False
-) -> Tuple[Dict[int, Dict], Dict[int, str]]:
+def find_decoding_function_features(vw, functions, disable_progress=False) -> Tuple[Dict[int, Dict], Dict[int, str]]:
     """Identifies decoding function features from a set of functions.
 
     Args:
@@ -281,9 +275,7 @@ def find_decoding_function_features(
                 n_libs = len(library_functions)
                 percentage = 100 * (n_libs / n_funcs)
                 if isinstance(pb, tqdm.tqdm):
-                    pb.set_postfix_str(
-                        "skipped %d library functions (%d%%)" % (n_libs, percentage)
-                    )
+                    pb.set_postfix_str("skipped %d library functions (%d%%)" % (n_libs, percentage))
                 continue
 
             f = viv_utils.Function(vw, function_address)
@@ -295,15 +287,9 @@ def find_decoding_function_features(
             }
 
             # meta data features
-            function_data["features"].append(
-                BlockCount(function_data["meta"].get("block_count"))
-            )
-            function_data["features"].append(
-                InstructionCount(function_data["meta"].get("instruction_count"))
-            )
-            function_data["features"].append(
-                Arguments(function_data["meta"].get("api", []).get("arguments"))
-            )
+            function_data["features"].append(BlockCount(function_data["meta"].get("block_count")))
+            function_data["features"].append(InstructionCount(function_data["meta"].get("instruction_count")))
+            function_data["features"].append(Arguments(function_data["meta"].get("api", []).get("arguments")))
 
             for feature in extract_function_features(f):
                 function_data["features"].append(feature)
@@ -319,9 +305,7 @@ def find_decoding_function_features(
             for feature in abstract_features(function_data["features"]):
                 function_data["features"].append(feature)
 
-            function_data["score"] = get_function_score_weighted(
-                function_data["features"]
-            )
+            function_data["score"] = get_function_score_weighted(function_data["features"])
 
             logger.debug(
                 "analyzed function 0x%x - total score: %.3f",

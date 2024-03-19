@@ -1,12 +1,12 @@
-import contextlib
 import pathlib
+import contextlib
 
 import pefile
 import pytest
 
-from floss.language.rust.extract import extract_rust_strings
-from floss.language.utils import get_extract_stats
 from floss.strings import extract_ascii_unicode_strings
+from floss.language.utils import get_extract_stats
+from floss.language.rust.extract import extract_rust_strings
 
 
 @pytest.mark.parametrize(

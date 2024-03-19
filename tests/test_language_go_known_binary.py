@@ -38,9 +38,7 @@ def extract_files(request):
                     / extracted_dir_name
                     / zip_info.filename
                 ).resolve()
-                extracted_file = zip_ref.extract(
-                    zip_info, path=extracted_file_path.parent
-                )
+                extracted_file = zip_ref.extract(zip_info, path=extracted_file_path.parent)
                 extracted_files.append(extracted_file)
 
         yield

@@ -1,28 +1,28 @@
 # Copyright (C) 2021 Mandiant, Inc. All Rights Reserved.
 
-from typing import Iterator, List, Optional, Set, Tuple
+from typing import Set, List, Tuple, Iterator, Optional
 
-import envi.exc
 import tqdm
-import tqdm.contrib.logging
+import envi.exc
 import viv_utils
+import tqdm.contrib.logging
 import viv_utils.emulator_drivers
 
-import floss.features.features
 import floss.utils
-from floss.const import DS_MAX_ADDRESS_REVISITS_EMULATION, TS_MAX_INSN_COUNT
+import floss.features.features
+from floss.const import TS_MAX_INSN_COUNT, DS_MAX_ADDRESS_REVISITS_EMULATION
+from floss.utils import extract_strings
 from floss.render import Verbosity
 from floss.results import TightString
 from floss.stackstrings import CallContext, StackstringContextMonitor
-from floss.utils import extract_strings
 
 logger = floss.logging_.getLogger(__name__)
 
 
 class TightstringContextMonitor(StackstringContextMonitor):
     """Observes emulation and extracts the active stack frame contents:
-        - at each function call in a function, and
-        - based on heuristics looking for mov instructions to a hardcoded buffer.
+    - at each function call in a function, and
+    - based on heuristics looking for mov instructions to a hardcoded buffer.
     """
 
     def __init__(self, sp, min_length):
@@ -36,16 +36,12 @@ class TightstringContextMonitor(StackstringContextMonitor):
     def get_pre_ctx_strings(self, emu) -> Set[str]:
         try:
             stack_buf = self.get_call_context(emu, emu.getProgramCounter()).stack_memory
-            return set(
-                map(lambda s: s.string, extract_strings(stack_buf, self.min_length))
-            )
+            return set(map(lambda s: s.string, extract_strings(stack_buf, self.min_length)))
         except ValueError as e:
             logger.debug("%s", e)
         return set()
 
-    def get_context(
-        self, emu, va, pre_ctx_strings: Optional[Set[str]]
-    ) -> Iterator[CallContext]:
+    def get_context(self, emu, va, pre_ctx_strings: Optional[Set[str]]) -> Iterator[CallContext]:
         try:
             yield self.get_call_context(emu, va, pre_ctx_strings)
         except ValueError as e:
@@ -66,9 +62,7 @@ def extract_tightstring_contexts(vw, fva, min_length, tloops) -> Iterator[CallCo
     """
     emu = floss.utils.make_emulator(vw)
     monitor = TightstringContextMonitor(emu.getStackCounter(), min_length)
-    driver_single_path = viv_utils.emulator_drivers.SinglePathEmulatorDriver(
-        emu, repmax=256
-    )
+    driver_single_path = viv_utils.emulator_drivers.SinglePathEmulatorDriver(emu, repmax=256)
     driver_single_path.add_monitor(monitor)
     driver = viv_utils.emulator_drivers.DebuggerEmulatorDriver(
         emu, max_hit=DS_MAX_ADDRESS_REVISITS_EMULATION, max_insn=TS_MAX_INSN_COUNT
@@ -112,7 +106,7 @@ def extract_tightstrings(
     disable_progress=False,
 ) -> List[TightString]:
     """Extracts tightstrings from functions that contain tight loops.
-    
+
     Tightstrings are a special form of stackstrings. Their bytes are loaded on the stack and then modified in a
     tight loop. To extract tightstrings we use a mix between the string decoding and stackstring algorithms.
 
@@ -128,9 +122,7 @@ def extract_tightstrings(
     Returns:
         List[TightString]: A list of TightString objects representing the extracted tightstrings.
     """
-    logger.info(
-        "extracting tightstrings from %d functions...", len(tightloop_functions)
-    )
+    logger.info("extracting tightstrings from %d functions...", len(tightloop_functions))
 
     tight_strings = list()
     pb = floss.utils.get_progress_bar(
@@ -144,9 +136,7 @@ def extract_tightstrings(
             with floss.utils.timing(f"0x{fva:x}"):
                 logger.debug("extracting tightstrings from function 0x%x", fva)
                 if isinstance(pb, tqdm.tqdm):
-                    pb.set_description(
-                        f"extracting tightstrings from function 0x{fva:x}"
-                    )
+                    pb.set_description(f"extracting tightstrings from function 0x{fva:x}")
 
                 ctxs = extract_tightstring_contexts(vw, fva, min_length, tloops)
                 for n, ctx in enumerate(ctxs, 1):
@@ -156,14 +146,8 @@ def extract_tightstrings(
                         ctx.init_sp - ctx.sp,
                     )
                     logger.trace("pre_ctx strings: %s", ctx.pre_ctx_strings)
-                    for s in extract_strings(
-                        ctx.stack_memory, min_length, exclude=ctx.pre_ctx_strings
-                    ):
-                        frame_offset = (
-                            (ctx.init_sp - ctx.sp)
-                            - s.offset
-                            - floss.utils.getPointerSize(vw)
-                        )
+                    for s in extract_strings(ctx.stack_memory, min_length, exclude=ctx.pre_ctx_strings):
+                        frame_offset = (ctx.init_sp - ctx.sp) - s.offset - floss.utils.getPointerSize(vw)
                         ts = TightString(
                             function=fva,
                             string=s.string,
