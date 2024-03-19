@@ -1,16 +1,16 @@
 # Copyright (C) 2023 Mandiant, Inc. All Rights Reserved.
 
-import argparse
+import sys
 import logging
 import pathlib
-import sys
-from typing import Iterable, List, Optional, Tuple
+import argparse
+from typing import List, Tuple, Iterable, Optional
 
 import pefile
 
-from floss.language.rust.extract import extract_rust_strings
-from floss.language.utils import get_extract_stats
 from floss.strings import extract_ascii_unicode_strings
+from floss.language.utils import get_extract_stats
+from floss.language.rust.extract import extract_rust_strings
 
 logger = logging.getLogger(__name__)
 
@@ -33,9 +33,7 @@ def main():
         help="minimum string length",
     )
     logging_group = parser.add_argument_group("logging arguments")
-    logging_group.add_argument(
-        "-d", "--debug", action="store_true", help="enable debugging output on STDERR"
-    )
+    logging_group.add_argument("-d", "--debug", action="store_true", help="enable debugging output on STDERR")
     logging_group.add_argument(
         "-q",
         "--quiet",

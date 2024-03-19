@@ -21,10 +21,10 @@ Unless required by applicable law or agreed to in writing, software distributed 
  is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and limitations under the License.
 """
-import argparse
+import sys
 import base64
 import logging
-import sys
+import argparse
 from pathlib import Path
 
 from floss.results import AddressType, ResultDocument
@@ -44,60 +44,36 @@ def render_r2_script(result_document: ResultDocument) -> str:
                 b'"FLOSS: %s (floss_%x)"' % (ds.string.encode("utf-8"), ds.address)
             ).decode("ascii")
             if ds.address_type == AddressType.GLOBAL:
-                main_commands.append(
-                    "CCu base64:%s @ %d" % (sanitized_string, ds.address)
-                )
+                main_commands.append("CCu base64:%s @ %d" % (sanitized_string, ds.address))
                 if ds.decoding_routine not in fvas:
                     main_commands.append("af @ %d" % (ds.decoding_routine))
-                    main_commands.append(
-                        "afn floss_%x @ %d" % (ds.decoding_routine, ds.decoding_routine)
-                    )
+                    main_commands.append("afn floss_%x @ %d" % (ds.decoding_routine, ds.decoding_routine))
                     fvas.append(ds.decoding_routine)
             else:
-                main_commands.append(
-                    "CCu base64:%s @ %d" % (sanitized_string, ds.decoded_at)
-                )
+                main_commands.append("CCu base64:%s @ %d" % (sanitized_string, ds.decoded_at))
                 if ds.decoding_routine not in fvas:
                     main_commands.append("af @ %d" % (ds.decoding_routine))
-                    main_commands.append(
-                        "afn floss_%x @ %d" % (ds.decoding_routine, ds.decoding_routine)
-                    )
+                    main_commands.append("afn floss_%x @ %d" % (ds.decoding_routine, ds.decoding_routine))
                     fvas.append(ds.decoding_routine)
     for ss in result_document.strings.stack_strings:
         if ss.string != "":
-            sanitized_string = base64.b64encode(
-                b'"FLOSS: %s"' % ss.string.encode("utf-8")
-            ).decode("ascii")
-            main_commands.append(
-                "Ca -0x%x base64:%s @ %d"
-                % (ss.frame_offset, sanitized_string, ss.function)
-            )
+            sanitized_string = base64.b64encode(b'"FLOSS: %s"' % ss.string.encode("utf-8")).decode("ascii")
+            main_commands.append("Ca -0x%x base64:%s @ %d" % (ss.frame_offset, sanitized_string, ss.function))
     for ts in result_document.strings.tight_strings:
         if ts.string != "":
-            sanitized_string = base64.b64encode(
-                b'"FLOSS: %s"' % ts.string.encode("utf-8")
-            ).decode("ascii")
-            main_commands.append(
-                "Ca -0x%x base64:%s @ %d"
-                % (ts.frame_offset, sanitized_string, ts.function)
-            )
+            sanitized_string = base64.b64encode(b'"FLOSS: %s"' % ts.string.encode("utf-8")).decode("ascii")
+            main_commands.append("Ca -0x%x base64:%s @ %d" % (ts.frame_offset, sanitized_string, ts.function))
 
     return "\n".join(main_commands)
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Generate an radare2 script to apply FLOSS results."
-    )
-    parser.add_argument(
-        "/path/to/report.json", help="path to JSON document from `floss --json`"
-    )
+    parser = argparse.ArgumentParser(description="Generate an radare2 script to apply FLOSS results.")
+    parser.add_argument("/path/to/report.json", help="path to JSON document from `floss --json`")
 
     logging_group = parser.add_argument_group("logging arguments")
 
-    logging_group.add_argument(
-        "-d", "--debug", action="store_true", help="enable debugging output on STDERR"
-    )
+    logging_group.add_argument("-d", "--debug", action="store_true", help="enable debugging output on STDERR")
     logging_group.add_argument(
         "-q",
         "--quiet",

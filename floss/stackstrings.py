@@ -1,19 +1,19 @@
 # Copyright (C) 2017 Mandiant, Inc. All Rights Reserved.
 
+from typing import Set, List, Optional
 from dataclasses import dataclass
-from typing import List, Optional, Set
 
-import envi.archs.amd64
-import envi.archs.i386
 import tqdm
 import viv_utils
+import envi.archs.i386
+import envi.archs.amd64
 import viv_utils.emulator_drivers
 
-import floss.strings
 import floss.utils
+import floss.strings
+from floss.utils import getPointerSize, extract_strings
 from floss.render import Verbosity
 from floss.results import StackString
-from floss.utils import extract_strings, getPointerSize
 
 logger = floss.logging_.getLogger(__name__)
 MAX_STACK_SIZE = 0x10000
@@ -32,6 +32,7 @@ class CallContext:
         stack_memory: the active stack frame contents
         pre_ctx_strings: strings identified before this context
     """
+
     pc: int
     sp: int
     init_sp: int
@@ -42,9 +43,10 @@ class CallContext:
 class StackstringContextMonitor(viv_utils.emulator_drivers.Monitor):
     """Observes emulation and extracts the active stack frame contents:
 
-      - at each function call in a function, and
-      - based on heuristics looking for mov instructions to a hardcoded buffer.
+    - at each function call in a function, and
+    - based on heuristics looking for mov instructions to a hardcoded buffer.
     """
+
     def __init__(self, init_sp, bb_ends):
         super().__init__()
         self.ctxs: List[CallContext] = []
@@ -67,9 +69,7 @@ class StackstringContextMonitor(viv_utils.emulator_drivers.Monitor):
             logger.debug("%s", e)
 
     # TODO get va here from emu?
-    def get_call_context(
-        self, emu, va, pre_ctx_strings: Optional[Set[str]] = None
-    ) -> CallContext:
+    def get_call_context(self, emu, va, pre_ctx_strings: Optional[Set[str]] = None) -> CallContext:
         """Collects context information related to a function call.
 
         Retrieves the stack boundaries, reads the stack memory, and creates a `CallContext` object to encapsulate the extracted information.  Optionally integrates pre-existing context strings.
@@ -227,9 +227,7 @@ def extract_stackstrings(
                     ctx.init_sp - ctx.sp,
                 )
                 for s in extract_strings(ctx.stack_memory, min_length, seen):
-                    frame_offset = (
-                        (ctx.init_sp - ctx.sp) - s.offset - getPointerSize(vw)
-                    )
+                    frame_offset = (ctx.init_sp - ctx.sp) - s.offset - getPointerSize(vw)
                     ss = StackString(
                         function=fva,
                         string=s.string,

@@ -1,21 +1,19 @@
 # Copyright (C) 2017 Mandiant, Inc. All Rights Reserved.
 
 import contextlib
+from typing import Set, List
 from collections import namedtuple
-from typing import List, Set
 
 import envi
+import vivisect
 import viv_utils
 import viv_utils.emulator_drivers
-import vivisect
 
-import floss.api_hooks
-import floss.logging_
 import floss.utils
+import floss.logging_
+import floss.api_hooks
 
-FunctionContext = namedtuple(
-    "FunctionContext", ["emu_snap", "return_address", "decoded_at_va"]
-)
+FunctionContext = namedtuple("FunctionContext", ["emu_snap", "return_address", "decoded_at_va"])
 
 
 logger = floss.logging_.getLogger(__name__)
@@ -31,7 +29,7 @@ class CallMonitor(viv_utils.emulator_drivers.Monitor):
 
     def prehook(self, emu, op, pc):
         """collect function contexts at call sites
-        
+
         Args:
             emu: The emulator.
             op: The operation.
@@ -41,9 +39,7 @@ class CallMonitor(viv_utils.emulator_drivers.Monitor):
         if pc == self.call_site_va:
             # strictly calls here, return address should always be next instruction
             return_address = pc + len(op)
-            self.function_contexts.append(
-                FunctionContext(emu.getEmuSnap(), return_address, pc)
-            )
+            self.function_contexts.append(FunctionContext(emu.getEmuSnap(), return_address, pc))
 
     def get_contexts(self) -> List[FunctionContext]:
         """return the collected function contexts"""
@@ -92,23 +88,21 @@ def extract_decoding_contexts(
     for caller_va in get_caller_vas(vw, decoder_fva):
         contexts.extend(get_contexts_via_monitor(driver, caller_va, decoder_fva, index))
 
-    logger.trace(
-        "Got %d function contexts for function at 0x%08x.", len(contexts), decoder_fva
-    )
+    logger.trace("Got %d function contexts for function at 0x%08x.", len(contexts), decoder_fva)
     return contexts
 
 
 def get_caller_vas(vw, fva) -> Set[int]:
     """Finds the virtual addresses of functions that call a specified function.
 
-     Analyzes a workspace to identify instructions that call the  function at the provided virtual address (`fva`).  Handles filtering of non-call instructions and recursive calls.
+    Analyzes a workspace to identify instructions that call the  function at the provided virtual address (`fva`).  Handles filtering of non-call instructions and recursive calls.
 
-     Args:
-         vw:  A Vivisect workspace object.
-         fva: The virtual address of the function being analyzed.
+    Args:
+        vw:  A Vivisect workspace object.
+        fva: The virtual address of the function being analyzed.
 
-     Returns:
-         Set[int]: A set of virtual addresses representing the callers of the function.
+    Returns:
+        Set[int]: A set of virtual addresses representing the callers of the function.
     """
     caller_vas = set()
     for caller_va in vw.getCallers(fva):
@@ -136,9 +130,7 @@ def is_call(vw: vivisect.VivWorkspace, va: int) -> bool:
     try:
         op = vw.parseOpcode(va)
     except (envi.UnsupportedInstruction, envi.InvalidInstruction) as e:
-        logger.trace(
-            "  not a call instruction: failed to decode instruction: %s", e.message
-        )
+        logger.trace("  not a call instruction: failed to decode instruction: %s", e.message)
         return False
 
     if op.iflags & envi.IF_CALL:
@@ -148,9 +140,7 @@ def is_call(vw: vivisect.VivWorkspace, va: int) -> bool:
     return False
 
 
-def get_contexts_via_monitor(
-    driver, caller_va, decoder_fva: int, index: viv_utils.InstructionFunctionIndex
-):
+def get_contexts_via_monitor(driver, caller_va, decoder_fva: int, index: viv_utils.InstructionFunctionIndex):
     """Collects function call context information via dynamic monitoring.
 
     This function sets up a monitor to intercept calls to a target function (`decoder_fva`) made from within a caller function (`caller_va`). It achieves this by emulating the caller function and collecting data about the arguments passed to the target function.

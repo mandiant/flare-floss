@@ -6,10 +6,10 @@
 #  is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and limitations under the License.
 
-import subprocess
 import sys
-from functools import lru_cache
+import subprocess
 from pathlib import Path
+from functools import lru_cache
 
 import pytest
 
@@ -33,9 +33,7 @@ def run_program(script_path: Path, args):
 @lru_cache()
 def get_results_file_path():
     res_path = Path("results.json")
-    p = run_program(
-        Path("floss/main.py"), ["--no", "static", "-j", str(get_file_path())]
-    )
+    p = run_program(Path("floss/main.py"), ["--no", "static", "-j", str(get_file_path())])
     with res_path.open("w") as f:
         f.write(p.stdout.decode("utf-8"))
     return str(res_path)

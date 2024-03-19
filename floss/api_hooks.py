@@ -6,8 +6,8 @@ from typing import Any, List, Tuple
 import envi
 import viv_utils.emulator_drivers
 
-import floss.logging_
 import floss.utils as fu
+import floss.logging_
 from floss.const import MOD_NAME
 
 logger = floss.logging_.getLogger(__name__)
@@ -139,6 +139,7 @@ class ApiMonitor(viv_utils.emulator_drivers.Monitor):
 
 class DemoHook:
     """A demo hook to demonstrate the API of the hook classes."""
+
     def __call__(
         self,
         emu: viv_utils.emulator_drivers.EmulatorDriver,
@@ -213,9 +214,7 @@ class MemoryAllocationHook:
         size = fu.round_(size, 16)
         size = fu.get_max_size(size, MAX_MEMORY_ALLOC_SIZE)
         logger.trace("mapping 0x%x bytes at 0x%x", size, va)
-        emu.addMemoryMap(
-            va, envi.memory.MM_RWX, "[heap allocation]", b"\x00" * (size + 4)
-        )
+        emu.addMemoryMap(va, envi.memory.MM_RWX, "[heap allocation]", b"\x00" * (size + 4))
         self._heap_addr += size
         return va
 
@@ -224,9 +223,7 @@ class MemoryAllocationHook:
             size = argv[0]
         elif fu.contains_funcname(api, ("VirtualAlloc", "LocalAlloc", "GlobalAlloc")):
             size = argv[1]
-        elif fu.contains_funcname(
-            api, ("VirtualAllocEx", "HeapAlloc", "RtlAllocateHeap")
-        ):
+        elif fu.contains_funcname(api, ("VirtualAllocEx", "HeapAlloc", "RtlAllocateHeap")):
             size = argv[2]
         elif fu.contains_funcname(api, ("calloc", "calloc_base")):
             # size, count
@@ -245,27 +242,22 @@ class CppNewObjectHook(MemoryAllocationHook):
       - C++ new operator
     Thanks to @BenjaminSoelberg
     """
+
     ZNWJ = "Znwj"  # operator new(unsigned int)
     ZNAJ = "Znaj"  # operator new[](unsigned int)
     YAPAXI_Z_32 = "??2@YAPAXI@Z"  # void * __cdecl operator new(unsigned int)
-    YAPEAX_K_Z_64 = (
-        "??2@YAPEAX_K@Z"  # void * __ptr64 __cdecl operator new(unsigned __int64)
-    )
+    YAPEAX_K_Z_64 = "??2@YAPEAX_K@Z"  # void * __ptr64 __cdecl operator new(unsigned __int64)
     DEFAULT_SIZE = 0x1000
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
     def __call__(self, emu, api, argv):
-        if fu.contains_funcname(
-            api, (self.ZNWJ, self.ZNWJ, self.YAPAXI_Z_32, self.YAPEAX_K_Z_64)
-        ):
+        if fu.contains_funcname(api, (self.ZNWJ, self.ZNWJ, self.YAPAXI_Z_32, self.YAPEAX_K_Z_64)):
             if argv and len(argv) > 0:
                 size = argv[0]
             else:
-                size = (
-                    self.DEFAULT_SIZE
-                )  # will allocate a default block size if vivisect failed to extract argv
+                size = self.DEFAULT_SIZE  # will allocate a default block size if vivisect failed to extract argv
 
             va = self._allocate_mem(emu, size)
             fu.call_return(emu, api, argv, va)
@@ -274,10 +266,9 @@ class CppNewObjectHook(MemoryAllocationHook):
 
 class MemoryFreeHook:
     """Hook calls to memory free functions: free memory and return success."""
+
     def __call__(self, emu, api, argv):
-        if fu.contains_funcname(
-            api, ("free", "free_base", "VirtualFree", "HeapFree", "RtlFreeHeap")
-        ):
+        if fu.contains_funcname(api, ("free", "free_base", "VirtualFree", "HeapFree", "RtlFreeHeap")):
             # If the function succeeds, the return value is nonzero.
             fu.call_return(emu, api, argv, 1)
             return True
@@ -285,6 +276,7 @@ class MemoryFreeHook:
 
 class MemcpyHook:
     """Hook calls to memory copy functions: copy memory from source to destination."""
+
     def __call__(self, emu, api, argv):
         if fu.contains_funcname(api, ("memcpy", "memmove")):
             dst, src, count = argv
@@ -323,6 +315,7 @@ class StrlenHook:
 
 class StrncmpHook:
     """Hook calls to string compare functions: compare two strings."""
+
     def __call__(self, emu, api, argv):
         if fu.contains_funcname(api, ("strncmp",)):
             s1va, s2va, num = argv
@@ -349,6 +342,7 @@ class StrncmpHook:
 
 class MemchrHook:
     """Hook calls to memchr: search for a character in a memory block."""
+
     def __call__(self, emu, api, argv):
         if fu.contains_funcname(api, ("memchr",)):
             ptr, value, num = argv
@@ -365,6 +359,7 @@ class MemchrHook:
 
 class MemsetHook:
     """Hook calls to memset: fill memory with a constant byte."""
+
     def __call__(self, emu, api, argv):
         if fu.contains_funcname(api, ("memset",)):
             ptr, value, num = argv
@@ -377,6 +372,7 @@ class MemsetHook:
 
 class PrintfHook:
     """Hook calls to printf: write formatted data to stdout."""
+
     # TODO disabled for now as incomplete (need to implement string format) and could result in FP strings as is
     def __call__(self, emu, api, argv):
         # TODO vfprintf, vfwprintf, vfprintf_s, vfwprintf_s, vsnprintf, vsnwprintf, etc.
@@ -390,6 +386,7 @@ class PrintfHook:
 
 class ExitExceptionHook:
     """Hook calls to exit and raise exception."""
+
     def __call__(self, emu, api, argv):
         if fu.contains_funcname(api, ("ExitProcess", "RaiseException")):
             raise viv_utils.emulator_drivers.StopEmulation()
@@ -401,6 +398,7 @@ class ExitExceptionHook:
 
 class SehPrologEpilogHook:
     """Hook calls to SEH prolog and epilog functions and return success."""
+
     def __call__(self, emu, api, argv):
         if fu.contains_funcname(
             api,
@@ -419,10 +417,9 @@ class SehPrologEpilogHook:
 
 class SecurityCheckCookieHook:
     """Hook calls to __security_check_cookie and return success."""
+
     def __call__(self, emu, api, argv):
-        if fu.contains_funcname(
-            api, ("__security_check_cookie", "@__security_check_cookie@4")
-        ):
+        if fu.contains_funcname(api, ("__security_check_cookie", "@__security_check_cookie@4")):
             # nop
             fu.call_return(emu, api, argv, 0)
             return True
@@ -430,6 +427,7 @@ class SecurityCheckCookieHook:
 
 class GetLastErrorHook:
     """Hook calls to GetLastError and return success."""
+
     def __call__(self, emu, api, argv):
         if fu.contains_funcname(api, ("GetLastError",)):
             # always assuming success
@@ -440,6 +438,7 @@ class GetLastErrorHook:
 
 class GetCurrentProcessHook:
     """Hook calls to GetCurrentProcess and return a fake process handle."""
+
     def __call__(self, emu, api, argv):
         if fu.contains_funcname(api, ("GetCurrentProcess",)):
             fu.call_return(emu, api, argv, CURRENT_PROCESS_ID)
@@ -448,6 +447,7 @@ class GetCurrentProcessHook:
 
 class CriticalSectionHook:
     """Hook calls to InitializeCriticalSection and return a fake critical section handle."""
+
     def __call__(self, emu, api, argv):
         if fu.contains_funcname(api, ("InitializeCriticalSection",)):
             (hsection,) = argv

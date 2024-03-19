@@ -1,20 +1,29 @@
 # Copyright (C) 2021 Mandiant, Inc. All Rights Reserved.
-from typing import Any, Callable, Iterator, Tuple
+from typing import Any, Tuple, Callable, Iterator
 
 import envi
 import networkx
-import viv_utils
 import vivisect
-from envi.archs.i386.opconst import (INS_CALL, INS_MOV, INS_ROL, INS_ROR,
-                                     INS_SHL, INS_SHR, INS_XOR)
+import viv_utils
 from networkx import strongly_connected_components
 from viv_utils import BasicBlock
+from envi.archs.i386.opconst import INS_MOV, INS_ROL, INS_ROR, INS_SHL, INS_SHR, INS_XOR, INS_CALL
 
 import floss.logging_
 from floss.const import TS_TIGHT_FUNCTION_MAX_BLOCKS
-from floss.features.features import (BlockCount, CallsTo, KindaTightLoop, Loop,
-                                     Mov, Nzxor, NzxorLoop, NzxorTightLoop,
-                                     Shift, TightFunction, TightLoop)
+from floss.features.features import (
+    Mov,
+    Loop,
+    Nzxor,
+    Shift,
+    CallsTo,
+    NzxorLoop,
+    TightLoop,
+    BlockCount,
+    TightFunction,
+    KindaTightLoop,
+    NzxorTightLoop,
+)
 
 # security cookie checks may perform non-zeroing XORs, these are expected within a certain
 # byte range within the first and returning basic blocks, this helps to reduce FP features
@@ -77,9 +86,7 @@ def is_security_cookie(f, bb, insn) -> bool:
         return True
 
     # ... or within last bytes (instructions) before a return
-    elif bb.instructions[-1].isReturn() and insn.va > (
-        bb.va + bb.size - SECURITY_COOKIE_BYTES_DELTA
-    ):
+    elif bb.instructions[-1].isReturn() and insn.va > (bb.va + bb.size - SECURITY_COOKIE_BYTES_DELTA):
         return True
 
     return False
@@ -149,9 +156,7 @@ def extract_function_calls_to(f):
     Returns:
         An iterator over CallsTo features, each representing a call made from the given function.
     """
-    yield CallsTo(
-        f.vw, [x[0] for x in f.vw.getXrefsTo(f.va, rtype=vivisect.const.REF_CODE)]
-    )
+    yield CallsTo(f.vw, [x[0] for x in f.vw.getXrefsTo(f.va, rtype=vivisect.const.REF_CODE)])
 
 
 def extract_function_kinda_tight_loop(f):
@@ -342,9 +347,7 @@ def abstract_nzxor_loop(features):
     Returns:
         An iterator over NzxorLoop features for each identified pattern.
     """
-    if any(isinstance(f, Nzxor) for f in features) and any(
-        isinstance(f, Loop) for f in features
-    ):
+    if any(isinstance(f, Nzxor) for f in features) and any(isinstance(f, Loop) for f in features):
         yield NzxorLoop()
 
 

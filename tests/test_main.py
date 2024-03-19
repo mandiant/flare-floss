@@ -1,7 +1,7 @@
 # Copyright (C) 2020 Mandiant, Inc. All Rights Reserved.
 
-import fixtures
 import pytest
+import fixtures
 from fixtures import exefile
 
 import floss.main

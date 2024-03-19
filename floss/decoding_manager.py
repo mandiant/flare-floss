@@ -1,15 +1,15 @@
 # Copyright (C) 2017 Mandiant, Inc. All Rights Reserved.
 
-from dataclasses import dataclass
 from typing import List, Tuple
+from dataclasses import dataclass
 
-import envi.memory
 import viv_utils
+import envi.memory
 import viv_utils.emulator_drivers
 from envi import Emulator
 
-import floss.logging_
 import floss.utils
+import floss.logging_
 
 from . import api_hooks
 from .const import DS_MAX_ADDRESS_REVISITS_EMULATION
@@ -72,6 +72,7 @@ class Snapshot:
         sp: the stack counter
         pc: the instruction pointer
     """
+
     memory: Memory
     sp: int
     pc: int
@@ -94,6 +95,7 @@ def get_map_size(emu):
 
 class MapsTooLargeError(Exception):
     """Exception raised when the emulator has mapped too much memory."""
+
     pass
 
 
@@ -114,16 +116,18 @@ def make_snapshot(emu: Emulator) -> Snapshot:
 
 @dataclass
 class Delta:
-    """a pair of snapshots from before and after an operation. 
+    """a pair of snapshots from before and after an operation.
 
-    Facilitates diffing the state of an emulator. 
+    Facilitates diffing the state of an emulator.
     """
+
     pre: Snapshot
     post: Snapshot
 
 
 class DeltaCollectorHook(viv_utils.emulator_drivers.Hook):
     """hook that collects Deltas at each imported API call."""
+
     def __init__(self, pre_snap: Snapshot):
         super().__init__()
         self._pre_snap = pre_snap
@@ -224,9 +228,7 @@ def emulate_function(
         tos_val = floss.utils.get_stack_value(emu, 0)
         logger.debug("%s: top of stack (return address): 0x%x", e, tos_val)
     except envi.exc.DivideByZero as e:
-        logger.debug(
-            "vivisect encountered an emulation error. will continue processing. %s", e
-        )
+        logger.debug("vivisect encountered an emulation error. will continue processing. %s", e)
     except viv_utils.emulator_drivers.StopEmulation:
         pass
     except Exception:
@@ -242,9 +244,7 @@ def emulate_function(
     try:
         deltas.append(Delta(pre_snap, make_snapshot(emu)))
     except MapsTooLargeError:
-        logger.debug(
-            "failed to create final snapshot, emulator mapped too much memory, skipping"
-        )
+        logger.debug("failed to create final snapshot, emulator mapped too much memory, skipping")
         pass
 
     return deltas

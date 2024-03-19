@@ -2,15 +2,15 @@
 
 import re
 from enum import Enum
+from typing import Tuple, Iterable
 from pathlib import Path
-from typing import Iterable, Tuple
 
 import pefile
 
 import floss.logging_
-from floss.language.rust.rust_version_database import rust_commit_hash
-from floss.language.utils import get_rdata_section
 from floss.results import StaticString
+from floss.language.utils import get_rdata_section
+from floss.language.rust.rust_version_database import rust_commit_hash
 
 logger = floss.logging_.getLogger(__name__)
 
@@ -20,6 +20,7 @@ VERSION_UNKNOWN_OR_NA = "version unknown"
 
 class Language(Enum):
     """Enumerates programming languages that can be identified in binary samples."""
+
     GO = "go"
     RUST = "rust"
     DOTNET = "dotnet"
@@ -27,9 +28,7 @@ class Language(Enum):
     DISABLED = "none"
 
 
-def identify_language_and_version(
-    sample: Path, static_strings: Iterable[StaticString]
-) -> Tuple[Language, str]:
+def identify_language_and_version(sample: Path, static_strings: Iterable[StaticString]) -> Tuple[Language, str]:
     """Identifies the programming language and version of a given binary sample based on static strings found within.
 
     Args:
@@ -96,9 +95,7 @@ def get_if_rust_and_version(static_strings: Iterable[StaticString]) -> Tuple[boo
                 version = rust_commit_hash[matches["hash"]]
                 return True, version
             else:
-                logger.debug(
-                    "hash %s not found in Rust commit hash database", matches["hash"]
-                )
+                logger.debug("hash %s not found in Rust commit hash database", matches["hash"])
                 return True, VERSION_UNKNOWN_OR_NA
 
     return False, VERSION_UNKNOWN_OR_NA

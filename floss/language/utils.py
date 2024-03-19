@@ -1,17 +1,17 @@
-import array
-import hashlib
 import re
+import array
 import struct
+import hashlib
+from typing import List, Tuple, Iterable, Optional
 from dataclasses import dataclass
-from typing import Iterable, List, Optional, Tuple
 
 import pefile
 import tabulate
 from typing_extensions import TypeAlias
 
 import floss.utils
-from floss.render.sanitize import sanitize
 from floss.results import StaticString, StringEncoding
+from floss.render.sanitize import sanitize
 
 VA: TypeAlias = int
 
@@ -53,6 +53,7 @@ class StructString:
 
     https://github.com/rust-lang/rust/blob/3911a63b7777e19dad4043542f908018e70c0bdd/library/alloc/src/string.rs
     """
+
     address: VA
     length: int
 
@@ -142,9 +143,7 @@ def find_lea_xrefs(pe: pefile.PE) -> Iterable[VA]:
         code = section.get_data()
 
         if pe.FILE_HEADER.Machine == pefile.MACHINE_TYPE["IMAGE_FILE_MACHINE_AMD64"]:
-            xrefs = find_amd64_lea_xrefs(
-                code, section.VirtualAddress + pe.OPTIONAL_HEADER.ImageBase
-            )
+            xrefs = find_amd64_lea_xrefs(code, section.VirtualAddress + pe.OPTIONAL_HEADER.ImageBase)
         elif pe.FILE_HEADER.Machine == pefile.MACHINE_TYPE["IMAGE_FILE_MACHINE_I386"]:
             xrefs = find_i386_lea_xrefs(code)
         else:
@@ -291,9 +290,7 @@ def get_max_section_size(pe: pefile.PE) -> int:
     return max(map(lambda s: s.SizeOfRawData, pe.sections))
 
 
-def get_struct_string_candidates_with_pointer_size(
-    pe: pefile.PE, buf: bytes, psize: int
-) -> Iterable[StructString]:
+def get_struct_string_candidates_with_pointer_size(pe: pefile.PE, buf: bytes, psize: int) -> Iterable[StructString]:
     """scan through the given bytes looking for pairs of machine words (address, length) that might potentially be struct String instances.
 
     we do some initial validation, like checking that the address is valid
@@ -337,15 +334,11 @@ def get_struct_string_candidates_with_pointer_size(
         yield StructString(address, length)
 
 
-def get_amd64_struct_string_candidates(
-    pe: pefile.PE, buf: bytes
-) -> Iterable[StructString]:
+def get_amd64_struct_string_candidates(pe: pefile.PE, buf: bytes) -> Iterable[StructString]:
     yield from get_struct_string_candidates_with_pointer_size(pe, buf, 64)
 
 
-def get_i386_struct_string_candidates(
-    pe: pefile.PE, buf: bytes
-) -> Iterable[StructString]:
+def get_i386_struct_string_candidates(pe: pefile.PE, buf: bytes) -> Iterable[StructString]:
     yield from get_struct_string_candidates_with_pointer_size(pe, buf, 32)
 
 
@@ -381,10 +374,7 @@ def get_struct_string_candidates(pe: pefile.PE) -> Iterable[StructString]:
             continue
 
         # TODO add .text here for Go version 1.12?
-        if not (
-            section.Name.startswith(b".rdata\x00")
-            or section.Name.startswith(b".data\x00")
-        ):
+        if not (section.Name.startswith(b".rdata\x00") or section.Name.startswith(b".data\x00")):
             # by convention, the struct String instances are stored in the .rdata or .data section.
             continue
 
@@ -422,18 +412,14 @@ def get_struct_string_candidates(pe: pefile.PE) -> Iterable[StructString]:
                 continue
 
             try:
-                section_start, _, section_data = next(
-                    filter(lambda s: s[0] <= candidate.address < s[1], section_datas)
-                )
+                section_start, _, section_data = next(filter(lambda s: s[0] <= candidate.address < s[1], section_datas))
             except StopIteration:
                 continue
 
             instance_offset = candidate.address - section_start
             # remember: section_data is a memoryview, so this is a fast slice.
             # when not using memoryview, this takes a *long* time (dozens of seconds or longer).
-            instance_data = section_data[
-                instance_offset : instance_offset + candidate.length
-            ]
+            instance_data = section_data[instance_offset : instance_offset + candidate.length]
 
             if len(instance_data) != candidate.length:
                 continue
@@ -515,15 +501,10 @@ def get_extract_stats(
                 )
 
                 type_ = "substring"
-                if (
-                    s.string[: len(lang_str.string)] == lang_str.string
-                    and s.offset == lang_str.offset
-                ):
+                if s.string[: len(lang_str.string)] == lang_str.string and s.offset == lang_str.offset:
                     type_ = "exactsubstr"
 
-                results.append(
-                    (secname, s_id, s_range, True, type_, s, replaced_len, lang_str)
-                )
+                results.append((secname, s_id, s_range, True, type_, s, replaced_len, lang_str))
 
                 s = s_trimmed
 
@@ -637,9 +618,7 @@ def get_extract_stats(
     print(".rdata only")
     print("len all string chars:", len_all_ss)
     print("len lang string chars  :", len_lang_str)
-    print(
-        f"Percentage of string chars extracted: {round(100 * (len_lang_str / len_all_ss))}%"
-    )
+    print(f"Percentage of string chars extracted: {round(100 * (len_lang_str / len_all_ss))}%")
     print()
 
     return 100 * (len_lang_str / len_all_ss)
@@ -655,11 +634,7 @@ def get_missed_strings(
 
         found = False
         for lang_str in lang_strings:
-            if (
-                lang_str.string
-                and lang_str.string in s.string
-                and s.offset <= lang_str.offset <= s.offset + orig_len
-            ):
+            if lang_str.string and lang_str.string in s.string and s.offset <= lang_str.offset <= s.offset + orig_len:
                 found = True
 
                 # remove found string data

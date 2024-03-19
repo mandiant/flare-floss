@@ -2,37 +2,21 @@ import pathlib
 
 import pytest
 
-from floss.language.rust.extract import extract_rust_strings
 from floss.results import StaticString, StringEncoding
+from floss.language.rust.extract import extract_rust_strings
 
 
 @pytest.fixture(scope="module")
 def rust_strings32():
     n = 6
-    path = (
-        pathlib.Path(__file__).parent
-        / "data"
-        / "language"
-        / "rust"
-        / "rust-hello"
-        / "bin"
-        / "rust-hello.exe"
-    )
+    path = pathlib.Path(__file__).parent / "data" / "language" / "rust" / "rust-hello" / "bin" / "rust-hello.exe"
     return extract_rust_strings(path, n)
 
 
 @pytest.fixture(scope="module")
 def rust_strings64():
     n = 6
-    path = (
-        pathlib.Path(__file__).parent
-        / "data"
-        / "language"
-        / "rust"
-        / "rust-hello"
-        / "bin"
-        / "rust-hello64.exe"
-    )
+    path = pathlib.Path(__file__).parent / "data" / "language" / "rust" / "rust-hello" / "bin" / "rust-hello64.exe"
     return extract_rust_strings(path, n)
 
 
@@ -54,9 +38,7 @@ def rust_strings64():
     ],
 )
 def test_data_string_offset(request, string, offset, encoding, rust_strings):
-    assert StaticString(
-        string=string, offset=offset, encoding=encoding
-    ) in request.getfixturevalue(rust_strings)
+    assert StaticString(string=string, offset=offset, encoding=encoding) in request.getfixturevalue(rust_strings)
 
 
 @pytest.mark.parametrize(
@@ -66,15 +48,11 @@ def test_data_string_offset(request, string, offset, encoding, rust_strings):
         # .text:000000014002115C 48 8D 74 24 20    lea     rsi, [rsp+38h+var_18]
         # .text:0000000140021161 41 B9 0B 00 00 00 mov     r9d, 11
         pytest.param("AccessError", 0xBCB88, StringEncoding.UTF8, "rust_strings64"),
-        pytest.param(
-            "already destroyed", 0xBCB93, StringEncoding.UTF8, "rust_strings64"
-        ),
+        pytest.param("already destroyed", 0xBCB93, StringEncoding.UTF8, "rust_strings64"),
     ],
 )
 def test_lea_mov(request, string, offset, encoding, rust_strings):
-    assert StaticString(
-        string=string, offset=offset, encoding=encoding
-    ) in request.getfixturevalue(rust_strings)
+    assert StaticString(string=string, offset=offset, encoding=encoding) in request.getfixturevalue(rust_strings)
 
 
 @pytest.mark.parametrize(
@@ -83,15 +61,11 @@ def test_lea_mov(request, string, offset, encoding, rust_strings):
         # .text:0041EF8C 68 50 08 4B 00            push    offset unk_4B0850 ; "AccessError"
         # .text:0041EFB8 68 5B 08 4B 00            push    offset unk_4B085B "already destroyed"
         pytest.param("AccessError", 0xAE850, StringEncoding.UTF8, "rust_strings32"),
-        pytest.param(
-            "already destroyed", 0xAE85B, StringEncoding.UTF8, "rust_strings32"
-        ),
+        pytest.param("already destroyed", 0xAE85B, StringEncoding.UTF8, "rust_strings32"),
     ],
 )
 def test_push(request, string, offset, encoding, rust_strings):
-    assert StaticString(
-        string=string, offset=offset, encoding=encoding
-    ) in request.getfixturevalue(rust_strings)
+    assert StaticString(string=string, offset=offset, encoding=encoding) in request.getfixturevalue(rust_strings)
 
 
 @pytest.mark.parametrize(
@@ -100,13 +74,9 @@ def test_push(request, string, offset, encoding, rust_strings):
         # .text:0046B04A BA 1A 00 00 00                                mov     edx, 1Ah        ; jumptable 0046A19C case 8752
         # .text:0046B04F B9 A0 C2 4B 00                                mov     ecx, offset unk_4BC2A0
         # .text:0046B054 E9 93 F8 FF FF                                jmp     loc_46A8EC      ; jumptable 0046A1CA case 0
-        pytest.param(
-            "DW_AT_SUN_return_value_ptr", 0xBA2A0, StringEncoding.UTF8, "rust_strings32"
-        ),
+        pytest.param("DW_AT_SUN_return_value_ptr", 0xBA2A0, StringEncoding.UTF8, "rust_strings32"),
         pytest.param("DW_AT_SUN_c_vla", 0xBA2BA, StringEncoding.UTF8, "rust_strings32"),
     ],
 )
 def test_mov_jmp(request, string, offset, encoding, rust_strings):
-    assert StaticString(
-        string=string, offset=offset, encoding=encoding
-    ) in request.getfixturevalue(rust_strings)
+    assert StaticString(string=string, offset=offset, encoding=encoding) in request.getfixturevalue(rust_strings)
