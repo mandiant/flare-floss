@@ -29,7 +29,9 @@ def main():
         help="minimum string length",
     )
     logging_group = parser.add_argument_group("logging arguments")
-    logging_group.add_argument("-d", "--debug", action="store_true", help="enable debugging output on STDERR")
+    logging_group.add_argument(
+        "-d", "--debug", action="store_true", help="enable debugging output on STDERR"
+    )
     logging_group.add_argument(
         "-q",
         "--quiet",

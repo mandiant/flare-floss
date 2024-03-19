@@ -23,7 +23,11 @@ def test_render_rich_markup():
         ),
         analysis=Analysis(),
         strings=Strings(
-            static_strings=[StaticString(string="[/<]one", offset=1033749, encoding=StringEncoding.ASCII)],
+            static_strings=[
+                StaticString(
+                    string="[/<]one", offset=1033749, encoding=StringEncoding.ASCII
+                )
+            ],
             tight_strings=[
                 TightString(
                     function=0x4000000,

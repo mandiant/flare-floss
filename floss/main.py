@@ -193,7 +193,9 @@ def make_parser(argv):
         "--format",
         choices=[f[0] for f in formats],
         default="auto",
-        help="select sample format, %s" % format_help if show_all_options else argparse.SUPPRESS,
+        help="select sample format, %s" % format_help
+        if show_all_options
+        else argparse.SUPPRESS,
     )
     advanced_group.add_argument(
         "--language",
@@ -208,7 +210,9 @@ def make_parser(argv):
         "-l",
         "--load",
         action="store_true",
-        help="load from existing FLOSS results document" if show_all_options else argparse.SUPPRESS,
+        help="load from existing FLOSS results document"
+        if show_all_options
+        else argparse.SUPPRESS,
     )
     advanced_group.add_argument(
         "--functions",
@@ -236,7 +240,9 @@ def make_parser(argv):
         "-L",
         "--large-file",
         action="store_true",
-        help="allow processing files larger than {} MB".format(int(MAX_FILE_SIZE / MEGABYTE))
+        help="allow processing files larger than {} MB".format(
+            int(MAX_FILE_SIZE / MEGABYTE)
+        )
         if show_all_options
         else argparse.SUPPRESS,
     )
@@ -244,11 +250,15 @@ def make_parser(argv):
         "--version",
         action="version",
         version="%(prog)s {:s}".format(__version__),
-        help="show program's version number and exit" if show_all_options else argparse.SUPPRESS,
+        help="show program's version number and exit"
+        if show_all_options
+        else argparse.SUPPRESS,
     )
 
     output_group = parser.add_argument_group("rendering arguments")
-    output_group.add_argument("-j", "--json", action="store_true", help="emit JSON instead of text")
+    output_group.add_argument(
+        "-j", "--json", action="store_true", help="emit JSON instead of text"
+    )
     output_group.add_argument(
         "-v",
         "--verbose",
@@ -266,7 +276,10 @@ def make_parser(argv):
         help="enable debugging output on STDERR, specify multiple times to increase verbosity",
     )
     logging_group.add_argument(
-        "-q", "--quiet", action="store_true", help="disable all status output on STDOUT except fatal errors"
+        "-q",
+        "--quiet",
+        action="store_true",
+        help="disable all status output on STDOUT except fatal errors",
     )
     logging_group.add_argument(
         "--color",
@@ -341,10 +354,16 @@ def select_functions(vw, asked_functions: Optional[List[int]]) -> Set[int]:
     # validate that all functions requested by the user exist.
     missing_functions = sorted(asked_functions_ - functions)
     if missing_functions:
-        raise ValueError("failed to find functions: %s" % (", ".join(map(hex, sorted(missing_functions)))))
+        raise ValueError(
+            "failed to find functions: %s"
+            % (", ".join(map(hex, sorted(missing_functions))))
+        )
 
     logger.debug("selected %d functions", len(asked_functions_))
-    logger.trace("selected the following functions: %s", ", ".join(map(hex, sorted(asked_functions_))))
+    logger.trace(
+        "selected the following functions: %s",
+        ", ".join(map(hex, sorted(asked_functions_))),
+    )
 
     return asked_functions_
 
@@ -384,9 +403,13 @@ def load_vw(
         format = "sc64"
 
     if format == "sc32":
-        vw = viv_utils.getShellcodeWorkspaceFromFile(str(sample_path), arch="i386", analyze=False)
+        vw = viv_utils.getShellcodeWorkspaceFromFile(
+            str(sample_path), arch="i386", analyze=False
+        )
     elif format == "sc64":
-        vw = viv_utils.getShellcodeWorkspaceFromFile(str(sample_path), arch="amd64", analyze=False)
+        vw = viv_utils.getShellcodeWorkspaceFromFile(
+            str(sample_path), arch="amd64", analyze=False
+        )
     else:
         vw = viv_utils.getWorkspace(str(sample_path), analyze=False, should_save=False)
 
@@ -399,7 +422,9 @@ def load_vw(
         try:
             vw.saveWorkspace()
         except IOError:
-            logger.info("source directory is not writable, won't save intermediate workspace")
+            logger.info(
+                "source directory is not writable, won't save intermediate workspace"
+            )
     else:
         logger.debug("not saving workspace")
 
@@ -431,13 +456,17 @@ def get_default_root() -> Path:
 
 def get_signatures(sigs_path: Path) -> List[Path]:
     if not sigs_path.exists():
-        raise IOError("signatures path %s does not exist or cannot be accessed" % str(sigs_path))
+        raise IOError(
+            "signatures path %s does not exist or cannot be accessed" % str(sigs_path)
+        )
 
     paths = []
     if sigs_path.is_file():
         paths.append(sigs_path)
     elif sigs_path.is_dir():
-        logger.debug("reading signatures from directory %s", str(sigs_path.resolve().absolute()))
+        logger.debug(
+            "reading signatures from directory %s", str(sigs_path.resolve().absolute())
+        )
         for item in sigs_path.iterdir():
             if item.is_file():
                 if item.suffix in [".pat", ".pat.gz", ".sig"]:
@@ -501,15 +530,25 @@ def main(argv=None) -> int:
     args.sample.close()
 
     if args.functions:
-        if is_string_type_enabled(StringType.STATIC, args.disabled_types, args.enabled_types):
+        if is_string_type_enabled(
+            StringType.STATIC, args.disabled_types, args.enabled_types
+        ):
             logger.warning("analyzing specified functions, not showing static strings")
         args.disabled_types.append(StringType.STATIC)
 
     analysis = Analysis(
-        enable_static_strings=is_string_type_enabled(StringType.STATIC, args.disabled_types, args.enabled_types),
-        enable_stack_strings=is_string_type_enabled(StringType.STACK, args.disabled_types, args.enabled_types),
-        enable_tight_strings=is_string_type_enabled(StringType.TIGHT, args.disabled_types, args.enabled_types),
-        enable_decoded_strings=is_string_type_enabled(StringType.DECODED, args.disabled_types, args.enabled_types),
+        enable_static_strings=is_string_type_enabled(
+            StringType.STATIC, args.disabled_types, args.enabled_types
+        ),
+        enable_stack_strings=is_string_type_enabled(
+            StringType.STACK, args.disabled_types, args.enabled_types
+        ),
+        enable_tight_strings=is_string_type_enabled(
+            StringType.TIGHT, args.disabled_types, args.enabled_types
+        ),
+        enable_decoded_strings=is_string_type_enabled(
+            StringType.DECODED, args.disabled_types, args.enabled_types
+        ),
     )
 
     if args.load:
@@ -525,13 +564,18 @@ def main(argv=None) -> int:
         if args.json:
             r = floss.render.json.render(results)
         else:
-            r = floss.render.default.render(results, args.verbose, args.quiet, args.color)
+            r = floss.render.default.render(
+                results, args.verbose, args.quiet, args.color
+            )
 
         print(r)
 
         return 0
 
-    results = ResultDocument(metadata=Metadata(file_path=str(sample), min_length=args.min_length), analysis=analysis)
+    results = ResultDocument(
+        metadata=Metadata(file_path=str(sample), min_length=args.min_length),
+        analysis=analysis,
+    )
 
     sample_size = sample.stat().st_size
     if sample_size > sys.maxsize:
@@ -573,20 +617,30 @@ def main(argv=None) -> int:
         results.metadata.language_version = lang_version
 
     if results.metadata.language == Language.GO.value:
-        if analysis.enable_tight_strings or analysis.enable_stack_strings or analysis.enable_decoded_strings:
+        if (
+            analysis.enable_tight_strings
+            or analysis.enable_stack_strings
+            or analysis.enable_decoded_strings
+        ):
             logger.warning(
                 "FLOSS handles Go static strings, but string deobfuscation may be inaccurate and take a long time"
             )
 
     elif results.metadata.language == Language.RUST.value:
-        if analysis.enable_tight_strings or analysis.enable_stack_strings or analysis.enable_decoded_strings:
+        if (
+            analysis.enable_tight_strings
+            or analysis.enable_stack_strings
+            or analysis.enable_decoded_strings
+        ):
             logger.warning(
                 "FLOSS handles Rust static strings, but string deobfuscation may be inaccurate and take a long time"
             )
 
     elif results.metadata.language == Language.DOTNET.value:
         logger.warning(".NET language-specific string extraction is not supported yet")
-        logger.warning("FLOSS does NOT attempt to deobfuscate any strings from .NET binaries")
+        logger.warning(
+            "FLOSS does NOT attempt to deobfuscate any strings from .NET binaries"
+        )
 
         # enable .NET strings once we can extract them
         # results.metadata.language = Language.DOTNET.value
@@ -600,7 +654,9 @@ def main(argv=None) -> int:
         if args.enabled_types == [] and args.disabled_types == []:
             # when stdout is redirected, such as in 'floss foo.exe | less' use default prompt values
             if sys.stdout.isatty():
-                prompt = input("Do you want to enable string deobfuscation? (this could take a long time) [y/N] ")
+                prompt = input(
+                    "Do you want to enable string deobfuscation? (this could take a long time) [y/N] "
+                )
             else:
                 prompt = "n"
 
@@ -632,27 +688,45 @@ def main(argv=None) -> int:
             logger.info("extracting language-specific Go strings")
 
             interim = time()
-            results.strings.language_strings = floss.language.go.extract.extract_go_strings(sample, args.min_length)
+            results.strings.language_strings = (
+                floss.language.go.extract.extract_go_strings(sample, args.min_length)
+            )
             results.metadata.runtime.language_strings = get_runtime_diff(interim)
 
             # missed strings only includes non-identified strings in searched range
             # here currently only focus on strings in string blob range
-            string_blob_strings = floss.language.go.extract.get_static_strings_from_blob_range(sample, static_strings)
-            results.strings.language_strings_missed = floss.language.utils.get_missed_strings(
-                string_blob_strings, results.strings.language_strings, args.min_length
+            string_blob_strings = (
+                floss.language.go.extract.get_static_strings_from_blob_range(
+                    sample, static_strings
+                )
+            )
+            results.strings.language_strings_missed = (
+                floss.language.utils.get_missed_strings(
+                    string_blob_strings,
+                    results.strings.language_strings,
+                    args.min_length,
+                )
             )
 
         elif results.metadata.language == Language.RUST.value:
             logger.info("extracting language-specific Rust strings")
 
             interim = time()
-            results.strings.language_strings = floss.language.rust.extract.extract_rust_strings(sample, args.min_length)
+            results.strings.language_strings = (
+                floss.language.rust.extract.extract_rust_strings(
+                    sample, args.min_length
+                )
+            )
             results.metadata.runtime.language_strings = get_runtime_diff(interim)
 
             # currently Rust strings are only extracted from the .rdata section
-            rdata_strings = floss.language.rust.extract.get_static_strings_from_rdata(sample, static_strings)
-            results.strings.language_strings_missed = floss.language.utils.get_missed_strings(
-                rdata_strings, results.strings.language_strings, args.min_length
+            rdata_strings = floss.language.rust.extract.get_static_strings_from_rdata(
+                sample, static_strings
+            )
+            results.strings.language_strings_missed = (
+                floss.language.utils.get_missed_strings(
+                    rdata_strings, results.strings.language_strings, args.min_length
+                )
             )
     if (
         results.analysis.enable_decoded_strings
@@ -674,7 +748,13 @@ def main(argv=None) -> int:
 
         sigpaths = get_signatures(args.signatures)
 
-        should_save_workspace = os.environ.get("FLOSS_SAVE_WORKSPACE") not in ("0", "no", "NO", "n", None)
+        should_save_workspace = os.environ.get("FLOSS_SAVE_WORKSPACE") not in (
+            "0",
+            "no",
+            "NO",
+            "n",
+            None,
+        )
         try:
             with halo.Halo(
                 text="analyzing program",
@@ -708,14 +788,18 @@ def main(argv=None) -> int:
         interim = time()
 
         logger.trace("analysis summary:")
-        for k, v in get_vivisect_meta_info(vw, selected_functions, decoding_function_features).items():
+        for k, v in get_vivisect_meta_info(
+            vw, selected_functions, decoding_function_features
+        ).items():
             logger.trace("  %s: %s", k, v or "N/A")
 
         if results.analysis.enable_stack_strings:
             if results.analysis.enable_tight_strings:
                 # don't run this on functions with tight loops as this will likely result in FPs
                 # and should be caught by the tightstrings extraction below
-                selected_functions = get_functions_without_tightloops(decoding_function_features)
+                selected_functions = get_functions_without_tightloops(
+                    decoding_function_features
+                )
 
             results.strings.stack_strings = extract_stackstrings(
                 vw,
@@ -729,7 +813,9 @@ def main(argv=None) -> int:
             interim = time()
 
         if results.analysis.enable_tight_strings:
-            tightloop_functions = get_functions_with_tightloops(decoding_function_features)
+            tightloop_functions = get_functions_with_tightloops(
+                decoding_function_features
+            )
             results.strings.tight_strings = extract_tightstrings(
                 vw,
                 tightloop_functions,
@@ -754,12 +840,19 @@ def main(argv=None) -> int:
             if len(fvas_to_emulate) == 0:
                 logger.info("no candidate decoding functions found.")
             else:
-                logger.debug("identified %d candidate decoding functions", len(fvas_to_emulate))
+                logger.debug(
+                    "identified %d candidate decoding functions", len(fvas_to_emulate)
+                )
                 for fva in fvas_to_emulate:
                     score = decoding_function_features[fva]["score"]
-                    xrefs_to = decoding_function_features[fva]["xrefs_to"] 
-                    results.analysis.functions.decoding_function_scores[fva] = {"score": score, "xrefs_to": xrefs_to}
-                    logger.debug("  - 0x%x: score: %.3f, xrefs_to: %d", fva, score, xrefs_to)
+                    xrefs_to = decoding_function_features[fva]["xrefs_to"]
+                    results.analysis.functions.decoding_function_scores[fva] = {
+                        "score": score,
+                        "xrefs_to": xrefs_to,
+                    }
+                    logger.debug(
+                        "  - 0x%x: score: %.3f, xrefs_to: %d", fva, score, xrefs_to
+                    )
 
             # TODO filter out strings decoded in library function or function only called by library function(s)
             results.strings.decoded_strings = decode_strings(

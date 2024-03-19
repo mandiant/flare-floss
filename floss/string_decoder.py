@@ -116,7 +116,10 @@ def should_shortcut(fva: int, n: int, n_calls: int, found_strings: int) -> bool:
 
     if n >= shortcut_threshold and found_strings <= DS_FUNCTION_MIN_DECODED_STRINGS:
         logger.debug(
-            "only %d results after emulating %d contexts, shortcutting emulation of 0x%x", found_strings, n, fva
+            "only %d results after emulating %d contexts, shortcutting emulation of 0x%x",
+            found_strings,
+            n,
+            fva,
         )
         return True
     return False
@@ -146,7 +149,9 @@ def decode_strings(
     decoded_strings = list()
     function_index = viv_utils.InstructionFunctionIndex(vw)
 
-    pb = floss.utils.get_progress_bar(functions, disable_progress, desc="decoding strings", unit=" functions")
+    pb = floss.utils.get_progress_bar(
+        functions, disable_progress, desc="decoding strings", unit=" functions"
+    )
     with tqdm.contrib.logging.logging_redirect_tqdm(), floss.utils.redirecting_print_to_tqdm():
         for fva in pb:
             seen: Set[str] = floss.utils.get_referenced_strings(vw, fva)
@@ -154,14 +159,22 @@ def decode_strings(
             n_calls = len(ctxs)
             for n, ctx in enumerate(ctxs, 1):
                 if isinstance(pb, tqdm.tqdm):
-                    pb.set_description(f"emulating function 0x{fva:x} (call {n}/{n_calls})")
+                    pb.set_description(
+                        f"emulating function 0x{fva:x} (call {n}/{n_calls})"
+                    )
 
                 if should_shortcut(fva, n, n_calls, len(seen)):
                     break
 
-                for delta in emulate_decoding_routine(vw, function_index, fva, ctx, max_insn_count):
-                    for delta_bytes in extract_delta_bytes(delta, ctx.decoded_at_va, fva):
-                        for s in floss.utils.extract_strings(delta_bytes.bytes, min_length, seen):
+                for delta in emulate_decoding_routine(
+                    vw, function_index, fva, ctx, max_insn_count
+                ):
+                    for delta_bytes in extract_delta_bytes(
+                        delta, ctx.decoded_at_va, fva
+                    ):
+                        for s in floss.utils.extract_strings(
+                            delta_bytes.bytes, min_length, seen
+                        ):
                             ds = DecodedString(
                                 address=delta_bytes.address + s.offset,
                                 address_type=delta_bytes.address_type,
@@ -176,7 +189,9 @@ def decode_strings(
         return decoded_strings
 
 
-def emulate_decoding_routine(vw, function_index, function: int, context, max_instruction_count: int) -> List[Delta]:
+def emulate_decoding_routine(
+    vw, function_index, function: int, context, max_instruction_count: int
+) -> List[Delta]:
     """
     Emulate a function with a given context and extract the CPU and
      memory contexts at interesting points during emulation.
@@ -221,7 +236,9 @@ class DeltaBytes:
     decoding_routine: int
 
 
-def extract_delta_bytes(delta: Delta, decoded_at_va: int, source_fva: int = 0x0) -> List[DeltaBytes]:
+def extract_delta_bytes(
+    delta: Delta, decoded_at_va: int, source_fva: int = 0x0
+) -> List[DeltaBytes]:
     """
     Extract the sequence of byte sequences that differ from before
      and after snapshots.
@@ -255,7 +272,13 @@ def extract_delta_bytes(delta: Delta, decoded_at_va: int, source_fva: int = 0x0)
             location_type = AddressType.HEAP
             if not is_all_zeros(bytes_after):
                 delta_bytes.append(
-                    DeltaBytes(section_after_start, location_type, bytes_after, decoded_at_va, source_fva)
+                    DeltaBytes(
+                        section_after_start,
+                        location_type,
+                        bytes_after,
+                        decoded_at_va,
+                        source_fva,
+                    )
                 )
             continue
 
@@ -279,6 +302,10 @@ def extract_delta_bytes(delta: Delta, decoded_at_va: int, source_fva: int = 0x0)
                 location_type = AddressType.STACK
 
             if not is_all_zeros(diff_bytes):
-                delta_bytes.append(DeltaBytes(address, location_type, diff_bytes, decoded_at_va, source_fva))
+                delta_bytes.append(
+                    DeltaBytes(
+                        address, location_type, diff_bytes, decoded_at_va, source_fva
+                    )
+                )
 
     return delta_bytes

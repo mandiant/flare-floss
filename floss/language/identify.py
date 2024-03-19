@@ -26,7 +26,9 @@ class Language(Enum):
     DISABLED = "none"
 
 
-def identify_language_and_version(sample: Path, static_strings: Iterable[StaticString]) -> Tuple[Language, str]:
+def identify_language_and_version(
+    sample: Path, static_strings: Iterable[StaticString]
+) -> Tuple[Language, str]:
     is_rust, version = get_if_rust_and_version(static_strings)
     if is_rust:
         logger.info("Rust binary found with version: %s", version)
@@ -79,7 +81,9 @@ def get_if_rust_and_version(static_strings: Iterable[StaticString]) -> Tuple[boo
                 version = rust_commit_hash[matches["hash"]]
                 return True, version
             else:
-                logger.debug("hash %s not found in Rust commit hash database", matches["hash"])
+                logger.debug(
+                    "hash %s not found in Rust commit hash database", matches["hash"]
+                )
                 return True, VERSION_UNKNOWN_OR_NA
 
     return False, VERSION_UNKNOWN_OR_NA

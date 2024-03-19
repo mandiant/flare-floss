@@ -13,7 +13,9 @@ import floss.utils
 import floss.logging_
 import floss.api_hooks
 
-FunctionContext = namedtuple("FunctionContext", ["emu_snap", "return_address", "decoded_at_va"])
+FunctionContext = namedtuple(
+    "FunctionContext", ["emu_snap", "return_address", "decoded_at_va"]
+)
 
 
 logger = floss.logging_.getLogger(__name__)
@@ -32,7 +34,9 @@ class CallMonitor(viv_utils.emulator_drivers.Monitor):
         if pc == self.call_site_va:
             # strictly calls here, return address should always be next instruction
             return_address = pc + len(op)
-            self.function_contexts.append(FunctionContext(emu.getEmuSnap(), return_address, pc))
+            self.function_contexts.append(
+                FunctionContext(emu.getEmuSnap(), return_address, pc)
+            )
 
     def get_contexts(self) -> List[FunctionContext]:
         return self.function_contexts
@@ -48,7 +52,9 @@ def installed_monitor(driver, monitor):
 
 
 def extract_decoding_contexts(
-    vw: vivisect.VivWorkspace, decoder_fva: int, index: viv_utils.InstructionFunctionIndex
+    vw: vivisect.VivWorkspace,
+    decoder_fva: int,
+    index: viv_utils.InstructionFunctionIndex,
 ) -> List[FunctionContext]:
     """
     Extract the CPU and memory contexts of all calls to the given function.
@@ -65,7 +71,9 @@ def extract_decoding_contexts(
     for caller_va in get_caller_vas(vw, decoder_fva):
         contexts.extend(get_contexts_via_monitor(driver, caller_va, decoder_fva, index))
 
-    logger.trace("Got %d function contexts for function at 0x%08x.", len(contexts), decoder_fva)
+    logger.trace(
+        "Got %d function contexts for function at 0x%08x.", len(contexts), decoder_fva
+    )
     return contexts
 
 
@@ -88,7 +96,9 @@ def is_call(vw: vivisect.VivWorkspace, va: int) -> bool:
     try:
         op = vw.parseOpcode(va)
     except (envi.UnsupportedInstruction, envi.InvalidInstruction) as e:
-        logger.trace("  not a call instruction: failed to decode instruction: %s", e.message)
+        logger.trace(
+            "  not a call instruction: failed to decode instruction: %s", e.message
+        )
         return False
 
     if op.iflags & envi.IF_CALL:
@@ -98,7 +108,9 @@ def is_call(vw: vivisect.VivWorkspace, va: int) -> bool:
     return False
 
 
-def get_contexts_via_monitor(driver, caller_va, decoder_fva: int, index: viv_utils.InstructionFunctionIndex):
+def get_contexts_via_monitor(
+    driver, caller_va, decoder_fva: int, index: viv_utils.InstructionFunctionIndex
+):
     """
     run the given function while collecting arguments to a target function
     """

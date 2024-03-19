@@ -17,7 +17,11 @@ from typing_extensions import TypeAlias
 
 import floss.utils
 from floss.results import StaticString, StringEncoding
-from floss.language.utils import StructString, find_lea_xrefs, get_struct_string_candidates
+from floss.language.utils import (
+    StructString,
+    find_lea_xrefs,
+    get_struct_string_candidates,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -74,7 +78,9 @@ def find_amd64_stackstrings(section_data, offset, min_length):
         b"\x48\xba(........)|\x48\xb8(........)|\x81\x78\x08(....)|\x81\x79\x08(....)|\x66\x81\x78\x0c(..)|\x66\x81\x79\x0c(..)|\x80\x78\x0e(.)|\x80\x79\x0e(.)"
     )
 
-    yield from find_stack_strings_with_regex(extract_stackstring_pattern, section_data, offset, min_length)
+    yield from find_stack_strings_with_regex(
+        extract_stackstring_pattern, section_data, offset, min_length
+    )
 
 
 def find_i386_stackstrings(section_data, offset, min_length):
@@ -95,7 +101,9 @@ def find_i386_stackstrings(section_data, offset, min_length):
         re.DOTALL,
     )
 
-    yield from find_stack_strings_with_regex(extract_stackstring_pattern, section_data, offset, min_length)
+    yield from find_stack_strings_with_regex(
+        extract_stackstring_pattern, section_data, offset, min_length
+    )
 
 
 def get_stackstrings(pe: pefile.PE, min_length: int) -> Iterable[StaticString]:
@@ -194,7 +202,9 @@ def read_struct_string(pe: pefile.PE, instance: StructString) -> str:
     return s
 
 
-def find_string_blob_range(pe: pefile.PE, struct_strings: List[StructString]) -> Tuple[VA, VA]:
+def find_string_blob_range(
+    pe: pefile.PE, struct_strings: List[StructString]
+) -> Tuple[VA, VA]:
     """
     find the range of the string blob, as loaded in memory.
 
@@ -218,7 +228,9 @@ def find_string_blob_range(pe: pefile.PE, struct_strings: List[StructString]) ->
 
     struct_strings.sort(key=lambda s: s.address)
 
-    run_start, run_end = find_longest_monotonically_increasing_run(list(map(lambda s: s.length, struct_strings)))
+    run_start, run_end = find_longest_monotonically_increasing_run(
+        list(map(lambda s: s.length, struct_strings))
+    )
 
     # pick the mid string, so that we avoid any junk data on the edges of the string blob
     run_mid = (run_start + run_end) // 2
@@ -226,7 +238,9 @@ def find_string_blob_range(pe: pefile.PE, struct_strings: List[StructString]) ->
 
     s = read_struct_string(pe, instance)
     assert s is not None
-    logger.debug("string blob: struct string instance: 0x%x: %s...", instance.address, s[:16])
+    logger.debug(
+        "string blob: struct string instance: 0x%x: %s...", instance.address, s[:16]
+    )
 
     instance_rva = instance.address - image_base
     section = pe.get_section_by_rva(instance_rva)
@@ -273,7 +287,9 @@ def get_string_blob_strings(pe: pefile.PE, min_length) -> Iterable[StaticString]
     image_base = pe.OPTIONAL_HEADER.ImageBase
 
     with floss.utils.timing("find struct string candidates"):
-        struct_strings = list(sorted(set(get_struct_string_candidates(pe)), key=lambda s: s.address))
+        struct_strings = list(
+            sorted(set(get_struct_string_candidates(pe)), key=lambda s: s.address)
+        )
         if not struct_strings:
             logger.warning(
                 "Failed to find struct string candidates: Is this a Go binary? If so, the Go version may be unsupported."
@@ -282,7 +298,9 @@ def get_string_blob_strings(pe: pefile.PE, min_length) -> Iterable[StaticString]
 
     with floss.utils.timing("find string blob"):
         try:
-            string_blob_start, string_blob_end = find_string_blob_range(pe, struct_strings)
+            string_blob_start, string_blob_end = find_string_blob_range(
+                pe, struct_strings
+            )
         except ValueError:
             logger.warning(
                 "Failed to find string blob range: Is this a Go binary? If so, the Go version may be unsupported."
@@ -339,10 +357,14 @@ def get_string_blob_strings(pe: pefile.PE, min_length) -> Iterable[StaticString]
                 #   0x4aabed: -thread limit
                 #
                 # we probably missed the string: " procedure in "
-                logger.warning("probably missed a string blob string ending at: 0x%x", start - 1)
+                logger.warning(
+                    "probably missed a string blob string ending at: 0x%x", start - 1
+                )
 
             try:
-                string = StaticString.from_utf8(sbuf, pe.get_offset_from_rva(start - image_base), min_length)
+                string = StaticString.from_utf8(
+                    sbuf, pe.get_offset_from_rva(start - image_base), min_length
+                )
                 yield string
             except ValueError:
                 pass
@@ -368,7 +390,9 @@ def get_string_blob_strings(pe: pefile.PE, min_length) -> Iterable[StaticString]
             else:
                 try:
                     string = StaticString.from_utf8(
-                        last_buf[:size], pe.get_offset_from_rva(last_pointer - image_base), min_length
+                        last_buf[:size],
+                        pe.get_offset_from_rva(last_pointer - image_base),
+                        min_length,
                     )
                     yield string
                 except ValueError:
@@ -392,10 +416,14 @@ def extract_go_strings(sample, min_length) -> List[StaticString]:
     return go_strings
 
 
-def get_static_strings_from_blob_range(sample: pathlib.Path, static_strings: List[StaticString]) -> List[StaticString]:
+def get_static_strings_from_blob_range(
+    sample: pathlib.Path, static_strings: List[StaticString]
+) -> List[StaticString]:
     pe = pefile.PE(data=pathlib.Path(sample).read_bytes(), fast_load=True)
 
-    struct_strings = list(sorted(set(get_struct_string_candidates(pe)), key=lambda s: s.address))
+    struct_strings = list(
+        sorted(set(get_struct_string_candidates(pe)), key=lambda s: s.address)
+    )
     if not struct_strings:
         return []
 
@@ -408,7 +436,11 @@ def get_static_strings_from_blob_range(sample: pathlib.Path, static_strings: Lis
     string_blob_start = pe.get_offset_from_rva(string_blob_start - image_base)
     string_blob_end = pe.get_offset_from_rva(string_blob_end - image_base)
 
-    return list(filter(lambda s: string_blob_start <= s.offset < string_blob_end, static_strings))
+    return list(
+        filter(
+            lambda s: string_blob_start <= s.offset < string_blob_end, static_strings
+        )
+    )
 
 
 def main(argv=None):
@@ -426,7 +458,9 @@ def main(argv=None):
 
     logging.basicConfig(level=logging.DEBUG)
 
-    go_strings = sorted(extract_go_strings(args.path, args.min_length), key=lambda s: s.offset)
+    go_strings = sorted(
+        extract_go_strings(args.path, args.min_length), key=lambda s: s.offset
+    )
     for string in go_strings:
         print(f"{string.offset:#x}: {string.string}")
 

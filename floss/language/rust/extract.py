@@ -24,7 +24,9 @@ MIN_STR_LEN = 4
 
 
 def fix_b2s_wide_strings(
-    strings: List[Tuple[str, str, Tuple[int, int], bool]], min_length: int, buffer: bytes
+    strings: List[Tuple[str, str, Tuple[int, int], bool]],
+    min_length: int,
+    buffer: bytes,
 ) -> List[Tuple[str, str, Tuple[int, int], bool]]:
     # TODO(mr-tz): b2s may parse wide strings where there really should be utf-8 strings
     #  handle special cases here until fixed
@@ -74,12 +76,16 @@ def filter_and_transform_utf8_strings(
 
         # our static algorithm does not extract new lines either
         s = s.replace("\n", "")
-        transformed_strings.append(StaticString(string=s, offset=start, encoding=StringEncoding.UTF8))
+        transformed_strings.append(
+            StaticString(string=s, offset=start, encoding=StringEncoding.UTF8)
+        )
 
     return transformed_strings
 
 
-def split_strings(static_strings: List[StaticString], address: int, min_length: int) -> None:
+def split_strings(
+    static_strings: List[StaticString], address: int, min_length: int
+) -> None:
     """
     if address is in between start and end of a string in ref data then split the string
     this modifies the elements of the static strings list directly
@@ -92,10 +98,18 @@ def split_strings(static_strings: List[StaticString], address: int, min_length: 
 
             if len(rust_string) >= min_length:
                 static_strings.append(
-                    StaticString(string=rust_string, offset=string.offset, encoding=StringEncoding.UTF8)
+                    StaticString(
+                        string=rust_string,
+                        offset=string.offset,
+                        encoding=StringEncoding.UTF8,
+                    )
                 )
             if len(rest) >= min_length:
-                static_strings.append(StaticString(string=rest, offset=address, encoding=StringEncoding.UTF8))
+                static_strings.append(
+                    StaticString(
+                        string=rest, offset=address, encoding=StringEncoding.UTF8
+                    )
+                )
 
             # remove string from static_strings
             for static_string in static_strings:
@@ -209,7 +223,9 @@ def main(argv=None):
 
     logging.basicConfig(level=logging.DEBUG)
 
-    rust_strings = sorted(extract_rust_strings(args.path, args.min_length), key=lambda s: s.offset)
+    rust_strings = sorted(
+        extract_rust_strings(args.path, args.min_length), key=lambda s: s.offset
+    )
     for string in rust_strings:
         print(f"{string.offset:#x}: {string.string}")
 

@@ -30,9 +30,7 @@ class Feature:
         return self.weight * self.score()
 
     def __str__(self):
-        return (
-            f"{self.name.ljust(20)} = {self.value} (score: {self.score():.2f}, weighted: {self.weighted_score():.2f})"
-        )
+        return f"{self.name.ljust(20)} = {self.value} (score: {self.score():.2f}, weighted: {self.weighted_score():.2f})"
 
     def __repr__(self):
         return str(self)

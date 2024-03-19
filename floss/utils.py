@@ -61,7 +61,9 @@ def make_emulator(vw) -> Emulator:
     emu.setStackCounter(emu.getStackCounter() - int(0.25 * MEGABYTE))
     # do not short circuit rep prefix
     emu.setEmuOpt("i386:repmax", 256)  # 0 == no limit on rep prefix
-    viv_utils.emulator_drivers.remove_default_viv_hooks(emu, allow_list=ENABLED_VIV_DEFAULT_HOOKS)
+    viv_utils.emulator_drivers.remove_default_viv_hooks(
+        emu, allow_list=ENABLED_VIV_DEFAULT_HOOKS
+    )
     return emu
 
 
@@ -90,7 +92,12 @@ def dump_stack(emu):
             sp = "<= SP"
         else:
             sp = "%02x" % (-i)
-        stack_str = "%s\n0x%08x - 0x%08x %s" % (stack_str, (esp - i), floss.utils.get_stack_value(emu, -i), sp)
+        stack_str = "%s\n0x%08x - 0x%08x %s" % (
+            stack_str,
+            (esp - i),
+            floss.utils.get_stack_value(emu, -i),
+            sp,
+        )
     logger.trace(stack_str)
     return stack_str
 
@@ -106,7 +113,9 @@ def getPointerSize(vw):
     elif arch == "i386":
         return 4
     else:
-        raise NotImplementedError("unexpected architecture: %s" % (vw.arch.__class__.__name__))
+        raise NotImplementedError(
+            "unexpected architecture: %s" % (vw.arch.__class__.__name__)
+        )
 
 
 def get_imagebase(vw):
@@ -139,7 +148,9 @@ def get_vivisect_meta_info(vw, selected_functions, decoding_function_features):
     disc = vw.getDiscoveredInfo()[0]
     undisc = vw.getDiscoveredInfo()[1]
     if disc + undisc > 0:
-        info["percentage of discovered executable surface area"] = "%.1f%% (%s / %s)" % (
+        info[
+            "percentage of discovered executable surface area"
+        ] = "%.1f%% (%s / %s)" % (
             disc * 100.0 / (disc + undisc),
             disc,
             disc + undisc,
@@ -153,7 +164,9 @@ def get_vivisect_meta_info(vw, selected_functions, decoding_function_features):
     if selected_functions:
         meta = []
         for fva in selected_functions:
-            if is_thunk_function(vw, fva) or viv_utils.flirt.is_library_function(vw, fva):
+            if is_thunk_function(vw, fva) or viv_utils.flirt.is_library_function(
+                vw, fva
+            ):
                 continue
 
             xrefs_to = len(vw.getXrefsTo(fva))
@@ -163,9 +176,20 @@ def get_vivisect_meta_info(vw, selected_functions, decoding_function_features):
             block_count = function_meta.get("BlockCount")
             size = function_meta.get("Size")
             score = round(decoding_function_features.get(fva, {}).get("score", 0), 3)
-            meta.append((hex(fva), score, xrefs_to, num_args, size, block_count, instr_count))
+            meta.append(
+                (hex(fva), score, xrefs_to, num_args, size, block_count, instr_count)
+            )
         info["selected functions' info"] = "\n%s" % tabulate.tabulate(
-            meta, headers=["fva", "score", "#xrefs", "#args", "size", "#blocks", "#instructions"]
+            meta,
+            headers=[
+                "fva",
+                "score",
+                "#xrefs",
+                "#args",
+                "size",
+                "#blocks",
+                "#instructions",
+            ],
         )
 
     return info
@@ -210,7 +234,9 @@ FP_FLOSS_ARTIFACTS = (
 )
 
 
-def extract_strings(buffer: bytes, min_length: int, exclude: Optional[Set[str]] = None) -> Iterable[StaticString]:
+def extract_strings(
+    buffer: bytes, min_length: int, exclude: Optional[Set[str]] = None
+) -> Iterable[StaticString]:
     if len(buffer) < min_length:
         return
 
@@ -415,7 +441,9 @@ def is_string_type_enabled(type_, disabled_types, enabled_types):
         return True
 
 
-def get_max_size(size: int, max_: int, api: Optional[Tuple] = None, argv: Optional[Tuple] = None) -> int:
+def get_max_size(
+    size: int, max_: int, api: Optional[Tuple] = None, argv: Optional[Tuple] = None
+) -> int:
     if size > max_:
         post = ""
         if api:
@@ -454,7 +482,9 @@ def get_referenced_strings(vw: vivisect.VivWorkspace, fva: int) -> Set[str]:
                         continue
                     else:
                         # see strings.py for why we don't include \r and \n
-                        strings.update([ss.rstrip("\x00") for ss in re.split("\r\n", s)])
+                        strings.update(
+                            [ss.rstrip("\x00") for ss in re.split("\r\n", s)]
+                        )
     return strings
 
 

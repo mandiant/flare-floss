@@ -170,6 +170,7 @@ class Functions:
     analyzed_decoded_strings: int = 0
     decoding_function_scores: Dict[int, Dict[int, float]] = field(default_factory=dict)
 
+
 @dataclass
 class Analysis:
     enable_static_strings: bool = True
@@ -179,7 +180,9 @@ class Analysis:
     functions: Functions = field(default_factory=Functions)
 
 
-STRING_TYPE_FIELDS = set([field for field in Analysis.__annotations__ if field.startswith("enable_")])
+STRING_TYPE_FIELDS = set(
+    [field for field in Analysis.__annotations__ if field.startswith("enable_")]
+)
 
 
 @dataclass
@@ -238,10 +241,14 @@ def log_result(decoded_string, verbosity):
                 decoded_string.program_counter,
             )
         else:
-            ValueError("unknown decoded or extracted string type: %s", type(decoded_string))
+            ValueError(
+                "unknown decoded or extracted string type: %s", type(decoded_string)
+            )
 
 
-def load(sample: Path, analysis: Analysis, functions: List[int], min_length: int) -> ResultDocument:
+def load(
+    sample: Path, analysis: Analysis, functions: List[int], min_length: int
+) -> ResultDocument:
     logger.debug("loading results document: %s", str(sample))
     results = read(sample)
     results.metadata.file_path = f"{sample}\n{results.metadata.file_path}"
@@ -264,15 +271,21 @@ def read(sample: Path) -> ResultDocument:
     try:
         results = ResultDocument(**results)
     except (TypeError, ValidationError) as e:
-        raise InvalidResultsFile(f"{str(sample)} is not a valid FLOSS result document: {e}")
+        raise InvalidResultsFile(
+            f"{str(sample)} is not a valid FLOSS result document: {e}"
+        )
 
     return results
 
 
 def check_set_string_types(results: ResultDocument, wanted_analysis: Analysis) -> None:
     for string_type in STRING_TYPE_FIELDS:
-        if getattr(wanted_analysis, string_type) and not getattr(results.analysis, string_type):
-            logger.warning(f"{string_type} not in loaded data, use --only/--no to enable/disable type(s)")
+        if getattr(wanted_analysis, string_type) and not getattr(
+            results.analysis, string_type
+        ):
+            logger.warning(
+                f"{string_type} not in loaded data, use --only/--no to enable/disable type(s)"
+            )
         setattr(results.analysis, string_type, getattr(wanted_analysis, string_type))
 
 
@@ -280,26 +293,46 @@ def filter_functions(results: ResultDocument, functions: List[int]) -> None:
     filtered_scores = dict()
     for fva in functions:
         try:
-            filtered_scores[fva] = results.analysis.functions.decoding_function_scores[fva]
+            filtered_scores[fva] = results.analysis.functions.decoding_function_scores[
+                fva
+            ]
         except KeyError:
             raise InvalidLoadConfig(f"function 0x{fva:x} not found in loaded data")
     results.analysis.functions.decoding_function_scores = filtered_scores
 
-    results.strings.stack_strings = list(filter(lambda f: f.function in functions, results.strings.stack_strings))
-    results.strings.tight_strings = list(filter(lambda f: f.function in functions, results.strings.tight_strings))
+    results.strings.stack_strings = list(
+        filter(lambda f: f.function in functions, results.strings.stack_strings)
+    )
+    results.strings.tight_strings = list(
+        filter(lambda f: f.function in functions, results.strings.tight_strings)
+    )
     results.strings.decoded_strings = list(
-        filter(lambda f: f.decoding_routine in functions, results.strings.decoded_strings)
+        filter(
+            lambda f: f.decoding_routine in functions, results.strings.decoded_strings
+        )
     )
 
-    results.analysis.functions.analyzed_stack_strings = len(results.strings.stack_strings)
-    results.analysis.functions.analyzed_tight_strings = len(results.strings.tight_strings)
-    results.analysis.functions.analyzed_decoded_strings = len(results.strings.decoded_strings)
+    results.analysis.functions.analyzed_stack_strings = len(
+        results.strings.stack_strings
+    )
+    results.analysis.functions.analyzed_tight_strings = len(
+        results.strings.tight_strings
+    )
+    results.analysis.functions.analyzed_decoded_strings = len(
+        results.strings.decoded_strings
+    )
 
 
 def filter_string_len(results: ResultDocument, min_length: int) -> None:
-    results.strings.static_strings = list(filter(lambda s: len(s.string) >= min_length, results.strings.static_strings))
-    results.strings.stack_strings = list(filter(lambda s: len(s.string) >= min_length, results.strings.stack_strings))
-    results.strings.tight_strings = list(filter(lambda s: len(s.string) >= min_length, results.strings.tight_strings))
+    results.strings.static_strings = list(
+        filter(lambda s: len(s.string) >= min_length, results.strings.static_strings)
+    )
+    results.strings.stack_strings = list(
+        filter(lambda s: len(s.string) >= min_length, results.strings.stack_strings)
+    )
+    results.strings.tight_strings = list(
+        filter(lambda s: len(s.string) >= min_length, results.strings.tight_strings)
+    )
     results.strings.decoded_strings = list(
         filter(lambda s: len(s.string) >= min_length, results.strings.decoded_strings)
     )
