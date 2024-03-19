@@ -2,12 +2,9 @@ from pathlib import Path
 
 import pytest
 
+from floss.language.identify import (VERSION_UNKNOWN_OR_NA, Language,
+                                     identify_language_and_version)
 from floss.utils import get_static_strings
-from floss.language.identify import (
-    VERSION_UNKNOWN_OR_NA,
-    Language,
-    identify_language_and_version,
-)
 
 
 @pytest.mark.parametrize(

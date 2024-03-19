@@ -9,25 +9,30 @@ import logging
 import argparse
 import builtins
 import contextlib
-from typing import Set, Tuple, Iterable, Optional
-from pathlib import Path
+import inspect
+import logging
+import mmap
+import re
+import time
 from collections import OrderedDict
+from pathlib import Path
+from typing import Iterable, Optional, Set, Tuple
 
-import tqdm
-import tabulate
-import vivisect
-import viv_utils
 import envi.archs
+import tabulate
+import tqdm
+import viv_utils
 import viv_utils.emulator_drivers
+import vivisect
 from envi import Emulator
 
-import floss.strings
 import floss.logging_
+import floss.strings
 
-from .const import MEGABYTE, MOD_NAME, MAX_STRING_LENGTH
+from .api_hooks import ENABLED_VIV_DEFAULT_HOOKS
+from .const import MAX_STRING_LENGTH, MEGABYTE, MOD_NAME
 from .results import StaticString
 from .strings import extract_ascii_unicode_strings
-from .api_hooks import ENABLED_VIV_DEFAULT_HOOKS
 
 STACK_MEM_NAME = "[stack]"
 

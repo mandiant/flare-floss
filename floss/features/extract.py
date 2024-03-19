@@ -1,37 +1,20 @@
 # Copyright (C) 2021 Mandiant, Inc. All Rights Reserved.
-from typing import Any, Tuple, Callable, Iterator
+from typing import Any, Callable, Iterator, Tuple
 
 import envi
 import networkx
-import vivisect
 import viv_utils
+import vivisect
+from envi.archs.i386.opconst import (INS_CALL, INS_MOV, INS_ROL, INS_ROR,
+                                     INS_SHL, INS_SHR, INS_XOR)
 from networkx import strongly_connected_components
 from viv_utils import BasicBlock
-from envi.archs.i386.opconst import (
-    INS_MOV,
-    INS_ROL,
-    INS_ROR,
-    INS_SHL,
-    INS_SHR,
-    INS_XOR,
-    INS_CALL,
-)
 
 import floss.logging_
 from floss.const import TS_TIGHT_FUNCTION_MAX_BLOCKS
-from floss.features.features import (
-    Mov,
-    Loop,
-    Nzxor,
-    Shift,
-    CallsTo,
-    NzxorLoop,
-    TightLoop,
-    BlockCount,
-    TightFunction,
-    KindaTightLoop,
-    NzxorTightLoop,
-)
+from floss.features.features import (BlockCount, CallsTo, KindaTightLoop, Loop,
+                                     Mov, Nzxor, NzxorLoop, NzxorTightLoop,
+                                     Shift, TightFunction, TightLoop)
 
 # security cookie checks may perform non-zeroing XORs, these are expected within a certain
 # byte range within the first and returning basic blocks, this helps to reduce FP features

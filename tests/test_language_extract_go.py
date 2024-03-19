@@ -2,8 +2,8 @@ import pathlib
 
 import pytest
 
-from floss.results import StaticString, StringEncoding
 from floss.language.go.extract import extract_go_strings
+from floss.results import StaticString, StringEncoding
 
 
 @pytest.fixture(scope="module")

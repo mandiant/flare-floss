@@ -1,22 +1,18 @@
 # Copyright (C) 2023 Mandiant, Inc. All Rights Reserved.
-import sys
-import logging
-import pathlib
 import argparse
 import itertools
-from typing import List, Tuple, Iterable, Optional
+import logging
+import pathlib
+import sys
+from typing import Iterable, List, Optional, Tuple
 
-import pefile
 import binary2strings as b2s
+import pefile
 
+from floss.language.utils import (find_lea_xrefs, find_mov_xrefs,
+                                  find_push_xrefs, get_rdata_section,
+                                  get_struct_string_candidates)
 from floss.results import StaticString, StringEncoding
-from floss.language.utils import (
-    find_lea_xrefs,
-    find_mov_xrefs,
-    find_push_xrefs,
-    get_rdata_section,
-    get_struct_string_candidates,
-)
 
 logger = logging.getLogger(__name__)
 

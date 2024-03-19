@@ -1,17 +1,17 @@
 # Copyright (C) 2017 Mandiant, Inc. All Rights Reserved.
 
 import contextlib
-from typing import Set, List
 from collections import namedtuple
+from typing import List, Set
 
 import envi
-import vivisect
 import viv_utils
 import viv_utils.emulator_drivers
+import vivisect
 
-import floss.utils
-import floss.logging_
 import floss.api_hooks
+import floss.logging_
+import floss.utils
 
 FunctionContext = namedtuple(
     "FunctionContext", ["emu_snap", "return_address", "decoded_at_va"]

@@ -1,12 +1,12 @@
-import pathlib
 import contextlib
+import pathlib
 
 import pefile
 import pytest
 
-from floss.utils import get_static_strings
-from floss.language.go.extract import extract_go_strings
 from floss.language.go.coverage import get_extract_stats
+from floss.language.go.extract import extract_go_strings
+from floss.utils import get_static_strings
 
 
 @pytest.mark.parametrize(
