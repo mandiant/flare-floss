@@ -38,7 +38,7 @@ dependencies = [
     "tqdm==4.66.2",
     "networkx==3.1",
     "halo==0.0.31",
-    "rich==13.4.2",
+    "rich==13.7.1",
     "pefile>=2022.5.30",
     "binary2strings==0.1.13",
 ]
