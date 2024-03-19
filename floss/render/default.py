@@ -138,11 +138,11 @@ def render_function_analysis_rows(results) -> List[Tuple[str, str]]:
     if results.analysis.functions.decoding_function_scores:
         rows.append(
             (
-                "  identified decoding functions\n  (offset and score)",
+                "  identified decoding functions\n  (offset, score, and number of xrefs to)",
                 textwrap.fill(
                     ", ".join(
                         [
-                            f"0x{fva:x} ({d:.3f})"
+                            f"0x{fva:x} ({d['score']:.3f}, xrefs_to: {d['xrefs_to']})"
                             for fva, d in results.analysis.functions.decoding_function_scores.items()
                         ]
                     ),
