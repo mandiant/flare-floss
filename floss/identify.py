@@ -1,10 +1,10 @@
 # Copyright (C) 2017 Mandiant, Inc. All Rights Reserved.
 
+import collections
 import copy
 import operator
 import textwrap
-import collections
-from typing import Dict, List, Tuple, DefaultDict
+from typing import DefaultDict, Dict, List, Tuple
 
 import tqdm
 import viv_utils
@@ -12,19 +12,19 @@ import viv_utils.flirt
 from tqdm.contrib.logging import logging_redirect_tqdm
 
 import floss.logging_
-from floss.utils import is_thunk_function, redirecting_print_to_tqdm
 from floss.features.extract import (
     abstract_features,
-    extract_insn_features,
-    extract_function_features,
     extract_basic_block_features,
+    extract_function_features,
+    extract_insn_features,
 )
 from floss.features.features import (
     Arguments,
     BlockCount,
-    TightFunction,
     InstructionCount,
+    TightFunction,
 )
+from floss.utils import is_thunk_function, redirecting_print_to_tqdm
 
 logger = floss.logging_.getLogger(__name__)
 

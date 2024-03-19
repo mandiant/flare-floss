@@ -6,8 +6,8 @@ from typing import Any, List, Tuple
 import envi
 import viv_utils.emulator_drivers
 
-import floss.utils as fu
 import floss.logging_
+import floss.utils as fu
 from floss.const import MOD_NAME
 
 logger = floss.logging_.getLogger(__name__)

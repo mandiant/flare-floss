@@ -1,16 +1,16 @@
 # Copyright (C) 2023 Mandiant, Inc. All Rights Reserved.
-import sys
+import argparse
 import logging
 import pathlib
-import argparse
+import sys
 from typing import List
 
 import pefile
 
-from floss.utils import get_static_strings
-from floss.results import StaticString, StringEncoding
-from floss.language.utils import get_extract_stats
 from floss.language.go.extract import extract_go_strings
+from floss.language.utils import get_extract_stats
+from floss.results import StaticString, StringEncoding
+from floss.utils import get_static_strings
 
 logger = logging.getLogger(__name__)
 

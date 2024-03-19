@@ -1,18 +1,18 @@
 # Copyright (C) 2023 Mandiant, Inc. All Rights Reserved.
 
-from floss.results import (
-    Strings,
-    Analysis,
-    Metadata,
-    AddressType,
-    StackString,
-    TightString,
-    StaticString,
-    DecodedString,
-    ResultDocument,
-    StringEncoding,
-)
 from floss.render.default import render
+from floss.results import (
+    AddressType,
+    Analysis,
+    DecodedString,
+    Metadata,
+    ResultDocument,
+    StackString,
+    StaticString,
+    StringEncoding,
+    Strings,
+    TightString,
+)
 
 
 def test_render_rich_markup():

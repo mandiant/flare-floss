@@ -1,8 +1,8 @@
 # Copyright (C) 2017 Mandiant, Inc. All Rights Reserved.
 
 import re
-from typing import Iterable
 from itertools import chain
+from typing import Iterable
 
 from floss.results import StaticString, StringEncoding
 

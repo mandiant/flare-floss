@@ -1,29 +1,29 @@
 # Copyright (C) 2017 Mandiant, Inc. All Rights Reserved.
 
-from typing import Set, List
 from dataclasses import dataclass
+from typing import List, Set
 
 import tqdm
 import viv_utils
 from vivisect import VivWorkspace
 
-import floss.utils
+import floss.decoding_manager
+import floss.logging_
 import floss.results
 import floss.strings
-import floss.logging_
-import floss.decoding_manager
+import floss.utils
 from floss.const import (
-    DS_MAX_INSN_COUNT,
-    DS_FUNCTION_CALLS_RARE,
     DS_FUNCTION_CALLS_OFTEN,
+    DS_FUNCTION_CALLS_RARE,
     DS_FUNCTION_MIN_DECODED_STRINGS,
     DS_FUNCTION_SHORTCUT_THRESHOLD_VERY_OFTEN,
+    DS_MAX_INSN_COUNT,
 )
-from floss.utils import is_all_zeros
-from floss.render import Verbosity
-from floss.results import AddressType, DecodedString
 from floss.decoding_manager import Delta
 from floss.function_argument_getter import extract_decoding_contexts
+from floss.render import Verbosity
+from floss.results import AddressType, DecodedString
+from floss.utils import is_all_zeros
 
 logger = floss.logging_.getLogger(__name__)
 

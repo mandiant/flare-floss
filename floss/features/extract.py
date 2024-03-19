@@ -1,36 +1,36 @@
 # Copyright (C) 2021 Mandiant, Inc. All Rights Reserved.
-from typing import Any, Tuple, Callable, Iterator
+from typing import Any, Callable, Iterator, Tuple
 
 import envi
 import networkx
-import vivisect
 import viv_utils
-from networkx import strongly_connected_components
-from viv_utils import BasicBlock
+import vivisect
 from envi.archs.i386.opconst import (
+    INS_CALL,
     INS_MOV,
     INS_ROL,
     INS_ROR,
     INS_SHL,
     INS_SHR,
     INS_XOR,
-    INS_CALL,
 )
+from networkx import strongly_connected_components
+from viv_utils import BasicBlock
 
 import floss.logging_
 from floss.const import TS_TIGHT_FUNCTION_MAX_BLOCKS
 from floss.features.features import (
-    Mov,
-    Loop,
-    Nzxor,
-    Shift,
-    CallsTo,
-    NzxorLoop,
-    TightLoop,
     BlockCount,
-    TightFunction,
+    CallsTo,
     KindaTightLoop,
+    Loop,
+    Mov,
+    Nzxor,
+    NzxorLoop,
     NzxorTightLoop,
+    Shift,
+    TightFunction,
+    TightLoop,
 )
 
 # security cookie checks may perform non-zeroing XORs, these are expected within a certain

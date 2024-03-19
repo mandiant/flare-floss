@@ -1,27 +1,27 @@
 # Copyright (C) 2023 Mandiant, Inc. All Rights Reserved.
 
-import re
-import sys
+import argparse
 import array
-import struct
 import logging
 import pathlib
-import argparse
-from typing import List, Tuple, Iterable, Optional
-from pathlib import Path
-from itertools import chain
+import re
+import struct
+import sys
 from dataclasses import dataclass
+from itertools import chain
+from pathlib import Path
+from typing import Iterable, List, Optional, Tuple
 
 import pefile
 from typing_extensions import TypeAlias
 
 import floss.utils
-from floss.results import StaticString, StringEncoding
 from floss.language.utils import (
     StructString,
     find_lea_xrefs,
     get_struct_string_candidates,
 )
+from floss.results import StaticString, StringEncoding
 
 logger = logging.getLogger(__name__)
 
