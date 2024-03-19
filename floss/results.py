@@ -8,6 +8,8 @@ from typing import Dict, List
 from pathlib import Path
 from dataclasses import field
 
+from pydantic import TypeAdapter, ValidationError
+
 # we use pydantic for dataclasses so that we can
 # easily load and validate JSON reports.
 #
@@ -16,7 +18,6 @@ from dataclasses import field
 #
 # really, you should just pretend we're using stock dataclasses.
 from pydantic.dataclasses import dataclass
-from pydantic.error_wrappers import ValidationError
 
 import floss.logging_
 from floss.render import Verbosity
