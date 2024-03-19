@@ -181,11 +181,11 @@ def find_decoding_function_features(vw, functions, disable_progress=False) -> Tu
     for feat in function_data["features"]:
         logger.trace("  %s", feat)
 
-    decoding_function_summaries = [
-    f"0x{fva:x} ({data['score']:.3f}, xrefs_to: {data['xrefs_to']})"
-    for fva, data in decoding_candidate_functions.items()
-    ]
-    summary_string = textwrap.fill(", ".join(decoding_function_summaries))
-    logger.info(f"Identified decoding functions:\n{summary_string}")
+    # decoding_function_summaries = [
+    # f"0x{fva:x} ({data['score']:.3f}, xrefs_to: {data['xrefs_to']})"
+    # for fva, data in decoding_candidate_functions.items()
+    # ]
+    # summary_string = textwrap.fill(", ".join(decoding_function_summaries))
+    # logger.info(f"Identified decoding functions:\n{summary_string}")
     return decoding_candidate_functions, library_functions
 
