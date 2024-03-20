@@ -28,7 +28,7 @@ import floss.language.go.extract
 import floss.language.go.coverage
 import floss.language.rust.extract
 import floss.language.rust.coverage
-from floss.const import MEGABYTE, MAX_FILE_SIZE, MIN_STRING_LENGTH, SUPPORTED_FILE_MAGIC
+from floss.const import MEGABYTE, MAX_FILE_SIZE, MIN_STRING_LENGTH, SUPPORTED_FILE_MAGIC_PE, SUPPORTED_FILE_MAGIC_ELF
 from floss.utils import (
     hex,
     get_imagebase,
@@ -366,13 +366,13 @@ def get_file_type(sample_file_path: Path):
     with sample_file_path.open("rb") as f:
         magic = f.read(4)
 
-    if magic in SUPPORTED_FILE_MAGIC:
-        return magic
-    elif magic[:2] in SUPPORTED_FILE_MAGIC:
-        return magic[:2]
+    if magic == SUPPORTED_FILE_MAGIC_ELF:
+        return SUPPORTED_FILE_MAGIC_ELF
+    elif magic[:2] == SUPPORTED_FILE_MAGIC_PE:
+        return SUPPORTED_FILE_MAGIC_PE
     else:
         raise WorkspaceLoadError(
-            "FLOSS currently supports the following formats for string decoding and stackstrings: PE\n"
+            "FLOSS currently supports the following formats for string decoding and stackstrings: PE,ELF\n"
             "You can analyze shellcode using the --format sc32|sc64 switch. See the help (-h) for more information."
         )
 
@@ -399,7 +399,7 @@ def load_vw(
     else:
         vw = viv_utils.getWorkspace(str(sample_path), analyze=False, should_save=False)
 
-    if file_type == SUPPORTED_FILE_MAGIC["ELF"]:
+    if file_type == SUPPORTED_FILE_MAGIC_ELF:
         viv_utils.flirt.register_flirt_signature_analyzers(vw, list(map(str, sigpaths)))
 
     vw.analyze()
@@ -564,7 +564,7 @@ def main(argv=None) -> int:
         results.metadata.language = ""
         results.metadata.language_version = ""
         results.metadata.language_selected = ""
-    elif file_type == SUPPORTED_FILE_MAGIC["PE"]:
+    elif file_type == SUPPORTED_FILE_MAGIC_PE:
         lang_id, lang_version = identify_language_and_version(sample, static_strings)
 
         if selected_lang == Language.UNKNOWN:
