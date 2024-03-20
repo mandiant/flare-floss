@@ -17,6 +17,7 @@ from typing import Set, Dict, List, Union, Tuple, Literal, Callable, Iterable, O
 from dataclasses import field, dataclass
 
 import pefile
+import msgspec
 import colorama
 import lancelot
 import rich.traceback
@@ -29,9 +30,9 @@ import floss.qs.db.gp
 import floss.qs.db.oss
 import floss.qs.db.expert
 import floss.qs.db.winapi
-from floss.qs.db.gp import StringHashDatabase, StringGlobalPrevalenceDatabase
-from floss.qs.db.oss import OpenSourceStringDatabase
-from floss.qs.db.expert import ExpertStringDatabase
+from floss.qs.db.gp import StringGlobalPrevalence, StringHashDatabase, StringGlobalPrevalenceDatabase
+from floss.qs.db.oss import OpenSourceString, OpenSourceStringDatabase
+from floss.qs.db.expert import ExpertRule, ExpertStringDatabase
 from floss.qs.db.winapi import WindowsApiStringDatabase
 
 logger = logging.getLogger("quantumstrand")
@@ -112,12 +113,14 @@ class ExtractedString:
 
 Tag = str
 
+MetadataType = Union[StringGlobalPrevalence, OpenSourceString, ExpertRule]
 
 @dataclass
 class TaggedString:
     string: ExtractedString
     tags: Set[Tag]
     structure: str = ""
+    meta: Sequence[MetadataType] = field(default_factory=list)
 
     @property
     def offset(self) -> int:
@@ -198,7 +201,8 @@ class ResultDocument:
         result = cls(layout.slice, layout.name, 
                      [TaggedString(string.string, 
                                    string.tags, 
-                                   string.structure) 
+                                   string.structure,
+                                   string.meta) 
                       for string in layout.strings],
                     )
         if isinstance(layout, PELayout):
@@ -484,71 +488,72 @@ def get_reloc_offsets(slice: Slice, pe: pefile.PE) -> Set[int]:
 
 def check_is_xor(xor_key: Union[int, None]):
     if isinstance(xor_key, int):
-        return ("#decoded",)
+        return ("#decoded",), []
 
-    return ()
+    return (), []
 
 
 def check_is_reloc(reloc_offsets: Set[int], string: ExtractedString):
     for addr in string.slice.range:
         if addr in reloc_offsets:
-            return ("#reloc",)
+            return ("#reloc",), []
 
-    return ()
+    return (), []
 
 
 def check_is_code(code_offsets: Set[int], string: ExtractedString):
     for addr in string.slice.range:
         if addr in code_offsets:
-            return ("#code",)
+            return ("#code",), []
 
-    return ()
+    return (), []
 
 
 def query_code_string_database(db: StringGlobalPrevalenceDatabase, string: str):
     if db.query(string):
-        return ("#code-junk",)
+        return ("#code-junk",), db.query(string)
 
-    return ()
+    return (), []
 
 
 def query_global_prevalence_database(db: StringGlobalPrevalenceDatabase, string: str):
     if db.query(string):
-        return ("#common",)
+        return ("#common",), db.query(string)
 
-    return ()
+    return (), []
 
 
 def query_global_prevalence_hash_database(db: StringHashDatabase, string: str):
     if string in db:
-        return ("#common",)
+        return ("#common",), [{'hash': str(db.get_hash(string))}]
 
-    return ()
+    return (), []
 
 
-def query_library_string_database(db: OpenSourceStringDatabase, string: str) -> Sequence[Tag]:
+def query_library_string_database(db: OpenSourceStringDatabase, string: str):
     meta = db.metadata_by_string.get(string)
     if not meta:
-        return ()
+        return (), []
 
-    return (f"#{meta.library_name}",)
-
-
-def query_expert_string_database(db: ExpertStringDatabase, string: str) -> Sequence[Tag]:
-    return tuple(db.query(string))
+    return (f"#{meta.library_name}",), meta
 
 
-def query_winapi_name_database(db: WindowsApiStringDatabase, string: str) -> Sequence[Tag]:
+def query_expert_string_database(db: ExpertStringDatabase, string: str):
+    tag, meta = db.query(string)
+    return tag, meta
+
+
+def query_winapi_name_database(db: WindowsApiStringDatabase, string: str):
     if string.lower() in db.dll_names:
-        return ("#winapi",)
+        return ("#winapi",), []
 
     if string in db.api_names:
-        return ("#winapi",)
+        return ("#winapi",), []
 
-    return ()
+    return (), []
 
 
-Tagger = Callable[[ExtractedString], Sequence[Tag]]
+Tagger = Callable[[ExtractedString], Tuple[Sequence[Tag], MetadataType]]
 
 
 def load_databases() -> Sequence[Tagger]:
@@ -557,7 +562,7 @@ def load_databases() -> Sequence[Tagger]:
     def query_database(db, queryfn, string: ExtractedString):
         return queryfn(db, string.string)
 
-    def make_tagger(db, queryfn) -> Sequence[Tag]:
+    def make_tagger(db, queryfn) -> Tuple[Sequence[Tag], MetadataType]:
         return functools.partial(query_database, db, queryfn)
 
     for db in floss.qs.db.winapi.get_default_databases():
@@ -728,6 +733,7 @@ class Layout(abc.ABC):
             # this routine will transform them into TaggedStrings.
             assert isinstance(string, ExtractedString)
             tags: Set[Tag] = set()
+            metas: List[MetadataType] = list()
 
             string_counts[string.string] += 1
 
@@ -735,9 +741,12 @@ class Layout(abc.ABC):
                 tags.add("#duplicate")
                 
             for tagger in taggers:
-                tags.update(tagger(string))
+                tag, meta = tagger(string)
+                tags.update(tag)
+                if meta != [] and meta not in metas:
+                    metas.append(meta)
 
-            tagged_strings.append(TaggedString(string, tags))
+            tagged_strings.append(TaggedString(string, tags, meta=metas))
         self.strings = tagged_strings
 
         for child in self.children:
@@ -1144,11 +1153,13 @@ class QSJSONEncoder(json.JSONEncoder):
     """
 
     def default(self, o):
+        if isinstance(o, set):
+            return list(o)
+        if isinstance(o, MetadataType):
+            return json.loads(msgspec.json.encode(o))
         if dataclasses.is_dataclass(o):
             if isinstance(o, Slice):
                 return o.range
-            elif isinstance(o, set):
-                return list(o)
             else:
                 return dataclasses.asdict(o)
 

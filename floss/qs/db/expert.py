@@ -30,25 +30,29 @@ class ExpertStringDatabase:
     def __len__(self) -> int:
         return len(self.string_rules) + len(self.substring_rules) + len(self.regex_rules)
 
-    def query(self, s: str) -> Set[str]:
-        ret = set()
+    def query(self, s: str) -> Tuple[Set[str], List[ExpertRule]]:
+        ret_set = set()
+        ret_list = list()
 
         if s in self.string_rules:
-            ret.add(self.string_rules[s].tag)
+            ret_set.add(self.string_rules[s].tag)
+            ret_list.append(self.string_rules[s])
 
         # note that this is O(m * n)
         # #strings * #rules
         for rule in self.substring_rules:
             if rule.value in s:
-                ret.add(rule.tag)
+                ret_set.add(rule.tag)
+                ret_list.append(rule)
 
         # note that this is O(m * n)
         # #strings * #rules
         for rule, regex in self.regex_rules:
             if regex.search(s):
-                ret.add(rule.tag)
+                ret_set.add(rule.tag)
+                ret_list.append(rule)
 
-        return ret
+        return ret_set, ret_list
 
     @classmethod
     def from_file(cls, path: pathlib.Path) -> "ExpertStringDatabase":
