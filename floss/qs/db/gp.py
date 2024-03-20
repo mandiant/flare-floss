@@ -105,12 +105,16 @@ class StringHashDatabase:
         if isinstance(other, bytes):
             return other in self.string_hashes
         elif isinstance(other, str):
-            m = hashlib.md5()
-            m.update(other.encode("utf-8"))
-            return m.digest()[:8] in self.string_hashes
+            return self.get_hash(other) in self.string_hashes
         else:
             raise ValueError("other must be bytes or str")
 
+    @staticmethod
+    def get_hash(string: str) -> bytes:
+        m = hashlib.md5()
+        m.update(string.encode("utf-8"))
+        return m.digest()[:8]
+    
     @classmethod
     def from_file(cls, path: pathlib.Path) -> "StringHashDatabase":
         string_hashes: Set[bytes] = set()
