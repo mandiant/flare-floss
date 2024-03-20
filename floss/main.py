@@ -371,10 +371,7 @@ def get_file_type(sample_file_path: Path):
     elif magic[:2] == SUPPORTED_FILE_MAGIC_PE:
         return SUPPORTED_FILE_MAGIC_PE
     else:
-        raise WorkspaceLoadError(
-            "FLOSS currently supports the following formats for string decoding and stackstrings: PE,ELF\n"
-            "You can analyze shellcode using the --format sc32|sc64 switch. See the help (-h) for more information."
-        )
+        return None
 
 
 def load_vw(
@@ -383,8 +380,13 @@ def load_vw(
     sigpaths: List[Path],
     should_save_workspace: bool = False,
 ) -> VivWorkspace:
+    file_type = get_file_type(sample_path)
     if format not in ("sc32", "sc64"):
-        file_type = get_file_type(sample_path)
+        if file_type is None:
+            raise WorkspaceLoadError(
+                "FLOSS currently supports the following formats for string decoding and stackstrings: PE,ELF\n"
+                "You can analyze shellcode using the --format sc32|sc64 switch. See the help (-h) for more information."
+            )
 
     # get shellcode type based on sample file extension
     if format == "auto" and sample_path.suffix.lower() in EXTENSIONS_SHELLCODE_32:
