@@ -28,7 +28,14 @@ import floss.language.go.extract
 import floss.language.go.coverage
 import floss.language.rust.extract
 import floss.language.rust.coverage
-from floss.const import MEGABYTE, MAX_FILE_SIZE, MIN_STRING_LENGTH, SUPPORTED_FILE_MAGIC_PE, SUPPORTED_FILE_MAGIC_ELF
+from floss.const import (
+    MEGABYTE,
+    MAX_FILE_SIZE,
+    MIN_STRING_LENGTH,
+    UNSUPPORTED_FILE_MAGIC,
+    SUPPORTED_FILE_MAGIC_PE,
+    SUPPORTED_FILE_MAGIC_ELF,
+)
 from floss.utils import (
     hex,
     get_imagebase,
@@ -357,11 +364,11 @@ def select_functions(vw, asked_functions: Optional[List[int]]) -> Set[int]:
     return asked_functions_
 
 
-def get_file_type(sample_file_path: Path):
+def get_file_type(sample_file_path: Path) -> bytes:
     """
     Returns input file type, based on header bytes
     :param sample_file_path:
-    :return: file type if it is supported, return None Otherwise
+    :return: file type
     """
     with sample_file_path.open("rb") as f:
         magic = f.read(4)
@@ -371,7 +378,7 @@ def get_file_type(sample_file_path: Path):
     elif magic[:2] == SUPPORTED_FILE_MAGIC_PE:
         return SUPPORTED_FILE_MAGIC_PE
     else:
-        return None
+        return UNSUPPORTED_FILE_MAGIC
 
 
 def load_vw(
@@ -382,7 +389,7 @@ def load_vw(
 ) -> VivWorkspace:
     file_type = get_file_type(sample_path)
     if format not in ("sc32", "sc64"):
-        if file_type is None:
+        if file_type is UNSUPPORTED_FILE_MAGIC:
             raise WorkspaceLoadError(
                 "FLOSS currently supports the following formats for string decoding and stackstrings: PE,ELF\n"
                 "You can analyze shellcode using the --format sc32|sc64 switch. See the help (-h) for more information."
