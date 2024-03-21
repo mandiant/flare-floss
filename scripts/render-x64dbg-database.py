@@ -102,7 +102,7 @@ def main():
         logging.basicConfig(level=logging.INFO)
         logging.getLogger().setLevel(logging.INFO)
 
-    result_document = ResultDocument.parse_file(args.report_path)
+    result_document = ResultDocument.parse_file(Path(args.report_path))
 
     print(render_x64dbg_database(result_document))
     return 0

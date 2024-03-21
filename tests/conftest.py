@@ -58,7 +58,7 @@ def pytest_collect_file(parent, file_path):
 class YamlFile(pytest.File):
     def collect(self):
         spec = yaml.safe_load(self.path.open())
-        test_dir = Path(self.fspath).parent
+        test_dir = self.path.parent
         for platform, archs in spec["Output Files"].items():
             for arch, filename in archs.items():
                 # TODO specify max runtime via command line option
@@ -152,7 +152,7 @@ class FLOSSTest(pytest.Item):
         self._test_strings(str(test_path))
 
     def reportinfo(self):
-        return self.fspath, 0, "usecase: %s" % self.name
+        return self.path, 0, "usecase: %s" % self.name
 
     def repr_failure(self, excinfo):
         if isinstance(excinfo.value, FLOSSStringsNotExtracted):
