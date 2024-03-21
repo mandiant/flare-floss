@@ -361,7 +361,7 @@ def get_file_type(sample_file_path: Path):
     """
     Returns input file type, based on header bytes
     :param sample_file_path:
-    :return: file type if it is supported, raise Error Otherwise
+    :return: file type if it is supported, return None Otherwise
     """
     with sample_file_path.open("rb") as f:
         magic = f.read(4)
