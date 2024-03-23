@@ -144,7 +144,6 @@ def make_parser(argv):
     )
     parser.register("action", "extend", floss.utils.ExtendAction)
     parser.add_argument("-H", action="help", help="show advanced options and exit")
-
     parser.add_argument(
         "-n",
         "--minimum-length",
@@ -254,6 +253,26 @@ def make_parser(argv):
         version="%(prog)s {:s}".format(__version__),
         help="show program's version number and exit" if show_all_options else argparse.SUPPRESS,
     )
+    if sys.platform == "win32":
+        advanced_group.add_argument(
+            "--install-right-click-menu",
+            action=floss.utils.InstallContextMenu,
+            help=(
+                "install FLOSS to the right-click context menu for Windows Explorer and exit"
+                if show_all_options
+                else argparse.SUPPRESS
+            ),
+        )
+
+        advanced_group.add_argument(
+            "--uninstall-right-click-menu",
+            action=floss.utils.UninstallContextMenu,
+            help=(
+                "uninstall FLOSS from the right-click context menu for Windows Explorer and exit"
+                if show_all_options
+                else argparse.SUPPRESS
+            ),
+        )
 
     output_group = parser.add_argument_group("rendering arguments")
     output_group.add_argument("-j", "--json", action="store_true", help="emit JSON instead of text")
