@@ -140,6 +140,16 @@ Specify functions by using their hex-encoded virtual address.
     floss.exe --functions 0x401000 0x402000 malware.exe
 
 
+### Install/Uninstall right click menu option for Windows (`--install-right-click-menu/--uninstall-right-click-menu`)
+
+You can use the `--install-right-click-menu` and `--uninstall-right-click-menu` 
+ options to install/remove the `Open with FLOSS` option from the right-click menu 
+ of the Windows file explorer.
+
+After this option is installed, you can right-click on any file and select `Open with FLOSS`
+ to quickly open the target file with FLOSS for analysis.
+
+
 ## <a name="shellcode"></a>Shellcode analysis options
 
 Malicious shellcode often times contains obfuscated strings or stackstrings.
