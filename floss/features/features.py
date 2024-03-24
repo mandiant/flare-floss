@@ -127,6 +127,10 @@ class Mnem(Feature):
         return 1.0
 
 
+class Imm(Mnem):
+    weight = HIGH
+
+
 class Nzxor(Mnem):
     weight = HIGH
 
@@ -183,6 +187,16 @@ class NzxorLoop(Feature):
 
     def __init__(self):
         super(NzxorLoop, self).__init__(True)
+
+    def score(self):
+        return 1.0
+
+
+class NzxorImmLoop(Feature):
+    weight = SEVERE
+
+    def __init__(self):
+        super(NzxorImmLoop, self).__init__(True)
 
     def score(self):
         return 1.0
