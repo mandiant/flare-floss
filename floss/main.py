@@ -28,7 +28,14 @@ import floss.language.go.extract
 import floss.language.go.coverage
 import floss.language.rust.extract
 import floss.language.rust.coverage
-from floss.const import MEGABYTE, MAX_FILE_SIZE, MIN_STRING_LENGTH, SUPPORTED_FILE_MAGIC
+from floss.const import (
+    MEGABYTE,
+    MAX_FILE_SIZE,
+    MIN_STRING_LENGTH,
+    UNSUPPORTED_FILE_MAGIC,
+    SUPPORTED_FILE_MAGIC_PE,
+    SUPPORTED_FILE_MAGIC_ELF,
+)
 from floss.utils import (
     hex,
     get_imagebase,
@@ -357,19 +364,21 @@ def select_functions(vw, asked_functions: Optional[List[int]]) -> Set[int]:
     return asked_functions_
 
 
-def is_supported_file_type(sample_file_path: Path):
+def get_file_type(sample_file_path: Path) -> bytes:
     """
-    Return if FLOSS supports the input file type, based on header bytes
+    Returns input file type, based on header bytes
     :param sample_file_path:
-    :return: True if file type is supported, False otherwise
+    :return: file type
     """
     with sample_file_path.open("rb") as f:
-        magic = f.read(2)
+        magic = f.read(4)
 
-    if magic in SUPPORTED_FILE_MAGIC:
-        return True
+    if magic == SUPPORTED_FILE_MAGIC_ELF:
+        return SUPPORTED_FILE_MAGIC_ELF
+    elif magic[:2] == SUPPORTED_FILE_MAGIC_PE:
+        return SUPPORTED_FILE_MAGIC_PE
     else:
-        return False
+        return UNSUPPORTED_FILE_MAGIC
 
 
 def load_vw(
@@ -378,10 +387,11 @@ def load_vw(
     sigpaths: List[Path],
     should_save_workspace: bool = False,
 ) -> VivWorkspace:
+    file_type = get_file_type(sample_path)
     if format not in ("sc32", "sc64"):
-        if not is_supported_file_type(sample_path):
+        if file_type is UNSUPPORTED_FILE_MAGIC:
             raise WorkspaceLoadError(
-                "FLOSS currently supports the following formats for string decoding and stackstrings: PE\n"
+                "FLOSS currently supports the following formats for string decoding and stackstrings: PE and ELF\n"
                 "You can analyze shellcode using the --format sc32|sc64 switch. See the help (-h) for more information."
             )
 
@@ -398,7 +408,8 @@ def load_vw(
     else:
         vw = viv_utils.getWorkspace(str(sample_path), analyze=False, should_save=False)
 
-    viv_utils.flirt.register_flirt_signature_analyzers(vw, list(map(str, sigpaths)))
+    if file_type == SUPPORTED_FILE_MAGIC_PE:
+        viv_utils.flirt.register_flirt_signature_analyzers(vw, list(map(str, sigpaths)))
 
     vw.analyze()
 
@@ -555,7 +566,6 @@ def main(argv=None) -> int:
         return 0
 
     static_runtime = get_runtime_diff(interim)
-
     # set language configurations
     selected_lang = Language(args.language)
     if selected_lang == Language.DISABLED:
