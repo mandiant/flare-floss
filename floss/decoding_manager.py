@@ -19,8 +19,14 @@ MAX_MAPS_SIZE = 1024 * 1024 * 100  # 100MB max memory allocated in an emulator i
 
 
 def is_import(emu, va):
-    """
-    Return True if the given VA is that of an imported function.
+    """Check if the given address is an import.
+
+    Args:
+        emu: The emulator.
+        va: The address to check.
+
+    Returns:
+        bool: True if the address is an import, False otherwise.
     """
     # TODO: also check location type
     t = emu.getVivTaint(va)
@@ -59,8 +65,7 @@ Memory = List[MemoryMap]
 
 @dataclass
 class Snapshot:
-    """
-    A snapshot of the state of the CPU and memory.
+    """A snapshot of the state of the CPU and memory.
 
     Attributes:
         memory: a snapshot of the memory contents
@@ -74,6 +79,14 @@ class Snapshot:
 
 
 def get_map_size(emu):
+    """Get the total size of all memory maps in the emulator.
+
+    Args:
+        emu: The emulator.
+
+    Returns:
+        int: The total size of all memory maps.
+    """
     size = 0
     for mapva, mapsize, mperm, mfname in emu.getMemoryMaps():
         mapsize += size
@@ -81,12 +94,19 @@ def get_map_size(emu):
 
 
 class MapsTooLargeError(Exception):
+    """Exception raised when the emulator has mapped too much memory."""
+
     pass
 
 
 def make_snapshot(emu: Emulator) -> Snapshot:
-    """
-    Create a snapshot of the current CPU and memory.
+    """Create a snapshot of the current CPU and memory.
+
+    Args:
+        emu: The emulator.
+
+    Returns:
+        Snapshot: The snapshot of the emulator state.
     """
     if get_map_size(emu) > MAX_MAPS_SIZE:
         logger.debug("emulator mapped too much memory: 0x%x", get_map_size(emu))
@@ -96,9 +116,9 @@ def make_snapshot(emu: Emulator) -> Snapshot:
 
 @dataclass
 class Delta:
-    """
-    a pair of snapshots from before and after an operation.
-    facilitates diffing the state of an emulator.
+    """a pair of snapshots from before and after an operation.
+
+    Facilitates diffing the state of an emulator.
     """
 
     pre: Snapshot
@@ -106,9 +126,7 @@ class Delta:
 
 
 class DeltaCollectorHook(viv_utils.emulator_drivers.Hook):
-    """
-    hook that collects Deltas at each imported API call.
-    """
+    """hook that collects Deltas at each imported API call."""
 
     def __init__(self, pre_snap: Snapshot):
         super().__init__()
@@ -127,15 +145,21 @@ class DeltaCollectorHook(viv_utils.emulator_drivers.Hook):
                 self.deltas.append(Delta(self._pre_snap, make_snapshot(emu)))
             except MapsTooLargeError:
                 _, _, _, name, _ = api
-                logger.debug("despite call to import %s, maps too large, not extracting strings", name)
+                logger.debug(
+                    "despite call to import %s, maps too large, not extracting strings",
+                    name,
+                )
                 pass
 
 
 def emulate_function(
-    emu: Emulator, function_index, fva: int, return_address: int, max_instruction_count: int
+    emu: Emulator,
+    function_index,
+    fva: int,
+    return_address: int,
+    max_instruction_count: int,
 ) -> List[Delta]:
-    """
-    Emulate a function and collect snapshots at each interesting place.
+    """Emulate a function and collect snapshots at each interesting place.
     These interesting places include calls to imported API functions
      and the final state of the emulator.
     Emulation continues until the return address is hit, or
@@ -148,12 +172,15 @@ def emulate_function(
       - AllocateHeap
       - malloc
 
-    :type function_index: viv_utils.FunctionIndex
-    :param fva: The start address of the function to emulate.
-    :param return_address: The expected return address of the function.
-     Emulation stops here.
-    :param max_instruction_count: The max number of instructions to emulate.
-     This helps avoid unexpected infinite loops.
+    Args:
+        emu: The emulator.
+        function_index: The index of the function to emulate.
+        fva: The address of the function to emulate.
+        return_address: The address to stop emulation at.
+        max_instruction_count: The maximum number of instructions to emulate.
+
+    Returns:
+        List[Delta]: A list of Deltas representing the emulator state at each interesting place.
     """
     try:
         pre_snap = make_snapshot(emu)
@@ -166,7 +193,10 @@ def emulate_function(
     try:
         logger.debug("Emulating function at 0x%08x", fva)
         driver = viv_utils.emulator_drivers.DebuggerEmulatorDriver(
-            emu, repmax=256, max_hit=DS_MAX_ADDRESS_REVISITS_EMULATION, max_insn=max_instruction_count
+            emu,
+            repmax=256,
+            max_hit=DS_MAX_ADDRESS_REVISITS_EMULATION,
+            max_insn=max_instruction_count,
         )
         monitor = api_hooks.ApiMonitor(function_index)
         driver.add_monitor(monitor)
@@ -180,11 +210,20 @@ def emulate_function(
         if e.reason == "max_insn":
             logger.debug("Halting as emulation has escaped!")
     except envi.InvalidInstruction as e:
-        logger.debug("vivisect encountered an invalid instruction. will continue processing. %s", e)
+        logger.debug(
+            "vivisect encountered an invalid instruction. will continue processing. %s",
+            e,
+        )
     except envi.UnsupportedInstruction as e:
-        logger.debug("vivisect encountered an unsupported instruction. will continue processing. %s", e)
+        logger.debug(
+            "vivisect encountered an unsupported instruction. will continue processing. %s",
+            e,
+        )
     except envi.BreakpointHit as e:
-        logger.debug("vivisect encountered an unexpected emulation breakpoint. will continue processing. %s", e)
+        logger.debug(
+            "vivisect encountered an unexpected emulation breakpoint. will continue processing. %s",
+            e,
+        )
     except envi.exc.SegmentationViolation as e:
         tos_val = floss.utils.get_stack_value(emu, 0)
         logger.debug("%s: top of stack (return address): 0x%x", e, tos_val)
@@ -194,7 +233,10 @@ def emulate_function(
         pass
     except Exception:
         # we cheat here a bit and skip over various errors, check this for improvements and debugging
-        logger.debug("vivisect encountered an unexpected exception. will continue processing.", exc_info=True)
+        logger.debug(
+            "vivisect encountered an unexpected exception. will continue processing.",
+            exc_info=True,
+        )
     logger.debug("Ended emulation at 0x%08x", emu.getProgramCounter())
 
     deltas = delta_collector.deltas

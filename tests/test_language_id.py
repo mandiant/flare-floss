@@ -18,8 +18,16 @@ from floss.language.identify import VERSION_UNKNOWN_OR_NA, Language, identify_la
         ),
         ("data/language/rust/rust-hello/bin/rust-hello.exe", Language.RUST, "1.69.0"),
         ("data/test-decode-to-stack.exe", Language.UNKNOWN, VERSION_UNKNOWN_OR_NA),
-        ("data/language/dotnet/dotnet-hello/bin/dotnet-hello.exe", Language.DOTNET, VERSION_UNKNOWN_OR_NA),
-        ("data/src/shellcode-stackstrings/bin/shellcode-stackstrings.bin", Language.UNKNOWN, VERSION_UNKNOWN_OR_NA),
+        (
+            "data/language/dotnet/dotnet-hello/bin/dotnet-hello.exe",
+            Language.DOTNET,
+            VERSION_UNKNOWN_OR_NA,
+        ),
+        (
+            "data/src/shellcode-stackstrings/bin/shellcode-stackstrings.bin",
+            Language.UNKNOWN,
+            VERSION_UNKNOWN_OR_NA,
+        ),
     ],
 )
 def test_language_detection(binary_file, expected_result, expected_version):

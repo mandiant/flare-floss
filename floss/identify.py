@@ -24,6 +24,21 @@ logger = floss.logging_.getLogger(__name__)
 
 
 def get_function_api(f):
+    """Retrieves API metadata for a function using Vivisect.
+
+    Queries the Vivisect workspace for information about a function's return type, name, calling convention, and arguments.
+
+    Args:
+        f:  The function object (likely within a Vivisect workspace context).
+
+    Returns:
+        dict: A dictionary containing the extracted API metadata:
+            *   ret_type: The function's return type.
+            *   ret_name: The name of the return value (if any).
+            *   call_conv:  The function's calling convention.
+            *   func_name: The function's name.
+            *   arguments: A list of argument descriptions.
+    """
     ret_type, ret_name, call_conv, func_name, args = f.vw.getFunctionApi(int(f))
 
     return {
@@ -36,6 +51,19 @@ def get_function_api(f):
 
 
 def get_function_meta(f):
+    """Retrieves metadata for a function using Vivisect.
+
+    Queries the Vivisect workspace for information about a function's size, block count, and instruction count.
+
+    Args:
+        f: The function object (likely within a Vivisect workspace context).
+
+    Returns:
+        dict: A dictionary containing the extracted metadata:
+            *   size: The function's size in bytes.
+            *   block_count: The number of basic blocks in the function.
+            *   instruction_count: The number of instructions in the function.
+    """
     meta = f.vw.getFunctionMetaDict(int(f))
 
     return {
@@ -47,6 +75,16 @@ def get_function_meta(f):
 
 
 def get_max_calls_to(vw, skip_thunks=True, skip_libs=True):
+    """Retrieves the maximum number of calls to a function in a Vivisect workspace.
+
+    Args:
+        vw: The Vivisect workspace.
+        skip_thunks: Whether to skip thunk functions.
+        skip_libs: Whether to skip library functions.
+
+    Returns:
+        int: The maximum number of calls to a function in the workspace.
+    """
     calls_to = set()
 
     for fva in vw.getFunctions():
@@ -62,15 +100,46 @@ def get_max_calls_to(vw, skip_thunks=True, skip_libs=True):
 
 
 def get_function_score_weighted(features):
-    return round(sum(feature.weighted_score() for feature in features) / sum(feature.weight for feature in features), 3)
+    """Calculates a weighted score for a function based on its features.
+
+    Args:
+        features: The features of the function.
+
+    Returns:
+        float: The weighted score of the function.
+    """
+    return round(
+        sum(feature.weighted_score() for feature in features) / sum(feature.weight for feature in features),
+        3,
+    )
 
 
 def get_top_functions(candidate_functions, count=20) -> List[Dict[int, Dict]]:
-    return sorted(candidate_functions.items(), key=lambda x: operator.getitem(x[1], "score"), reverse=True)[:count]
+    """Retrieves the top scoring functions from a set of candidate functions.
+
+    Args:
+        candidate_functions: A dictionary of candidate functions and their scores.
+        count: The number of top functions to retrieve.
+
+    Returns:
+        List[Dict[int, Dict]]: A list of the top scoring functions.
+    """
+    return sorted(
+        candidate_functions.items(),
+        key=lambda x: operator.getitem(x[1], "score"),
+        reverse=True,
+    )[:count]
 
 
 def get_tight_function_fvas(decoding_function_features) -> List[int]:
-    """return offsets of identified tight functions"""
+    """Retrieves the function virtual addresses of functions with tight loops.
+
+    Args:
+        decoding_function_features: A dictionary of decoding function features.
+
+    Returns:
+        List[int]: A list of function virtual addresses.
+    """
     tight_function_fvas = list()
     for fva, function_data in decoding_function_features.items():
         if any(filter(lambda f: isinstance(f, TightFunction), function_data["features"])):
@@ -79,6 +148,15 @@ def get_tight_function_fvas(decoding_function_features) -> List[int]:
 
 
 def append_unique(fvas, fvas_to_append):
+    """Appends unique function virtual addresses to a list.
+
+    Args:
+        fvas: The list of function virtual addresses.
+        fvas_to_append: The list of function virtual addresses to append.
+
+    Returns:
+        List[int]: The updated list of function virtual addresses.
+    """
     for fva in fvas_to_append:
         if fva not in fvas:
             fvas.append(fva)
@@ -86,16 +164,41 @@ def append_unique(fvas, fvas_to_append):
 
 
 def get_function_fvas(functions) -> List[int]:
+    """Retrieves the function virtual addresses from a dictionary of functions.
+
+    Args:
+        functions: A dictionary of functions.
+
+    Returns:
+        List[int]: A list of function virtual addresses.
+    """
     return list(map(lambda p: p[0], functions))
 
 
 def get_functions_with_tightloops(functions):
+    """Retrieves functions with tight loops from a dictionary of functions.
+
+    Args:
+        functions: A dictionary of functions.
+
+    Returns:
+        Dict[int, List]: A dictionary of functions with tight loops.
+    """
     return get_functions_with_features(
-        functions, (floss.features.features.TightLoop, floss.features.features.KindaTightLoop)
+        functions,
+        (floss.features.features.TightLoop, floss.features.features.KindaTightLoop),
     )
 
 
 def get_functions_without_tightloops(functions):
+    """Retrieves functions without tight loops from a dictionary of functions.
+
+    Args:
+        functions: A dictionary of functions.
+
+    Returns:
+        Dict[int, List]: A dictionary of functions without tight loops.
+    """
     tloop_functions = get_functions_with_tightloops(functions)
     no_tloop_funcs = copy.copy(functions)
     for fva, _ in tloop_functions.items():
@@ -104,6 +207,15 @@ def get_functions_without_tightloops(functions):
 
 
 def get_functions_with_features(functions, features) -> Dict[int, List]:
+    """Retrieves functions with specified features from a dictionary of functions.
+
+    Args:
+        functions: A dictionary of functions.
+        features: The features to search for.
+
+    Returns:
+        Dict[int, List]: A dictionary of functions with specified features.
+    """
     functions_by_features = dict()
     for fva, function_data in functions.items():
         func_features = list(filter(lambda f: isinstance(f, features), function_data["features"]))
@@ -113,6 +225,16 @@ def get_functions_with_features(functions, features) -> Dict[int, List]:
 
 
 def find_decoding_function_features(vw, functions, disable_progress=False) -> Tuple[Dict[int, Dict], Dict[int, str]]:
+    """Identifies decoding function features from a set of functions.
+
+    Args:
+        vw: The Vivisect workspace.
+        functions: The set of functions to analyze.
+        disable_progress: Whether to disable progress output.
+
+    Returns:
+        Tuple[Dict[int, Dict], Dict[int, str]]: A tuple containing the decoding function features and library functions.
+    """
     decoding_candidate_functions: DefaultDict[int, Dict] = collections.defaultdict(dict)
 
     library_functions: Dict[int, str] = dict()
@@ -128,7 +250,10 @@ def find_decoding_function_features(vw, functions, disable_progress=False) -> Tu
     n_funcs = len(functions)
 
     pb = pbar(
-        functions, desc="finding decoding function features", unit=" functions", postfix="skipped 0 library functions"
+        functions,
+        desc="finding decoding function features",
+        unit=" functions",
+        postfix="skipped 0 library functions",
     )
     with logging_redirect_tqdm(), redirecting_print_to_tqdm():
         for f in pb:
@@ -141,7 +266,11 @@ def find_decoding_function_features(vw, functions, disable_progress=False) -> Tu
                 # TODO handle j_j_j__free_base (lib function wrappers), e.g. 0x140035AF0 in d2ca76...
                 # TODO ignore function called to by library functions
                 function_name = viv_utils.get_function_name(vw, function_address)
-                logger.debug("skipping library function 0x%x (%s)", function_address, function_name)
+                logger.debug(
+                    "skipping library function 0x%x (%s)",
+                    function_address,
+                    function_name,
+                )
                 library_functions[function_address] = function_name
                 n_libs = len(library_functions)
                 percentage = 100 * (n_libs / n_funcs)
@@ -178,7 +307,11 @@ def find_decoding_function_features(vw, functions, disable_progress=False) -> Tu
 
             function_data["score"] = get_function_score_weighted(function_data["features"])
 
-            logger.debug("analyzed function 0x%x - total score: %.3f", function_address, function_data["score"])
+            logger.debug(
+                "analyzed function 0x%x - total score: %.3f",
+                function_address,
+                function_data["score"],
+            )
             for feat in function_data["features"]:
                 logger.trace("  %s", feat)
 

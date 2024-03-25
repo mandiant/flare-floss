@@ -27,8 +27,21 @@ MIN_STR_LEN = 4
 def find_stack_strings_with_regex(
     extract_stackstring_pattern, section_data, offset, min_length
 ) -> Iterable[StaticString]:
-    """
-    Find stack strings using a regex pattern.
+    """Finds potential stack strings within a binary section using a regular expression.
+
+    This function searches for assembly instruction patterns that are commonly associated with stack string manipulation. It extracts potential strings, handles encoding and construction of StaticString objects.
+
+    Args:
+        extract_stackstring_pattern: A compiled regular expression pattern used for matching assembly instructions related to stack strings.
+        section_data: The binary data of the section to search within.
+        offset: An offset value likely used for address calculations within the section.
+        min_length: The minimum length for a string to be considered valid.
+
+    Yields:
+        Iterable[StaticString]: An iterator of StaticString objects representing potential strings found on the stack.
+
+    Note:
+        The specific logic for identifying stack strings relies on assembly-level instructions and regular expression matching. See inline code comments or related documentation for more in-depth implementation details.
     """
     for m in extract_stackstring_pattern.finditer(section_data):
         for i in range(1, 8):
@@ -54,8 +67,7 @@ def find_stack_strings_with_regex(
 
 
 def find_amd64_stackstrings(section_data, offset, min_length):
-    """
-    Stackstrings in amd64 architecture are found
+    """Stackstrings in amd64 architecture are found
     by searching for the following pattern:
 
     .text:000000000048FFA9 48 83 FB 0F                                   cmp     rbx, 0Fh
@@ -69,6 +81,14 @@ def find_amd64_stackstrings(section_data, offset, min_length):
     .text:000000000048FFCD 75 49                                         jnz     short loc_490018
     .text:000000000048FFCF 80 78 0E 6B                                   cmp     byte ptr [rax+0Eh], 6Bh ; 'k'
     .text:000000000048FFD3 75 43                                         jnz     short loc_490018
+
+    Args:
+        section_data: The binary data of the section to analyze.
+        offset: An offset value likely used for address calculations within the section.
+        min_length: The minimum length for a string to be considered valid.
+
+    Yields:
+        Iterable[StaticString]: An iterator of StaticString objects representing potential strings found on the stack.
     """
     extract_stackstring_pattern = re.compile(
         b"\x48\xba(........)|\x48\xb8(........)|\x81\x78\x08(....)|\x81\x79\x08(....)|\x66\x81\x78\x0c(..)|\x66\x81\x79\x0c(..)|\x80\x78\x0e(.)|\x80\x79\x0e(.)"
@@ -78,8 +98,7 @@ def find_amd64_stackstrings(section_data, offset, min_length):
 
 
 def find_i386_stackstrings(section_data, offset, min_length):
-    """
-    Stackstrings in i386 architecture are found
+    """Stackstrings in i386 architecture are found
     by searching for the following pattern:
 
     .text:0048CED3 75 6D                                         jnz     short loc_48CF42
@@ -89,6 +108,14 @@ def find_i386_stackstrings(section_data, offset, min_length):
     .text:0048CEE4 75 5C                                         jnz     short loc_48CF42
     .text:0048CEE6 80 7D 06 72                                   cmp     byte ptr [ebp+6], 72h ; 'r'
     .text:0048CEEA 75 56                                         jnz     short loc_48CF42
+
+    Args:
+        section_data (bytes): The binary data of the section to search within.
+        offset (int): The offset within `section_data` to start the search from.
+        min_length (int): The minimum length of a stackstring to consider.
+
+    Yields:
+        Iterator: An iterator over found stackstrings matching the search criteria.
     """
     extract_stackstring_pattern = re.compile(
         b"\x81\xf9(....)|\x81\x38(....)|\x81\x7d\x00(....)|\x81\x3B(....)|\x66\x81\xf9(..)|\x66\x81\x7b\x04(..)|\x66\x81\x78\x04(..)|\x66\x81\x7d\x04(..)|\x80\x7b\x06(.)|\x80\x7d\x06(.)|\x80\xf8(.)|\x80\x78\x06(.)",
@@ -99,13 +126,21 @@ def find_i386_stackstrings(section_data, offset, min_length):
 
 
 def get_stackstrings(pe: pefile.PE, min_length: int) -> Iterable[StaticString]:
-    """
-    Find stackstrings in the given PE file.
+    """Find stackstrings in the given PE file.
 
     TODO(mr-tz): algorithms need improvements / rethinking of approach
      https://github.com/mandiant/flare-floss/issues/828
-    """
 
+    Args:
+        pe (pefile.PE): The PE file object to analyze.
+        min_length (int): The minimum length of stackstrings to be considered.
+
+    Yields:
+        Iterable[StaticString]: An iterable of found stackstrings.
+
+    Raises:
+        ValueError: If the PE file's architecture is neither x86 nor AMD64.
+    """
     for section in pe.sections:
         if not section.IMAGE_SCN_MEM_EXECUTE:
             continue
@@ -128,8 +163,7 @@ VA: TypeAlias = int
 
 
 def find_longest_monotonically_increasing_run(l: List[int]) -> Tuple[int, int]:
-    """
-    for the given sorted list of values,
+    """for the given sorted list of values,
     find the (start, end) indices of the longest run of values
     such that each value is greater than or equal to the previous value.
 
@@ -137,6 +171,12 @@ def find_longest_monotonically_increasing_run(l: List[int]) -> Tuple[int, int]:
 
         [4, 4, 1, 2, 3, 0, 0] -> (2, 4)
                ^^^^^^^
+
+    Args:
+        l (List[int]): The sorted list of integers to analyze.
+
+    Returns:
+        Tuple[int, int]: The start and end indices of the longest monotonically increasing sequence.
     """
     max_run_length = 0
     max_run_end_index = 0
@@ -162,10 +202,16 @@ def find_longest_monotonically_increasing_run(l: List[int]) -> Tuple[int, int]:
 
 
 def read_struct_string(pe: pefile.PE, instance: StructString) -> str:
-    """
-    read the string for the given struct String instance,
+    """read the string for the given struct String instance,
     validating that it looks like UTF-8,
     or raising a ValueError.
+
+    Args:
+        pe (pefile.PE): A parsed PE file object.
+        instance (StructString): A struct String instance to read.
+
+    Returns:
+        str: The extracted string.
     """
     image_base = pe.OPTIONAL_HEADER.ImageBase
 
@@ -195,8 +241,7 @@ def read_struct_string(pe: pefile.PE, instance: StructString) -> str:
 
 
 def find_string_blob_range(pe: pefile.PE, struct_strings: List[StructString]) -> Tuple[VA, VA]:
-    """
-    find the range of the string blob, as loaded in memory.
+    """find the range of the string blob, as loaded in memory.
 
     the current algorithm relies on the fact that the Go compiler stores
     the strings in length-sorted order, from shortest to longest.
@@ -213,6 +258,24 @@ def find_string_blob_range(pe: pefile.PE, struct_strings: List[StructString]) ->
     there might be hundreds of thousands and takes many minutes.
 
     note: this algorithm relies heavily on the strings being stored in length-sorted order.
+
+    Args:
+        pe: A parsed PE file object (pefile.PE).
+        struct_strings: A list of potential StructString instances found within the file.
+
+    Returns:
+        Tuple[VA, VA]:  A tuple representing the starting and ending virtual addresses (VA) of the estimated string blob region.
+
+    Assumptions:
+        * The Go compiler stores strings in the blob in length-sorted order (shortest to longest).
+        * The string blob is significantly larger than other sequences of strings within the file.
+
+    Algorithm:
+
+        1. Sorts StructString instances by address.
+        2. Finds the longest sequence of strings with monotonically increasing lengths.
+        3. Extracts a string from the middle of this sequence for analysis.
+        4. Locates the string's section and finds the surrounding null byte sequences (`00 00 00 00`) to approximate the blob boundaries.
     """
     image_base = pe.OPTIONAL_HEADER.ImageBase
 
@@ -251,8 +314,7 @@ def find_string_blob_range(pe: pefile.PE, struct_strings: List[StructString]) ->
 
 
 def get_string_blob_strings(pe: pefile.PE, min_length) -> Iterable[StaticString]:
-    """
-    for the given PE file compiled by Go,
+    """for the given PE file compiled by Go,
     find the string blob and then extract strings from it.
 
     we rely on code and memory scanning techniques to identify
@@ -269,6 +331,18 @@ def get_string_blob_strings(pe: pefile.PE, min_length) -> Iterable[StaticString]
     https://github.com/golang/go/blob/36ea4f9680f8296f1c7d0cf7dbb1b3a9d572754a/src/builtin/builtin.go#L70-L73
 
     its still the best we can do, though.
+
+    Args:
+        pe: A parsed PE file object (pefile.PE).
+        min_length: The minimum length for a string to be considered valid.
+
+    Yields:
+        Iterable[StaticString]: An iterator of StaticString objects representing potential strings extracted from the string blob.
+
+    Important Notes:
+        * Relies on assumptions about how the Go compiler stores and organizes strings.
+        * Handles potential non-UTF-8 sequences within the blob.
+        * Employs heuristics to refine string extraction and address potential edge cases.
     """
     image_base = pe.OPTIONAL_HEADER.ImageBase
 
@@ -368,7 +442,9 @@ def get_string_blob_strings(pe: pefile.PE, min_length) -> Iterable[StaticString]
             else:
                 try:
                     string = StaticString.from_utf8(
-                        last_buf[:size], pe.get_offset_from_rva(last_pointer - image_base), min_length
+                        last_buf[:size],
+                        pe.get_offset_from_rva(last_pointer - image_base),
+                        min_length,
                     )
                     yield string
                 except ValueError:
@@ -377,10 +453,17 @@ def get_string_blob_strings(pe: pefile.PE, min_length) -> Iterable[StaticString]
 
 
 def extract_go_strings(sample, min_length) -> List[StaticString]:
-    """
-    extract Go strings from the given PE file
-    """
+    """Extracts potential Go strings from a PE file.
 
+    This function combines techniques to locate strings within a PE file that are likely associated with a Go-compiled binary.  It searches for both strings in the string blob and strings located on the stack.
+
+    Args:
+        sample: The path to the PE file.
+        min_length: The minimum length for a string to be considered valid.
+
+    Returns:
+        List[StaticString]: A list of extracted StaticString objects.
+    """
     p = pathlib.Path(sample)
     buf = p.read_bytes()
     pe = pefile.PE(data=buf, fast_load=True)
@@ -393,6 +476,17 @@ def extract_go_strings(sample, min_length) -> List[StaticString]:
 
 
 def get_static_strings_from_blob_range(sample: pathlib.Path, static_strings: List[StaticString]) -> List[StaticString]:
+    """Filters a list of StaticString objects to include only those within the Go string blob.
+
+    This function assumes the string blob has already been located within the PE file.
+
+    Args:
+        sample: The path to the PE file.
+        static_strings:  A list of StaticString objects.
+
+    Returns:
+        List[StaticString]: A filtered list of StaticString objects that fall within the string blob's memory range.
+    """
     pe = pefile.PE(data=pathlib.Path(sample).read_bytes(), fast_load=True)
 
     struct_strings = list(sorted(set(get_struct_string_candidates(pe)), key=lambda s: s.address))
@@ -412,6 +506,13 @@ def get_static_strings_from_blob_range(sample: pathlib.Path, static_strings: Lis
 
 
 def main(argv=None):
+    """Parses command-line arguments and coordinates Go string extraction.
+
+    Sets up logging, parses arguments, extracts strings using `extract_go_strings`, and displays the results.
+
+    Args:
+        argv:  command-line arguments (Default: None)
+    """
     parser = argparse.ArgumentParser(description="Get Go strings")
     parser.add_argument("path", help="file or path to analyze")
     parser.add_argument(
