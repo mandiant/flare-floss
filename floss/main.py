@@ -165,7 +165,6 @@ def make_parser(argv):
     )
     parser.register("action", "extend", floss.utils.ExtendAction)
     parser.add_argument("-H", action="help", help="show advanced options and exit")
-
     parser.add_argument(
         "-n",
         "--minimum-length",
@@ -275,6 +274,26 @@ def make_parser(argv):
         version="%(prog)s {:s}".format(__version__),
         help=("show program's version number and exit" if show_all_options else argparse.SUPPRESS),
     )
+    if sys.platform == "win32":
+        advanced_group.add_argument(
+            "--install-right-click-menu",
+            action=floss.utils.InstallContextMenu,
+            help=(
+                "install FLOSS to the right-click context menu for Windows Explorer and exit"
+                if show_all_options
+                else argparse.SUPPRESS
+            ),
+        )
+
+        advanced_group.add_argument(
+            "--uninstall-right-click-menu",
+            action=floss.utils.UninstallContextMenu,
+            help=(
+                "uninstall FLOSS from the right-click context menu for Windows Explorer and exit"
+                if show_all_options
+                else argparse.SUPPRESS
+            ),
+        )
 
     output_group = parser.add_argument_group("rendering arguments")
     output_group.add_argument("-j", "--json", action="store_true", help="emit JSON instead of text")
@@ -836,8 +855,10 @@ def main(argv=None) -> int:
             else:
                 logger.debug("identified %d candidate decoding functions", len(fvas_to_emulate))
                 for fva in fvas_to_emulate:
-                    results.analysis.functions.decoding_function_scores[fva] = decoding_function_features[fva]["score"]
-                    logger.debug("  - 0x%x: %.3f", fva, decoding_function_features[fva]["score"])
+                    score = decoding_function_features[fva]["score"]
+                    xrefs_to = decoding_function_features[fva]["xrefs_to"]
+                    results.analysis.functions.decoding_function_scores[fva] = {"score": score, "xrefs_to": xrefs_to}
+                    logger.debug("  - 0x%x: score: %.3f, xrefs to: %d", fva, score, xrefs_to)
 
             # TODO filter out strings decoded in library function or function only called by library function(s)
             results.strings.decoded_strings = decode_strings(

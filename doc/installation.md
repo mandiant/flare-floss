@@ -77,6 +77,9 @@ This means that Python will load the FLOSS module from this local
 This is good, because it is easy for us to modify files and see the
  effects reflected immediately.
 But be careful not to remove this directory unless uninstalling FLOSS!
+If you encounter the error `ERROR: Project has a 'pyproject.toml' and its build backend is missing the 'build_editable' hook.`,
+ please ensure that you have upgraded to the latest versions of pip and setuptools.
+
 
 - Install FLOSS:
 
