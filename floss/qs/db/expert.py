@@ -1,11 +1,9 @@
 import re
-import pathlib
+import pkgutil
 from typing import Set, Dict, List, Tuple, Literal, Sequence
 from dataclasses import dataclass
 
 import msgspec
-
-import floss.qs.db
 
 
 class ExpertRule(msgspec.Struct):
@@ -51,13 +49,13 @@ class ExpertStringDatabase:
         return ret
 
     @classmethod
-    def from_file(cls, path: pathlib.Path) -> "ExpertStringDatabase":
+    def from_file(cls, package: str, resource: str) -> "ExpertStringDatabase":
         string_rules: Dict[str, ExpertRule] = {}
         substring_rules: List[ExpertRule] = []
         regex_rules: List[Tuple[ExpertRule, re.Pattern]] = []
 
         decoder = msgspec.json.Decoder(type=ExpertRule)
-        buf = path.read_bytes()
+        buf = pkgutil.get_data(package, resource)
         for line in buf.split(b"\n"):
             if not line:
                 continue
@@ -81,9 +79,10 @@ class ExpertStringDatabase:
             regex_rules=regex_rules,
         )
 
-
-DEFAULT_PATHS = (pathlib.Path(floss.qs.db.__file__).parent / "data" / "expert" / "capa.jsonl",)
+DEFAULT_FILENAMES = (
+    "capa.jsonl",
+)
 
 
 def get_default_databases() -> Sequence[ExpertStringDatabase]:
-    return [ExpertStringDatabase.from_file(path) for path in DEFAULT_PATHS]
+    return [ExpertStringDatabase.from_file('floss.qs.db', 'data/expert/' + f) for f in DEFAULT_FILENAMES]

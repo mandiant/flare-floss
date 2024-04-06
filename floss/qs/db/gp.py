@@ -1,6 +1,6 @@
 import gzip
 import hashlib
-import pathlib
+import pkgutil
 import datetime
 from typing import Set, Dict, List, Literal, Optional, Sequence
 from collections import defaultdict
@@ -8,7 +8,6 @@ from dataclasses import dataclass
 
 import msgspec
 
-import floss.qs.db
 
 Encoding = Literal["ascii"] | Literal["utf-16le"] | Literal["unknown"]
 # header | gap | overlay
@@ -57,13 +56,13 @@ class StringGlobalPrevalenceDatabase:
         )
 
     @classmethod
-    def from_file(cls, path: pathlib.Path, compress: bool = True) -> "StringGlobalPrevalenceDatabase":
+    def from_file(cls, package:str, file:str , compress: bool = True) -> "StringGlobalPrevalenceDatabase":
         metadata_by_string: Dict[str, List[StringGlobalPrevalence]] = defaultdict(list)
 
         if compress:
-            lines = gzip.decompress(path.read_bytes()).split(b"\n")
+            lines = gzip.decompress(pkgutil.get_data(package, file)).split(b"\n")
         else:
-            lines = path.read_bytes().split(b"\n")
+            lines = pkgutil.get_data(package, file).split(b"\n")
 
         decoder = msgspec.json.Decoder(type=StringGlobalPrevalence)
         for line in lines[1:]:
@@ -112,10 +111,10 @@ class StringHashDatabase:
             raise ValueError("other must be bytes or str")
 
     @classmethod
-    def from_file(cls, path: pathlib.Path) -> "StringHashDatabase":
+    def from_file(cls, package:str, file:str) -> "StringHashDatabase":
         string_hashes: Set[bytes] = set()
 
-        buf = path.read_bytes()
+        buf = pkgutil.get_data(package, file)
 
         for i in range(0, len(buf), 8):
             string_hashes.add(buf[i : i + 8])
@@ -125,19 +124,19 @@ class StringHashDatabase:
         )
 
 
-DEFAULT_PATHS = (
-    pathlib.Path(floss.qs.db.__file__).parent / "data" / "gp" / "gp.jsonl.gz",
-    pathlib.Path(floss.qs.db.__file__).parent / "data" / "gp" / "cwindb-native.jsonl.gz",
-    pathlib.Path(floss.qs.db.__file__).parent / "data" / "gp" / "cwindb-dotnet.jsonl.gz",
-    pathlib.Path(floss.qs.db.__file__).parent / "data" / "gp" / "xaa-hashes.bin",
-    pathlib.Path(floss.qs.db.__file__).parent / "data" / "gp" / "yaa-hashes.bin",
+DEFAULT_FILENAMES = (
+    "gp.jsonl.gz",
+    "cwindb-native.jsonl.gz",
+    "cwindb-dotnet.jsonl.gz",
+    "xaa-hashes.bin",
+    "yaa-hashes.bin",
 )
 
 
 def get_default_databases() -> Sequence[StringGlobalPrevalenceDatabase | StringHashDatabase]:
     return [
-        StringGlobalPrevalenceDatabase.from_file(path)
-        if path.name.endswith(".jsonl.gz")
-        else StringHashDatabase.from_file(path)
-        for path in DEFAULT_PATHS
+        StringGlobalPrevalenceDatabase.from_file("floss.qs.db", "data/gp/" + file)
+        if file.endswith(".jsonl.gz")
+        else StringHashDatabase.from_file("floss.qs.db", "data/gp/" + file)
+        for file in DEFAULT_FILENAMES
     ]
