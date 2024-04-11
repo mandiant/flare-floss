@@ -7,7 +7,6 @@ import time
 import bisect
 import logging
 import pathlib
-import pkgutil
 import argparse
 import functools
 import itertools
@@ -477,7 +476,7 @@ def load_databases() -> Sequence[Tagger]:
 
     # supplement code analysis with a database of junk code strings
     junk_db = StringGlobalPrevalenceDatabase.from_file(
-        "floss.qs.db", "data/gp/junk-code.jsonl.gz"
+        pathlib.Path(floss.qs.db.__file__).parent / "data" / "gp" / "junk-code.jsonl.gz"
     )
     ret.append(make_tagger(junk_db, query_code_string_database))
 

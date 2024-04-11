@@ -1,7 +1,9 @@
 import gzip
-import pkgutil
+import pathlib
 from typing import Set, Sequence
 from dataclasses import dataclass
+
+import floss.qs.db
 
 
 @dataclass
@@ -13,16 +15,16 @@ class WindowsApiStringDatabase:
         return len(self.dll_names) + len(self.api_names)
 
     @classmethod
-    def from_dir(cls, package: str, path: str) -> "WindowsApiStringDatabase":
+    def from_dir(cls, path: pathlib.Path) -> "WindowsApiStringDatabase":
         dll_names: Set[str] = set()
         api_names: Set[str] = set()
 
-        for line in gzip.decompress(pkgutil.get_data(package, path + "/dlls.txt.gz")).decode("utf-8").splitlines():
+        for line in gzip.decompress((path / "dlls.txt.gz").read_bytes()).decode("utf-8").splitlines():
             if not line:
                 continue
             dll_names.add(line)
 
-        for line in gzip.decompress(pkgutil.get_data(package, path + "/apis.txt.gz")).decode("utf-8").splitlines():
+        for line in gzip.decompress((path / "apis.txt.gz").read_bytes()).decode("utf-8").splitlines():
             if not line:
                 continue
             api_names.add(line)
@@ -30,10 +32,8 @@ class WindowsApiStringDatabase:
         return cls(dll_names=dll_names, api_names=api_names)
 
 
-DEFAULT_PATHS = (
-    'data/winapi/',
-)
+DEFAULT_PATHS = (pathlib.Path(floss.qs.db.__file__).parent / "data" / "winapi",)
 
 
 def get_default_databases() -> Sequence[WindowsApiStringDatabase]:
-    return [WindowsApiStringDatabase.from_dir("floss.qs.db", path) for path in DEFAULT_PATHS]
+    return [WindowsApiStringDatabase.from_dir(path) for path in DEFAULT_PATHS]

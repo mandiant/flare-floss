@@ -1,9 +1,11 @@
 import gzip
-import pkgutil
+import pathlib
 from typing import Dict, Sequence
 from dataclasses import dataclass
 
 import msgspec
+
+import floss.qs.db
 
 
 class OpenSourceString(msgspec.Struct):
@@ -23,10 +25,10 @@ class OpenSourceStringDatabase:
         return len(self.metadata_by_string)
 
     @classmethod
-    def from_file(cls, package: str, resource: str) -> "OpenSourceStringDatabase":
+    def from_file(cls, path: pathlib.Path) -> "OpenSourceStringDatabase":
         metadata_by_string: Dict[str, OpenSourceString] = {}
         decoder = msgspec.json.Decoder(type=OpenSourceString)
-        for line in gzip.decompress(pkgutil.get_data(package, resource)).split(b"\n"):
+        for line in gzip.decompress(path.read_bytes()).split(b"\n"):
             if not line:
                 continue
             s = decoder.decode(line)
@@ -55,7 +57,10 @@ DEFAULT_FILENAMES = (
     "zlib.jsonl.gz",
 )
 
+DEFAULT_PATHS = tuple(
+    pathlib.Path(floss.qs.db.__file__).parent / "data" / "oss" / filename for filename in DEFAULT_FILENAMES
+) + (pathlib.Path(floss.qs.db.__file__).parent / "data" / "crt" / "msvc_v143.jsonl.gz",)
+
+
 def get_default_databases() -> Sequence[OpenSourceStringDatabase]:
-    oss_databases = [OpenSourceStringDatabase.from_file('floss.qs.db', 'data/oss/' + f) for f in DEFAULT_FILENAMES]
-    crt_database = [OpenSourceStringDatabase.from_file('floss.qs.db', 'data/crt/msvc_v143.jsonl.gz')]
-    return oss_databases + crt_database
+    return [OpenSourceStringDatabase.from_file(path) for path in DEFAULT_PATHS]
