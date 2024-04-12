@@ -475,8 +475,8 @@ def load_databases() -> Sequence[Tagger]:
             raise ValueError(f"unexpected database type: {type(db)}")
 
     # supplement code analysis with a database of junk code strings
-    junk_db = StringGlobalPrevalenceDatabase.from_file(
-        pathlib.Path(floss.qs.db.__file__).parent / "data" / "gp" / "junk-code.jsonl.gz"
+    junk_db = StringGlobalPrevalenceDatabase.from_pkgutil(
+        "floss.qs.db", "data/gp/junk-code.jsonl.gz"
     )
     ret.append(make_tagger(junk_db, query_code_string_database))
 

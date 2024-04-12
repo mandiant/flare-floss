@@ -1,6 +1,7 @@
 import gzip
 import hashlib
 import pathlib
+import pkgutil
 import datetime
 from typing import Set, Dict, List, Literal, Optional, Sequence
 from collections import defaultdict
@@ -57,13 +58,13 @@ class StringGlobalPrevalenceDatabase:
         )
 
     @classmethod
-    def from_file(cls, path: pathlib.Path, compress: bool = True) -> "StringGlobalPrevalenceDatabase":
+    def load_database(cls, buf: bytes, compress: bool = True) -> "StringGlobalPrevalenceDatabase":
         metadata_by_string: Dict[str, List[StringGlobalPrevalence]] = defaultdict(list)
 
         if compress:
-            lines = gzip.decompress(path.read_bytes()).split(b"\n")
+            lines = gzip.decompress(buf).split(b"\n")
         else:
-            lines = path.read_bytes().split(b"\n")
+            lines = buf.split(b"\n")
 
         decoder = msgspec.json.Decoder(type=StringGlobalPrevalence)
         for line in lines[1:]:
@@ -77,6 +78,14 @@ class StringGlobalPrevalenceDatabase:
             meta=msgspec.json.Decoder(type=Metadata).decode(lines[0]),
             metadata_by_string=metadata_by_string,
         )
+    
+    @classmethod
+    def from_file(cls, path: pathlib.Path, compress: bool = True) -> "StringGlobalPrevalenceDatabase":
+        return cls.load_database(path.read_bytes(), compress)
+    
+    @classmethod
+    def from_pkgutil(cls, package: str, path: str, compress: bool = True) -> "StringGlobalPrevalenceDatabase":
+        return cls.load_database(pkgutil.get_data(package, path), compress)
 
     def to_file(self, outfile: str, compress: bool = True):
         if compress:
@@ -112,10 +121,8 @@ class StringHashDatabase:
             raise ValueError("other must be bytes or str")
 
     @classmethod
-    def from_file(cls, path: pathlib.Path) -> "StringHashDatabase":
+    def load_database(cls, buf: bytes) -> "StringHashDatabase":
         string_hashes: Set[bytes] = set()
-
-        buf = path.read_bytes()
 
         for i in range(0, len(buf), 8):
             string_hashes.add(buf[i : i + 8])
@@ -123,21 +130,37 @@ class StringHashDatabase:
         return cls(
             string_hashes=string_hashes,
         )
+    
+    @classmethod
+    def from_file(cls, path: pathlib.Path) -> "StringHashDatabase":
+        return cls.load_database(path.read_bytes())
+    
+    @classmethod
+    def from_pkgutil(cls, package: str, path: str) -> "StringHashDatabase":
+        return cls.load_database(pkgutil.get_data(package, path))
 
 
 DEFAULT_PATHS = (
-    pathlib.Path(floss.qs.db.__file__).parent / "data" / "gp" / "gp.jsonl.gz",
-    pathlib.Path(floss.qs.db.__file__).parent / "data" / "gp" / "cwindb-native.jsonl.gz",
-    pathlib.Path(floss.qs.db.__file__).parent / "data" / "gp" / "cwindb-dotnet.jsonl.gz",
-    pathlib.Path(floss.qs.db.__file__).parent / "data" / "gp" / "xaa-hashes.bin",
-    pathlib.Path(floss.qs.db.__file__).parent / "data" / "gp" / "yaa-hashes.bin",
+    "data/gp/gp.jsonl.gz",
+    "data/gp/cwindb-native.jsonl.gz",
+    "data/gp/cwindb-dotnet.jsonl.gz",
+    "data/gp/xaa-hashes.bin",
+    "data/gp/yaa-hashes.bin",
 )
 
 
 def get_default_databases() -> Sequence[StringGlobalPrevalenceDatabase | StringHashDatabase]:
+    # To use from_file
+    # return [
+    #     StringGlobalPrevalenceDatabase.from_file(pathlib.Path(floss.qs.db.__file__).parent / path)
+    #     if path.endswith(".jsonl.gz")
+    #     else StringHashDatabase.from_file(pathlib.Path(floss.qs.db.__file__).parent / path)
+    #     for path in DEFAULT_PATHS
+    # ]
+
     return [
-        StringGlobalPrevalenceDatabase.from_file(path)
-        if path.name.endswith(".jsonl.gz")
-        else StringHashDatabase.from_file(path)
-        for path in DEFAULT_PATHS
+         StringGlobalPrevalenceDatabase.from_pkgutil("floss.qs.db", path)
+         if path.endswith(".jsonl.gz")
+         else StringHashDatabase.from_pkgutil("floss.qs.db", path)
+         for path in DEFAULT_PATHS
     ]
