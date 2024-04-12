@@ -1,5 +1,6 @@
 import gzip
 import pathlib
+import pkgutil
 from typing import Dict, Sequence
 from dataclasses import dataclass
 
@@ -25,16 +26,24 @@ class OpenSourceStringDatabase:
         return len(self.metadata_by_string)
 
     @classmethod
-    def from_file(cls, path: pathlib.Path) -> "OpenSourceStringDatabase":
+    def load_database(cls, buf: bytes) -> "OpenSourceStringDatabase":
         metadata_by_string: Dict[str, OpenSourceString] = {}
         decoder = msgspec.json.Decoder(type=OpenSourceString)
-        for line in gzip.decompress(path.read_bytes()).split(b"\n"):
+        for line in gzip.decompress(buf).split(b"\n"):
             if not line:
                 continue
             s = decoder.decode(line)
             metadata_by_string[s.string] = s
 
         return cls(metadata_by_string=metadata_by_string)
+
+    @classmethod
+    def from_file(cls, path: pathlib.Path) -> "OpenSourceStringDatabase":
+        return cls.load_database(path.read_bytes())
+
+    @classmethod
+    def from_pkgutil(cls, package: str, path: str) -> "OpenSourceStringDatabase":
+        return cls.load_database(pkgutil.get_data(package, path))
 
 
 DEFAULT_FILENAMES = (
@@ -57,10 +66,11 @@ DEFAULT_FILENAMES = (
     "zlib.jsonl.gz",
 )
 
-DEFAULT_PATHS = tuple(
-    pathlib.Path(floss.qs.db.__file__).parent / "data" / "oss" / filename for filename in DEFAULT_FILENAMES
-) + (pathlib.Path(floss.qs.db.__file__).parent / "data" / "crt" / "msvc_v143.jsonl.gz",)
+DEFAULT_PATHS = tuple("data/oss/" + f for f in DEFAULT_FILENAMES) + ("data/crt/msvc_v143.jsonl.gz",)
 
 
 def get_default_databases() -> Sequence[OpenSourceStringDatabase]:
-    return [OpenSourceStringDatabase.from_file(path) for path in DEFAULT_PATHS]
+    # To use from_file
+    # return [OpenSourceStringDatabase.from_file(pathlib.Path(floss.qs.db.__file__).parent / path) for path in DEFAULT_PATHS]
+
+    return [OpenSourceStringDatabase.from_pkgutil("floss.qs.db", path) for path in DEFAULT_PATHS]
