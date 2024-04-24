@@ -34,11 +34,11 @@ dependencies = [
     "tabulate==0.9.0",
     "vivisect==1.1.1",
     "viv-utils[flirt]==0.7.9",
-    "pydantic==2.6.0",
+    "pydantic==2.7.0",
     "tqdm==4.66.2",
     "networkx==3.1",
     "halo==0.0.31",
-    "rich==13.4.2",
+    "rich==13.7.1",
     "pefile>=2022.5.30",
     "binary2strings==0.1.13",
 ]
@@ -46,7 +46,7 @@ dynamic = ["version", "readme"]
 
 [tool.setuptools.dynamic]
 version = {attr = "floss.version.__version__"}
-readme = {file = "README.md"}
+readme = {file = "README.md", content-type = "text/markdown"}
 
 [tool.setuptools]
 packages = ["floss", "floss.sigs"]
@@ -55,8 +55,8 @@ packages = ["floss", "floss.sigs"]
 dev = [
     "pre-commit==3.5.0",
     "pyyaml==6.0.1",
-    "pytest==8.0.2",
-    "pytest-sugar==0.9.4",
+    "pytest==8.1.1",
+    "pytest-sugar==1.0.0",
     "pytest-instafail==0.5.0",
     "pytest-cov==4.1.0",
     "pycodestyle==2.11.1",
@@ -69,7 +69,7 @@ dev = [
 ]
 build = [
     "pyinstaller==6.5.0",
-    "setuptools==69.1.1",
+    "setuptools==69.5.1",
     "build==1.0.3"
 ]
 
