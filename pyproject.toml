@@ -31,16 +31,67 @@ classifiers = [
 ]
 
 dependencies = [
-    "tabulate==0.9.0",
-    "vivisect==1.1.1",
-    "viv-utils[flirt]==0.7.9",
-    "pydantic==2.7.2",
-    "tqdm==4.66.4",
-    "networkx==3.1",
-    "halo==0.0.31",
-    "rich==13.7.1",
+    # ---------------------------------------
+    # As a library, FLOSS uses lower version bounds
+    # when specifying its dependencies. This lets
+    # other programs that use FLOSS (and other libraries)
+    # to find a compatible set of dependency versions.
+    #
+    # We can optionally pin to specific versions or
+    # limit the upper bound when there's a good reason;
+    # but the default is to assume all greater versions
+    # probably work with FLOSS until proven otherwise.
+    #
+    # The following link provides good background:
+    # https://iscinumpy.dev/post/bound-version-constraints/
+    #
+    # When we develop FLOSS, and when we distribute it as
+    # a standalone binary, we'll use specific versions
+    # that are pinned in requirements.txt.
+    # But the requirements for a library are specified here
+    # and are looser.
+    #
+    # Related discussions:
+    # 
+    #   - https://github.com/mandiant/capa/issues/2053
+    #   - https://github.com/mandiant/capa/pull/2059
+    #   - https://github.com/mandiant/capa/pull/2079
+    #
+    # ---------------------------------------
+    # The following dependency versions were imported
+    # during June 2024 by truncating specific versions to
+    # their major-most version (major version when possible, 
+    # or minor otherwise).
+    # As specific constraints are identified, please provide
+    # comments and context.
+    "tabulate>=0.9",
+    "pydantic>=2",
+    "tqdm>=4",
+    "halo>=0.0.31",
+    "rich>=13",
     "pefile>=2022.5.30",
-    "binary2strings==0.1.13",
+    "binary2strings>=0.1",
+
+    # ---------------------------------------
+    # Dependencies that we develop
+    #
+    # These dependencies are often actively influenced by capa,
+    # so we provide a minimum patch version that includes the
+    # latest bug fixes we need here.
+    "viv-utils[flirt]>=0.7.9",
+    "vivisect>=1.1.1",
+    "dncil>=1.0.2",
+
+    # ---------------------------------------
+    # Dependencies with version caps
+    #
+    # These dependencies must not exceed the version cap,
+    # typically due to dropping support for python releases
+    # we still support.
+
+    # TODO(williballenthin): networkx 3.2 doesn't support python 3.8 while capa does.
+    # https://github.com/mandiant/capa/issues/1966
+    "networkx>=3,<3.2",
 ]
 dynamic = ["version", "readme"]
 
@@ -52,6 +103,10 @@ readme = {file = "README.md", content-type = "text/markdown"}
 packages = ["floss", "floss.sigs"]
 
 [project.optional-dependencies]
+# Dev and build dependencies are not relaxed because
+# we want all developer environments to be consistent.
+# These dependencies are not used in production environments
+# and should not conflict with other libraries/tooling.
 dev = [
     "pre-commit==3.5.0",
     "pyyaml==6.0.1",

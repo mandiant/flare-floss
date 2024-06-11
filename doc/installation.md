@@ -90,6 +90,12 @@ You'll find that the `floss.exe` (Windows) or `floss` (Linux, macOS) executables
 
 ### Step 3: Install development and testing dependencies
 
+When developing FLOSS, please use the pinned dependencies found in `requirements.txt`.
+This ensures that everyone has the exact same, reproducible environment.
+Please install these dependencies before install FLOSS (from source or from PyPI):
+
+`$ pip install -r requirements.txt`
+
 To install all testing and development dependencies, run:
 
 `$ pip install -e /local/path/to/src[dev]`

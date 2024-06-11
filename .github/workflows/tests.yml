@@ -22,7 +22,9 @@ jobs:
       with:
         python-version: '3.8'
     - name: Install dependencies
-      run: pip install -e .[dev]
+      run: |
+        pip install -r requirements.txt
+        pip install -e .[dev]
     - name: Lint with isort
       run: pre-commit run isort
     - name: Lint with black
@@ -59,6 +61,8 @@ jobs:
       if: matrix.os == 'ubuntu-20.04'
       run: sudo apt-get install -y libyaml-dev
     - name: Install FLOSS
-      run: pip install -e .[dev]
+      run: |
+        pip install -r requirements.txt
+        pip install -e .[dev]
     - name: Run tests
       run: pytest tests/
