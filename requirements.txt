@@ -5,7 +5,7 @@ cfgv==3.4.0
 click==8.1.7
 colorama==0.4.6
 coverage==7.5.3
-cxxfilt==0.2.2
+cxxfilt==0.3.0
 distlib==0.3.8
 dncil==1.0.2
 filelock==3.14.0
