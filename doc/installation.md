@@ -77,6 +77,9 @@ This means that Python will load the FLOSS module from this local
 This is good, because it is easy for us to modify files and see the
  effects reflected immediately.
 But be careful not to remove this directory unless uninstalling FLOSS!
+If you encounter the error `ERROR: Project has a 'pyproject.toml' and its build backend is missing the 'build_editable' hook.`,
+ please ensure that you have upgraded to the latest versions of pip and setuptools.
+
 
 - Install FLOSS:
 
@@ -86,6 +89,12 @@ You'll find that the `floss.exe` (Windows) or `floss` (Linux, macOS) executables
  in your path now invoke the FLOSS binary from this directory.
 
 ### Step 3: Install development and testing dependencies
+
+When developing FLOSS, please use the pinned dependencies found in `requirements.txt`.
+This ensures that everyone has the exact same, reproducible environment.
+Please install these dependencies before install FLOSS (from source or from PyPI):
+
+`$ pip install -r requirements.txt`
 
 To install all testing and development dependencies, run:
 
@@ -112,22 +121,27 @@ We use the following tools to ensure consistent code style and formatting:
 We use [pre-commit](https://pre-commit.com/) so that its trivial to run the same linters & configuration locally as in CI.
 
 Run all linters liks:
-    ❯ pre-commit run --all-files
-    isort....................................................................Passed
-    black....................................................................Passed
-    mypy.....................................................................Passed
-    
+```
+❯ pre-commit run --all-files
+isort....................................................................Passed
+black....................................................................Passed
+mypy.....................................................................Passed
+```
+
 Or run a single linter like:
-    ❯ pre-commit run --all-files isort
-    isort....................................................................Passed
+```
+❯ pre-commit run --all-files isort
+isort....................................................................Passed
+```
 
 Importantly, you can configure pre-commit to run automatically before every commit by running:
+```
+❯ pre-commit install --hook-type pre-commit
+pre-commit installed at .git/hooks/pre-commit
 
-    ❯ pre-commit install --hook-type pre-commit
-    pre-commit installed at .git/hooks/pre-commit
-
-    ❯ pre-commit install --hook-type pre-push
-    pre-commit installed at .git/hooks/pre-push
+❯ pre-commit install --hook-type pre-push
+pre-commit installed at .git/hooks/pre-push
+```
 
 This way you can ensure that you don't commit code style or formatting offenses.
 You can always temporarily skip the checks by using the `-n`/`--no-verify` git option.

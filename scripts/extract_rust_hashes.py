@@ -43,7 +43,7 @@ while True:
 
     # for each table, get the hash and version
     for table in tables:
-        hash = str(table.find("a", attrs={"class": "Link--muted mb-2"})["href"]).split("/")[-1]
+        hash = str(table.find("a", attrs={"class": "Link Link--muted mb-2"})["href"]).split("/")[-1]
         version = table.find("span").text.strip()
         rust_hashes[hash] = version
 
