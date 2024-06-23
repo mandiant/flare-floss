@@ -3,7 +3,7 @@ import sys
 import logging
 import pathlib
 import argparse
-from typing import List, Tuple, Iterable, Optional
+from typing import Any, List, Tuple, Iterable, Optional
 
 import pefile
 
@@ -20,7 +20,7 @@ def get_rdata_section(pe: pefile.PE) -> pefile.SectionStructure:
     raise ValueError("no .rdata section found")
 
 
-def extract_utf8_strings_from_buffer(buf, min_length=MIN_STR_LEN) -> List[Tuple[str, int]]:
+def extract_utf8_strings_from_buffer(buf, min_length=MIN_STR_LEN) -> List[List[Any]]:
     """
     Extracts UTF-8 strings from a buffer.
     """
@@ -72,10 +72,12 @@ def extract_utf8_strings_from_buffer(buf, min_length=MIN_STR_LEN) -> List[Tuple[
     # filter strings less than min length
     strings = [string for string in strings if len(string[0]) >= min_length]
 
+    print(strings)
+
     return strings
 
 
-def extract_utf8_strings(pe: pefile.PE, min_length=MIN_STR_LEN) -> List[Tuple[str, int, int]]:
+def extract_utf8_strings(pe: pefile.PE, min_length=MIN_STR_LEN) -> List[List[Any]]:
     """
     Extracts UTF-8 strings from the .rdata section of a PE file.
     """

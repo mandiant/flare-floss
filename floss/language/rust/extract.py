@@ -4,7 +4,7 @@ import logging
 import pathlib
 import argparse
 import itertools
-from typing import List, Tuple, Iterable, Optional
+from typing import Any, List, Tuple, Iterable, Optional
 
 import pefile
 import binary2strings as b2s
@@ -60,7 +60,7 @@ def fix_b2s_wide_strings(
 
 
 def filter_and_transform_utf8_strings(
-    strings: List[Tuple[str, int, int]],
+    strings: list[list[Any]],
     start_rdata: int,
 ) -> List[StaticString]:
     transformed_strings = []
@@ -148,7 +148,7 @@ def get_string_blob_strings(pe: pefile.PE, min_length: int) -> Iterable[StaticSt
     buffer_rdata = rdata_section.get_data()
 
     # extract utf-8 strings
-    strings = extract_utf8_strings(pe, min_length)
+    fixed_strings = extract_utf8_strings(pe, min_length)
 
     # select only UTF-8 strings and adjust offset
     static_strings = filter_and_transform_utf8_strings(fixed_strings, start_rdata)
