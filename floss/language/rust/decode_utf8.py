@@ -20,7 +20,62 @@ def get_rdata_section(pe: pefile.PE) -> pefile.SectionStructure:
     raise ValueError("no .rdata section found")
 
 
-def extract_utf8_strings(pe: pefile.PE, min_length=MIN_STR_LEN) -> List[Tuple[str, int, int]]:
+def extract_utf8_strings_from_buffer(buf, min_length=MIN_STR_LEN) -> List[Tuple[str, int]]:
+    """
+    Extracts UTF-8 strings from a buffer.
+    """
+
+    # Reference: https://en.wikipedia.org/wiki/UTF-8
+
+    strings = []
+
+    for i in range(0, len(buf)):
+        # for 1 byte
+        if buf[i] & 0x80 == 0x00:
+            character = buf[i].to_bytes(1, "big").decode("utf-8", "ignore")
+            strings.append([character, i])
+
+        # for 2 bytes
+        elif buf[i] & 0xE0 == 0xC0:
+            temp = buf[i] << 8 | buf[i + 1]
+            character = temp.to_bytes(2, "big").decode("utf-8", "ignore")
+            i += 1
+            strings.append([character, i])
+
+        # for 3 bytes
+        elif buf[i] & 0xF0 == 0xE0:
+            temp = buf[i] << 16 | buf[i + 1] << 8 | buf[i + 2]
+            character = temp.to_bytes(3, "big").decode("utf-8", "ignore")
+            i += 2
+            strings.append([character, i])
+
+        # for 4 bytes
+        elif buf[i] & 0xF8 == 0xF0:
+            temp = buf[i] << 24 | buf[i + 1] << 16 | buf[i + 2] << 8 | buf[i + 3]
+            character = temp.to_bytes(4, "big").decode("utf-8", "ignore")
+            i += 3
+            strings.append([character, i])
+
+    prev = False
+
+    for i in range(0, len(strings)):
+        if strings[i][0].isprintable() == True:
+            if prev == False:
+                strings.append([strings[i][0], strings[i][1]])
+                prev = True
+            else:
+                strings[-1][0] += strings[i][0]
+                strings[-1][1] = strings[i][1]
+        else:
+            prev = False
+
+    # filter strings less than min length
+    strings = [string for string in strings if len(string[0]) >= min_length]
+
+    return strings
+
+
+def extract_utf8_strings(pe: pefile.PE, min_length=MIN_STR_LEN) -> List[Tuple[str, int, int]]: 
     """
     Extracts UTF-8 strings from the .rdata section of a PE file.
     """
@@ -29,58 +84,9 @@ def extract_utf8_strings(pe: pefile.PE, min_length=MIN_STR_LEN) -> List[Tuple[st
     except ValueError as e:
         print("cannot extract rust strings: %s", e)
         return []
-
-    strings = rdata_section.get_data()
-
-    character_and_index = []
-
-    # Reference: https://en.wikipedia.org/wiki/UTF-8
-
-    for i in range(0, len(strings)):
-        # for 1 byte
-        if strings[i] & 0x80 == 0x00:
-            character = strings[i].to_bytes(1, "big").decode("utf-8", "ignore")
-            character_and_index.append([character, i, 1])
-
-        # for 2 bytes
-        elif strings[i] & 0xE0 == 0xC0:
-            temp = strings[i] << 8 | strings[i + 1]
-            character = temp.to_bytes(2, "big").decode("utf-8", "ignore")
-            i += 1
-            character_and_index.append([character, i, 2])
-
-        # for 3 bytes
-        elif strings[i] & 0xF0 == 0xE0:
-            temp = strings[i] << 16 | strings[i + 1] << 8 | strings[i + 2]
-            character = temp.to_bytes(3, "big").decode("utf-8", "ignore")
-            i += 2
-            character_and_index.append([character, i, 3])
-
-        # for 4 bytes
-        elif strings[i] & 0xF8 == 0xF0:
-            temp = strings[i] << 24 | strings[i + 1] << 16 | strings[i + 2] << 8 | strings[i + 3]
-            character = temp.to_bytes(4, "big").decode("utf-8", "ignore")
-            i += 3
-            character_and_index.append([character, i, 4])
-
-    strings = []  # string, start index, end index
-
-    prev = False
-
-    for i in range(0, len(character_and_index)):
-        if character_and_index[i][0].isprintable() == True:
-            if prev == False:
-                strings.append([character_and_index[i][0], character_and_index[i][1], character_and_index[i][1]])
-                prev = True
-            else:
-                strings[-1][0] += character_and_index[i][0]
-                strings[-1][2] = character_and_index[i][1]
-        else:
-            prev = False
-
-    # filter strings less than min length
-    strings = [string for string in strings if len(string[0]) >= min_length]
-
+    
+    buf = pe.get_memory_mapped_image()[rdata_section.VirtualAddress : rdata_section.VirtualAddress + rdata_section.SizeOfRawData]
+    strings = extract_utf8_strings_from_buffer(buf, min_length)
     return strings
 
 
