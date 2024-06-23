@@ -75,7 +75,7 @@ def extract_utf8_strings_from_buffer(buf, min_length=MIN_STR_LEN) -> List[Tuple[
     return strings
 
 
-def extract_utf8_strings(pe: pefile.PE, min_length=MIN_STR_LEN) -> List[Tuple[str, int, int]]: 
+def extract_utf8_strings(pe: pefile.PE, min_length=MIN_STR_LEN) -> List[Tuple[str, int, int]]:
     """
     Extracts UTF-8 strings from the .rdata section of a PE file.
     """
@@ -84,8 +84,10 @@ def extract_utf8_strings(pe: pefile.PE, min_length=MIN_STR_LEN) -> List[Tuple[st
     except ValueError as e:
         print("cannot extract rust strings: %s", e)
         return []
-    
-    buf = pe.get_memory_mapped_image()[rdata_section.VirtualAddress : rdata_section.VirtualAddress + rdata_section.SizeOfRawData]
+
+    buf = pe.get_memory_mapped_image()[
+        rdata_section.VirtualAddress : rdata_section.VirtualAddress + rdata_section.SizeOfRawData
+    ]
     strings = extract_utf8_strings_from_buffer(buf, min_length)
     return strings
 

@@ -213,9 +213,11 @@ def make_parser(argv):
         type=lambda x: int(x, 0x10),
         default=None,
         nargs="+",
-        help="only analyze the specified functions, hex-encoded like 0x401000, space-separate multiple functions"
-        if show_all_options
-        else argparse.SUPPRESS,
+        help=(
+            "only analyze the specified functions, hex-encoded like 0x401000, space-separate multiple functions"
+            if show_all_options
+            else argparse.SUPPRESS
+        ),
     )
     advanced_group.add_argument(
         "--disable-progress",
@@ -226,17 +228,21 @@ def make_parser(argv):
         "--signatures",
         type=str,
         default=SIGNATURES_PATH_DEFAULT_STRING,
-        help="path to .sig/.pat file or directory used to identify library functions, use embedded signatures by default"
-        if show_all_options
-        else argparse.SUPPRESS,
+        help=(
+            "path to .sig/.pat file or directory used to identify library functions, use embedded signatures by default"
+            if show_all_options
+            else argparse.SUPPRESS
+        ),
     )
     advanced_group.add_argument(
         "-L",
         "--large-file",
         action="store_true",
-        help="allow processing files larger than {} MB".format(int(MAX_FILE_SIZE / MEGABYTE))
-        if show_all_options
-        else argparse.SUPPRESS,
+        help=(
+            "allow processing files larger than {} MB".format(int(MAX_FILE_SIZE / MEGABYTE))
+            if show_all_options
+            else argparse.SUPPRESS
+        ),
     )
     advanced_group.add_argument(
         "--version",
