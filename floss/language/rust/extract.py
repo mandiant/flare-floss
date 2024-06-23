@@ -60,7 +60,7 @@ def fix_b2s_wide_strings(
 
 
 def filter_and_transform_utf8_strings(
-    strings: list[list[Any]],
+    strings: List[List[Any]],
     start_rdata: int,
 ) -> List[StaticString]:
     transformed_strings = []
