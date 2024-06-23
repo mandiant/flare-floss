@@ -682,7 +682,7 @@ def main(argv=None) -> int:
                 rdata_strings, results.strings.language_strings, args.min_length
             )
 
-            # get the file offset diff file offset and va 
+            # get the file offset diff file offset and va
             if args.verbose:
                 results.metadata.file_offset_in_rdata = floss.language.rust.extract.get_file_offset_in_rdata(sample)
 

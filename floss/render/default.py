@@ -158,7 +158,9 @@ def strtime(seconds):
     return f"{m:02.0f}:{s:02.0f}"
 
 
-def render_language_strings(language, language_strings, language_strings_missed, file_offset, console, verbose, disable_headers):
+def render_language_strings(
+    language, language_strings, language_strings_missed, file_offset, console, verbose, disable_headers
+):
     strings = sorted(language_strings + language_strings_missed, key=lambda s: s.offset)
     render_heading(f"FLOSS {language.upper()} STRINGS ({len(strings)})", console, verbose, disable_headers)
     offset_len = len(f"{strings[-1].offset}")
@@ -343,7 +345,7 @@ def render(results: floss.results.ResultDocument, verbose, disable_headers, colo
             results.metadata.file_offset_in_rdata,
             console,
             verbose,
-            disable_headers
+            disable_headers,
         )
         console.print("\n")
 
