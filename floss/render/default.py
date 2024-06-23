@@ -158,7 +158,7 @@ def strtime(seconds):
     return f"{m:02.0f}:{s:02.0f}"
 
 
-def render_language_strings(language, language_strings, language_strings_missed, console, verbose, disable_headers):
+def render_language_strings(language, language_strings, language_strings_missed, file_offset, console, verbose, disable_headers):
     strings = sorted(language_strings + language_strings_missed, key=lambda s: s.offset)
     render_heading(f"FLOSS {language.upper()} STRINGS ({len(strings)})", console, verbose, disable_headers)
     offset_len = len(f"{strings[-1].offset}")
@@ -167,7 +167,7 @@ def render_language_strings(language, language_strings, language_strings_missed,
             console.print(sanitize(s.string, is_ascii_only=False), markup=False)
         else:
             colored_string = string_style(sanitize(s.string, is_ascii_only=False))
-            console.print(f"0x{s.offset:>0{offset_len}x} {colored_string}")
+            console.print(f"0x{s.offset:>0{offset_len}x} 0x{s.offset + file_offset:>0{offset_len}x} {colored_string}")
 
 
 def render_static_substrings(strings, encoding, offset_len, console, verbose, disable_headers):
@@ -340,9 +340,10 @@ def render(results: floss.results.ResultDocument, verbose, disable_headers, colo
             results.metadata.language,
             results.strings.language_strings,
             results.strings.language_strings_missed,
+            results.metadata.file_offset_in_rdata,
             console,
             verbose,
-            disable_headers,
+            disable_headers
         )
         console.print("\n")
 
