@@ -30,7 +30,7 @@ platformdirs==4.2.2
 pluggy==1.5.0
 pre-commit==3.5.0
 pyasn1==0.4.8
-pyasn1-modules==0.2.8
+pyasn1-modules==0.4.0
 pycodestyle==2.11.1
 pycparser==2.22
 pydantic==2.7.4
