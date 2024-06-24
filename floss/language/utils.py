@@ -507,7 +507,7 @@ def get_raw_xrefs_rdata_i386(pe: pefile.PE, buf: bytes) -> Iterable[VA]:
         last = current
 
         if address != 0x0 and low <= address < high:
-             yield address
+            yield address
 
 
 def get_extract_stats(
