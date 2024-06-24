@@ -76,7 +76,7 @@ def extract_utf8_strings_from_buffer(buf, min_length=MIN_STR_LEN) -> List[List[A
     return strings
 
 
-def extract_utf8_strings(pe: pefile.PE, min_length=MIN_STR_LEN) -> List[List[Any]]:
+def extract_utf8_strings(pe: pefile.PE, min_length=MIN_STR_LEN) -> List[Optional[List[Any]]]:
     """
     Extracts UTF-8 strings from the .rdata section of a PE file.
     """
