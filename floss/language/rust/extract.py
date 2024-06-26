@@ -147,8 +147,6 @@ def get_file_offset_in_rdata(sample: pathlib.Path) -> int:
     virtual_address = rdata_section.VirtualAddress
     pointer_to_raw_data = rdata_section.PointerToRawData
 
-    print("DD:", image_base + virtual_address - pointer_to_raw_data)
-
     return image_base + virtual_address - pointer_to_raw_data
 
 
