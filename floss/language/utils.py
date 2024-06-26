@@ -475,8 +475,7 @@ def get_struct_string_candidates(pe: pefile.PE) -> Iterable[StructString]:
 
 def get_raw_xrefs_rdata_i386(pe: pefile.PE, buf: bytes) -> Iterable[VA]:
     """
-    scan for raw xrefs in .rdata section.
-    raw xrefs are 32-bit absolute addresses to strings in .rdata section (i386).
+    scan for raw xrefs that are 32-bit absolute addresses in the PE file (i386).
     They are not encoded as struct String instances.
 
     example:
@@ -488,7 +487,7 @@ def get_raw_xrefs_rdata_i386(pe: pefile.PE, buf: bytes) -> Iterable[VA]:
     From the disassembly, they are called as follows:
     .text:00498E56                 push    ds:off_4D61E0[ecx*4]
 
-    The above are not struct String instances, but are references to strings in .rdata section.
+    The above are not struct String instances, but are references to strings in the PE file.
     They can be used to divide the string blobs into smaller chunks.
     """
     format = "I"
