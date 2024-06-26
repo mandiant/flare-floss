@@ -54,4 +54,4 @@ def test_language_detection_64(binary_file):
         out = get_extract_stats(pe, all_ss_strings, rust_strings, n)
 
     # check that the output percentage is greater than 86%
-    assert float(out) > 86  # increase to 91 after merging PR #899
+    assert float(out) > 86  # TODO(Arker123): increase to 91 after merging PR #899
