@@ -164,12 +164,32 @@ def render_language_strings(
     strings = sorted(language_strings + language_strings_missed, key=lambda s: s.offset)
     render_heading(f"FLOSS {language.upper()} STRINGS ({len(strings)})", console, verbose, disable_headers)
     offset_len = len(f"{strings[-1].offset}")
-    for s in strings:
-        if verbose == Verbosity.DEFAULT:
+    va_offset_len = len(f"{strings[-1].offset + file_offset}")
+
+    if verbose != Verbosity.DEFAULT:
+        # add column headers
+        table = Table(
+            "Offset",
+            "VA",
+            "String",
+            show_header=not (disable_headers),
+            box=box.ASCII2,
+            show_edge=False,
+        )
+
+        # add rows
+        for s in strings:
+            table.add_row(
+                f"0x{s.offset:>0{offset_len}x}",
+                f"0x{s.offset + file_offset:>0{va_offset_len}x}",
+                string_style(sanitize(s.string, is_ascii_only=False)),
+            )
+
+        console.print(table)
+
+    else:
+        for s in strings:
             console.print(sanitize(s.string, is_ascii_only=False), markup=False)
-        else:
-            colored_string = string_style(sanitize(s.string, is_ascii_only=False))
-            console.print(f"0x{s.offset:>0{offset_len}x} 0x{s.offset + file_offset:>0{offset_len}x} {colored_string}")
 
 
 def render_static_substrings(strings, encoding, offset_len, console, verbose, disable_headers):
