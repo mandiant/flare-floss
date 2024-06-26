@@ -144,7 +144,6 @@ def make_parser(argv):
     )
     parser.register("action", "extend", floss.utils.ExtendAction)
     parser.add_argument("-H", action="help", help="show advanced options and exit")
-
     parser.add_argument(
         "-n",
         "--minimum-length",
@@ -200,9 +199,11 @@ def make_parser(argv):
         type=str,
         choices=[l.value for l in Language if l != Language.UNKNOWN],
         default=Language.UNKNOWN.value,
-        help="use language-specific string extraction, auto-detect language by default, disable using 'none'"
-        if show_all_options
-        else argparse.SUPPRESS,
+        help=(
+            "use language-specific string extraction, auto-detect language by default, disable using 'none'"
+            if show_all_options
+            else argparse.SUPPRESS
+        ),
     )
     advanced_group.add_argument(
         "-l",
@@ -215,9 +216,11 @@ def make_parser(argv):
         type=lambda x: int(x, 0x10),
         default=None,
         nargs="+",
-        help="only analyze the specified functions, hex-encoded like 0x401000, space-separate multiple functions"
-        if show_all_options
-        else argparse.SUPPRESS,
+        help=(
+            "only analyze the specified functions, hex-encoded like 0x401000, space-separate multiple functions"
+            if show_all_options
+            else argparse.SUPPRESS
+        ),
     )
     advanced_group.add_argument(
         "--disable-progress",
@@ -228,17 +231,21 @@ def make_parser(argv):
         "--signatures",
         type=str,
         default=SIGNATURES_PATH_DEFAULT_STRING,
-        help="path to .sig/.pat file or directory used to identify library functions, use embedded signatures by default"
-        if show_all_options
-        else argparse.SUPPRESS,
+        help=(
+            "path to .sig/.pat file or directory used to identify library functions, use embedded signatures by default"
+            if show_all_options
+            else argparse.SUPPRESS
+        ),
     )
     advanced_group.add_argument(
         "-L",
         "--large-file",
         action="store_true",
-        help="allow processing files larger than {} MB".format(int(MAX_FILE_SIZE / MEGABYTE))
-        if show_all_options
-        else argparse.SUPPRESS,
+        help=(
+            "allow processing files larger than {} MB".format(int(MAX_FILE_SIZE / MEGABYTE))
+            if show_all_options
+            else argparse.SUPPRESS
+        ),
     )
     advanced_group.add_argument(
         "--version",
@@ -246,6 +253,26 @@ def make_parser(argv):
         version="%(prog)s {:s}".format(__version__),
         help="show program's version number and exit" if show_all_options else argparse.SUPPRESS,
     )
+    if sys.platform == "win32":
+        advanced_group.add_argument(
+            "--install-right-click-menu",
+            action=floss.utils.InstallContextMenu,
+            help=(
+                "install FLOSS to the right-click context menu for Windows Explorer and exit"
+                if show_all_options
+                else argparse.SUPPRESS
+            ),
+        )
+
+        advanced_group.add_argument(
+            "--uninstall-right-click-menu",
+            action=floss.utils.UninstallContextMenu,
+            help=(
+                "uninstall FLOSS from the right-click context menu for Windows Explorer and exit"
+                if show_all_options
+                else argparse.SUPPRESS
+            ),
+        )
 
     output_group = parser.add_argument_group("rendering arguments")
     output_group.add_argument("-j", "--json", action="store_true", help="emit JSON instead of text")
@@ -598,7 +625,11 @@ def main(argv=None) -> int:
 
     if results.metadata.language not in ("", "unknown"):
         if args.enabled_types == [] and args.disabled_types == []:
-            prompt = input("Do you want to enable string deobfuscation? (this could take a long time) [y/N] ")
+            # when stdout is redirected, such as in 'floss foo.exe | less' use default prompt values
+            if sys.stdout.isatty():
+                prompt = input("Do you want to enable string deobfuscation? (this could take a long time) [y/N] ")
+            else:
+                prompt = "n"
 
             if prompt.lower() == "y":
                 logger.info("enabled string deobfuscation")
@@ -752,8 +783,10 @@ def main(argv=None) -> int:
             else:
                 logger.debug("identified %d candidate decoding functions", len(fvas_to_emulate))
                 for fva in fvas_to_emulate:
-                    results.analysis.functions.decoding_function_scores[fva] = decoding_function_features[fva]["score"]
-                    logger.debug("  - 0x%x: %.3f", fva, decoding_function_features[fva]["score"])
+                    score = decoding_function_features[fva]["score"]
+                    xrefs_to = decoding_function_features[fva]["xrefs_to"]
+                    results.analysis.functions.decoding_function_scores[fva] = {"score": score, "xrefs_to": xrefs_to}
+                    logger.debug("  - 0x%x: score: %.3f, xrefs to: %d", fva, score, xrefs_to)
 
             # TODO filter out strings decoded in library function or function only called by library function(s)
             results.strings.decoded_strings = decode_strings(

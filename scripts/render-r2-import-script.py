@@ -25,6 +25,7 @@ import sys
 import base64
 import logging
 import argparse
+from pathlib import Path
 
 from floss.results import AddressType, ResultDocument
 
@@ -90,7 +91,7 @@ def main():
         logging.basicConfig(level=logging.INFO)
         logging.getLogger().setLevel(logging.INFO)
 
-    result_document = ResultDocument.parse_file(args.report_path)
+    result_document = ResultDocument.parse_file(Path(args.report_path))
 
     print(render_r2_script(result_document))
     return 0

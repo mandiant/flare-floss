@@ -39,7 +39,7 @@ Not all compilers use string formats that the classic `strings.exe` algorithm su
  1. Go
  2. Rust
 
-The strings FLOSS extracts specific to a compiler are must easier to inspect by humans. 
+The strings FLOSS extracts specific to a compiler are much easier to inspect by humans. 
 
 Please consult the documentation to learn more about the [language-specific string extraction](doc/language_specific_strings.md).
 
