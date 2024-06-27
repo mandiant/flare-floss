@@ -86,7 +86,10 @@ def main():
 
     logging_group.add_argument("-d", "--debug", action="store_true", help="enable debugging output on STDERR")
     logging_group.add_argument(
-        "-q", "--quiet", action="store_true", help="disable all status output except fatal errors"
+        "-q",
+        "--quiet",
+        action="store_true",
+        help="disable all status output except fatal errors",
     )
 
     args = parser.parse_args()

@@ -4,8 +4,14 @@ import string
 
 
 def sanitize(s: str, is_ascii_only=True) -> str:
-    """
-    Return sanitized string for printing to cli.
+    """Sanitize a string for printing.
+
+    Args:
+        s: The string to sanitize.
+        is_ascii_only: Whether to only allow ASCII characters.
+
+    Returns:
+        The sanitized string.
     """
     s = s.replace("\n", "\\n")
     s = s.replace("\r", "\\r")

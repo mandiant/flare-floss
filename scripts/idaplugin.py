@@ -118,7 +118,10 @@ def apply_decoded_strings(decoded_strings: List[DecodedString]) -> None:
 
 
 def apply_stack_strings(
-    stack_strings: List[StackString], tight_strings: List[TightString], lvar_cmt: bool = True, cmt: bool = True
+    stack_strings: List[StackString],
+    tight_strings: List[TightString],
+    lvar_cmt: bool = True,
+    cmt: bool = True,
 ) -> None:
     """
     lvar_cmt: apply stack variable comment
@@ -130,7 +133,10 @@ def apply_stack_strings(
             continue
 
         logger.info(
-            "decoded stack/tight string in function 0x%x (pc: 0x%x): %s", s.function, s.program_counter, s.string
+            "decoded stack/tight string in function 0x%x (pc: 0x%x): %s",
+            s.function,
+            s.program_counter,
+            s.string,
         )
         if lvar_cmt:
             try:
@@ -178,7 +184,11 @@ def main(argv=None):
     logger.info("extracting stackstrings...")
     selected_functions = floss.identify.get_functions_without_tightloops(decoding_function_features)
     stack_strings = floss.stackstrings.extract_stackstrings(
-        vw, selected_functions, MIN_LENGTH, verbosity=floss.render.Verbosity.VERBOSE, disable_progress=True
+        vw,
+        selected_functions,
+        MIN_LENGTH,
+        verbosity=floss.render.Verbosity.VERBOSE,
+        disable_progress=True,
     )
     logger.info("decoded %d stack strings", len(stack_strings))
 

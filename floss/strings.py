@@ -16,6 +16,17 @@ SLICE_SIZE = 4096
 
 
 def buf_filled_with(buf, character):
+    """Determines if a buffer is entirely filled with a specified character.
+
+    Checks the buffer in chunks and compares them against a reference chunk created from the provided character.
+
+    Args:
+        buf: The buffer to be analyzed.
+        character: The character to check for.
+
+    Returns:
+        bool: True if the buffer is filled with the given character, False otherwise.
+    """
     dupe_chunk = character * SLICE_SIZE
     for offset in range(0, len(buf), SLICE_SIZE):
         new_chunk = buf[offset : offset + SLICE_SIZE]
@@ -25,18 +36,24 @@ def buf_filled_with(buf, character):
 
 
 def extract_ascii_unicode_strings(buf, n=MIN_LENGTH) -> Iterable[StaticString]:
+    """Extract ASCII and Unicode strings from the given binary data.
+
+    Args:
+        buf: A bytestring.
+        n: The minimum length of strings to extract. (Default value = MIN_LENGTH)
+    """
     yield from chain(extract_ascii_strings(buf, n), extract_unicode_strings(buf, n))
 
 
 def extract_ascii_strings(buf, n=MIN_LENGTH) -> Iterable[StaticString]:
-    """
-    Extract ASCII strings from the given binary data.
+    """Extract ASCII strings from the given binary data.
 
-    :param buf: A bytestring.
-    :type buf: str
-    :param n: The minimum length of strings to extract.
-    :type n: int
-    :rtype: Sequence[StaticString]
+    Args:
+        buf: A bytestring.
+        n: The minimum length of strings to extract. (Default value = MIN_LENGTH)
+
+    Returns:
+        Iterable[StaticString]: An iterable of StaticString objects representing the extracted strings.
     """
 
     if not buf:
@@ -52,18 +69,22 @@ def extract_ascii_strings(buf, n=MIN_LENGTH) -> Iterable[StaticString]:
         reg = rb"([%s]{%d,})" % (ASCII_BYTE, n)
         r = re.compile(reg)
     for match in r.finditer(buf):
-        yield StaticString(string=match.group().decode("ascii"), offset=match.start(), encoding=StringEncoding.ASCII)
+        yield StaticString(
+            string=match.group().decode("ascii"),
+            offset=match.start(),
+            encoding=StringEncoding.ASCII,
+        )
 
 
 def extract_unicode_strings(buf, n=MIN_LENGTH) -> Iterable[StaticString]:
-    """
-    Extract naive UTF-16 strings from the given binary data.
+    """Extract naive UTF-16 strings from the given binary data.
 
-    :param buf: A bytestring.
-    :type buf: str
-    :param n: The minimum length of strings to extract.
-    :type n: int
-    :rtype: Sequence[StaticString]
+    Args:
+        buf: A bytestring.
+        n: The minimum length of strings to extract. (Default value = MIN_LENGTH)
+
+    Returns:
+        Iterable[StaticString]: An iterable of StaticString objects representing the extracted strings.
     """
 
     if not buf:
@@ -80,13 +101,16 @@ def extract_unicode_strings(buf, n=MIN_LENGTH) -> Iterable[StaticString]:
     for match in r.finditer(buf):
         try:
             yield StaticString(
-                string=match.group().decode("utf-16"), offset=match.start(), encoding=StringEncoding.UTF16LE
+                string=match.group().decode("utf-16"),
+                offset=match.start(),
+                encoding=StringEncoding.UTF16LE,
             )
         except UnicodeDecodeError:
             pass
 
 
 def main():
+    """Main function for standalone usage."""
     import sys
 
     with open(sys.argv[1], "rb") as f:

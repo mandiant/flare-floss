@@ -18,8 +18,7 @@ VA: TypeAlias = int
 
 @dataclass(frozen=True)
 class StructString:
-    """
-    a struct String instance.
+    """a struct String instance.
 
 
     ```go
@@ -53,7 +52,6 @@ class StructString:
     We only use pointer and length data
 
     https://github.com/rust-lang/rust/blob/3911a63b7777e19dad4043542f908018e70c0bdd/library/alloc/src/string.rs
-
     """
 
     address: VA
@@ -76,11 +74,7 @@ def get_image_range(pe: pefile.PE) -> Tuple[VA, VA]:
 
 
 def find_amd64_lea_xrefs(buf: bytes, base_addr: VA) -> Iterable[VA]:
-    """
-    scan the given data found at the given base address
-    to find all the 64-bit RIP-relative LEA instructions,
-    extracting the target virtual address.
-    """
+    """scan the given data found at the given base address to find all the 64-bit RIP-relative LEA instructions, extracting the target virtual address."""
     rip_relative_insn_length = 7
     rip_relative_insn_re = re.compile(
         # use rb, or else double escape the term "\x0D", or else beware!
@@ -115,11 +109,7 @@ def find_amd64_lea_xrefs(buf: bytes, base_addr: VA) -> Iterable[VA]:
 
 
 def find_i386_lea_xrefs(buf: bytes) -> Iterable[VA]:
-    """
-    scan the given data
-    to find all the 32-bit absolutely addressed LEA instructions,
-    extracting the target virtual address.
-    """
+    """scan the given data to find all the 32-bit absolutely addressed LEA instructions, extracting the target virtual address."""
     absolute_insn_re = re.compile(
         rb"""
         (
@@ -143,11 +133,7 @@ def find_i386_lea_xrefs(buf: bytes) -> Iterable[VA]:
 
 
 def find_lea_xrefs(pe: pefile.PE) -> Iterable[VA]:
-    """
-    scan the executable sections of the given PE file
-    for LEA instructions that reference valid memory addresses,
-    yielding the virtual addresses.
-    """
+    """scan the executable sections of the given PE file for LEA instructions that reference valid memory addresses, yielding the virtual addresses."""
     low, high = get_image_range(pe)
 
     for section in pe.sections:
@@ -169,11 +155,7 @@ def find_lea_xrefs(pe: pefile.PE) -> Iterable[VA]:
 
 
 def find_i386_push_xrefs(buf: bytes) -> Iterable[VA]:
-    """
-    scan the given data found at the given base address
-    to find all the 32-bit PUSH instructions,
-    extracting the target virtual address.
-    """
+    """scan the given data found at the given base address to find all the 32-bit PUSH instructions, extracting the target virtual address."""
     push_insn_re = re.compile(
         rb"""
         (
@@ -192,11 +174,7 @@ def find_i386_push_xrefs(buf: bytes) -> Iterable[VA]:
 
 
 def find_amd64_push_xrefs(buf: bytes) -> Iterable[VA]:
-    """
-    scan the given data found at the given base address
-    to find all the 64-bit PUSH instructions,
-    extracting the target virtual address.
-    """
+    """scan the given data found at the given base address to find all the 64-bit PUSH instructions, extracting the target virtual address."""
     push_insn_re = re.compile(
         rb"""
         (
@@ -215,11 +193,7 @@ def find_amd64_push_xrefs(buf: bytes) -> Iterable[VA]:
 
 
 def find_push_xrefs(pe: pefile.PE) -> Iterable[VA]:
-    """
-    scan the executable sections of the given PE file
-    for PUSH instructions that reference valid memory addresses,
-    yielding the virtual addresses.
-    """
+    """scan the executable sections of the given PE file for PUSH instructions that reference valid memory addresses, yielding the virtual addresses."""
     low, high = get_image_range(pe)
 
     for section in pe.sections:
@@ -241,11 +215,7 @@ def find_push_xrefs(pe: pefile.PE) -> Iterable[VA]:
 
 
 def find_i386_mov_xrefs(buf: bytes) -> Iterable[VA]:
-    """
-    scan the given data found at the given base address
-    to find all the 32-bit MOV instructions,
-    extracting the target virtual address.
-    """
+    """scan the given data found at the given base address to find all the 32-bit MOV instructions, extracting the target virtual address."""
     mov_insn_re = re.compile(
         rb"""
         (
@@ -269,11 +239,7 @@ def find_i386_mov_xrefs(buf: bytes) -> Iterable[VA]:
 
 
 def find_amd64_mov_xrefs(buf: bytes) -> Iterable[VA]:
-    """
-    scan the given data found at the given base address
-    to find all the 64-bit MOV instructions,
-    extracting the target virtual address.
-    """
+    """scan the given data found at the given base address to find all the 64-bit MOV instructions, extracting the target virtual address."""
     mov_insn_re = re.compile(
         rb"""
         (
@@ -298,11 +264,7 @@ def find_amd64_mov_xrefs(buf: bytes) -> Iterable[VA]:
 
 
 def find_mov_xrefs(pe: pefile.PE) -> Iterable[VA]:
-    """
-    scan the executable sections of the given PE file
-    for MOV instructions that reference valid memory addresses,
-    yielding the virtual addresses.
-    """
+    """scan the executable sections of the given PE file for MOV instructions that reference valid memory addresses, yielding the virtual addresses."""
     low, high = get_image_range(pe)
 
     for section in pe.sections:
@@ -329,9 +291,7 @@ def get_max_section_size(pe: pefile.PE) -> int:
 
 
 def get_struct_string_candidates_with_pointer_size(pe: pefile.PE, buf: bytes, psize: int) -> Iterable[StructString]:
-    """
-    scan through the given bytes looking for pairs of machine words (address, length)
-    that might potentially be struct String instances.
+    """scan through the given bytes looking for pairs of machine words (address, length) that might potentially be struct String instances.
 
     we do some initial validation, like checking that the address is valid
     and the length is reasonable; however, we don't validate the encoded string data.
@@ -383,8 +343,7 @@ def get_i386_struct_string_candidates(pe: pefile.PE, buf: bytes) -> Iterable[Str
 
 
 def get_struct_string_candidates(pe: pefile.PE) -> Iterable[StructString]:
-    """
-    find candidate struct String instances in the given PE file.
+    """find candidate struct String instances in the given PE file.
 
     we do some initial validation, like checking that the address is valid
     and the length is reasonable; however, we don't validate the encoded string data.
@@ -474,7 +433,11 @@ def get_struct_string_candidates(pe: pefile.PE) -> Iterable[StructString]:
 
 
 def get_extract_stats(
-    pe: pefile, all_ss_strings: List[StaticString], lang_strings: List[StaticString], min_len: int, min_blob_len=0
+    pe: pefile,
+    all_ss_strings: List[StaticString],
+    lang_strings: List[StaticString],
+    min_len: int,
+    min_blob_len=0,
 ) -> float:
     # min_blob_len: this is the minimum length of a string blob in binary file to be considered for extraction
     all_strings = list()
@@ -548,7 +511,18 @@ def get_extract_stats(
                 lang_str_found.append(lang_str)
 
                 if replaced_len < min_len:
-                    results.append((secname, s_id, s_range, False, "missing", s, orig_len - replaced_len, lang_str))
+                    results.append(
+                        (
+                            secname,
+                            s_id,
+                            s_range,
+                            False,
+                            "missing",
+                            s,
+                            orig_len - replaced_len,
+                            lang_str,
+                        )
+                    )
                     break
 
         if not found:

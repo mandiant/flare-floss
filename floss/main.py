@@ -64,6 +64,8 @@ logger = floss.logging_.getLogger("floss")
 
 
 class StringType(str, Enum):
+    """Enumerates the types of strings that FLOSS can extract from a binary."""
+
     STATIC = "static"
     STACK = "stack"
     TIGHT = "tight"
@@ -71,16 +73,22 @@ class StringType(str, Enum):
 
 
 class WorkspaceLoadError(ValueError):
+    """Indicates an error occurred while loading a workspace.
+
+    This exception inherits from ValueError, making it suitable for signaling issues encountered during the process of loading or initializing a workspace (e.g., in an analysis tool).
+    """
+
     pass
 
 
 class ArgumentValueError(ValueError):
+    """Indicates an error occurred while parsing command-line arguments."""
+
     pass
 
 
 class ArgumentParser(argparse.ArgumentParser):
-    """
-    argparse will call sys.exit upon parsing invalid arguments.
+    """argparse will call sys.exit upon parsing invalid arguments.
     we don't want that, because we might be parsing args within test cases, run as a module, etc.
     so, we override the behavior to raise a ArgumentValueError instead.
 
@@ -88,12 +96,25 @@ class ArgumentParser(argparse.ArgumentParser):
     """
 
     def error(self, message):
+        """override the default behavior to raise an exception instead of calling sys.exit.
+
+        Args:
+            message: The error message to display.
+        """
         self.print_usage(sys.stderr)
         args = {"prog": self.prog, "message": message}
         raise ArgumentValueError("%(prog)s: error: %(message)s" % args)
 
 
 def make_parser(argv):
+    """Create the command-line argument parser for FLOSS.
+
+    Args:
+        argv: The command-line arguments.
+
+    Returns:
+        ArgumentParser: The command-line argument parser for FLOSS.
+    """
     desc = (
         "The FLARE team's open-source tool to extract ALL strings from malware.\n"
         f"  %(prog)s {__version__} - https://github.com/mandiant/flare-floss/\n\n"
@@ -192,7 +213,7 @@ def make_parser(argv):
         "--format",
         choices=[f[0] for f in formats],
         default="auto",
-        help="select sample format, %s" % format_help if show_all_options else argparse.SUPPRESS,
+        help=("select sample format, %s" % format_help if show_all_options else argparse.SUPPRESS),
     )
     advanced_group.add_argument(
         "--language",
@@ -209,7 +230,7 @@ def make_parser(argv):
         "-l",
         "--load",
         action="store_true",
-        help="load from existing FLOSS results document" if show_all_options else argparse.SUPPRESS,
+        help=("load from existing FLOSS results document" if show_all_options else argparse.SUPPRESS),
     )
     advanced_group.add_argument(
         "--functions",
@@ -293,7 +314,10 @@ def make_parser(argv):
         help="enable debugging output on STDERR, specify multiple times to increase verbosity",
     )
     logging_group.add_argument(
-        "-q", "--quiet", action="store_true", help="disable all status output on STDOUT except fatal errors"
+        "-q",
+        "--quiet",
+        action="store_true",
+        help="disable all status output on STDOUT except fatal errors",
     )
     logging_group.add_argument(
         "--color",
@@ -307,6 +331,12 @@ def make_parser(argv):
 
 
 def set_log_config(debug, quiet):
+    """Set the logging configuration for FLOSS.
+
+    Args:
+        debug: The debug level.
+        quiet: Whether to suppress all status output except fatal errors.
+    """
     if quiet:
         log_level = logging.WARNING
     elif debug >= DebugLevel.TRACE:
@@ -346,16 +376,14 @@ def set_log_config(debug, quiet):
 
 
 def select_functions(vw, asked_functions: Optional[List[int]]) -> Set[int]:
-    """
-    Given a workspace and an optional list of function addresses,
-    collect the set of valid functions,
-    or all valid function addresses.
+    """Given a workspace and an optional list of function addresses, collect the set of valid functions, or all valid function addresses.
 
-    arguments:
-      asked_functions: the functions a user wants, or None.
+    Args:
+        vw: The vivisect workspace.
+        asked_functions: The list of function addresses to analyze.
 
-    raises:
-      ValueError: if an asked for function does not exist in the workspace.
+    Returns:
+        Set[int]: The set of valid function addresses.
     """
     functions = set(vw.getFunctions())
     if not asked_functions:
@@ -371,16 +399,22 @@ def select_functions(vw, asked_functions: Optional[List[int]]) -> Set[int]:
         raise ValueError("failed to find functions: %s" % (", ".join(map(hex, sorted(missing_functions)))))
 
     logger.debug("selected %d functions", len(asked_functions_))
-    logger.trace("selected the following functions: %s", ", ".join(map(hex, sorted(asked_functions_))))
+    logger.trace(
+        "selected the following functions: %s",
+        ", ".join(map(hex, sorted(asked_functions_))),
+    )
 
     return asked_functions_
 
 
 def is_supported_file_type(sample_file_path: Path):
-    """
-    Return if FLOSS supports the input file type, based on header bytes
-    :param sample_file_path:
-    :return: True if file type is supported, False otherwise
+    """Return if FLOSS supports the input file type, based on header bytes
+
+    Args:
+        sample_file_path: The path to the sample file.
+
+    Returns:
+        bool: True if the file type is supported, False otherwise.
     """
     with sample_file_path.open("rb") as f:
         magic = f.read(2)
@@ -397,6 +431,17 @@ def load_vw(
     sigpaths: List[Path],
     should_save_workspace: bool = False,
 ) -> VivWorkspace:
+    """Load a Vivisect workspace from a file.
+
+    Args:
+        sample_path: The path to the sample file.
+        format: The format of the sample file.
+        sigpaths: The list of paths to signature files.
+        should_save_workspace: Whether to save the workspace.
+
+    Returns:
+        VivWorkspace: The Vivisect workspace.
+    """
     if format not in ("sc32", "sc64"):
         if not is_supported_file_type(sample_path):
             raise WorkspaceLoadError(
@@ -434,18 +479,22 @@ def load_vw(
 
 
 def is_running_standalone() -> bool:
-    """
-    are we running from a PyInstaller'd executable?
+    """are we running from a PyInstaller'd executable?
     if so, then we'll be able to access `sys._MEIPASS` for the packaged resources.
+
+    Returns:
+        bool: True if running standalone, False otherwise.
     """
     return hasattr(sys, "frozen") and hasattr(sys, "_MEIPASS")
 
 
 def get_default_root() -> Path:
-    """
-    get the file system path to the default resources directory.
+    """get the file system path to the default resources directory.
     under PyInstaller, this comes from _MEIPASS.
     under source, this is the root directory of the project.
+
+    Returns:
+        Path: The file system path to the default resources directory.
     """
     if is_running_standalone():
         # pylance/mypy don't like `sys._MEIPASS` because this isn't standard.
@@ -457,6 +506,14 @@ def get_default_root() -> Path:
 
 
 def get_signatures(sigs_path: Path) -> List[Path]:
+    """Get the paths to the signature files.
+
+    Args:
+        sigs_path: The path to the signature files.
+
+    Returns:
+        List[Path]: The paths to the signature files.
+    """
     if not sigs_path.exists():
         raise IOError("signatures path %s does not exist or cannot be accessed" % str(sigs_path))
 
@@ -485,9 +542,13 @@ def get_signatures(sigs_path: Path) -> List[Path]:
 
 
 def main(argv=None) -> int:
-    """
-    arguments:
-      argv: the command line arguments
+    """The main entry point for FLOSS.
+
+    Args:
+        argv: The command-line arguments.
+
+    Returns:
+        int: The return code.
     """
     # use rich as default Traceback handler
     rich.traceback.install(show_locals=True)
@@ -558,7 +619,10 @@ def main(argv=None) -> int:
 
         return 0
 
-    results = ResultDocument(metadata=Metadata(file_path=str(sample), min_length=args.min_length), analysis=analysis)
+    results = ResultDocument(
+        metadata=Metadata(file_path=str(sample), min_length=args.min_length),
+        analysis=analysis,
+    )
 
     sample_size = sample.stat().st_size
     if sample_size > sys.maxsize:
@@ -666,7 +730,9 @@ def main(argv=None) -> int:
             # here currently only focus on strings in string blob range
             string_blob_strings = floss.language.go.extract.get_static_strings_from_blob_range(sample, static_strings)
             results.strings.language_strings_missed = floss.language.utils.get_missed_strings(
-                string_blob_strings, results.strings.language_strings, args.min_length
+                string_blob_strings,
+                results.strings.language_strings,
+                args.min_length,
             )
 
         elif results.metadata.language == Language.RUST.value:
@@ -701,7 +767,13 @@ def main(argv=None) -> int:
 
         sigpaths = get_signatures(args.signatures)
 
-        should_save_workspace = os.environ.get("FLOSS_SAVE_WORKSPACE") not in ("0", "no", "NO", "n", None)
+        should_save_workspace = os.environ.get("FLOSS_SAVE_WORKSPACE") not in (
+            "0",
+            "no",
+            "NO",
+            "n",
+            None,
+        )
         try:
             with halo.Halo(
                 text="analyzing program",
@@ -783,10 +855,8 @@ def main(argv=None) -> int:
             else:
                 logger.debug("identified %d candidate decoding functions", len(fvas_to_emulate))
                 for fva in fvas_to_emulate:
-                    score = decoding_function_features[fva]["score"]
-                    xrefs_to = decoding_function_features[fva]["xrefs_to"]
-                    results.analysis.functions.decoding_function_scores[fva] = {"score": score, "xrefs_to": xrefs_to}
-                    logger.debug("  - 0x%x: score: %.3f, xrefs to: %d", fva, score, xrefs_to)
+                    results.analysis.functions.decoding_function_scores[fva] = decoding_function_features[fva]["score"]
+                    logger.debug("  - 0x%x: %.3f", fva, decoding_function_features[fva]["score"])
 
             # TODO filter out strings decoded in library function or function only called by library function(s)
             results.strings.decoded_strings = decode_strings(
