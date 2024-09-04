@@ -46,8 +46,19 @@ def width(s: str, character_count: int) -> str:
 
 def render_meta(results: ResultDocument, console, verbose):
     rows: List[Tuple[str, str]] = list()
+
+    lang = f"{results.metadata.language}" if results.metadata.language else ""
+    lang_v = (
+        f" ({results.metadata.language_version})"
+        if results.metadata.language != "unknown" and results.metadata.language_version
+        else ""
+    )
+    lang_s = f" - selected: {results.metadata.language_selected}" if results.metadata.language_selected else ""
+    language_value = f"{lang}{lang_v}{lang_s}"
+
     if verbose == Verbosity.DEFAULT:
         rows.append((width("file path", MIN_WIDTH_LEFT_COL), width(results.metadata.file_path, MIN_WIDTH_RIGHT_COL)))
+        rows.append(("identified language", language_value))
     else:
         rows.extend(
             [
@@ -55,7 +66,7 @@ def render_meta(results: ResultDocument, console, verbose):
                 ("start date", results.metadata.runtime.start_date.strftime("%Y-%m-%d %H:%M:%S")),
                 ("runtime", strtime(results.metadata.runtime.total)),
                 ("version", results.metadata.version),
-                ("identified language", results.metadata.language),
+                ("identified language", language_value),
                 ("imagebase", f"0x{results.metadata.imagebase:x}"),
                 ("min string length", f"{results.metadata.min_length}"),
             ]
@@ -80,15 +91,19 @@ def render_string_type_rows(results: ResultDocument) -> List[Tuple[str, str]]:
     return [
         (
             " static strings",
-            f"{len_ss:>{len(str(len_ss))}} ({len_chars_ss:>{len(str(len_chars_ss))}d} characters)"
-            if results.analysis.enable_static_strings
-            else DISABLED,
+            (
+                f"{len_ss:>{len(str(len_ss))}} ({len_chars_ss:>{len(str(len_chars_ss))}d} characters)"
+                if results.analysis.enable_static_strings
+                else DISABLED
+            ),
         ),
         (
             "  language strings",
-            f"{len_ls:>{len(str(len_ss))}} ({len_chars_ls:>{len(str(len_chars_ss))}d} characters)"
-            if results.metadata.language
-            else DISABLED,
+            (
+                f"{len_ls:>{len(str(len_ss))}} ({len_chars_ls:>{len(str(len_chars_ss))}d} characters)"
+                if results.metadata.language
+                else DISABLED
+            ),
         ),
         (
             " stack strings",
@@ -123,11 +138,11 @@ def render_function_analysis_rows(results) -> List[Tuple[str, str]]:
     if results.analysis.functions.decoding_function_scores:
         rows.append(
             (
-                "  identified decoding functions\n  (offset and score)",
+                "  identified decoding functions\n  (offset, score, and number of xrefs to)",
                 textwrap.fill(
                     ", ".join(
                         [
-                            f"0x{fva:x} ({d:.3f})"
+                            f"0x{fva:x} ({d['score']:.3f}, xrefs_to: {d['xrefs_to']})"
                             for fva, d in results.analysis.functions.decoding_function_scores.items()
                         ]
                     ),
@@ -143,16 +158,16 @@ def strtime(seconds):
     return f"{m:02.0f}:{s:02.0f}"
 
 
-def render_gostrings(language_strings, language_strings_missed, console, verbose, disable_headers):
+def render_language_strings(language, language_strings, language_strings_missed, console, verbose, disable_headers):
     strings = sorted(language_strings + language_strings_missed, key=lambda s: s.offset)
-    render_heading("FLOSS GO STRINGS", len(strings), console, verbose, disable_headers)
+    render_heading(f"FLOSS {language.upper()} STRINGS ({len(strings)})", console, verbose, disable_headers)
+    offset_len = len(f"{strings[-1].offset}")
     for s in strings:
         if verbose == Verbosity.DEFAULT:
             console.print(sanitize(s.string, is_ascii_only=False), markup=False)
         else:
             colored_string = string_style(sanitize(s.string, is_ascii_only=False))
-            console.print(f"0x{s.offset:>08x} {colored_string}")
-    console.print("\n")
+            console.print(f"0x{s.offset:>0{offset_len}x} {colored_string}")
 
 
 def render_static_substrings(strings, encoding, offset_len, console, verbose, disable_headers):
@@ -165,11 +180,10 @@ def render_static_substrings(strings, encoding, offset_len, console, verbose, di
         else:
             colored_string = string_style(sanitize(s.string))
             console.print(f"0x{s.offset:>0{offset_len}x} {colored_string}")
-    console.print("\n")
 
 
 def render_staticstrings(strings, console, verbose, disable_headers):
-    render_heading("FLOSS STATIC STRINGS", len(strings), console, verbose, disable_headers)
+    render_heading(f"FLOSS STATIC STRINGS ({len(strings)})", console, verbose, disable_headers)
 
     ascii_strings = list(filter(lambda s: s.encoding == StringEncoding.ASCII, strings))
     unicode_strings = list(filter(lambda s: s.encoding == StringEncoding.UTF16LE, strings))
@@ -183,6 +197,7 @@ def render_staticstrings(strings, console, verbose, disable_headers):
     offset_len = max(ascii_offset_len, unicode_offset_len)
 
     render_static_substrings(ascii_strings, "ASCII", offset_len, console, verbose, disable_headers)
+    console.print("\n")
     render_static_substrings(unicode_strings, "UTF-16LE", offset_len, console, verbose, disable_headers)
 
 
@@ -248,13 +263,13 @@ def render_decoded_strings(decoded_strings: List[DecodedString], console, verbos
                 console.print("\n")
 
 
-def render_heading(heading, n, console, verbose, disable_headers):
+def render_heading(heading, console, verbose, disable_headers):
     """
     example::
 
-        ===========================
-        ‖ FLOSS TIGHT STRINGS (0) ‖
-        ===========================
+         ─────────────────────────
+          FLOSS TIGHT STRINGS (0)
+         ─────────────────────────
     """
     if disable_headers:
         return
@@ -301,7 +316,7 @@ def get_color(color):
 
 def render(results: floss.results.ResultDocument, verbose, disable_headers, color):
     sys.__stdout__.reconfigure(encoding="utf-8")
-    console = Console(file=io.StringIO(), color_system=get_color(color), highlight=False)
+    console = Console(file=io.StringIO(), color_system=get_color(color), highlight=False, soft_wrap=True)
 
     if not disable_headers:
         console.print("\n")
@@ -313,28 +328,38 @@ def render(results: floss.results.ResultDocument, verbose, disable_headers, colo
         render_meta(results, console, verbose)
         console.print("\n")
 
-    if results.metadata.language == floss.language.identify.Language.GO.value:
-        render_gostrings(
-            results.strings.language_strings, results.strings.language_strings_missed, console, verbose, disable_headers
-        )
-        console.print("\n")
-
-    elif results.analysis.enable_static_strings:
+    if results.analysis.enable_static_strings:
         render_staticstrings(results.strings.static_strings, console, verbose, disable_headers)
         console.print("\n")
 
+    if results.metadata.language in (
+        floss.language.identify.Language.GO.value,
+        floss.language.identify.Language.RUST.value,
+    ):
+        render_language_strings(
+            results.metadata.language,
+            results.strings.language_strings,
+            results.strings.language_strings_missed,
+            console,
+            verbose,
+            disable_headers,
+        )
+        console.print("\n")
+
     if results.analysis.enable_stack_strings:
-        render_heading("FLOSS STACK STRINGS", len(results.strings.stack_strings), console, verbose, disable_headers)
+        render_heading(f"FLOSS STACK STRINGS ({len(results.strings.stack_strings)})", console, verbose, disable_headers)
         render_stackstrings(results.strings.stack_strings, console, verbose, disable_headers)
         console.print("\n")
 
     if results.analysis.enable_tight_strings:
-        render_heading("FLOSS TIGHT STRINGS", len(results.strings.tight_strings), console, verbose, disable_headers)
+        render_heading(f"FLOSS TIGHT STRINGS ({len(results.strings.tight_strings)})", console, verbose, disable_headers)
         render_stackstrings(results.strings.tight_strings, console, verbose, disable_headers)
         console.print("\n")
 
     if results.analysis.enable_decoded_strings:
-        render_heading("FLOSS DECODED STRINGS", len(results.strings.decoded_strings), console, verbose, disable_headers)
+        render_heading(
+            f"FLOSS DECODED STRINGS ({len(results.strings.decoded_strings)})", console, verbose, disable_headers
+        )
         render_decoded_strings(results.strings.decoded_strings, console, verbose, disable_headers)
 
     console.file.seek(0)

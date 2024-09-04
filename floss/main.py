@@ -22,9 +22,12 @@ import floss.results
 import floss.version
 import floss.logging_
 import floss.render.json
+import floss.language.utils
 import floss.render.default
 import floss.language.go.extract
 import floss.language.go.coverage
+import floss.language.rust.extract
+import floss.language.rust.coverage
 from floss.const import MEGABYTE, MAX_FILE_SIZE, MIN_STRING_LENGTH, SUPPORTED_FILE_MAGIC
 from floss.utils import (
     hex,
@@ -51,7 +54,7 @@ from floss.logging_ import TRACE, DebugLevel
 from floss.stackstrings import extract_stackstrings
 from floss.tightstrings import extract_tightstrings
 from floss.string_decoder import decode_strings
-from floss.language.identify import Language, identify_language
+from floss.language.identify import Language, identify_language_and_version
 
 SIGNATURES_PATH_DEFAULT_STRING = "(embedded signatures)"
 EXTENSIONS_SHELLCODE_32 = ("sc32", "raw32")
@@ -92,13 +95,16 @@ class ArgumentParser(argparse.ArgumentParser):
 
 def make_parser(argv):
     desc = (
-        "The FLARE team's open-source tool to extract obfuscated strings from malware.\n"
+        "The FLARE team's open-source tool to extract ALL strings from malware.\n"
         f"  %(prog)s {__version__} - https://github.com/mandiant/flare-floss/\n\n"
-        "FLOSS extracts all the following string types:\n"
+        "FLOSS extracts the following string types:\n"
         ' 1. static strings:  "regular" ASCII and UTF-16LE strings\n'
         " 2. stack strings:   strings constructed on the stack at run-time\n"
         " 3. tight strings:   special form of stack strings, decoded on the stack\n"
-        " 4. decoded strings: strings decoded in a function\n"
+        " 4. decoded strings: strings decoded in a function\n\n"
+        "Language-specific strings:\n"
+        " 1. Go:   strings from binaries written in Go\n"
+        " 2. Rust: strings from binaries written in Rust\n"
     )
     epilog = textwrap.dedent(
         """
@@ -123,6 +129,9 @@ def make_parser(argv):
 
           only decode strings from the specified functions
             floss --functions 0x401000 0x401100 suspicious.exe
+        
+          extract strings from a binary written in Go (if automatic language identification fails)
+            floss --language go program.exe
         """
     )
 
@@ -135,7 +144,6 @@ def make_parser(argv):
     )
     parser.register("action", "extend", floss.utils.ExtendAction)
     parser.add_argument("-H", action="help", help="show advanced options and exit")
-
     parser.add_argument(
         "-n",
         "--minimum-length",
@@ -187,6 +195,17 @@ def make_parser(argv):
         help="select sample format, %s" % format_help if show_all_options else argparse.SUPPRESS,
     )
     advanced_group.add_argument(
+        "--language",
+        type=str,
+        choices=[l.value for l in Language if l != Language.UNKNOWN],
+        default=Language.UNKNOWN.value,
+        help=(
+            "use language-specific string extraction, auto-detect language by default, disable using 'none'"
+            if show_all_options
+            else argparse.SUPPRESS
+        ),
+    )
+    advanced_group.add_argument(
         "-l",
         "--load",
         action="store_true",
@@ -197,9 +216,11 @@ def make_parser(argv):
         type=lambda x: int(x, 0x10),
         default=None,
         nargs="+",
-        help="only analyze the specified functions, hex-encoded like 0x401000, space-separate multiple functions"
-        if show_all_options
-        else argparse.SUPPRESS,
+        help=(
+            "only analyze the specified functions, hex-encoded like 0x401000, space-separate multiple functions"
+            if show_all_options
+            else argparse.SUPPRESS
+        ),
     )
     advanced_group.add_argument(
         "--disable-progress",
@@ -210,17 +231,21 @@ def make_parser(argv):
         "--signatures",
         type=str,
         default=SIGNATURES_PATH_DEFAULT_STRING,
-        help="path to .sig/.pat file or directory used to identify library functions, use embedded signatures by default"
-        if show_all_options
-        else argparse.SUPPRESS,
+        help=(
+            "path to .sig/.pat file or directory used to identify library functions, use embedded signatures by default"
+            if show_all_options
+            else argparse.SUPPRESS
+        ),
     )
     advanced_group.add_argument(
         "-L",
         "--large-file",
         action="store_true",
-        help="allow processing files larger than {} MB".format(int(MAX_FILE_SIZE / MEGABYTE))
-        if show_all_options
-        else argparse.SUPPRESS,
+        help=(
+            "allow processing files larger than {} MB".format(int(MAX_FILE_SIZE / MEGABYTE))
+            if show_all_options
+            else argparse.SUPPRESS
+        ),
     )
     advanced_group.add_argument(
         "--version",
@@ -228,6 +253,26 @@ def make_parser(argv):
         version="%(prog)s {:s}".format(__version__),
         help="show program's version number and exit" if show_all_options else argparse.SUPPRESS,
     )
+    if sys.platform == "win32":
+        advanced_group.add_argument(
+            "--install-right-click-menu",
+            action=floss.utils.InstallContextMenu,
+            help=(
+                "install FLOSS to the right-click context menu for Windows Explorer and exit"
+                if show_all_options
+                else argparse.SUPPRESS
+            ),
+        )
+
+        advanced_group.add_argument(
+            "--uninstall-right-click-menu",
+            action=floss.utils.UninstallContextMenu,
+            help=(
+                "uninstall FLOSS from the right-click context menu for Windows Explorer and exit"
+                if show_all_options
+                else argparse.SUPPRESS
+            ),
+        )
 
     output_group = parser.add_argument_group("rendering arguments")
     output_group.add_argument("-j", "--json", action="store_true", help="emit JSON instead of text")
@@ -462,11 +507,6 @@ def main(argv=None) -> int:
 
     set_log_config(args.debug, args.quiet)
 
-    # Since Python 3.8 cp65001 is an alias to utf_8, but not for Python < 3.8
-    # TODO: remove this code when only supporting Python 3.8+
-    # https://stackoverflow.com/a/3259271/87207
-    codecs.register(lambda name: codecs.lookup("utf-8") if name == "cp65001" else None)
-
     if hasattr(args, "signatures"):
         if args.signatures == SIGNATURES_PATH_DEFAULT_STRING:
             logger.debug("-" * 80)
@@ -528,19 +568,70 @@ def main(argv=None) -> int:
     # can throw away result later if not desired in output
     time0 = time()
     interim = time0
+
     static_strings = get_static_strings(sample, args.min_length)
+    if not static_strings:
+        return 0
+
     static_runtime = get_runtime_diff(interim)
 
-    lang_id = identify_language(sample, static_strings)
-
     # set language configurations
-    if lang_id == Language.GO:
-        results.metadata.language = Language.GO.value
+    selected_lang = Language(args.language)
+    if selected_lang == Language.DISABLED:
+        results.metadata.language = ""
+        results.metadata.language_version = ""
+        results.metadata.language_selected = ""
+    else:
+        lang_id, lang_version = identify_language_and_version(sample, static_strings)
 
+        if selected_lang == Language.UNKNOWN:
+            pass
+        elif selected_lang != lang_id:
+            logger.warning(
+                "the selected language '%s' differs to the automatically identified language '%s (%s)' - extracted "
+                "strings may be incomplete or inaccurate",
+                selected_lang.value,
+                lang_id.value,
+                lang_version,
+            )
+            results.metadata.language_selected = selected_lang.value
+
+        results.metadata.language = lang_id.value
+        results.metadata.language_version = lang_version
+
+    if results.metadata.language == Language.GO.value:
+        if analysis.enable_tight_strings or analysis.enable_stack_strings or analysis.enable_decoded_strings:
+            logger.warning(
+                "FLOSS handles Go static strings, but string deobfuscation may be inaccurate and take a long time"
+            )
+
+    elif results.metadata.language == Language.RUST.value:
+        if analysis.enable_tight_strings or analysis.enable_stack_strings or analysis.enable_decoded_strings:
+            logger.warning(
+                "FLOSS handles Rust static strings, but string deobfuscation may be inaccurate and take a long time"
+            )
+
+    elif results.metadata.language == Language.DOTNET.value:
+        logger.warning(".NET language-specific string extraction is not supported yet")
+        logger.warning("FLOSS does NOT attempt to deobfuscate any strings from .NET binaries")
+
+        # enable .NET strings once we can extract them
+        # results.metadata.language = Language.DOTNET.value
+
+        # TODO for pure .NET binaries our deobfuscation algorithms do nothing, but for mixed-mode assemblies they may
+        analysis.enable_stack_strings = False
+        analysis.enable_tight_strings = False
+        analysis.enable_decoded_strings = False
+
+    if results.metadata.language not in ("", "unknown"):
         if args.enabled_types == [] and args.disabled_types == []:
-            prompt = input("Do you want to enable string deobfuscation? (this could take a long time) [y/N] ")
+            # when stdout is redirected, such as in 'floss foo.exe | less' use default prompt values
+            if sys.stdout.isatty():
+                prompt = input("Do you want to enable string deobfuscation? (this could take a long time) [y/N] ")
+            else:
+                prompt = "n"
 
-            if prompt == "y" or prompt == "Y":
+            if prompt.lower() == "y":
                 logger.info("enabled string deobfuscation")
                 analysis.enable_stack_strings = True
                 analysis.enable_tight_strings = True
@@ -552,40 +643,44 @@ def main(argv=None) -> int:
                 analysis.enable_tight_strings = False
                 analysis.enable_decoded_strings = False
 
-    elif lang_id == Language.DOTNET:
-        logger.warning(".NET language-specific string extraction is not supported")
-        logger.warning(" will NOT deobfuscate any .NET strings")
-
-        results.metadata.language = Language.DOTNET.value
-
-        # TODO for pure .NET binaries our deobfuscation algorithms do nothing, but for mixed-mode assemblies they may
-        analysis.enable_stack_strings = False
-        analysis.enable_tight_strings = False
-        analysis.enable_decoded_strings = False
-
     # in order of expected run time, fast to slow
     # 1. static strings (done above)
+    #  a) includes language-specific strings, if applicable
     # 2. stack strings
     # 3. tight strings
     # 4. decoded strings
 
     if results.analysis.enable_static_strings:
-        logger.info("extracting static strings...")
-
+        logger.info("extracting static strings")
         results.strings.static_strings = static_strings
         results.metadata.runtime.static_strings = static_runtime
 
-        if lang_id:
-            if lang_id == Language.GO:
-                logger.info("applying language-specific Go string extraction")
+        if results.metadata.language == Language.GO.value:
+            logger.info("extracting language-specific Go strings")
 
-                interim = time()
-                results.strings.language_strings = floss.language.go.extract.extract_go_strings(sample, args.min_length)
-                results.metadata.runtime.language_strings = get_runtime_diff(interim)
+            interim = time()
+            results.strings.language_strings = floss.language.go.extract.extract_go_strings(sample, args.min_length)
+            results.metadata.runtime.language_strings = get_runtime_diff(interim)
 
-                results.strings.language_strings_missed = floss.language.go.coverage.get_missed_strings(
-                    static_strings, results.strings.language_strings, args.min_length
-                )
+            # missed strings only includes non-identified strings in searched range
+            # here currently only focus on strings in string blob range
+            string_blob_strings = floss.language.go.extract.get_static_strings_from_blob_range(sample, static_strings)
+            results.strings.language_strings_missed = floss.language.utils.get_missed_strings(
+                string_blob_strings, results.strings.language_strings, args.min_length
+            )
+
+        elif results.metadata.language == Language.RUST.value:
+            logger.info("extracting language-specific Rust strings")
+
+            interim = time()
+            results.strings.language_strings = floss.language.rust.extract.extract_rust_strings(sample, args.min_length)
+            results.metadata.runtime.language_strings = get_runtime_diff(interim)
+
+            # currently Rust strings are only extracted from the .rdata section
+            rdata_strings = floss.language.rust.extract.get_static_strings_from_rdata(sample, static_strings)
+            results.strings.language_strings_missed = floss.language.utils.get_missed_strings(
+                rdata_strings, results.strings.language_strings, args.min_length
+            )
     if (
         results.analysis.enable_decoded_strings
         or results.analysis.enable_stack_strings
@@ -688,8 +783,10 @@ def main(argv=None) -> int:
             else:
                 logger.debug("identified %d candidate decoding functions", len(fvas_to_emulate))
                 for fva in fvas_to_emulate:
-                    results.analysis.functions.decoding_function_scores[fva] = decoding_function_features[fva]["score"]
-                    logger.debug("  - 0x%x: %.3f", fva, decoding_function_features[fva]["score"])
+                    score = decoding_function_features[fva]["score"]
+                    xrefs_to = decoding_function_features[fva]["xrefs_to"]
+                    results.analysis.functions.decoding_function_scores[fva] = {"score": score, "xrefs_to": xrefs_to}
+                    logger.debug("  - 0x%x: score: %.3f, xrefs to: %d", fva, score, xrefs_to)
 
             # TODO filter out strings decoded in library function or function only called by library function(s)
             results.strings.decoded_strings = decode_strings(
@@ -708,6 +805,8 @@ def main(argv=None) -> int:
     if args.json:
         r = floss.render.json.render(results)
     else:
+        # this may be slow when there's many strings, so informing users what's happening
+        logger.info("rendering results")
         r = floss.render.default.render(results, args.verbose, args.quiet, args.color)
 
     print(r)

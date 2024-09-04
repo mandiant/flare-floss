@@ -30,3 +30,6 @@ flare_floss.egg-info
 
 # vscode
 .vscode
+.direnv/
+.env/
+.envrc

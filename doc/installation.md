@@ -3,7 +3,7 @@
 ## Installation
 You can install FLOSS in a few different ways.
 First, if you simply want to use FLOSS to extract strings, just download
- the [standalone binaries](https://github.com/mandiant/flare-floss/releases).
+ the [standalone binaries](https://github.com/mandiant/flare-floss/releases/latest).
 However, if you want to use FLOSS as a Python library,
  you can install the package directly from GitHub using `pip`.
 Finally, if you'd like to contribute patches or features to FLOSS,
@@ -32,11 +32,11 @@ If you'd like to use FLOSS as part of an automated analysis system,
 We designed FLOSS to be as easy to use from a client program as from
  the command line.
  
-:warning: **FLOSS requires Python >= 3.7.**
+:warning: **FLOSS requires Python >= 3.8.**
 
 ### Step 1: Install FLOSS module
 
-Use `pip` (Python >= 3.7) to install the `flare-floss` module to your local
+Use `pip` (Python >= 3.8) to install the `flare-floss` module to your local
  Python environment.
 This fetches the library code to your computer, but does not keep
  editable source files around for you to hack on.
@@ -77,6 +77,9 @@ This means that Python will load the FLOSS module from this local
 This is good, because it is easy for us to modify files and see the
  effects reflected immediately.
 But be careful not to remove this directory unless uninstalling FLOSS!
+If you encounter the error `ERROR: Project has a 'pyproject.toml' and its build backend is missing the 'build_editable' hook.`,
+ please ensure that you have upgraded to the latest versions of pip and setuptools.
+
 
 - Install FLOSS:
 
@@ -86,6 +89,12 @@ You'll find that the `floss.exe` (Windows) or `floss` (Linux, macOS) executables
  in your path now invoke the FLOSS binary from this directory.
 
 ### Step 3: Install development and testing dependencies
+
+When developing FLOSS, please use the pinned dependencies found in `requirements.txt`.
+This ensures that everyone has the exact same, reproducible environment.
+Please install these dependencies before install FLOSS (from source or from PyPI):
+
+`$ pip install -r requirements.txt`
 
 To install all testing and development dependencies, run:
 
@@ -103,6 +112,40 @@ Or use the manual option:
 - `$ cd /local/path/to/src`
 - `$ git submodule update --init tests/data`
 
+We use the following tools to ensure consistent code style and formatting:
+
+  - [black](https://github.com/psf/black) code formatter
+  - [isort](https://pypi.org/project/isort/) code formatter
+  - [mypy](https://mypy-lang.org/) type checking
+
+We use [pre-commit](https://pre-commit.com/) so that its trivial to run the same linters & configuration locally as in CI.
+
+Run all linters liks:
+```
+❯ pre-commit run --all-files
+isort....................................................................Passed
+black....................................................................Passed
+mypy.....................................................................Passed
+```
+
+Or run a single linter like:
+```
+❯ pre-commit run --all-files isort
+isort....................................................................Passed
+```
+
+Importantly, you can configure pre-commit to run automatically before every commit by running:
+```
+❯ pre-commit install --hook-type pre-commit
+pre-commit installed at .git/hooks/pre-commit
+
+❯ pre-commit install --hook-type pre-push
+pre-commit installed at .git/hooks/pre-push
+```
+
+This way you can ensure that you don't commit code style or formatting offenses.
+You can always temporarily skip the checks by using the `-n`/`--no-verify` git option.
+
 
 ### Step 4: Building standalone executables
 
@@ -117,7 +160,7 @@ This combines the source code, Python interpreter, and required resources
 
 - Build standalone executable:
 
-    `$ pyinstaller floss.spec`
+    `$ pyinstaller .github/pyinstaller/floss.spec`
 
 - Distribute standalone executable:
 
