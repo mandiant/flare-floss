@@ -1,14 +1,15 @@
-"""
-    "textual==0.29.0",
-    "rich==13.4.2",
-    "dissect.cstruct==3.6",
-    "pefile==2023.2.7",
-
-    TODO:
-      - other structures
-      - structure & hexview side by side
-      - on hover structure highlight the hex
-"""
+# /// script
+# dependencies = [
+#     "textual==0.29.0",
+#     "rich==13.4.2",
+#     "dissect.cstruct==3.6",
+#     "pefile==2023.2.7",
+# ]
+# ///
+# TODO:
+#   - other structures
+#   - structure & hexview side by side
+#   - on hover structure highlight the hex
 import re
 import asyncio
 import logging
