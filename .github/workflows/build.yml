@@ -20,7 +20,7 @@ jobs:
           - os: windows-2019
             artifact_name: floss.exe
             asset_name: windows
-          - os: macos-11
+          - os: macos-12
             artifact_name: floss
             asset_name: macos
     # Pin action version by commit hash to maximize trust, ref: https://securitylab.github.com/research/github-actions-building-blocks/
@@ -64,7 +64,7 @@ jobs:
           - os: windows-2022
             artifact_name: floss.exe
             asset_name: windows
-          - os: macos-11
+          - os: macos-12
             artifact_name: floss
             asset_name: macos
     steps:
