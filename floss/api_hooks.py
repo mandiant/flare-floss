@@ -33,24 +33,25 @@ ENABLED_VIV_DEFAULT_HOOKS = (
 
 
 class ApiMonitor(viv_utils.emulator_drivers.Monitor):
-    """
-    The ApiMonitor observes emulation and cleans up API function returns.
-    """
+    """The ApiMonitor observes emulation and cleans up API function returns."""
 
     def __init__(self, function_index):
         self.function_index = function_index
         super().__init__()
 
     def apicall(self, emu, api, argv):
+        """Log API calls and their arguments."""
         pc = emu.getProgramCounter()
         logger.trace("apicall: 0x%x %s %s", pc, api, argv)
 
     def prehook(self, emu, op, startpc):
+        """Log the start of an instruction."""
         # overridden from Monitor
         # helpful for debugging decoders, but super verbose!
         logger.trace("prehook: 0x%x %s", startpc, op)
 
     def posthook(self, emu, op, endpc):
+        """Log the end of an instruction."""
         # overridden from Monitor
         if op.mnem == "ret":
             try:
@@ -60,11 +61,14 @@ class ApiMonitor(viv_utils.emulator_drivers.Monitor):
 
     # TODO remove stack fixes? works sometimes, but does it add value?
     def _check_return(self, emu, op):
-        """
-        Ensure that the target of the return is within the allowed set of functions.
+        """Ensure that the target of the return is within the allowed set of functions.
         Do nothing, if return address is valid. If return address is invalid:
         _fix_return modifies program counter and stack pointer if a valid return address is found
         on the stack or raises an Exception if no valid return address is found.
+
+        Args:
+            emu: The emulator.
+            op: The opcode.
         """
         function_start = self.function_index[op.va]
         return_addresses = self._get_return_vas(emu, function_start)
@@ -85,8 +89,14 @@ class ApiMonitor(viv_utils.emulator_drivers.Monitor):
             logger.trace("Return address 0x%08x is valid, returning", return_address)
 
     def _get_return_vas(self, emu, function_start):
-        """
-        Get the list of valid addresses to which a function should return.
+        """Get the list of valid addresses to which a function should return.
+
+        Args:
+            emu: The emulator.
+            function_start: The start address of the function.
+
+        Returns:
+            A set of valid return addresses.
         """
         return_vas = set([])
         callers = emu.vw.getCallers(function_start)
@@ -97,10 +107,17 @@ class ApiMonitor(viv_utils.emulator_drivers.Monitor):
         return return_vas
 
     def _fix_return(self, emu, return_address, return_addresses):
-        """
-        Find a valid return address from return_addresses on the stack. Adjust the stack accordingly
+        """Find a valid return address from return_addresses on the stack. Adjust the stack accordingly
         or raise an Exception if no valid address is found within the search boundaries.
         Modify program counter and stack pointer, so the emulator does not return to a garbage address.
+
+        Args:
+            emu: The emulator.
+            return_address: The return address.
+            return_addresses: The set of valid return addresses.
+
+        Raises:
+            Exception: If no valid return address is found.
         """
         fu.dump_stack(emu)
         NUM_ADDRESSES = 4
@@ -121,14 +138,21 @@ class ApiMonitor(viv_utils.emulator_drivers.Monitor):
 
 
 class DemoHook:
+    """A demo hook to demonstrate the API of the hook classes."""
+
     def __call__(
-        self, emu: viv_utils.emulator_drivers.EmulatorDriver, api: Tuple[str, Any, str, str, List], argv: List
+        self,
+        emu: viv_utils.emulator_drivers.EmulatorDriver,
+        api: Tuple[str, Any, str, str, List],
+        argv: List,
     ):
         # api: (rettype, retname, callconv, funcname, [(argtype, argname), ...)]
         ...
 
 
 class GetProcessHeapHook:
+    """Hook calls to GetProcessHeap and return a fake heap handle."""
+
     def __call__(self, emu, api, argv):
         if fu.contains_funcname(api, ("GetProcessHeap",)):
             fu.call_return(emu, api, argv, 42)
@@ -136,6 +160,8 @@ class GetProcessHeapHook:
 
 
 class GetModuleFileNameHook:
+    """Hook calls to GetModuleFileName and return the name of the current module."""
+
     def __call__(self, emu, api, argv):
         if fu.contains_funcname(api, ("GetModuleFileNameA",)):
             unicode = False
@@ -166,9 +192,7 @@ class GetModuleFileNameHook:
 
 
 class MemoryAllocationHook:
-    """
-    Hook calls to memory allocation functions: allocate memory and return pointer to this memory.
-    """
+    """Hook calls to memory allocation functions: allocate memory and return pointer to this memory."""
 
     _heap_addr = HEAP_BASE
 
@@ -176,6 +200,15 @@ class MemoryAllocationHook:
         super().__init__(*args, **kwargs)
 
     def _allocate_mem(self, emu, size):
+        """Allocate memory and return the address of the allocated memory. The memory is initialized with zeros.
+
+        Args:
+            emu: The emulator.
+            size: The size of the memory to allocate.
+
+        Returns:
+            The address of the allocated memory.
+        """
         va = self._heap_addr
         # align to 16-byte boundary (64-bit), also works for 32-bit, which is normally 8-bytes
         size = fu.round_(size, 16)
@@ -205,8 +238,7 @@ class MemoryAllocationHook:
 
 
 class CppNewObjectHook(MemoryAllocationHook):
-    """
-    Hook calls to:
+    """Hook calls to:
       - C++ new operator
     Thanks to @BenjaminSoelberg
     """
@@ -233,6 +265,8 @@ class CppNewObjectHook(MemoryAllocationHook):
 
 
 class MemoryFreeHook:
+    """Hook calls to memory free functions: free memory and return success."""
+
     def __call__(self, emu, api, argv):
         if fu.contains_funcname(api, ("free", "free_base", "VirtualFree", "HeapFree", "RtlFreeHeap")):
             # If the function succeeds, the return value is nonzero.
@@ -241,6 +275,8 @@ class MemoryFreeHook:
 
 
 class MemcpyHook:
+    """Hook calls to memory copy functions: copy memory from source to destination."""
+
     def __call__(self, emu, api, argv):
         if fu.contains_funcname(api, ("memcpy", "memmove")):
             dst, src, count = argv
@@ -257,6 +293,8 @@ class MemcpyHook:
 
 
 class StrlenHook:
+    """Hook calls to string length functions: return the length of the string."""
+
     def __call__(self, emu, api, argv):
         if fu.contains_funcname(api, ("strlen", "lstrlena")):
             string_va = argv[0]
@@ -276,6 +314,8 @@ class StrlenHook:
 
 
 class StrncmpHook:
+    """Hook calls to string compare functions: compare two strings."""
+
     def __call__(self, emu, api, argv):
         if fu.contains_funcname(api, ("strncmp",)):
             s1va, s2va, num = argv
@@ -284,6 +324,15 @@ class StrncmpHook:
             s2 = fu.readStringAtRva(emu, s2va, maxsize=num)
 
             def cmp(a, b):
+                """Compare two strings.
+
+                Args:
+                    a: The first string.
+                    b: The second string.
+
+                Returns:
+                    int: -1 if a < b, 0 if a == b, 1 if a > b.
+                """
                 return (a > b) - (a < b)
 
             result = cmp(s1, s2)
@@ -292,6 +341,8 @@ class StrncmpHook:
 
 
 class MemchrHook:
+    """Hook calls to memchr: search for a character in a memory block."""
+
     def __call__(self, emu, api, argv):
         if fu.contains_funcname(api, ("memchr",)):
             ptr, value, num = argv
@@ -307,6 +358,8 @@ class MemchrHook:
 
 
 class MemsetHook:
+    """Hook calls to memset: fill memory with a constant byte."""
+
     def __call__(self, emu, api, argv):
         if fu.contains_funcname(api, ("memset",)):
             ptr, value, num = argv
@@ -318,6 +371,8 @@ class MemsetHook:
 
 
 class PrintfHook:
+    """Hook calls to printf: write formatted data to stdout."""
+
     # TODO disabled for now as incomplete (need to implement string format) and could result in FP strings as is
     def __call__(self, emu, api, argv):
         # TODO vfprintf, vfwprintf, vfprintf_s, vfwprintf_s, vsnprintf, vsnwprintf, etc.
@@ -330,6 +385,8 @@ class PrintfHook:
 
 
 class ExitExceptionHook:
+    """Hook calls to exit and raise exception."""
+
     def __call__(self, emu, api, argv):
         if fu.contains_funcname(api, ("ExitProcess", "RaiseException")):
             raise viv_utils.emulator_drivers.StopEmulation()
@@ -340,14 +397,27 @@ class ExitExceptionHook:
 
 
 class SehPrologEpilogHook:
+    """Hook calls to SEH prolog and epilog functions and return success."""
+
     def __call__(self, emu, api, argv):
-        if fu.contains_funcname(api, ("__EH_prolog", "__EH_prolog3", "__SEH_prolog4", "seh4_prolog", "__SEH_epilog4")):
+        if fu.contains_funcname(
+            api,
+            (
+                "__EH_prolog",
+                "__EH_prolog3",
+                "__SEH_prolog4",
+                "seh4_prolog",
+                "__SEH_epilog4",
+            ),
+        ):
             # nop
             fu.call_return(emu, api, argv, 0)
             return True
 
 
 class SecurityCheckCookieHook:
+    """Hook calls to __security_check_cookie and return success."""
+
     def __call__(self, emu, api, argv):
         if fu.contains_funcname(api, ("__security_check_cookie", "@__security_check_cookie@4")):
             # nop
@@ -356,6 +426,8 @@ class SecurityCheckCookieHook:
 
 
 class GetLastErrorHook:
+    """Hook calls to GetLastError and return success."""
+
     def __call__(self, emu, api, argv):
         if fu.contains_funcname(api, ("GetLastError",)):
             # always assuming success
@@ -365,6 +437,8 @@ class GetLastErrorHook:
 
 
 class GetCurrentProcessHook:
+    """Hook calls to GetCurrentProcess and return a fake process handle."""
+
     def __call__(self, emu, api, argv):
         if fu.contains_funcname(api, ("GetCurrentProcess",)):
             fu.call_return(emu, api, argv, CURRENT_PROCESS_ID)
@@ -372,6 +446,8 @@ class GetCurrentProcessHook:
 
 
 class CriticalSectionHook:
+    """Hook calls to InitializeCriticalSection and return a fake critical section handle."""
+
     def __call__(self, emu, api, argv):
         if fu.contains_funcname(api, ("InitializeCriticalSection",)):
             (hsection,) = argv
@@ -403,14 +479,16 @@ DEFAULT_HOOKS = (
 
 @contextlib.contextmanager
 def defaultHooks(driver):
-    """
-    Install and remove the default set of hooks to handle common functions.
+    """Install and remove the default set of hooks to handle common functions.
 
     intended usage:
 
         with defaultHooks(driver):
             driver.runFunction()
             ...
+
+    Args:
+        driver: The emulator driver.
     """
     try:
         for hook in DEFAULT_HOOKS:
