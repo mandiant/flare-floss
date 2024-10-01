@@ -108,7 +108,7 @@ packages = ["floss", "floss.sigs"]
 # These dependencies are not used in production environments
 # and should not conflict with other libraries/tooling.
 dev = [
-    "pre-commit==3.5.0",
+    "pre-commit==3.8.0",
     "pyyaml==6.0.1",
     "pytest==8.3.3",
     "pytest-sugar==1.0.0",
