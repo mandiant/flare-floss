@@ -76,7 +76,12 @@ class YamlFile(pytest.File):
                 filepath = test_dir / filename
                 if filepath.exists():
                     yield FLOSSTest.from_parent(
-                        self, path=str(filepath), platform=platform, arch=arch, filename=filename, spec=spec
+                        self,
+                        path=str(filepath),
+                        platform=platform,
+                        arch=arch,
+                        filename=filename,
+                        spec=spec,
                     )
 
 

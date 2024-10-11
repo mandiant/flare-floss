@@ -35,9 +35,15 @@ logger = floss.logging_.getLogger(__name__)
 
 
 def extract_insn_nzxor(f, bb, insn):
-    """
-    parse non-zeroing XOR instruction from the given instruction.
-    ignore expected non-zeroing XORs, e.g. security cookies.
+    """Analyzes a given instruction within a function's basic block to identify non-zeroing XOR operations that are not associated with security cookie checks.
+
+    Args:
+        f: The current function being analyzed.
+        bb: The basic block that contains the instruction.
+        insn: The specific instruction to analyze.
+
+    Returns:
+        Nzxor: Yields a Nzxor feature if a relevant XOR instruction is found.
     """
     if insn.opcode != INS_XOR:
         return
@@ -52,8 +58,15 @@ def extract_insn_nzxor(f, bb, insn):
 
 
 def is_security_cookie(f, bb, insn) -> bool:
-    """
-    check if an instruction is related to security cookie checks
+    """Determines if the given instruction is related to security cookie checks.
+
+    Args:
+        f: The function object being analyzed.
+        bb: The basic block that contains the instruction.
+        insn: The instruction object to analyze.
+
+    Returns:
+        bool: True if the instruction is related to security cookie checks, False otherwise.
     """
     # security cookie check should use SP or BP
     oper = insn.opers[1]
@@ -80,11 +93,31 @@ def is_security_cookie(f, bb, insn) -> bool:
 
 
 def extract_insn_shift(f, bb, insn):
+    """Extracts shift or rotate instructions from the given instruction within a basic block.
+
+    Args:
+        f: The function object being analyzed.
+        bb: The basic block containing the instruction.
+        insn: The instruction object to analyze.
+
+    Returns:
+        Iterator[Shift]: An iterator over Shift features if shift or rotate instructions are found.
+    """
     if insn.opcode in SHIFT_ROTATE_INS:
         yield Shift(insn)
 
 
 def extract_insn_mov(f, bb, insn):
+    """Identifies MOV instructions that write to memory in a given basic block.
+
+    Args:
+        f: The function object being analyzed.
+        bb: The basic block containing the instruction.
+        insn: The instruction object to analyze.
+
+    Returns:
+        Iterator[Mov]: An iterator over Mov features if relevant MOV instructions are found.
+    """
     # identify register dereferenced writes to memory
     #   mov byte  [eax], cl
     #   mov dword [edx], eax
@@ -115,13 +148,25 @@ def extract_insn_mov(f, bb, insn):
 
 
 def extract_function_calls_to(f):
+    """Identifies all function calls within the given function.
+
+    Args:
+        f: The function object being analyzed.
+
+    Returns:
+        An iterator over CallsTo features, each representing a call made from the given function.
+    """
     yield CallsTo(f.vw, [x[0] for x in f.vw.getXrefsTo(f.va, rtype=vivisect.const.REF_CODE)])
 
 
 def extract_function_kinda_tight_loop(f):
-    """
-    Yields tight loop features in the provided function
-    Algorithm by Blaine S.
+    """Identifies tight and kinda tight loops within the provided function using a specific algorithm.
+
+    Args:
+        f: The function object to analyze for loop structures.
+
+    Returns:
+        An iterator over TightLoop or KindaTightLoop features identified within the function.
     """
     try:
         cfg = viv_utils.CFG(f)
@@ -213,6 +258,15 @@ def extract_function_kinda_tight_loop(f):
 
 
 def skip_tightloop(bb: BasicBlock, loop_bb: BasicBlock) -> bool:
+    """Determines whether a tight loop should be skipped based on the presence of function calls and memory writes.
+
+    Args:
+        bb: The basic block being analyzed.
+        loop_bb: The loop basic block to compare against.
+
+    Returns:
+        True if the loop should be skipped, otherwise False.
+    """
     # ignore tight loops that call other functions
     if contains_call(bb) or contains_call(loop_bb):
         return True
@@ -225,6 +279,14 @@ def skip_tightloop(bb: BasicBlock, loop_bb: BasicBlock) -> bool:
 
 
 def contains_call(bb):
+    """Checks if the given basic block contains any call instructions.
+
+    Args:
+        bb: The basic block to inspect.
+
+    Returns:
+        True if a call instruction is found, otherwise False.
+    """
     for insn in bb.instructions:
         if insn.opcode == INS_CALL:
             return True
@@ -232,6 +294,14 @@ def contains_call(bb):
 
 
 def writes_memory(bb):
+    """Determines if any instruction within the basic block writes to memory.
+
+    Args:
+        bb: The basic block to check.
+
+    Returns:
+        bool: True if at least one instruction writes to memory, False otherwise.
+    """
     for insn in bb.instructions:
         # don't handle len(ops) == 0 for `rep movsb` or other unexpected instructions
         if len(insn.opers) < 1:
@@ -251,6 +321,16 @@ def writes_memory(bb):
 
 
 def abstract_nzxor_tightloop(features):
+    """
+    Abstracts tight loop patterns with non-zeroing XOR operations within the features.
+
+    Args:
+        features: A list of features extracted from a function.
+
+    Returns:
+        An iterator over NzxorTightLoop features for each identified pattern.
+    """
+
     for tl in filter(lambda f: isinstance(f, TightLoop), features):
         for nzxor in filter(lambda f: isinstance(f, Nzxor), features):
             if tl.startva <= nzxor.insn.va <= tl.endva:
@@ -258,13 +338,28 @@ def abstract_nzxor_tightloop(features):
 
 
 def abstract_nzxor_loop(features):
+    """
+    Abstracts loop patterns with non-zeroing XOR operations within the features.
+
+    Args:
+        features: A list of features extracted from a function.
+
+    Returns:
+        An iterator over NzxorLoop features for each identified pattern.
+    """
     if any(isinstance(f, Nzxor) for f in features) and any(isinstance(f, Loop) for f in features):
         yield NzxorLoop()
 
 
 def abstract_tightfunction(features):
     """
-    (Kinda) TightLoop and only a few basic blocks
+    Abstracts functions that are tight or kinda tight and contain a small number of basic blocks.
+
+    Args:
+        features: A list of features extracted from a function.
+
+    Returns:
+        An iterator over TightFunction features for functions meeting the criteria.
     """
     if any(filter(lambda f: isinstance(f, (TightLoop, KindaTightLoop)), features)):
         for block_count in filter(lambda f: isinstance(f, BlockCount), features):
@@ -275,7 +370,13 @@ def abstract_tightfunction(features):
 
 def extract_function_loop(f):
     """
-    parse if a function has a loop
+    Identifies loop structures within a function.
+
+    Args:
+        f: The function object to analyze.
+
+    Returns:
+        An iterator over Loop features for each loop structure identified within the function.
     """
     edges = []
 
@@ -314,6 +415,15 @@ FUNCTION_HANDLERS = (
 
 
 def extract_function_features(f):
+    """
+    Extracts various features from a function, including function calls, loops, and tight loops.
+
+    Args:
+        f: The function object to analyze.
+
+    Returns:
+        An iterator over various features extracted from the function.
+    """
     for func_handler in FUNCTION_HANDLERS:
         for feature in func_handler(f):
             yield feature
@@ -324,6 +434,15 @@ BASIC_BLOCK_HANDLERS: Tuple[Callable[[Any, Any], Iterator], ...] = ()
 
 
 def extract_basic_block_features(f: Any, bb: Any) -> Iterator:
+    """Extracts features from a given basic block within a function.
+
+    Args:
+        f: The function object containing the basic block.
+        bb: The basic block to analyze.
+
+    Returns:
+        An iterator over features extracted from the basic block.
+    """
     for bb_handler in BASIC_BLOCK_HANDLERS:
         for feature in bb_handler(f, bb):
             yield feature
@@ -337,6 +456,16 @@ INSTRUCTION_HANDLERS = (
 
 
 def extract_insn_features(f, bb, insn):
+    """Extracts features from a given instruction within a basic block of a function.
+
+    Args:
+        f: The function object containing the basic block and instruction.
+        bb: The basic block containing the instruction.
+        insn: The instruction to analyze.
+
+    Returns:
+        An iterator over features extracted from the instruction.
+    """
     for insn_handler in INSTRUCTION_HANDLERS:
         for feature in insn_handler(f, bb, insn):
             yield feature
@@ -350,6 +479,14 @@ ABSTRACTION_HANDLERS = (
 
 
 def abstract_features(features):
+    """Abstracts higher-level features from a collection of lower-level features.
+
+    Args:
+        features: A list of features extracted from a function.
+
+    Returns:
+        An iterator over abstracted features based on the provided features.
+    """
     for abst_handler in ABSTRACTION_HANDLERS:
         for feature in abst_handler(features):
             yield feature

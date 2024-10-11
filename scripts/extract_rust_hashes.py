@@ -34,7 +34,8 @@ while True:
     r = requests.get("https://github.com/rust-lang/rust/releases?page={}".format(page_number))
     soup = BeautifulSoup(r.text, "html.parser")
     tables = soup.find_all(
-        "div", class_="col-md-2 d-flex flex-md-column flex-row flex-wrap pr-md-6 mb-2 mb-md-0 flex-items-start pt-md-4"
+        "div",
+        class_="col-md-2 d-flex flex-md-column flex-row flex-wrap pr-md-6 mb-2 mb-md-0 flex-items-start pt-md-4",
     )
 
     # if there are no more tables, means we have reached the end of the page, break
