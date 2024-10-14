@@ -91,7 +91,7 @@ dependencies = [
 
     # TODO(williballenthin): networkx 3.2 doesn't support python 3.8 while capa does.
     # https://github.com/mandiant/capa/issues/1966
-    "networkx>=3,<3.2",
+    "networkx>=3,<3.5",
 ]
 dynamic = ["version", "readme"]
 
