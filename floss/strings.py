@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 import re
+import mmap
 from typing import Iterable
 from itertools import chain
 
@@ -28,12 +28,45 @@ MIN_LENGTH = 4
 SLICE_SIZE = 4096
 
 
-def buf_filled_with(buf, character):
-    dupe_chunk = character * SLICE_SIZE
+def buf_filled_with(buf: bytes, character: int) -> bool:
+    """Check if the given buffer is filled with the given character, repeatedly.
+
+    Args:
+        buf: The bytes buffer to check
+        character: The byte value (0-255) to check for
+
+    Returns:
+        True if all bytes in the buffer match the character, False otherwise.
+        The empty buffer contains no bytes, therefore always returns False.
+    """
+    if not buf:
+        return False
+
+    if not (0 <= character <= 255):
+        raise ValueError(f"Character value {character} outside valid byte range (0-255)")
+
+    if len(buf) < SLICE_SIZE:
+        return all(b == character for b in buf)
+
+    # single big allocation, re-used each loop
+    dupe_chunk = bytes([character]) * SLICE_SIZE
+
     for offset in range(0, len(buf), SLICE_SIZE):
-        new_chunk = buf[offset : offset + SLICE_SIZE]
-        if dupe_chunk[: len(new_chunk)] != new_chunk:
-            return False
+        # bytes objects are immutable, so the slices share the underlying array,
+        # and therefore this is cheap.
+        current_chunk = buf[offset : offset + SLICE_SIZE]
+
+        if len(current_chunk) == SLICE_SIZE:
+            # chunk-aligned comparison
+
+            if dupe_chunk != current_chunk:
+                return False
+
+        else:
+            # last loop, final chunk size is not aligned
+            if not all(b == character for b in current_chunk):
+                return False
+
     return True
 
 
@@ -41,19 +74,20 @@ def extract_ascii_unicode_strings(buf, n=MIN_LENGTH) -> Iterable[StaticString]:
     yield from chain(extract_ascii_strings(buf, n), extract_unicode_strings(buf, n))
 
 
-def extract_ascii_strings(buf, n=MIN_LENGTH) -> Iterable[StaticString]:
+def extract_ascii_strings(buf: bytes, n: int = MIN_LENGTH) -> Iterable[StaticString]:
     """
     Extract ASCII strings from the given binary data.
 
-    :param buf: A bytestring.
-    :type buf: str
-    :param n: The minimum length of strings to extract.
-    :type n: int
-    :rtype: Sequence[StaticString]
+    Params:
+      buf: the bytes from which to extract strings
+      n: minimum string length
     """
 
     if not buf:
         return
+
+    if n < 1:
+        raise ValueError("minimum string length must be positive")
 
     if (buf[0] in REPEATS) and buf_filled_with(buf, buf[0]):
         return
@@ -68,19 +102,20 @@ def extract_ascii_strings(buf, n=MIN_LENGTH) -> Iterable[StaticString]:
         yield StaticString(string=match.group().decode("ascii"), offset=match.start(), encoding=StringEncoding.ASCII)
 
 
-def extract_unicode_strings(buf, n=MIN_LENGTH) -> Iterable[StaticString]:
+def extract_unicode_strings(buf: bytes, n: int = MIN_LENGTH) -> Iterable[StaticString]:
     """
     Extract naive UTF-16 strings from the given binary data.
 
-    :param buf: A bytestring.
-    :type buf: str
-    :param n: The minimum length of strings to extract.
-    :type n: int
-    :rtype: Sequence[StaticString]
+    Params:
+      buf: the bytes from which to extract strings
+      n: minimum string length
     """
 
     if not buf:
         return
+
+    if n < 1:
+        raise ValueError("minimum string length must be positive")
 
     if (buf[0] in REPEATS) and buf_filled_with(buf, buf[0]):
         return
