@@ -40,5 +40,5 @@ def render(doc: ResultDocument) -> str:
     return json.dumps(
         doc,
         cls=FlossJSONEncoder,
-        sort_keys=True,
+        sort_keys=False,
     )

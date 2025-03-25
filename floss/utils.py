@@ -297,7 +297,7 @@ def extract_strings(buffer: bytes, min_length: int, exclude: Optional[Set[str]] 
         if exclude and decoded_string in exclude:
             continue
 
-        yield StaticString(string=decoded_string, offset=s.offset, encoding=s.encoding)
+        yield StaticString(id=s.id, string=decoded_string, offset=s.offset, encoding=s.encoding, length=s.length)
 
 
 # FP string starts

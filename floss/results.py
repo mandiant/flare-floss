@@ -58,10 +58,10 @@ class StringEncoding(str, Enum):
 class StackString:
     """
     here's what the following members represent:
-        
-        
+
+
         [smaller addresses]
-       
+
         +---------------+  <- stack_pointer (top of stack)
         |               | \
         +---------------+  | offset
@@ -75,7 +75,7 @@ class StackString:
         +---------------+  |
         |               | /
         +---------------+  <- original_stack_pointer (bottom of stack, probably bp)
-        
+
         [bigger addresses]
 
 
@@ -138,14 +138,17 @@ class StaticString:
     A string extracted from the raw bytes of the input.
 
     Attributes:
+        id: the string id
         string: the string
         offset: the offset into the input where the string is found
         encoding: the string encoding, like ASCII or unicode
+        length: the length of the string
     """
-
+    id: int
     string: str
     offset: int
     encoding: StringEncoding
+    length: int
 
     @classmethod
     def from_utf8(cls, buf, addr, min_length):
