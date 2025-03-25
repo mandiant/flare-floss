@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import re
-import mmap
 from typing import Iterable
 from itertools import chain
 
