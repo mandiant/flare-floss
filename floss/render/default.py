@@ -171,12 +171,14 @@ def strtime(seconds):
     return f"{m:02.0f}:{s:02.0f}"
 
 
-def render_language_strings(language, language_strings, language_strings_missed, file_offset, console, verbose, disable_headers):
+def render_language_strings(
+    language, language_strings, language_strings_missed, file_offset, console, verbose, disable_headers
+):
     strings = sorted(language_strings + language_strings_missed, key=lambda s: s.offset)
     render_heading(f"FLOSS {language.upper()} STRINGS ({len(strings)})", console, verbose, disable_headers)
     offset_len = len(f"{strings[-1].offset}")
     va_offset_len = len(f"{strings[-1].offset + file_offset}")
-    
+
     if verbose != Verbosity.DEFAULT:
         # add column headers
         table = Table(

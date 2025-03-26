@@ -709,7 +709,7 @@ def main(argv=None) -> int:
 
             if args.verbose:
                 results.metadata.file_offset = floss.language.rust.extract.get_file_offset_in_rdata(sample)
-            
+
     if (
         results.analysis.enable_decoded_strings
         or results.analysis.enable_stack_strings

@@ -435,11 +435,11 @@ def get_file_offset_in_blob(sample: pathlib.Path) -> int:
         string_blob_start, _ = find_string_blob_range(pe, struct_strings)
     except ValueError:
         return -1
-    
+
     image_base = pe.OPTIONAL_HEADER.ImageBase
     virtual_address = string_blob_start - image_base
     pointer_to_raw_data = pe.get_offset_from_rva(string_blob_start - image_base)
-    
+
     return image_base + virtual_address - pointer_to_raw_data
 
 
