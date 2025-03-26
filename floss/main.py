@@ -691,6 +691,9 @@ def main(argv=None) -> int:
                 string_blob_strings, results.strings.language_strings, args.min_length
             )
 
+            if args.verbose:
+                results.metadata.file_offset = floss.language.go.extract.get_file_offset_in_blob(sample)
+
         elif results.metadata.language == Language.RUST.value:
             logger.info("extracting language-specific Rust strings")
 
@@ -703,6 +706,10 @@ def main(argv=None) -> int:
             results.strings.language_strings_missed = floss.language.utils.get_missed_strings(
                 rdata_strings, results.strings.language_strings, args.min_length
             )
+
+            if args.verbose:
+                results.metadata.file_offset = floss.language.rust.extract.get_file_offset_in_rdata(sample)
+            
     if (
         results.analysis.enable_decoded_strings
         or results.analysis.enable_stack_strings
