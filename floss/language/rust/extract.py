@@ -153,14 +153,14 @@ def get_file_offset_in_rdata(sample: pathlib.Path) -> int:
 
     try:
         rdata_section = get_rdata_section(pe)
-    except ValueError:
-        return -1
+    except ValueError as e:
+        raise ValueError("Failed to find .rdata section") from e
 
     image_base = pe.OPTIONAL_HEADER.ImageBase
     virtual_address = rdata_section.VirtualAddress
-    pointer_to_raw_data = rdata_section.PointerToRawData
+    raw_data_offset = rdata_section.PointerToRawData
 
-    return image_base + virtual_address - pointer_to_raw_data
+    return image_base + virtual_address - raw_data_offset
 
 
 def get_string_blob_strings(pe: pefile.PE, min_length: int) -> Iterable[StaticString]:
