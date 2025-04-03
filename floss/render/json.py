@@ -35,10 +35,6 @@ def create_custom_format(doc: ResultDocument):
     decoded_strings = []
     context = {}
 
-    pe_structure = {
-        "headers": {"ranges": [], "strings": []},
-        "sections": {}
-    }
     
     pe = None
     try:
@@ -57,10 +53,6 @@ def create_custom_format(doc: ResultDocument):
             pe_headers.append((pe.DOS_HEADER.e_lfanew, 
                               pe.DOS_HEADER.e_lfanew + pe.NT_HEADERS.sizeof(),
                               "NT_HEADERS"))
-        
-        pe_structure["headers"]["ranges"] = [
-            {"start": start, "end": end, "type": htype} for start, end, htype in pe_headers
-        ]
 
         for section in pe.sections:
             start = section.PointerToRawData
@@ -72,11 +64,6 @@ def create_custom_format(doc: ResultDocument):
             if not section_name.startswith('.'):
                 section_name = f".{section_name}"
                 
-            pe_structure["sections"][section_name] = {
-                "range": {"start": start, "end": end},
-                "strings": [],
-                "structures": {}
-            }
 
         if hasattr(pe, 'DIRECTORY_ENTRY_IMPORT'):
             for entry in pe.DIRECTORY_ENTRY_IMPORT:
@@ -96,8 +83,7 @@ def create_custom_format(doc: ResultDocument):
             "length": len(string.string),
             "string": string.string
         })
-        
-        structure_info = {"offset": offset, "string": string.string}
+
         
         if pe:
             for i, (start, end, htype) in enumerate(pe_headers):
@@ -107,10 +93,8 @@ def create_custom_format(doc: ResultDocument):
                         "header_type": htype,
                         "tags": ["#common"]
                     }
-                    pe_structure["headers"]["strings"].append(structure_info)
                     break
             
-            section_found = False
             for (start, end), name in pe_sections.items():
                 if start <= offset < end:
                     if name.startswith('.'):
@@ -125,36 +109,15 @@ def create_custom_format(doc: ResultDocument):
                         "tags": ["#section"]
                     }
                     
-                    pe_structure["sections"][section_name]["strings"].append(structure_info)
-                    section_found = True
-                    
                     if string.string in import_entries:
                         dll_name = import_dll_map.get(string.string, "unknown")
                         context[offset] = {
                             "structure": "import table",
                             "parent_structure": structure_name,
                             "dll": dll_name,
-                            "tags": ["#winapi"]
+                            "tags": ["#winapi", "#common"]
                         }
-                        
-                        if "imports" not in pe_structure["sections"][section_name]["structures"]:
-                            pe_structure["sections"][section_name]["structures"]["imports"] = []
-                            
-                        pe_structure["sections"][section_name]["structures"]["imports"].append({
-                            "function": string.string,
-                            "dll": dll_name,
-                            "offset": offset
-                        })
-                    
                     break
-            
-            if not section_found and string.string in import_entries:
-                dll_name = import_dll_map.get(string.string, "unknown")
-                context[offset] = {
-                    "structure": "import table",
-                    "dll": dll_name,
-                    "tags": ["#winapi"]
-                }
 
     for string in doc.strings.stack_strings:
         stack_entry = {
@@ -203,7 +166,6 @@ def create_custom_format(doc: ResultDocument):
             "imagebase": doc.metadata.imagebase,
             "min_length": doc.metadata.min_length
         },
-        "pe_structure": pe_structure 
     }
 
 
