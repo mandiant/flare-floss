@@ -22,7 +22,7 @@ from floss.results import StaticString, StringEncoding
 ASCII_BYTE = rb" !\"#\$%&\'\(\)\*\+,-\./0123456789:;<=>\?@ABCDEFGHIJKLMNOPQRSTUVWXYZ\[\]\^_`abcdefghijklmnopqrstuvwxyz\{\|\}\\\~\t"
 ASCII_RE_4 = re.compile(rb"([%s]{%d,})" % (ASCII_BYTE, 4))
 UNICODE_RE_4 = re.compile(rb"((?:[%s]\x00){%d,})" % (ASCII_BYTE, 4))
-REPEATS = ["A", "\x00", "\xfe", "\xff"]
+REPEATS = {ord("A"), 0x00, 0xFE, 0xFF}
 MIN_LENGTH = 4
 SLICE_SIZE = 4096
 
