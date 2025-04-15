@@ -17,7 +17,7 @@ import re
 import json
 import datetime
 from enum import Enum
-from typing import Dict, List
+from typing import Dict, List, Optional
 from pathlib import Path
 from dataclasses import field
 
@@ -207,6 +207,7 @@ class Metadata:
     language: str = ""
     language_version: str = ""
     language_selected: str = ""  # configured by user
+    file_offset: Optional[int] = None
 
 
 @dataclass
