@@ -28,6 +28,7 @@ from floss.language.utils import (
     find_mov_xrefs,
     find_push_xrefs,
     get_rdata_section,
+    get_raw_xrefs_rdata_i386,
     get_struct_string_candidates,
 )
 
@@ -181,7 +182,8 @@ def get_string_blob_strings(pe: pefile.PE, min_length: int) -> Iterable[StaticSt
         xrefs_lea = find_lea_xrefs(pe)
         xrefs_push = find_push_xrefs(pe)
         xrefs_mov = find_mov_xrefs(pe)
-        xrefs = itertools.chain(struct_string_addrs, xrefs_lea, xrefs_push, xrefs_mov)
+        xrefs_raw_rdata = get_raw_xrefs_rdata_i386(pe, rdata_section.get_data())
+        xrefs = itertools.chain(struct_string_addrs, xrefs_lea, xrefs_push, xrefs_mov, xrefs_raw_rdata)
 
     elif pe.FILE_HEADER.Machine == pefile.MACHINE_TYPE["IMAGE_FILE_MACHINE_AMD64"]:
         xrefs_lea = find_lea_xrefs(pe)
