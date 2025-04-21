@@ -125,7 +125,7 @@ dev = [
     "pytest-sugar==1.0.0",
     "pytest-instafail==0.5.0",
     "pytest-cov==6.0.0",
-    "pycodestyle==2.12.1",
+    "pycodestyle==2.13.0",
     "black==24.10.0",
     "isort==5.13.2",
     "mypy==1.14.0",
