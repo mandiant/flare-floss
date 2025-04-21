@@ -127,7 +127,7 @@ dev = [
     "pytest-cov==6.0.0",
     "pycodestyle==2.12.1",
     "black==24.10.0",
-    "isort==5.13.2",
+    "isort==6.0.1",
     "mypy==1.14.0",
     # type stubs for mypy
     "types-PyYAML==6.0.10",
