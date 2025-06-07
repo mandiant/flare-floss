@@ -171,7 +171,7 @@ def emulate_function(
     try:
         pre_snap = make_snapshot(emu)
     except MapsTooLargeError:
-        logger.warn("initial snapshot mapped too much memory, can't extract strings")
+        logger.warning("initial snapshot mapped too much memory, can't extract strings")
         return []
 
     delta_collector = DeltaCollectorHook(pre_snap)
