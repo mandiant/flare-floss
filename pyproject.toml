@@ -135,7 +135,7 @@ dev = [
 ]
 build = [
     "pyinstaller==6.13.0",
-    "setuptools==80.8.0",
+    "setuptools==80.9.0",
     "build==1.2.1"
 ]
 
