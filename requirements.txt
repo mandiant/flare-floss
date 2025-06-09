@@ -22,7 +22,7 @@ msgpack==1.0.8
 mypy==1.15.0
 networkx==3.4.2
 nodeenv==1.9.1
-packaging==24.2
+packaging==25.0
 pathspec==0.12.1
 pefile==2024.8.26
 pip==25.0.1
