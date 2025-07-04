@@ -7,18 +7,26 @@ body {
 }
 
 .App {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
   max-width: 1200px;
   margin: 0 auto;
   background-color: #fff;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  padding: 20px;
 }
 
 .controls {
-  margin-bottom: 20px;
-  padding-bottom: 20px;
+  padding: 20px;
   border-bottom: 1px solid #eee;
+  flex-shrink: 0; /* Prevent the controls area from shrinking */
+}
+
+.results-container {
+  flex-grow: 1; /* Allow the results to take up the remaining space */
+  overflow-y: auto; /* Add a scrollbar if the content overflows */
+  padding: 20px;
 }
 
 .search-bar {
@@ -49,7 +57,7 @@ body {
   border: 1px solid #e0e0e0;
   margin-top: 15px;
   border-radius: 4px;
-  overflow: hidden; /* Ensures children with rounded corners look right */
+  overflow: hidden;
 }
 
 .layout-header {
@@ -75,26 +83,27 @@ body {
     border-bottom: none;
 }
 
-.offset {
-  color: #888;
-  flex-shrink: 0;
-}
-
-.string {
+.string-content {
   flex-grow: 1;
-  padding: 0 15px;
-  white-space: pre-wrap; /* Allow long strings to wrap */
+  padding-right: 1em;
+  white-space: pre-wrap;
   word-break: break-all;
 }
 
-.tags {
-  display: flex;
-  gap: 8px;
+.string-tags {
+  width: 20ch;
   flex-shrink: 0;
+  color: #808080;
 }
 
-.tag {
-    padding: 2px 5px;
-    border-radius: 3px;
-    font-size: 11px;
+.string-offset {
+  width: 12ch;
+  flex-shrink: 0;
+  color: #569cd6;
+}
+
+.string-structure {
+  width: 20ch;
+  flex-shrink: 0;
+  color: #4ec9b0;
 }

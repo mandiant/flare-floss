@@ -39,14 +39,15 @@ function App() {
   }
 
   const filteredStrings = data.strings.filter((s) => {
+    // Filter by search term first
     const searchMatch = s.string.toLowerCase().includes(searchTerm.toLowerCase());
-    if (!searchMatch) return false;
-
-    if (s.tags.length === 0) {
-        return true; // Always show untagged strings if they match search
+    if (!searchMatch) {
+      return false;
     }
 
-    return s.tags.some((tag) => enabledTags.has(tag));
+    // Then, filter by tags. A string is only visible if ALL of its tags are enabled.
+    // An untagged string will always pass this check.
+    return s.tags.every((tag) => enabledTags.has(tag));
   });
 
   return (
@@ -60,7 +61,9 @@ function App() {
         />
         <TagFilter tags={allTags} enabledTags={enabledTags} onTagChange={handleTagChange} />
       </div>
-      <Layout layout={data.layout} strings={filteredStrings} />
+      <div className="results-container">
+        <Layout layout={data.layout} strings={filteredStrings} />
+      </div>
     </div>
   );
 }
