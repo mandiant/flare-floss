@@ -408,13 +408,6 @@ def get_reloc_offsets(slice: Slice, pe: pefile.PE) -> Set[int]:
     return ret
 
 
-def check_is_xor(xor_key: Union[int, None]):
-    if isinstance(xor_key, int):
-        return ("#decoded",)
-
-    return ()
-
-
 def check_is_reloc(reloc_offsets: Set[int], string: ExtractedString):
     for addr in string.slice.range:
         if addr in reloc_offsets:
@@ -632,8 +625,6 @@ class Layout:
             "size": self.slice.range.length,
             "children": [child.to_dict() for child in self.children],
         }
-        if isinstance(self, PELayout):
-            d["xor_key"] = self.xor_key
         return d
 
     @classmethod
@@ -771,9 +762,6 @@ class Layout:
 
 @dataclass
 class PELayout(Layout):
-    # xor key if the file was xor decoded
-    xor_key: Optional[int] = None
-
     # file offsets of bytes that are part of the relocation table
     reloc_offsets: Optional[Set[int]] = field(init=False, default=None)
 
@@ -785,9 +773,6 @@ class PELayout(Layout):
     def tag_strings(self, taggers: Sequence[Tagger]):
         if self.reloc_offsets is not None and self.code_offsets is not None:
 
-            def check_is_xor_tagger(s: ExtractedString) -> Sequence[Tag]:
-                return check_is_xor(self.xor_key)
-
             def check_is_reloc_tagger(s: ExtractedString) -> Sequence[Tag]:
                 return check_is_reloc(self.reloc_offsets, s)
 
@@ -795,7 +780,6 @@ class PELayout(Layout):
                 return check_is_code(self.code_offsets, s)
 
             taggers = tuple(taggers) + (
-                check_is_xor_tagger,
                 check_is_reloc_tagger,
                 check_is_code_tagger,
             )
@@ -810,7 +794,7 @@ class PELayout(Layout):
             child.mark_structures(structures=structures, **kwargs)
 
 
-def compute_pe_layout(slice: Slice, xor_key: Union[int, None]) -> Layout:
+def compute_pe_layout(slice: Slice) -> Layout:
     data = slice.data
 
     try:
@@ -851,7 +835,6 @@ def compute_pe_layout(slice: Slice, xor_key: Union[int, None]) -> Layout:
     layout = PELayout(
         slice=slice,
         name="pe",
-        xor_key=xor_key,
     )
     layout.reloc_offsets = reloc_offsets
     layout.code_offsets = code_offsets
@@ -979,37 +962,11 @@ def compute_pe_layout(slice: Slice, xor_key: Union[int, None]) -> Layout:
     return layout
 
 
-def xor_static(data: bytes, i: int) -> bytes:
-    return bytes(c ^ i for c in data)
-
-
 def compute_layout(slice: Slice) -> Layout:
-
-    mz_xor = [
-        (
-            xor_static(b"MZ", key),
-            key,
-        )
-        for key in range(1, 256)
-    ]
-
-    xor_key = None
-
-    # Try to find the XOR key
-    for mz, key in mz_xor:
-        if slice.data.startswith(mz):
-            xor_key = key
-            break
-
-    # If XOR key is found, apply XOR decoding
-    if xor_key is not None:
-        decoded_data = xor_static(slice.data, xor_key)
-        slice = Slice(decoded_data, Range(0, len(decoded_data)))
-        
     # Try to parse as PE file
     if slice.data.startswith(b"MZ"):
         try:
-            return compute_pe_layout(slice, xor_key)
+            return compute_pe_layout(slice)
         except ValueError as e:
             logger.debug("failed to parse as PE file: %s", e)
             # Fall back to using the default binary layout
@@ -1162,8 +1119,6 @@ def render_strings(
     BORDER_STYLE = MUTED_STYLE
 
     name = layout.name
-    if isinstance(layout, PELayout) and layout.xor_key:  # Check if the layout is PELayout and is xored
-        name += f" (XOR decoded with key: 0x{layout.xor_key:x})"
     if name_hint:
         name = f"{name_hint} ({name})"
 
