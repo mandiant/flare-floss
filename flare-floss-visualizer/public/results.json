@@ -1,0 +1,259 @@
+{
+  "layout": {
+    "name": "pe",
+    "offset": 0,
+    "size": 163840,
+    "children": [
+      {
+        "name": "header",
+        "offset": 0,
+        "size": 4096,
+        "children": []
+      },
+      {
+        "name": ".text",
+        "offset": 4096,
+        "size": 4096,
+        "children": []
+      },
+      {
+        "name": ".rdata",
+        "offset": 8192,
+        "size": 147456,
+        "children": []
+      },
+      {
+        "name": ".data",
+        "offset": 155648,
+        "size": 4096,
+        "children": []
+      },
+      {
+        "name": ".reloc",
+        "offset": 159744,
+        "size": 4096,
+        "children": []
+      }
+    ]
+  },
+  "strings": [
+    {
+      "string": "!This program cannot be run in DOS mode.",
+      "offset": 77,
+      "size": 40,
+      "encoding": "ascii",
+      "tags": [
+        "#common"
+      ],
+      "structure": ""
+    },
+    {
+      "string": "`.rdata",
+      "offset": 511,
+      "size": 7,
+      "encoding": "ascii",
+      "tags": [
+        "#common"
+      ],
+      "structure": "section header"
+    },
+    {
+      "string": "@.data",
+      "offset": 551,
+      "size": 6,
+      "encoding": "ascii",
+      "tags": [
+        "#common"
+      ],
+      "structure": "section header"
+    },
+    {
+      "string": ".reloc",
+      "offset": 592,
+      "size": 6,
+      "encoding": "ascii",
+      "tags": [
+        "#common"
+      ],
+      "structure": "section header"
+    },
+    {
+      "string": "L$4PQj",
+      "offset": 4489,
+      "size": 6,
+      "encoding": "ascii",
+      "tags": [
+        "#common",
+        "#code"
+      ],
+      "structure": ""
+    },
+    {
+      "string": "CloseHandle",
+      "offset": 8458,
+      "size": 11,
+      "encoding": "ascii",
+      "tags": [
+        "#common",
+        "#winapi"
+      ],
+      "structure": "import table"
+    },
+    {
+      "string": "CreateProcessA",
+      "offset": 8480,
+      "size": 14,
+      "encoding": "ascii",
+      "tags": [
+        "#common",
+        "#winapi"
+      ],
+      "structure": "import table"
+    },
+    {
+      "string": "CreateMutexA",
+      "offset": 8498,
+      "size": 12,
+      "encoding": "ascii",
+      "tags": [
+        "#common",
+        "#winapi"
+      ],
+      "structure": "import table"
+    },
+    {
+      "string": "OpenMutexA",
+      "offset": 8514,
+      "size": 10,
+      "encoding": "ascii",
+      "tags": [
+        "#common",
+        "#winapi"
+      ],
+      "structure": "import table"
+    },
+    {
+      "string": "KERNEL32.dll",
+      "offset": 8526,
+      "size": 12,
+      "encoding": "ascii",
+      "tags": [
+        "#common",
+        "#winapi"
+      ],
+      "structure": "import table"
+    },
+    {
+      "string": "WS2_32.dll",
+      "offset": 8540,
+      "size": 10,
+      "encoding": "ascii",
+      "tags": [
+        "#common",
+        "#winapi"
+      ],
+      "structure": "import table"
+    },
+    {
+      "string": "strncmp",
+      "offset": 8554,
+      "size": 7,
+      "encoding": "ascii",
+      "tags": [
+        "#common",
+        "#winapi"
+      ],
+      "structure": "import table"
+    },
+    {
+      "string": "MSVCRT.dll",
+      "offset": 8562,
+      "size": 10,
+      "encoding": "ascii",
+      "tags": [
+        "#common",
+        "#winapi"
+      ],
+      "structure": "import table"
+    },
+    {
+      "string": "_initterm",
+      "offset": 8584,
+      "size": 9,
+      "encoding": "ascii",
+      "tags": [
+        "#common",
+        "#winapi",
+        "#code-junk"
+      ],
+      "structure": "import table"
+    },
+    {
+      "string": "malloc",
+      "offset": 8596,
+      "size": 6,
+      "encoding": "ascii",
+      "tags": [
+        "#common",
+        "#winapi"
+      ],
+      "structure": "import table"
+    },
+    {
+      "string": "_adjust_fdiv",
+      "offset": 8606,
+      "size": 12,
+      "encoding": "ascii",
+      "tags": [
+        "#common"
+      ],
+      "structure": "import table"
+    },
+    {
+      "string": "127.26.152.13",
+      "offset": 155688,
+      "size": 13,
+      "encoding": "ascii",
+      "tags": [],
+      "structure": ""
+    },
+    {
+      "string": "SADFHUHF",
+      "offset": 155704,
+      "size": 8,
+      "encoding": "ascii",
+      "tags": [],
+      "structure": ""
+    },
+    {
+      "string": "/0I0[0h0p0",
+      "offset": 159752,
+      "size": 10,
+      "encoding": "ascii",
+      "tags": [
+        "#reloc"
+      ],
+      "structure": ""
+    },
+    {
+      "string": "141G1[1l1",
+      "offset": 159785,
+      "size": 9,
+      "encoding": "ascii",
+      "tags": [
+        "#reloc"
+      ],
+      "structure": ""
+    },
+    {
+      "string": "1Y2a2g2r2",
+      "offset": 159801,
+      "size": 9,
+      "encoding": "ascii",
+      "tags": [
+        "#reloc"
+      ],
+      "structure": ""
+    }
+  ]
+}

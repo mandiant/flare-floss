@@ -1,0 +1,100 @@
+body {
+  font-family: 'Menlo', 'Consolas', monospace;
+  background-color: #f5f5f5;
+  color: #333;
+  margin: 0;
+  padding: 15px;
+}
+
+.App {
+  max-width: 1200px;
+  margin: 0 auto;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  padding: 20px;
+}
+
+.controls {
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #eee;
+}
+
+.search-bar {
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 15px;
+  box-sizing: border-box;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.tag-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+}
+
+.tag-filter label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.layout {
+  border: 1px solid #e0e0e0;
+  margin-top: 15px;
+  border-radius: 4px;
+  overflow: hidden; /* Ensures children with rounded corners look right */
+}
+
+.layout-header {
+  font-weight: bold;
+  text-align: center;
+  background-color: #f9f9f9;
+  padding: 8px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.layout-content {
+    padding: 10px;
+}
+
+.string-view {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+  border-bottom: 1px dotted #eee;
+}
+
+.string-view:last-child {
+    border-bottom: none;
+}
+
+.offset {
+  color: #888;
+  flex-shrink: 0;
+}
+
+.string {
+  flex-grow: 1;
+  padding: 0 15px;
+  white-space: pre-wrap; /* Allow long strings to wrap */
+  word-break: break-all;
+}
+
+.tags {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.tag {
+    padding: 2px 5px;
+    border-radius: 3px;
+    font-size: 11px;
+}
