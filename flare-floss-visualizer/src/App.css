@@ -20,13 +20,38 @@ body {
 .controls {
   padding: 20px;
   border-bottom: 1px solid #eee;
-  flex-shrink: 0; /* Prevent the controls area from shrinking */
+  flex-shrink: 0;
 }
 
 .results-container {
-  flex-grow: 1; /* Allow the results to take up the remaining space */
-  overflow-y: auto; /* Add a scrollbar if the content overflows */
+  flex-grow: 1;
+  overflow-y: auto;
   padding: 20px;
+}
+
+.file-upload-area {
+  margin-bottom: 20px;
+}
+
+.file-upload-label {
+  display: inline-block;
+  padding: 10px 15px;
+  background-color: #007bff;
+  color: white;
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: center;
+}
+
+#file-upload {
+  display: none;
+}
+
+.welcome-message {
+    text-align: center;
+    font-size: 1.2em;
+    color: #888;
+    margin-top: 50px;
 }
 
 .search-bar {

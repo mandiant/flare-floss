@@ -8,21 +8,36 @@ function App() {
   const [searchTerm, setSearchTerm] = useState('');
   const [enabledTags, setEnabledTags] = useState(new Set());
   const [allTags, setAllTags] = useState([]);
+  const [fileName, setFileName] = useState('');
 
-  useEffect(() => {
-    fetch('/results.json')
-      .then((response) => response.json())
-      .then((data) => {
-        setData(data);
-        const tags = new Set(data.strings.flatMap((s) => s.tags));
-        const defaultEnabled = new Set(tags);
-        defaultEnabled.delete('#code');
-        defaultEnabled.delete('#reloc');
-        
-        setAllTags(Array.from(tags).sort());
-        setEnabledTags(defaultEnabled);
-      });
-  }, []);
+  const processJsonData = (jsonData, name) => {
+    setData(jsonData);
+    setFileName(name);
+    const tags = new Set(jsonData.strings.flatMap((s) => s.tags));
+    const defaultEnabled = new Set(tags);
+    defaultEnabled.delete('#code');
+    defaultEnabled.delete('#reloc');
+    
+    setAllTags(Array.from(tags).sort());
+    setEnabledTags(defaultEnabled);
+  };
+
+  const handleFileUpload = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const jsonData = JSON.parse(e.target.result);
+        processJsonData(jsonData, file.name);
+      } catch (error) {
+        alert('Error parsing JSON file!');
+        console.error(error);
+      }
+    };
+    reader.readAsText(file);
+  };
 
   const handleTagChange = (tag, isEnabled) => {
     const newEnabledTags = new Set(enabledTags);
@@ -34,35 +49,41 @@ function App() {
     setEnabledTags(newEnabledTags);
   };
 
-  if (!data) {
-    return <div>Loading...</div>;
-  }
-
-  const filteredStrings = data.strings.filter((s) => {
-    // Filter by search term first
-    const searchMatch = s.string.toLowerCase().includes(searchTerm.toLowerCase());
-    if (!searchMatch) {
-      return false;
-    }
-
-    // Then, filter by tags. A string is only visible if ALL of its tags are enabled.
-    // An untagged string will always pass this check.
-    return s.tags.every((tag) => enabledTags.has(tag));
-  });
+  const filteredStrings = data
+    ? data.strings.filter((s) => {
+        const searchMatch = s.string.toLowerCase().includes(searchTerm.toLowerCase());
+        if (!searchMatch) return false;
+        return s.tags.every((tag) => enabledTags.has(tag));
+      })
+    : [];
 
   return (
     <div className="App">
       <div className="controls">
-        <input
-          type="text"
-          placeholder="Search strings..."
-          className="search-bar"
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
-        <TagFilter tags={allTags} enabledTags={enabledTags} onTagChange={handleTagChange} />
+        <div className="file-upload-area">
+          <label htmlFor="file-upload" className="file-upload-label">
+            {fileName ? `Loaded: ${fileName}` : 'Upload results.json'}
+          </label>
+          <input id="file-upload" type="file" accept=".json" onChange={handleFileUpload} />
+        </div>
+        {data && (
+          <>
+            <input
+              type="text"
+              placeholder="Search strings..."
+              className="search-bar"
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+            <TagFilter tags={allTags} enabledTags={enabledTags} onTagChange={handleTagChange} />
+          </>
+        )}
       </div>
       <div className="results-container">
-        <Layout layout={data.layout} strings={filteredStrings} />
+        {data ? (
+          <Layout layout={data.layout} strings={filteredStrings} />
+        ) : (
+          <div className="welcome-message">Please upload a `results.json` file to begin.</div>
+        )}
       </div>
     </div>
   );
