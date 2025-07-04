@@ -763,26 +763,24 @@ class Layout:
 @dataclass
 class PELayout(Layout):
     # file offsets of bytes that are part of the relocation table
-    reloc_offsets: Optional[Set[int]] = field(init=False, default=None)
+    reloc_offsets: Set[int]
 
     # file offsets of bytes that are recognized as code
-    code_offsets: Optional[Set[int]] = field(init=False, default=None)
+    code_offsets: Set[int]
 
-    structures_by_address: Optional[Dict[int, Structure]] = field(init=False, default=None)
+    structures_by_address: Dict[int, Structure]
 
     def tag_strings(self, taggers: Sequence[Tagger]):
-        if self.reloc_offsets is not None and self.code_offsets is not None:
+        def check_is_reloc_tagger(s: ExtractedString) -> Sequence[Tag]:
+            return check_is_reloc(self.reloc_offsets, s)
 
-            def check_is_reloc_tagger(s: ExtractedString) -> Sequence[Tag]:
-                return check_is_reloc(self.reloc_offsets, s)
+        def check_is_code_tagger(s: ExtractedString) -> Sequence[Tag]:
+            return check_is_code(self.code_offsets, s)
 
-            def check_is_code_tagger(s: ExtractedString) -> Sequence[Tag]:
-                return check_is_code(self.code_offsets, s)
-
-            taggers = tuple(taggers) + (
-                check_is_reloc_tagger,
-                check_is_code_tagger,
-            )
+        taggers = tuple(taggers) + (
+            check_is_reloc_tagger,
+            check_is_code_tagger,
+        )
 
         super().tag_strings(taggers)
 
@@ -835,10 +833,10 @@ def compute_pe_layout(slice: Slice) -> Layout:
     layout = PELayout(
         slice=slice,
         name="pe",
+        reloc_offsets=reloc_offsets,
+        code_offsets=code_offsets,
+        structures_by_address=structures_by_address,
     )
-    layout.reloc_offsets = reloc_offsets
-    layout.code_offsets = code_offsets
-    layout.structures_by_address = structures_by_address
 
     for section in pe.sections:
         if section.SizeOfRawData == 0:
@@ -853,9 +851,9 @@ def compute_pe_layout(slice: Slice) -> Layout:
         size = section.SizeOfRawData
         layout.add_child(Layout(slice=slice.slice(offset, size), name=name))
 
-    if not layout.children:
-        # every section has size 0 on disk, so we can't compute a layout
-        return layout
+    # if not layout.children:
+    #     # every section has size 0 on disk, so we can't compute a layout
+    #     return layout
 
     # segment that contains all data until the first section
     offset = 0
