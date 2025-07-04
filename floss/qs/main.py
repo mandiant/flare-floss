@@ -110,6 +110,11 @@ class ExtractedString:
     slice: Slice
     encoding: Literal["ascii", "unicode"]
 
+    @property
+    def offset(self) -> int:
+        "convenience"
+        return self.slice.range.offset
+
 
 Tag = str
 
@@ -631,7 +636,7 @@ class Layout:
 
     @classmethod
     def from_dict(cls, d: Dict) -> "Layout":
-        if "name" in d and d.name == "pe":
+        if "name" in d and d["name"] == "pe":
             klass = PELayout
         else:
             klass = Layout
@@ -761,30 +766,40 @@ class Layout:
 @dataclass
 class PELayout(Layout):
     # file offsets of bytes that are part of the relocation table
-    reloc_offsets: Set[int]
+    reloc_offsets: Optional[Set[int]] = field(init=False, default=None)
 
     # file offsets of bytes that are recognized as code
-    code_offsets: Set[int]
+    code_offsets: Optional[Set[int]] = field(init=False, default=None)
 
-    structures_by_address: Dict[int, Structure]
+    structures_by_address: Optional[Dict[int, Structure]] = field(init=False, default=None)
 
     def tag_strings(self, taggers: Sequence[Tagger]):
-        def check_is_reloc_tagger(s: ExtractedString) -> Sequence[Tag]:
-            return check_is_reloc(self.reloc_offsets, s)
+        if self.reloc_offsets is not None and self.code_offsets is not None:
 
-        def check_is_code_tagger(s: ExtractedString) -> Sequence[Tag]:
-            return check_is_code(self.code_offsets, s)
+            def check_is_reloc_tagger(s: ExtractedString) -> Sequence[Tag]:
+                return check_is_reloc(self.reloc_offsets, s)
 
-        taggers = tuple(taggers) + (
-            check_is_reloc_tagger,
-            check_is_code_tagger,
-        )
+            def check_is_code_tagger(s: ExtractedString) -> Sequence[Tag]:
+                return check_is_code(self.code_offsets, s)
+
+            taggers = tuple(taggers) + (
+                check_is_reloc_tagger,
+                check_is_code_tagger,
+            )
 
         super().tag_strings(taggers)
 
-    def mark_structures(self, structures=(), **kwargs):
+    def mark_structures(self, structures: Optional[Tuple[Dict[int, Structure], ...]] = (), **kwargs):
         if self.structures_by_address is not None:
             structures = structures + (self.structures_by_address,)
+
+        if structures:
+            for string in self.strings:
+                for structures_by_address in structures:
+                    structure = structures_by_address.get(string.string.offset)
+                    if structure:
+                        string.structure = structure.name
+                        break
 
         for child in self.children:
             child.mark_structures(structures=structures, **kwargs)
@@ -831,10 +846,10 @@ def compute_pe_layout(slice: Slice) -> Layout:
     layout = PELayout(
         slice=slice,
         name="pe",
-        reloc_offsets=reloc_offsets,
-        code_offsets=code_offsets,
-        structures_by_address=structures_by_address,
     )
+    layout.reloc_offsets = reloc_offsets
+    layout.code_offsets = code_offsets
+    layout.structures_by_address = structures_by_address
 
     for section in pe.sections:
         if section.SizeOfRawData == 0:
