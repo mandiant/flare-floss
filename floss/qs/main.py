@@ -79,12 +79,14 @@ class Slice:
     a bit like a memoryview.
     """
 
-    buf: bytes
+    buf: Optional[bytes]
     range: Range
 
     @property
     def data(self) -> bytes:
         "get the bytes in this slice, copying the data out"
+        if self.buf is None:
+            raise ValueError("buffer is not available")
         return self.buf[self.range.offset : self.range.end]
 
     def slice(self, offset, size) -> "Slice":
@@ -129,7 +131,7 @@ class TaggedString:
         }
 
     @classmethod
-    def from_dict(cls, d: Dict, slice_buf: bytes) -> "TaggedString":
+    def from_dict(cls, d: Dict) -> "TaggedString":
         string = d["string"]
         offset = d["offset"]
         size = d["size"]
@@ -140,7 +142,7 @@ class TaggedString:
         return TaggedString(
             string=ExtractedString(
                 string=string,
-                slice=Slice(slice_buf, Range(offset, size)),
+                slice=Slice(None, Range(offset, size)),
                 encoding=encoding,
             ),
             tags=tags,
@@ -628,9 +630,8 @@ class Layout:
         return d
 
     @classmethod
-    def from_dict(cls, d: Dict, slice_buf: bytes) -> "Layout":
-        klass: "Type[Layout]"
-        if "xor_key" in d:
+    def from_dict(cls, d: Dict) -> "Layout":
+        if "name" in d and d.name == "pe":
             klass = PELayout
         else:
             klass = Layout
@@ -639,11 +640,8 @@ class Layout:
         layout.offset_from_dict = d["offset"]
         layout.end_from_dict = d["offset"] + d["size"]
 
-        if "xor_key" in d:
-            layout.xor_key = d["xor_key"]
-
         for child in d["children"]:
-            layout.add_child(Layout.from_dict(child, slice_buf))
+            layout.add_child(Layout.from_dict(child))
 
         return layout
 
@@ -1279,12 +1277,8 @@ def main():
         with path.open("r") as f:
             data = json.load(f)
 
-        # we need a dummy buffer to create the slice objects,
-        # but it doesn't have to be the original file content.
-        dummy_buf = b"\x00" * data["layout"]["size"]
-
-        layout = Layout.from_dict(data["layout"], dummy_buf)
-        strings = [TaggedString.from_dict(d, dummy_buf) for d in data["strings"]]
+        layout = Layout.from_dict(data["layout"])
+        strings = [TaggedString.from_dict(d) for d in data["strings"]]
         distribute_strings(layout, strings)
 
     else:
