@@ -129,7 +129,6 @@ class TaggedString:
         return {
             "string": self.string.string,
             "offset": self.string.slice.range.offset,
-            "size": self.string.slice.range.length,
             "encoding": self.string.encoding,
             "tags": list(self.tags),
             "structure": self.structure,
@@ -139,7 +138,6 @@ class TaggedString:
     def from_dict(cls, d: Dict) -> "TaggedString":
         string = d["string"]
         offset = d["offset"]
-        size = d["size"]
         encoding = d["encoding"]
         tags = set(d["tags"])
         structure = d["structure"]
@@ -147,7 +145,7 @@ class TaggedString:
         return TaggedString(
             string=ExtractedString(
                 string=string,
-                slice=Slice(None, Range(offset, size)),
+                slice=Slice(None, Range(offset, len(string))),
                 encoding=encoding,
             ),
             tags=tags,
