@@ -123,16 +123,18 @@ Tag = str
 class TaggedString:
     string: ExtractedString
     tags: Set[Tag]
-    structure: str = ""
+    structure: Optional[str] = None
 
     def to_dict(self):
-        return {
+        d = {
             "string": self.string.string,
             "offset": self.string.slice.range.offset,
             "encoding": self.string.encoding,
             "tags": list(self.tags),
-            "structure": self.structure,
         }
+        if self.structure:
+            d["structure"] = self.structure
+        return d
 
     @classmethod
     def from_dict(cls, d: Dict) -> "TaggedString":
@@ -140,7 +142,7 @@ class TaggedString:
         offset = d["offset"]
         encoding = d["encoding"]
         tags = set(d["tags"])
-        structure = d["structure"]
+        structure = d.get("structure")
 
         return TaggedString(
             string=ExtractedString(
