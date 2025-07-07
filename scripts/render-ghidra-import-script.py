@@ -1,5 +1,18 @@
 #!/usr/bin/env python3
-# Copyright (C) 2021 Mandiant, Inc. All Rights Reserved.
+# Copyright 2021 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 
 """
 render-ghidra-import-script.py
@@ -12,19 +25,12 @@ Usage:
   $ floss suspicious.exe -j > floss-results.json
   $ python render-ghidra-import-script.py floss-results.json > apply_floss.py
   # now run `apply_floss.py` in Ghidra
-
-Copyright (C) 2021 Mandiant, Inc. All Rights Reserved.
-Licensed under the Apache License, Version 2.0 (the "License");
- you may not use this file except in compliance with the License.
-You may obtain a copy of the License at: [package root]/LICENSE.txt
-Unless required by applicable law or agreed to in writing, software distributed under the License
- is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and limitations under the License.
 """
 import sys
 import base64
 import logging
 import argparse
+from pathlib import Path
 
 from floss.results import AddressType, ResultDocument
 
@@ -135,7 +141,7 @@ def main():
         logging.basicConfig(level=logging.INFO)
         logging.getLogger().setLevel(logging.INFO)
 
-    result_document = ResultDocument.parse_file(args.report_path)
+    result_document = ResultDocument.parse_file(Path(args.report_path))
 
     print(render_ghidra_script(result_document))
     return 0

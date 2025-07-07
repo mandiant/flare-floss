@@ -1,4 +1,17 @@
-# Copyright (C) 2017 Mandiant, Inc. All Rights Reserved.
+# Copyright 2017 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 
 import os
 from pathlib import Path
@@ -50,15 +63,15 @@ def identify_decoding_functions(vw):
     return top_functions, decoding_function_features
 
 
-def pytest_collect_file(parent, path):
-    if path.basename == "test.yml":
-        return YamlFile.from_parent(parent, fspath=path)
+def pytest_collect_file(parent, file_path):
+    if file_path.name == "test.yml":
+        return YamlFile.from_parent(parent, path=file_path)
 
 
 class YamlFile(pytest.File):
     def collect(self):
         spec = yaml.safe_load(self.path.open())
-        test_dir = Path(self.fspath).parent
+        test_dir = self.path.parent
         for platform, archs in spec["Output Files"].items():
             for arch, filename in archs.items():
                 # TODO specify max runtime via command line option
@@ -152,9 +165,9 @@ class FLOSSTest(pytest.Item):
         self._test_strings(str(test_path))
 
     def reportinfo(self):
-        return self.fspath, 0, "usecase: %s" % self.name
+        return self.path, 0, "usecase: %s" % self.name
 
-    def repr_failure(self, excinfo):
+    def repr_failure(self, excinfo):  # type: ignore [override]
         if isinstance(excinfo.value, FLOSSStringsNotExtracted):
             expected = excinfo.value.expected
             got = excinfo.value.got

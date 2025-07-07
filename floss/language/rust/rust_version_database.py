@@ -1,4 +1,17 @@
-# Copyright (C) 2023 Mandiant, Inc. All Rights Reserved.
+# Copyright 2023 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 
 #############################################################################################
 # File: rust_version_database.py
@@ -18,6 +31,13 @@
 
 
 rust_commit_hash = {
+    "a28077b28a02b92985b3a3faecf92813155f1ea1": "1.74.1",
+    "79e9716c980570bfd1f666e3b16ac583f0168962": "1.74.0",
+    "cc66ad468955717ab92600c770da8c1601a4ff33": "1.73.0",
+    "d5c2e9c342b358556da91d61ed4133f6f50fc0c3": "1.72.1",
+    "5680fa18feaa87f3ff04063800aec256c3d4b4be": "1.72.0",
+    "eb26296b556cef10fb713a38f3d16b9886080f26": "1.71.1",
+    "8ede3aae28fe6e4d52b38157d7bfe0d3bceef225": "1.71.0",
     "90c541806f23a127002de5b4038be731ba1458ca": "1.70.0",
     "84c898d65adf2f39a5a98507f1fe0ce10a2b8dbc": "1.69.0",
     "9eb3afe9ebe9c7d2b84b71002d44f4a0edac95e0": "1.68.2",

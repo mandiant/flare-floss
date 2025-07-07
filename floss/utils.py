@@ -1,5 +1,21 @@
-# Copyright (C) 2017 Mandiant, Inc. All Rights Reserved.
+# Copyright 2017 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import os
 import re
+import sys
+import mmap
 import time
 import inspect
 import logging
@@ -7,6 +23,7 @@ import argparse
 import builtins
 import contextlib
 from typing import Set, Tuple, Iterable, Optional
+from pathlib import Path
 from collections import OrderedDict
 
 import tqdm
@@ -22,6 +39,7 @@ import floss.logging_
 
 from .const import MEGABYTE, MOD_NAME, MAX_STRING_LENGTH
 from .results import StaticString
+from .strings import extract_ascii_unicode_strings
 from .api_hooks import ENABLED_VIV_DEFAULT_HOOKS
 
 STACK_MEM_NAME = "[stack]"
@@ -29,14 +47,60 @@ STACK_MEM_NAME = "[stack]"
 logger = floss.logging_.getLogger(__name__)
 
 
-class ExtendAction(argparse.Action):
-    # stores a list, and extends each argument value to the list
-    # Since Python 3.8 argparse supports this
-    # TODO: remove this code when only supporting Python 3.8+
+class InstallContextMenu(argparse.Action):
+    def __init__(self, option_strings, dest, nargs=None, **kwargs):
+        super(InstallContextMenu, self).__init__(option_strings, dest, nargs=0, **kwargs)
+
     def __call__(self, parser, namespace, values, option_string=None):
-        items = getattr(namespace, self.dest, None) or []
-        items.extend(values)
-        setattr(namespace, self.dest, items)
+        # Theoretically, we don't need to check the platform again here,
+        # because non-Windows platforms will not accept the --install-right-click-menu parameter at all.
+        # This judgment is just to make the mypy type check pass.
+        # The same logic applies to `UninstallContextMenu` below.
+        if sys.platform == "win32":
+            import winreg as reg
+
+            menu_name = "Open with FLOSS"
+            icon_path = None
+
+            if getattr(sys, "frozen", False):
+                # If this is a standalone floss.exe, the path to the floss is sys.executable
+                menu_command = f'C:\\windows\\system32\\cmd.exe /K "^"{sys.executable}^" ^"%1^""'
+                icon_path = sys.executable
+            else:
+                menu_command = f'C:\\windows\\system32\\cmd.exe /K "python -m floss ^"%1^""'
+
+            # Create `shell` if it does not exist
+            try:
+                shell_key = reg.OpenKey(reg.HKEY_CURRENT_USER, r"Software\\Classes\\*\\shell", 0, reg.KEY_SET_VALUE)
+            except FileNotFoundError:
+                shell_key = reg.CreateKey(reg.HKEY_CURRENT_USER, r"Software\\Classes\\*\\shell")
+                shell_key = reg.OpenKey(reg.HKEY_CURRENT_USER, r"Software\\Classes\\*\\shell", 0, reg.KEY_SET_VALUE)
+
+            reg.SetValue(shell_key, menu_name, reg.REG_SZ, menu_name)
+
+            menu_key = reg.OpenKey(shell_key, menu_name, 0, reg.KEY_SET_VALUE)
+            if icon_path:
+                reg.SetValueEx(menu_key, "Icon", 0, reg.REG_SZ, icon_path)
+            reg.SetValue(menu_key, "command", reg.REG_SZ, menu_command)
+            sys.exit(0)
+
+
+class UninstallContextMenu(argparse.Action):
+    def __init__(self, option_strings, dest, nargs=None, **kwargs):
+        super(UninstallContextMenu, self).__init__(option_strings, dest, nargs=0, **kwargs)
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        if sys.platform == "win32":
+            import winreg as reg
+
+            menu_name = "Open with FLOSS"
+
+            shell_key = reg.OpenKey(reg.HKEY_CURRENT_USER, r"Software\\Classes\\*\\shell")
+            menu_key = reg.OpenKey(shell_key, menu_name)
+
+            reg.DeleteKey(menu_key, "command")
+            reg.DeleteKey(shell_key, menu_name)
+            sys.exit(0)
 
 
 def set_vivisect_log_level(level) -> None:
@@ -532,3 +596,24 @@ def read_memory(vw, va: int, size: int) -> bytes:
             offset = va - mva
             return mbytes[offset : offset + size]
     raise envi.exc.SegmentationViolation(va)
+
+
+def get_static_strings(sample: Path, min_length: int) -> list:
+    """
+    Returns list of static strings from the file which are above the minimum length
+    """
+
+    if sample.stat().st_size == 0:
+        logger.warning("File is empty")
+        return []
+
+    with sample.open("r") as f:
+        if hasattr(mmap, "MAP_PRIVATE"):
+            # unix
+            kwargs = {"flags": mmap.MAP_PRIVATE, "prot": mmap.PROT_READ}
+        else:
+            # windows
+            kwargs = {"access": mmap.ACCESS_READ}
+
+        with contextlib.closing(mmap.mmap(f.fileno(), 0, **kwargs)) as buf:
+            return list(extract_ascii_unicode_strings(buf, min_length))

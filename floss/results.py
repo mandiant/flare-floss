@@ -1,11 +1,27 @@
-# Copyright (C) 2021 Mandiant, Inc. All Rights Reserved.
+# Copyright 2021 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
+
+import re
 import json
 import datetime
 from enum import Enum
 from typing import Dict, List
 from pathlib import Path
 from dataclasses import field
+
+from pydantic import TypeAdapter, ValidationError
 
 # we use pydantic for dataclasses so that we can
 # easily load and validate JSON reports.
@@ -15,7 +31,6 @@ from dataclasses import field
 #
 # really, you should just pretend we're using stock dataclasses.
 from pydantic.dataclasses import dataclass
-from pydantic.error_wrappers import ValidationError
 
 import floss.logging_
 from floss.render import Verbosity
@@ -36,6 +51,7 @@ class InvalidLoadConfig(Exception):
 class StringEncoding(str, Enum):
     ASCII = "ASCII"
     UTF16LE = "UTF-16LE"
+    UTF8 = "UTF-8"
 
 
 @dataclass(frozen=True)
@@ -131,6 +147,20 @@ class StaticString:
     offset: int
     encoding: StringEncoding
 
+    @classmethod
+    def from_utf8(cls, buf, addr, min_length):
+        try:
+            decoded_string = buf.decode("utf-8")
+        except UnicodeDecodeError:
+            raise ValueError("not utf-8")
+
+        if not re.sub(r"[\r\n\t]", "", decoded_string).isprintable():
+            raise ValueError("not printable")
+
+        if len(decoded_string) < min_length:
+            raise ValueError("too short")
+        return cls(string=decoded_string, offset=addr, encoding=StringEncoding.UTF8)
+
 
 @dataclass
 class Runtime:
@@ -139,6 +169,7 @@ class Runtime:
     vivisect: float = 0
     find_features: float = 0
     static_strings: float = 0
+    language_strings: float = 0
     stack_strings: float = 0
     decoded_strings: float = 0
     tight_strings: float = 0
@@ -151,7 +182,7 @@ class Functions:
     analyzed_stack_strings: int = 0
     analyzed_tight_strings: int = 0
     analyzed_decoded_strings: int = 0
-    decoding_function_scores: Dict[int, float] = field(default_factory=dict)
+    decoding_function_scores: Dict[int, Dict[str, float]] = field(default_factory=dict)
 
 
 @dataclass
@@ -173,6 +204,9 @@ class Metadata:
     imagebase: int = 0
     min_length: int = 0
     runtime: Runtime = field(default_factory=Runtime)
+    language: str = ""
+    language_version: str = ""
+    language_selected: str = ""  # configured by user
 
 
 @dataclass
@@ -181,6 +215,8 @@ class Strings:
     tight_strings: List[TightString] = field(default_factory=list)
     decoded_strings: List[DecodedString] = field(default_factory=list)
     static_strings: List[StaticString] = field(default_factory=list)
+    language_strings: List[StaticString] = field(default_factory=list)
+    language_strings_missed: List[StaticString] = field(default_factory=list)
 
 
 @dataclass
@@ -190,9 +226,8 @@ class ResultDocument:
     strings: Strings = field(default_factory=Strings)
 
     @classmethod
-    def parse_file(cls, path):
-        # We're ignoring the following mypy error since this field is guaranteed by the Pydantic dataclass.
-        return cls.__pydantic_model__.parse_file(path)  # type: ignore
+    def parse_file(cls, path: Path) -> "ResultDocument":
+        return TypeAdapter(cls).validate_json(path.read_text(encoding="utf-8"))
 
 
 def log_result(decoded_string, verbosity):

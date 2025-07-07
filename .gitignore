@@ -16,6 +16,7 @@ lib/
 
 # Pyenv file
 .python-version
+.venv
 
 # Test executables
 bin/
@@ -27,3 +28,6 @@ flare_floss.egg-info
 .direnv/
 .envrc
 .vscode
+.direnv/
+.env/
+.envrc

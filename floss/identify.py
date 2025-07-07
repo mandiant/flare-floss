@@ -1,4 +1,17 @@
-# Copyright (C) 2017 Mandiant, Inc. All Rights Reserved.
+# Copyright 2017 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 
 import copy
 import operator
@@ -151,7 +164,11 @@ def find_decoding_function_features(vw, functions, disable_progress=False) -> Tu
 
             f = viv_utils.Function(vw, function_address)
 
-            function_data = {"meta": get_function_meta(f), "features": list()}
+            function_data = {
+                "meta": get_function_meta(f),
+                "features": [],
+                "xrefs_to": len(list(vw.getXrefsTo(function_address))),
+            }
 
             # meta data features
             function_data["features"].append(BlockCount(function_data["meta"].get("block_count")))
