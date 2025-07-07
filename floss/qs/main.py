@@ -11,14 +11,14 @@ import argparse
 import functools
 import itertools
 import contextlib
-from typing import Set, Dict, List, Tuple, Union, Literal, Callable, Iterable, Optional, Sequence
 from collections import defaultdict
-from dataclasses import field, dataclass
+from typing import Set, Dict, List, Tuple, Union, Literal, Callable, Iterable, Optional, Sequence
 
 import pefile
 import colorama
 import lancelot
 import rich.traceback
+from pydantic import BaseModel, Field, computed_field
 from rich.text import Text
 from rich.style import Style
 from rich.console import Console
@@ -44,22 +44,22 @@ def timing(msg: str):
     logger.debug("perf: %s: %0.2fs", msg, t1 - t0)
 
 
-@dataclass
-class Range:
+class Range(BaseModel):
     "a range of contiguous integer values, such as offsets within a byte sequence"
 
     offset: int
     length: int
 
+    @computed_field
     @property
     def end(self) -> int:
         return self.offset + self.length
 
     def slice(self, offset, size) -> "Range":
-        "create a new range thats a sub-range of this one, using relative offsets"
+        """create a new range thats a sub-range of this one, using relative offsets"""
         assert offset < self.length
         assert offset + size <= self.length
-        return Range(self.offset + offset, size)
+        return Range(offset=self.offset + offset, length=size)
 
     def __iter__(self):
         "iterate over the values in this range"
@@ -72,16 +72,18 @@ class Range:
         return repr(self)
 
 
-@dataclass
-class Slice:
+class Slice(BaseModel):
     """
     a contiguous range within a sequence of bytes.
     notably, it can be further sliced without copying the underlying bytes.
     a bit like a memoryview.
     """
 
-    buf: Optional[bytes]
+    buf: Optional[bytes] = Field(None, exclude=True)  # Exclude from serialization
     range: Range
+
+    class Config:
+        arbitrary_types_allowed = True
 
     @property
     def data(self) -> bytes:
@@ -92,25 +94,25 @@ class Slice:
 
     def slice(self, offset, size) -> "Slice":
         "create a new slice thats a sub-slice of this one, using relative offsets"
-        return Slice(self.buf, self.range.slice(offset, size))
+        return Slice(buf=self.buf, range=self.range.slice(offset, size))
 
     @classmethod
     def from_bytes(cls, buf: bytes) -> "Slice":
-        return cls(buf, Range(0, len(buf)))
+        return cls(buf=buf, range=Range(offset=0, length=len(buf)))
 
     def __repr__(self):
-        return f"Slice({repr(self.range)} of bytes of size 0x{len(self.buf):x})"
+        return f"Slice({repr(self.range)} of bytes of size 0x{len(self.buf) if self.buf else 0:x})"
 
     def __str__(self):
         return repr(self)
 
 
-@dataclass
-class ExtractedString:
+class ExtractedString(BaseModel):
     string: str
     slice: Slice
     encoding: Literal["ascii", "unicode"]
 
+    @computed_field
     @property
     def offset(self) -> int:
         "convenience"
@@ -120,43 +122,12 @@ class ExtractedString:
 Tag = str
 
 
-@dataclass
-class TaggedString:
+class TaggedString(BaseModel):
     string: ExtractedString
     tags: Set[Tag]
     structure: Optional[str] = None
 
-    def to_dict(self):
-        d = {
-            "string": self.string.string,
-            "offset": self.string.slice.range.offset,
-            "encoding": self.string.encoding,
-            "tags": list(self.tags),
-        }
-        if self.structure:
-            d["structure"] = self.structure
-        return d
-
-    @classmethod
-    def from_dict(cls, d: Dict) -> "TaggedString":
-        string = d["string"]
-        offset = d["offset"]
-        encoding = d["encoding"]
-        tags = set(d["tags"])
-        structure = d.get("structure")
-
-        byte_length = len(string) * 2 if encoding == "unicode" else len(string)
-
-        return TaggedString(
-            string=ExtractedString(
-                string=string,
-                slice=Slice(None, Range(offset, byte_length)),
-                encoding=encoding,
-            ),
-            tags=tags,
-            structure=structure,
-        )
-
+    @computed_field
     @property
     def offset(self) -> int:
         "convenience"
@@ -515,8 +486,7 @@ def load_databases() -> Sequence[Tagger]:
     return ret
 
 
-@dataclass
-class Structure:
+class Structure(BaseModel):
     slice: Slice
     name: str
 
@@ -582,8 +552,7 @@ def collect_pe_structures(slice: Slice, pe: pefile.PE) -> Sequence[Structure]:
     return structures
 
 
-@dataclass
-class Layout:
+class Layout(BaseModel):
     """
     recursively describe a region of a data, as a tree.
     the compute_layout routines construct this tree.
@@ -608,50 +577,27 @@ class Layout:
     # human readable name
     name: str
 
-    parent: Optional["Layout"] = field(init=False, default=None)
+    parent: Optional["Layout"] = Field(None, exclude=True)
 
     # ordered by address
     # non-overlapping
     # may not cover the entire range (non-contiguous)
-    children: Sequence["Layout"] = field(init=False, default_factory=list)
+    children: Sequence["Layout"] = Field(default_factory=list)
 
     # this is populated by the call to extract_strings.
     # only strings not contained by the children are in this list.
     # so they come from before/between/after the children ranges.
-    strings: List[TaggedString] = field(init=False, default_factory=list)
-
-    def to_dict(self) -> Dict:
-        d = {
-            "name": self.name,
-            "offset": self.offset,
-            "size": self.slice.range.length,
-            "children": [child.to_dict() for child in self.children],
-        }
-        return d
-
-    @classmethod
-    def from_dict(cls, d: Dict) -> "Layout":
-        if "name" in d and d["name"] == "pe":
-            klass = PELayout
-        else:
-            klass = Layout
-
-        layout = klass(slice=Slice(buf=None, range=Range(d["offset"], d["size"])), name=d["name"])
-
-        for child in d["children"]:
-            layout.add_child(Layout.from_dict(child))
-
-        return layout
+    strings: List[TaggedString] = Field(default_factory=list)
 
     @property
     def predecessors(self) -> Iterable["Layout"]:
         """traverse to the prior siblings`"""
         if self.parent is None:
-            return None
+            return
 
         index = self.parent.children.index(self)
         if index == 0:
-            return None
+            return
 
         for i in range(index - 1, -1, -1):
             yield self.parent.children[i]
@@ -665,11 +611,11 @@ class Layout:
     def successors(self) -> Iterable["Layout"]:
         """traverse to the next siblings"""
         if self.parent is None:
-            return None
+            return
 
         index = self.parent.children.index(self)
         if index == len(self.parent.children) - 1:
-            return None
+            return
 
         for i in range(index + 1, len(self.parent.children)):
             yield self.parent.children[i]
@@ -723,7 +669,7 @@ class Layout:
             for tagger in taggers:
                 tags.update(tagger(string))
 
-            tagged_strings.append(TaggedString(string, tags))
+            tagged_strings.append(TaggedString(string=string, tags=tags))
         self.strings = tagged_strings
 
         for child in self.children:
@@ -749,15 +695,14 @@ class Layout:
             child.mark_structures(structures=structures, **kwargs)
 
 
-@dataclass
 class PELayout(Layout):
     # file offsets of bytes that are part of the relocation table
-    reloc_offsets: Set[int] = field(init=False, default_factory=set)
+    reloc_offsets: Set[int] = Field(default_factory=set)
 
     # file offsets of bytes that are recognized as code
-    code_offsets: Set[int] = field(init=False, default_factory=set)
+    code_offsets: Set[int] = Field(default_factory=set)
 
-    structures_by_address: Dict[int, Structure] = field(init=False, default_factory=dict)
+    structures_by_address: Dict[int, Structure] = Field(default_factory=dict, exclude=True)
 
     def tag_strings(self, taggers: Sequence[Tagger]):
         def check_is_reloc_tagger(s: ExtractedString) -> Sequence[Tag]:
@@ -1207,6 +1152,11 @@ def distribute_strings(layout: Layout, strings: List[TaggedString]):
             distribute_strings(child, child_strings)
 
 
+class FlossQsOutput(BaseModel):
+    layout: Layout
+    strings: List[TaggedString]
+
+
 def main():
     # set environment variable NO_COLOR=1 to disable color output.
     # set environment variable FORCE_COLOR=1 to force color output, such as when piping to a pager.
@@ -1265,9 +1215,9 @@ def main():
         with path.open("r") as f:
             data = json.load(f)
 
-        layout = Layout.from_dict(data["layout"])
-        strings = [TaggedString.from_dict(d) for d in data["strings"]]
-        distribute_strings(layout, strings)
+        output = FlossQsOutput.model_validate(data)
+        layout = output.layout
+        distribute_strings(layout, output.strings)
 
     else:
         path = pathlib.Path(args.path)
@@ -1304,14 +1254,8 @@ def main():
     if args.json_out:
         path = pathlib.Path(args.json_out)
         with path.open("w") as f:
-            json.dump(
-                {
-                    "layout": layout.to_dict(),
-                    "strings": [s.to_dict() for s in collect_strings(layout)],
-                },
-                f,
-                indent=2,
-            )
+            output = FlossQsOutput(layout=layout, strings=collect_strings(layout))
+            f.write(output.model_dump_json(indent=2))
         logger.info("wrote results to %s", path)
         return 0
 
