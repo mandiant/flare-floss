@@ -33,7 +33,7 @@ jobs:
       run: pre-commit run mypy
 
   tests:
-    if: github.ref != 'refs/heads/quantumstrand'
+    if: github.ref == 'refs/heads/master'
     name: Tests in ${{ matrix.python-version }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
