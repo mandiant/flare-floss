@@ -145,10 +145,12 @@ class TaggedString:
         tags = set(d["tags"])
         structure = d.get("structure")
 
+        byte_length = len(string) * 2 if encoding == "unicode" else len(string)
+
         return TaggedString(
             string=ExtractedString(
                 string=string,
-                slice=Slice(None, Range(offset, len(string))),
+                slice=Slice(None, Range(offset, byte_length)),
                 encoding=encoding,
             ),
             tags=tags,
@@ -750,43 +752,30 @@ class Layout:
 @dataclass
 class PELayout(Layout):
     # file offsets of bytes that are part of the relocation table
-    reloc_offsets: Optional[Set[int]] = field(init=False, default=None)
+    reloc_offsets: Set[int] = field(init=False, default_factory=set)
 
     # file offsets of bytes that are recognized as code
-    code_offsets: Optional[Set[int]] = field(init=False, default=None)
+    code_offsets: Set[int] = field(init=False, default_factory=set)
 
-    structures_by_address: Optional[Dict[int, Structure]] = field(init=False, default=None)
+    structures_by_address: Dict[int, Structure] = field(init=False, default_factory=dict)
 
     def tag_strings(self, taggers: Sequence[Tagger]):
-        if self.reloc_offsets is not None and self.code_offsets is not None:
+        def check_is_reloc_tagger(s: ExtractedString) -> Sequence[Tag]:
+            return check_is_reloc(self.reloc_offsets, s)
 
-            def check_is_reloc_tagger(s: ExtractedString) -> Sequence[Tag]:
-                return check_is_reloc(self.reloc_offsets, s)
+        def check_is_code_tagger(s: ExtractedString) -> Sequence[Tag]:
+            return check_is_code(self.code_offsets, s)
 
-            def check_is_code_tagger(s: ExtractedString) -> Sequence[Tag]:
-                return check_is_code(self.code_offsets, s)
-
-            taggers = tuple(taggers) + (
-                check_is_reloc_tagger,
-                check_is_code_tagger,
-            )
+        taggers = tuple(taggers) + (
+            check_is_reloc_tagger,
+            check_is_code_tagger,
+        )
 
         super().tag_strings(taggers)
 
     def mark_structures(self, structures: Optional[Tuple[Dict[int, Structure], ...]] = (), **kwargs):
-        if self.structures_by_address is not None:
-            structures = structures + (self.structures_by_address,)
-
-        if structures:
-            for string in self.strings:
-                for structures_by_address in structures:
-                    structure = structures_by_address.get(string.string.offset)
-                    if structure:
-                        string.structure = structure.name
-                        break
-
-        for child in self.children:
-            child.mark_structures(structures=structures, **kwargs)
+        structures = structures + (self.structures_by_address,)
+        super().mark_structures(structures=structures, **kwargs)
 
 
 def compute_pe_layout(slice: Slice) -> Layout:
