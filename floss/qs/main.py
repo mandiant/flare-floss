@@ -11,8 +11,8 @@ import argparse
 import functools
 import itertools
 import contextlib
+from typing import Set, Dict, List, Tuple, Union, Literal, Callable, Iterable, Optional, Sequence
 from collections import defaultdict
-from typing import Set, Dict, List, Union, Tuple, Literal, Callable, Iterable, Optional, Sequence
 from dataclasses import field, dataclass
 
 import pefile
@@ -47,6 +47,7 @@ def timing(msg: str):
 @dataclass
 class Range:
     "a range of contiguous integer values, such as offsets within a byte sequence"
+
     offset: int
     length: int
 
@@ -703,7 +704,7 @@ class Layout:
         such as a PE file and code/reloc regions.
         """
         string_counts = defaultdict(int)
-        
+
         tagged_strings: List[TaggedString] = []
 
         for string in self.strings:
@@ -716,7 +717,7 @@ class Layout:
 
             if string_counts[string.string] > 1:
                 tags.add("#duplicate")
-                
+
             for tagger in taggers:
                 tags.update(tagger(string))
 

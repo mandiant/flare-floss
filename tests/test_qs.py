@@ -1,16 +1,17 @@
 import json
-import pytest
 from pathlib import Path
 
+import pytest
+
 from floss.qs.main import (
-    Layout,
     Slice,
+    Layout,
     TaggedString,
     compute_layout,
+    load_databases,
     collect_strings,
     distribute_strings,
     extract_layout_strings,
-    load_databases,
 )
 
 
