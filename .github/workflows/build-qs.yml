@@ -17,10 +17,10 @@ jobs:
       matrix:
         include:
           # use old linux so that the shared library versioning is more portable
-          - os: ubuntu-20.04
+          - os: ubuntu-22.04
             artifact_name: quantumstrand
             asset_name: linux
-          - os: windows-2019
+          - os: windows-2022
             artifact_name: quantumstrand.exe
             asset_name: windows
           - os: macos-11
@@ -54,15 +54,9 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: ubuntu-20.04
-            artifact_name: quantumstrand
-            asset_name: linux
           - os: ubuntu-22.04
             artifact_name: quantumstrand
             asset_name: linux
-          - os: windows-2019
-            artifact_name: quantumstrand.exe
-            asset_name: windows
           - os: windows-2022
             artifact_name: quantumstrand.exe
             asset_name: windows
@@ -91,7 +85,7 @@ jobs:
     # upload zipped binaries to Release page
     if: github.event_name == 'release'
     name: zip and upload ${{ matrix.asset_name }}
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     needs: [build]
     strategy:
       matrix:
