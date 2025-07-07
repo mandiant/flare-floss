@@ -597,14 +597,10 @@ class Layout:
     each node has a list of strings that are contained by the node;
     these strings don't overlap with any children strings, they're only found in the gaps.
 
-    note that `Layout` is the abstract base class for nodes in the tree.
-    subclasses are used to represent different types of regions,
-    such as a PE file, a section, a segment, or a resource.
-    subclasses can provide more specific behavior when it comes to tagging strings.
+    `Layout` is the catch all type for expressing relations between file segments.
     """
 
-    # when deserializing, we don't have the original bytes, so this is optional.
-    slice: Optional[Slice]
+    slice: Slice
 
     # human readable name
     name: str
@@ -620,10 +616,6 @@ class Layout:
     # only strings not contained by the children are in this list.
     # so they come from before/between/after the children ranges.
     strings: List[TaggedString] = field(init=False, default_factory=list)
-
-    # these are set during deserialization from a dict
-    offset_from_dict: Optional[int] = field(init=False, default=None)
-    end_from_dict: Optional[int] = field(init=False, default=None)
 
     def to_dict(self) -> Dict:
         d = {
@@ -641,9 +633,7 @@ class Layout:
         else:
             klass = Layout
 
-        layout = klass(slice=None, name=d["name"])
-        layout.offset_from_dict = d["offset"]
-        layout.end_from_dict = d["offset"] + d["size"]
+        layout = klass(slice=Slice(buf=None, range=Range(d["offset"], d["size"])), name=d["name"])
 
         for child in d["children"]:
             layout.add_child(Layout.from_dict(child))
@@ -689,26 +679,19 @@ class Layout:
     def add_child(self, child: "Layout"):
         # this works in py3.11, though mypy gets confused,
         # maybe due to the use of the key function.
-        if self.slice:
-            key = lambda c: c.slice.range.offset
-        else:
-            key = lambda c: c.offset_from_dict
+        key = lambda c: c.slice.range.offset
         bisect.insort(self.children, child, key=key)  # type: ignore
         child.parent = self
 
     @property
     def offset(self) -> int:
         "convenience"
-        if self.slice:
-            return self.slice.range.offset
-        return self.offset_from_dict
+        return self.slice.range.offset
 
     @property
     def end(self) -> int:
         "convenience"
-        if self.slice:
-            return self.slice.range.end
-        return self.end_from_dict
+        return self.slice.range.end
 
     def tag_strings(self, taggers: Sequence[Tagger]):
         """
