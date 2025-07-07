@@ -136,8 +136,10 @@ DEFAULT_PATHS = (
 
 def get_default_databases() -> Sequence[StringGlobalPrevalenceDatabase | StringHashDatabase]:
     return [
-        StringGlobalPrevalenceDatabase.from_file(path)
-        if path.name.endswith(".jsonl.gz")
-        else StringHashDatabase.from_file(path)
+        (
+            StringGlobalPrevalenceDatabase.from_file(path)
+            if path.name.endswith(".jsonl.gz")
+            else StringHashDatabase.from_file(path)
+        )
         for path in DEFAULT_PATHS
     ]
