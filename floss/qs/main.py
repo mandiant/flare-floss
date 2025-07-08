@@ -12,13 +12,13 @@ import functools
 import itertools
 import contextlib
 from collections import defaultdict
-from typing import Set, Dict, List, Union, Tuple, Literal, Callable, Iterable, Optional, Sequence
+from typing import Set, Dict, List, Union, Tuple, Literal, Callable, Iterable, Optional, Sequence, Annotated
 
 import pefile
 import colorama
 import lancelot
 import rich.traceback
-from pydantic import Field, BaseModel
+from pydantic import Field, BaseModel, model_serializer, model_validator
 from rich.text import Text
 from rich.style import Style
 from rich.console import Console
@@ -49,9 +49,6 @@ class Range(BaseModel):
     offset: int
     length: int
 
-    # class Config:
-    #     arbitrary_types_allowed = True
-
     @property
     def end(self) -> int:
         return self.offset + self.length
@@ -80,15 +77,26 @@ class Slice(BaseModel):
     a bit like a memoryview.
     """
 
-    buf: bytes
+    buf: Optional[bytes] = Field(default=None, exclude=True)
     range: Range
 
-    # class Config:
-    #     arbitrary_types_allowed = True
+    @model_validator(mode="before")
+    @classmethod
+    def validate_slice_data(cls, data):
+        if isinstance(data, dict) and "offset" in data and "length" in data:
+            return {"range": {"offset": data["offset"], "length": data["length"]}}
+        return data
+
+    @model_serializer
+    def serialize_slice(self):
+        # only the Range data
+        return self.range.model_dump()
 
     @property
     def data(self) -> bytes:
         "get the bytes in this slice, copying the data out"
+        if self.buf is None:
+            return b""
         return self.buf[self.range.offset : self.range.end]
 
     def slice(self, offset, size) -> "Slice":
@@ -100,7 +108,8 @@ class Slice(BaseModel):
         return cls(buf=buf, range=Range(offset=0, length=len(buf)))
 
     def __repr__(self):
-        return f"Slice({repr(self.range)} of bytes of size 0x{len(self.buf):x})"
+        buf_len = len(self.buf) if self.buf is not None else 0
+        return f"Slice({repr(self.range)} of bytes of size 0x{buf_len:x})"
 
     def __str__(self):
         return repr(self)
@@ -111,8 +120,6 @@ class ExtractedString(BaseModel):
     slice: Slice
     encoding: Literal["ascii", "unicode"]
 
-    # class Config:
-    #     arbitrary_types_allowed = True
 
 
 Tag = str
@@ -122,9 +129,6 @@ class TaggedString(BaseModel):
     string: ExtractedString
     tags: Set[Tag]
     structure: str = ""
-
-    # class Config:
-    #     arbitrary_types_allowed = True
 
     @property
     def offset(self) -> int:
@@ -588,7 +592,7 @@ class Layout(BaseModel, abc.ABC):
     # human readable name
     name: str
 
-    parent: Optional["Layout"] = Field(default=None, init=False)
+    parent: Optional["Layout"] = Field(default=None, init=False, exclude=True)
 
     # ordered by address
     # non-overlapping
@@ -1181,7 +1185,7 @@ def main():
     # set environment variable NO_COLOR=1 to disable color output.
     # set environment variable FORCE_COLOR=1 to force color output, such as when piping to a pager.
     parser = argparse.ArgumentParser(description="Extract human readable strings from binary data, quantum-style.")
-    parser.add_argument("path", help="file or path to analyze")
+    parser.add_argument("path", nargs="?", help="file or path to analyze")
     parser.add_argument(
         "-n",
         "--minimum-length",
@@ -1190,6 +1194,9 @@ def main():
         default=MIN_STR_LEN,
         help="minimum string length",
     )
+    parser.add_argument("--json-out", help="path to write layout to as JSON")
+    parser.add_argument("--json-in", help="path to read layout from as JSON")
+
     logging_group = parser.add_argument_group("logging arguments")
     logging_group.add_argument("-d", "--debug", action="store_true", help="enable debugging output on STDERR")
     logging_group.add_argument(
@@ -1217,36 +1224,50 @@ def main():
         sys.stdout.reconfigure(encoding="utf-8")
     colorama.just_fix_windows_console()
 
-    path = pathlib.Path(args.path)
-    if not path.exists():
-        logging.error("%s does not exist", path)
-        return 1
+    if args.json_in:
+        if args.path:
+            parser.error("cannot specify both --json-in and path")
+        with pathlib.Path(args.json_in).open("r") as f:
+            layout = Layout.model_validate_json(f.read())
+    elif args.path:
+        path = pathlib.Path(args.path)
+        if not path.exists():
+            logging.error("%s does not exist", path)
+            return 1
 
-    with path.open("rb") as f:
-        # because we store all the strings in memory
-        # in order to tag and reason about them
-        # then our input file must be reasonably sized
-        # so we just load it directly into memory.
-        # no need to mmap or play any games.
-        buf = f.read()
+        with path.open("rb") as f:
+            # because we store all the strings in memory
+            # in order to tag and reason about them
+            # then our input file must be reasonably sized
+            # so we just load it directly into memory.
+            # no need to mmap or play any games.
+            buf = f.read()
 
-    slice = Slice.from_bytes(buf)
+        slice = Slice.from_bytes(buf=buf)
 
-    # build the layout tree that describes the structures and ranges of the file.
-    layout = compute_layout(slice)
+        # build the layout tree that describes the structures and ranges of the file.
+        layout = compute_layout(slice)
 
-    # recursively populate the `.strings: List[ExtractedString]` field of each layout node.
-    extract_layout_strings(layout, args.min_length)
+        # recursively populate the `.strings: List[ExtractedString]` field of each layout node.
+        extract_layout_strings(layout, args.min_length)
 
-    # recursively apply tags to the strings in the layout tree.
-    # the `.strings` field now contains TaggedStrings (not ExtractedStrings).
-    taggers = load_databases()
-    layout.tag_strings(taggers)
+        # recursively apply tags to the strings in the layout tree.
+        # the `.strings` field now contains TaggedStrings (not ExtractedStrings).
+        taggers = load_databases()
+        layout.tag_strings(taggers)
 
-    layout.mark_structures()
+        layout.mark_structures()
 
-    # remove tags from libraries that have too few matches (five, by default).
-    remove_false_positive_lib_strings(layout)
+        # remove tags from libraries that have too few matches (five, by default).
+        remove_false_positive_lib_strings(layout)
+    else:
+        parser.error("either path or --json-in must be provided")
+
+    if args.json_out:
+        with pathlib.Path(args.json_out).open("w") as f:
+            f.write(layout.model_dump_json(indent=2))
+        logger.info("Wrote layout to %s", args.json_out)
+        return 0
 
     tag_rules: TagRules = {
         "#capa": "highlight",
