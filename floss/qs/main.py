@@ -18,7 +18,7 @@ import pefile
 import colorama
 import lancelot
 import rich.traceback
-from pydantic import Field, BaseModel, model_serializer, model_validator
+from pydantic import ConfigDict, Field, BaseModel, model_serializer, model_validator
 from rich.text import Text
 from rich.style import Style
 from rich.console import Console
@@ -77,26 +77,12 @@ class Slice(BaseModel):
     a bit like a memoryview.
     """
 
-    buf: Optional[bytes] = Field(default=None, exclude=True)
+    buf: bytes
     range: Range
-
-    @model_validator(mode="before")
-    @classmethod
-    def validate_slice_data(cls, data):
-        if isinstance(data, dict) and "offset" in data and "length" in data:
-            return {"range": {"offset": data["offset"], "length": data["length"]}}
-        return data
-
-    @model_serializer
-    def serialize_slice(self):
-        # only the Range data
-        return self.range.model_dump()
 
     @property
     def data(self) -> bytes:
         "get the bytes in this slice, copying the data out"
-        if self.buf is None:
-            return b""
         return self.buf[self.range.offset : self.range.end]
 
     def slice(self, offset, size) -> "Slice":
@@ -248,7 +234,27 @@ def compute_string_style(s: TaggedString, tag_rules: TagRules) -> Optional[Style
         return DEFAULT_STYLE
 
 
-def render_string_string(s: TaggedString, tag_rules: TagRules) -> Text:
+class ResultString(BaseModel):
+    string: str
+    offset: int
+    size: int
+    encoding: str
+    tags: List[str]
+    structure: str
+
+
+class ResultLayout(BaseModel):
+    name: str
+    offset: int
+    length: int
+    strings: List[ResultString]
+    parent: Optional[str] = ""
+    children: List["ResultLayout"]
+    has_visible_predecessors: bool
+    has_visible_successors: bool
+
+
+def render_string_string(s: ResultString, tag_rules: TagRules) -> Text:
     string_style = compute_string_style(s, tag_rules)
     if string_style is None:
         raise ValueError("string should be hidden")
@@ -256,11 +262,11 @@ def render_string_string(s: TaggedString, tag_rules: TagRules) -> Text:
     # render like json, but strip the leading/trailing quote marks.
     # this means that whitespace characters like \t and \n will be rendered as such,
     # which ensures that the rendered string will be a single line.
-    rendered_string = json.dumps(s.string.string)[1:-1]
+    rendered_string = json.dumps(s.string)[1:-1]
     return Span(rendered_string, style=string_style)
 
 
-def render_string_tags(s: TaggedString, tag_rules: TagRules):
+def render_string_tags(s: ResultString, tag_rules: TagRules):
     ret = Text()
 
     tags = s.tags
@@ -288,7 +294,7 @@ def render_string_tags(s: TaggedString, tag_rules: TagRules):
     return ret
 
 
-def render_string_offset(s: TaggedString):
+def render_string_offset(s: ResultString):
     # render the 000 prefix of the 8-digit offset in muted gray
     # and the non-zero suffix as blue.
     offset_chars = f"{s.offset:08x}"
@@ -302,7 +308,7 @@ def render_string_offset(s: TaggedString):
     return offset
 
 
-def render_string_structure(s: TaggedString):
+def render_string_structure(s: ResultString):
     ret = Text()
 
     if s.structure:
@@ -316,7 +322,7 @@ def render_string_structure(s: TaggedString):
     return ret
 
 
-def render_string(width: int, s: TaggedString, tag_rules: TagRules) -> Text:
+def render_string(width: int, s: ResultString, tag_rules: TagRules) -> Text:
     #
     #  | stringstringstring              #tag #tag #tag  00000001 |
     #  | stringstring                              #tag  0000004A |
@@ -351,7 +357,7 @@ def render_string(width: int, s: TaggedString, tag_rules: TagRules) -> Text:
     right.append_text(render_string_tags(s, tag_rules))
     right.append_text(render_string_padding())
     # indicate encoding: ascii implicit default
-    right.append_text(Span("U " if s.string.encoding == "unicode" else "  "))
+    right.append_text(Span("U " if s.encoding == "unicode" else "  "))
     right.append_text(render_string_offset(s))
     right.append_text(render_string_structure(s))
 
@@ -499,9 +505,6 @@ class Structure(BaseModel):
     slice: Slice
     name: str
 
-    class Config:
-        arbitrary_types_allowed = True
-
 
 def collect_pe_structures(slice: Slice, pe: pefile.PE) -> Sequence[Structure]:
     structures = []
@@ -592,7 +595,7 @@ class Layout(BaseModel, abc.ABC):
     # human readable name
     name: str
 
-    parent: Optional["Layout"] = Field(default=None, init=False, exclude=True)
+    parent: Optional["Layout"] = Field(default=None, init=False)
 
     # ordered by address
     # non-overlapping
@@ -603,9 +606,6 @@ class Layout(BaseModel, abc.ABC):
     # only strings not contained by the children are in this list.
     # so they come from before/between/after the children ranges.
     strings: List[TaggedString] = Field(default_factory=list, init=False)
-
-    class Config:
-        arbitrary_types_allowed = True
 
     @property
     def predecessors(self) -> Iterable["Layout"]:
@@ -713,6 +713,8 @@ class Layout(BaseModel, abc.ABC):
 
 
 class SectionLayout(Layout):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     section: pefile.SectionStructure
 
 
@@ -1068,7 +1070,41 @@ def remove_false_positive_lib_strings(layout: Layout):
                     string.tags.remove(tagname)
 
 
-def hide_strings_by_rules(layout: Layout, tag_rules: TagRules):
+def to_result_layout(layout: Layout) -> ResultLayout:
+    """
+    Recursively converts a Layout object and its contents to the serializable format.
+    """
+    serializable_strings = []
+    for s in layout.strings:
+        serializable_strings.append(
+            ResultString(
+                string=s.string.string,
+                offset=s.string.slice.range.offset,
+                size=s.string.slice.range.length,
+                encoding=s.string.encoding,
+                tags=sorted(list(s.tags)),
+                structure=s.structure,
+            )
+        )
+
+    serializable_children = []
+    if layout.children:
+        for child in layout.children:
+            serializable_children.append(to_result_layout(child))
+
+    return ResultLayout(
+        name=layout.name,
+        offset=layout.slice.range.offset,
+        length=layout.slice.range.length,
+        strings=serializable_strings,
+        parent=layout.parent.name if layout.parent else None,
+        children=serializable_children,
+        has_visible_predecessors=has_visible_predecessors(layout),
+        has_visible_successors=has_visible_successors(layout),
+    )
+
+
+def hide_strings_by_rules(layout: ResultLayout, tag_rules: TagRules):
     layout.strings = list(filter(lambda s: not should_hide_string(s, tag_rules), layout.strings))
 
     for child in layout.children:
@@ -1093,7 +1129,7 @@ def has_visible_successors(layout: Layout) -> bool:
 
 
 def render_strings(
-    console: Console, layout: Layout, tag_rules: TagRules, depth: int = 0, name_hint: Optional[str] = None
+    console: Console, layout: ResultLayout, tag_rules: TagRules, depth: int = 0, name_hint: Optional[str] = None
 ):
     if not is_visible(layout):
         return
@@ -1125,7 +1161,7 @@ def render_strings(
     name_offset = header.plain.index(" ") + 1
     header.stylize(Style(color="blue"), name_offset, name_offset + len(name))
 
-    if not has_visible_predecessors(layout):
+    if not layout.has_visible_predecessors:
         header_shape = "┓"
     else:
         header_shape = "┫"
@@ -1136,7 +1172,7 @@ def render_strings(
 
     console.print(header)
 
-    def render_string_line(console: Console, tag_rules: TagRules, string: TaggedString, depth: int):
+    def render_string_line(console: Console, tag_rules: TagRules, string: ResultString, depth: int):
         line = render_string(console.width, string, tag_rules)
         # TODO: this truncates the structure column
         line = line[: -depth - 1]
@@ -1170,7 +1206,7 @@ def render_strings(
         for string in strings_after_children:
             render_string_line(console, tag_rules, string, depth)
 
-    if not has_visible_successors(layout):
+    if not layout.has_visible_successors:
         footer = Span("", style=BORDER_STYLE)
         footer.align("center", width=console.width, character="━")
 
@@ -1228,7 +1264,7 @@ def main():
         if args.path:
             parser.error("cannot specify both --json-in and path")
         with pathlib.Path(args.json_in).open("r") as f:
-            layout = Layout.model_validate_json(f.read())
+            layout = ResultLayout.model_validate_json(f.read())
     elif args.path:
         path = pathlib.Path(args.path)
         if not path.exists():
@@ -1264,6 +1300,7 @@ def main():
         parser.error("either path or --json-in must be provided")
 
     if args.json_out:
+        layout = to_result_layout(layout)
         with pathlib.Path(args.json_out).open("w") as f:
             f.write(layout.model_dump_json(indent=2))
         logger.info("Wrote layout to %s", args.json_out)
