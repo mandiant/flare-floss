@@ -13,12 +13,12 @@ import itertools
 import contextlib
 from collections import defaultdict
 from typing import Set, Dict, List, Union, Tuple, Literal, Callable, Iterable, Optional, Sequence
-from dataclasses import field, dataclass
 
 import pefile
 import colorama
 import lancelot
 import rich.traceback
+from pydantic import Field, BaseModel
 from rich.text import Text
 from rich.style import Style
 from rich.console import Console
@@ -44,11 +44,13 @@ def timing(msg: str):
     logger.debug("perf: %s: %0.2fs", msg, t1 - t0)
 
 
-@dataclass
-class Range:
+class Range(BaseModel):
     "a range of contiguous integer values, such as offsets within a byte sequence"
     offset: int
     length: int
+
+    # class Config:
+    #     arbitrary_types_allowed = True
 
     @property
     def end(self) -> int:
@@ -58,7 +60,7 @@ class Range:
         "create a new range thats a sub-range of this one, using relative offsets"
         assert offset < self.length
         assert offset + size <= self.length
-        return Range(self.offset + offset, size)
+        return Range(offset=self.offset + offset, length=size)
 
     def __iter__(self):
         "iterate over the values in this range"
@@ -71,8 +73,7 @@ class Range:
         return repr(self)
 
 
-@dataclass
-class Slice:
+class Slice(BaseModel):
     """
     a contiguous range within a sequence of bytes.
     notably, it can be further sliced without copying the underlying bytes.
@@ -82,6 +83,9 @@ class Slice:
     buf: bytes
     range: Range
 
+    # class Config:
+    #     arbitrary_types_allowed = True
+
     @property
     def data(self) -> bytes:
         "get the bytes in this slice, copying the data out"
@@ -89,11 +93,11 @@ class Slice:
 
     def slice(self, offset, size) -> "Slice":
         "create a new slice thats a sub-slice of this one, using relative offsets"
-        return Slice(self.buf, self.range.slice(offset, size))
+        return Slice(buf=self.buf, range=self.range.slice(offset, size))
 
     @classmethod
     def from_bytes(cls, buf: bytes) -> "Slice":
-        return cls(buf, Range(0, len(buf)))
+        return cls(buf=buf, range=Range(offset=0, length=len(buf)))
 
     def __repr__(self):
         return f"Slice({repr(self.range)} of bytes of size 0x{len(self.buf):x})"
@@ -102,21 +106,25 @@ class Slice:
         return repr(self)
 
 
-@dataclass
-class ExtractedString:
+class ExtractedString(BaseModel):
     string: str
     slice: Slice
     encoding: Literal["ascii", "unicode"]
+
+    # class Config:
+    #     arbitrary_types_allowed = True
 
 
 Tag = str
 
 
-@dataclass
-class TaggedString:
+class TaggedString(BaseModel):
     string: ExtractedString
     tags: Set[Tag]
     structure: str = ""
+
+    # class Config:
+    #     arbitrary_types_allowed = True
 
     @property
     def offset(self) -> int:
@@ -483,10 +491,12 @@ def load_databases() -> Sequence[Tagger]:
     return ret
 
 
-@dataclass
-class Structure:
+class Structure(BaseModel):
     slice: Slice
     name: str
+
+    class Config:
+        arbitrary_types_allowed = True
 
 
 def collect_pe_structures(slice: Slice, pe: pefile.PE) -> Sequence[Structure]:
@@ -550,8 +560,7 @@ def collect_pe_structures(slice: Slice, pe: pefile.PE) -> Sequence[Structure]:
     return structures
 
 
-@dataclass
-class Layout(abc.ABC):
+class Layout(BaseModel, abc.ABC):
     """
     recursively describe a region of a data, as a tree.
     the compute_layout routines construct this tree.
@@ -579,27 +588,30 @@ class Layout(abc.ABC):
     # human readable name
     name: str
 
-    parent: Optional["Layout"] = field(init=False, default=None)
+    parent: Optional["Layout"] = Field(default=None, init=False)
 
     # ordered by address
     # non-overlapping
     # may not cover the entire range (non-contiguous)
-    children: Sequence["Layout"] = field(init=False, default_factory=list)
+    children: Sequence["Layout"] = Field(default_factory=list, init=False)
 
     # this is populated by the call to extract_strings.
     # only strings not contained by the children are in this list.
     # so they come from before/between/after the children ranges.
-    strings: List[TaggedString] = field(init=False, default_factory=list)
+    strings: List[TaggedString] = Field(default_factory=list, init=False)
+
+    class Config:
+        arbitrary_types_allowed = True
 
     @property
     def predecessors(self) -> Iterable["Layout"]:
         """traverse to the prior siblings`"""
         if self.parent is None:
-            return None
+            return
 
         index = self.parent.children.index(self)
         if index == 0:
-            return None
+            return
 
         for i in range(index - 1, -1, -1):
             yield self.parent.children[i]
@@ -613,11 +625,11 @@ class Layout(abc.ABC):
     def successors(self) -> Iterable["Layout"]:
         """traverse to the next siblings"""
         if self.parent is None:
-            return None
+            return
 
         index = self.parent.children.index(self)
         if index == len(self.parent.children) - 1:
-            return None
+            return
 
         for i in range(index + 1, len(self.parent.children)):
             yield self.parent.children[i]
@@ -653,7 +665,7 @@ class Layout(abc.ABC):
         such as a PE file and code/reloc regions.
         """
         string_counts = defaultdict(int)
-        
+
         tagged_strings: List[TaggedString] = []
 
         for string in self.strings:
@@ -666,11 +678,11 @@ class Layout(abc.ABC):
 
             if string_counts[string.string] > 1:
                 tags.add("#duplicate")
-                
+
             for tagger in taggers:
                 tags.update(tagger(string))
 
-            tagged_strings.append(TaggedString(string, tags))
+            tagged_strings.append(TaggedString(string=string, tags=tags))
         self.strings = tagged_strings
 
         for child in self.children:
@@ -696,22 +708,19 @@ class Layout(abc.ABC):
             child.mark_structures(structures=structures, **kwargs)
 
 
-@dataclass
 class SectionLayout(Layout):
     section: pefile.SectionStructure
 
 
-@dataclass
 class SegmentLayout(Layout):
     """region not covered by any section, such as PE header or overlay"""
 
     pass
 
 
-@dataclass
 class PELayout(Layout):
     # xor key if the file was xor decoded
-    xor_key: None
+    xor_key: Optional[int]
 
     # file offsets of bytes that are part of the relocation table
     reloc_offsets: Set[int]
@@ -724,6 +733,7 @@ class PELayout(Layout):
     def tag_strings(self, taggers: Sequence[Tagger]):
         def check_is_xor_tagger(s: ExtractedString) -> Sequence[Tag]:
             return check_is_xor(self.xor_key)
+
         def check_is_reloc_tagger(s: ExtractedString) -> Sequence[Tag]:
             return check_is_reloc(self.reloc_offsets, s)
 
@@ -750,7 +760,6 @@ class PELayout(Layout):
                 child.mark_structures(structures=structures, **kwargs)
 
 
-@dataclass
 class ResourceLayout(Layout):
     pass
 
@@ -945,8 +954,8 @@ def compute_layout(slice: Slice) -> Layout:
     # If XOR key is found, apply XOR decoding
     if xor_key is not None:
         decoded_data = xor_static(slice.data, xor_key)
-        slice = Slice(decoded_data, Range(0, len(decoded_data)))
-        
+        slice = Slice(buf=decoded_data, range=Range(offset=0, length=len(decoded_data)))
+
     # Try to parse as PE file
     if slice.data.startswith(b"MZ"):
         try:
