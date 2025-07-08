@@ -1,10 +1,10 @@
 annotated-types==0.7.0
 binary2strings==0.1.13
-black==24.10.0
+black==25.1.0
 cfgv==3.4.0
 click==8.2.1
 colorama==0.4.6
-coverage==7.8.2
+coverage==7.9.2
 cxxfilt==0.3.0
 distlib==0.3.8
 dncil==1.0.2
@@ -19,10 +19,10 @@ log-symbols==0.0.14
 markdown-it-py==3.0.0
 mdurl==0.1.2
 msgpack==1.0.8
-mypy==1.15.0
+mypy==1.16.1
 networkx==3.4.2
 nodeenv==1.9.1
-packaging==24.2
+packaging==25.0
 pathspec==0.12.1
 pefile==2024.8.26
 pip==25.1.1
@@ -39,7 +39,7 @@ pydantic==2.10.1
 # so we rely on pydantic to pull in the right version of pydantic-core.
 # pydantic-core==2.23.4
 pygments==2.19.1
-pytest==8.3.3
+pytest==8.4.1
 pytest-cov==6.2.1
 pytest-instafail==0.5.0
 pytest-sugar==1.0.0
@@ -51,7 +51,7 @@ six==1.17.0
 sortedcontainers==2.4.0
 spinners==0.0.24
 tabulate==0.9.0
-termcolor==2.5.0
+termcolor==3.1.0
 tqdm==4.67.1
 types-pyyaml==6.0.10
 types-tabulate==0.9.0.20240106

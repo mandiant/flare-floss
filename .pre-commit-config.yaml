@@ -3,7 +3,7 @@ repos:
     hooks:
     -   id: isort
         name: isort
-        stages: [commit, push]
+        stages: [pre-commit, pre-push]
         language: system
         entry: isort
         args: 
@@ -19,7 +19,7 @@ repos:
     hooks:
     -   id: black
         name: black
-        stages: [commit, push]
+        stages: [pre-commit, pre-push]
         language: system
         entry: black
         args: 
@@ -32,7 +32,7 @@ repos:
     hooks:
     -   id: mypy
         name: mypy
-        stages: [commit, push]
+        stages: [pre-commit, pre-push]
         language: system
         entry: mypy
         args: 
