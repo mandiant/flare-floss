@@ -4,6 +4,8 @@ from pathlib import Path
 import pytest
 
 from floss.qs.main import (
+    Metadata,
+    ResultDocument,
     ResultLayout,
     Slice,
     compute_layout,
@@ -31,12 +33,13 @@ def analyzed_layout(pma_binary_path):
     return layout
 
 
-def assert_round_trip(layout):
-    layout = to_result_layout(analyzed_layout)
-    one = layout
+def test_round_trip(analyzed_layout):
+    meta = Metadata(version="1")
+    result = ResultDocument.from_qs(meta=meta, layout=analyzed_layout)
+    one = result
 
     doc = one.model_dump_json(exclude_none=True)
-    two = ResultLayout.model_validate_json(doc)
+    two = ResultDocument.model_validate_json(doc)
 
     # show the round trip works
     # first by comparing the objects directly,
@@ -47,7 +50,7 @@ def assert_round_trip(layout):
 
     # now show that two different versions are not equal.
     three = copy.deepcopy(two)
-    three.meta.__dict__.update({"version": "0.0.0"})
+    three.meta.__dict__.update({"version": "0"})
     assert one.meta.version != three.meta.version
     assert one != three
     assert one.model_dump_json(exclude_none=True) != three.model_dump_json(exclude_none=True)

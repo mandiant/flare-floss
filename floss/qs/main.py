@@ -11,14 +11,14 @@ import argparse
 import functools
 import itertools
 import contextlib
+from typing import Set, Dict, List, Tuple, Union, Literal, Callable, Iterable, Optional, Sequence, Annotated
 from collections import defaultdict
-from typing import Set, Dict, List, Union, Tuple, Literal, Callable, Iterable, Optional, Sequence, Annotated
 
 import pefile
 import colorama
 import lancelot
 import rich.traceback
-from pydantic import ConfigDict, Field, BaseModel, model_serializer, model_validator
+from pydantic import Field, BaseModel, ConfigDict, model_validator, model_serializer
 from rich.text import Text
 from rich.style import Style
 from rich.console import Console
@@ -36,6 +36,9 @@ from floss.qs.db.winapi import WindowsApiStringDatabase
 logger = logging.getLogger("quantumstrand")
 
 
+QS_VERSION = "0.0.1"
+
+
 @contextlib.contextmanager
 def timing(msg: str):
     t0 = time.time()
@@ -46,6 +49,7 @@ def timing(msg: str):
 
 class Range(BaseModel):
     "a range of contiguous integer values, such as offsets within a byte sequence"
+
     offset: int
     length: int
 
@@ -105,7 +109,6 @@ class ExtractedString(BaseModel):
     string: str
     slice: Slice
     encoding: Literal["ascii", "unicode"]
-
 
 
 Tag = str
@@ -248,10 +251,24 @@ class ResultLayout(BaseModel):
     offset: int
     length: int
     strings: List[ResultString]
-    parent: Optional[str] = ""
+    parent: Optional[str] = ""  # TODO remove?
     children: List["ResultLayout"]
-    has_visible_predecessors: bool
-    has_visible_successors: bool
+    has_visible_predecessors: bool  # TODO used for rendering, remove?
+    has_visible_successors: bool  # TODO used for rendering, remove?
+
+
+class Metadata(BaseModel):
+    version: str
+
+
+class ResultDocument(BaseModel):
+    meta: Metadata
+    layout: ResultLayout
+
+    @classmethod
+    def from_qs(cls, meta: Metadata, layout: "Layout") -> "ResultDocument":
+        results = to_result_layout(layout)
+        return ResultDocument(meta=meta, layout=results)
 
 
 def render_string_string(s: ResultString, tag_rules: TagRules) -> Text:
@@ -1074,9 +1091,9 @@ def to_result_layout(layout: Layout) -> ResultLayout:
     """
     Recursively converts a Layout object and its contents to the serializable format.
     """
-    serializable_strings = []
+    result_strings = []
     for s in layout.strings:
-        serializable_strings.append(
+        result_strings.append(
             ResultString(
                 string=s.string.string,
                 offset=s.string.slice.range.offset,
@@ -1087,18 +1104,18 @@ def to_result_layout(layout: Layout) -> ResultLayout:
             )
         )
 
-    serializable_children = []
+    result_children = []
     if layout.children:
         for child in layout.children:
-            serializable_children.append(to_result_layout(child))
+            result_children.append(to_result_layout(child))
 
     return ResultLayout(
         name=layout.name,
         offset=layout.slice.range.offset,
         length=layout.slice.range.length,
-        strings=serializable_strings,
-        parent=layout.parent.name if layout.parent else None,
-        children=serializable_children,
+        strings=result_strings,
+        parent=layout.parent.name if layout.parent else "",
+        children=result_children,
         has_visible_predecessors=has_visible_predecessors(layout),
         has_visible_successors=has_visible_successors(layout),
     )
@@ -1264,7 +1281,7 @@ def main():
         if args.path:
             parser.error("cannot specify both --json-in and path")
         with pathlib.Path(args.json_in).open("r") as f:
-            layout = ResultLayout.model_validate_json(f.read())
+            results = ResultDocument.model_validate_json(f.read())
     elif args.path:
         path = pathlib.Path(args.path)
         if not path.exists():
@@ -1296,13 +1313,15 @@ def main():
 
         # remove tags from libraries that have too few matches (five, by default).
         remove_false_positive_lib_strings(layout)
+
+        meta = Metadata(version=QS_VERSION)
+        results = ResultDocument.from_qs(meta, layout)
     else:
         parser.error("either path or --json-in must be provided")
 
     if args.json_out:
-        layout = to_result_layout(layout)
         with pathlib.Path(args.json_out).open("w") as f:
-            f.write(layout.model_dump_json(indent=2))
+            f.write(results.model_dump_json(indent=2))
         logger.info("Wrote layout to %s", args.json_out)
         return 0
 
@@ -1315,10 +1334,10 @@ def main():
         # lib strings are muted (default)
     }
     # hide (remove) strings according to the above rules
-    hide_strings_by_rules(layout, tag_rules)
+    hide_strings_by_rules(results.layout, tag_rules)
 
     console = Console()
-    render_strings(console, layout, tag_rules)
+    render_strings(console, results.layout, tag_rules)
 
     return 0
 
