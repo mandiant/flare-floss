@@ -12,13 +12,13 @@ import functools
 import itertools
 import contextlib
 from collections import defaultdict
-from typing import Set, Dict, List, Union, Tuple, Literal, Callable, Iterable, Optional, Sequence
-from dataclasses import field, dataclass
+from typing import Set, Dict, List, Tuple, Union, Literal, Callable, Iterable, Optional, Sequence
 
 import pefile
 import colorama
 import lancelot
 import rich.traceback
+from pydantic import BaseModel, Field, computed_field
 from rich.text import Text
 from rich.style import Style
 from rich.console import Console
@@ -44,21 +44,22 @@ def timing(msg: str):
     logger.debug("perf: %s: %0.2fs", msg, t1 - t0)
 
 
-@dataclass
-class Range:
+class Range(BaseModel):
     "a range of contiguous integer values, such as offsets within a byte sequence"
+
     offset: int
     length: int
 
+    @computed_field
     @property
     def end(self) -> int:
         return self.offset + self.length
 
     def slice(self, offset, size) -> "Range":
-        "create a new range thats a sub-range of this one, using relative offsets"
+        """create a new range thats a sub-range of this one, using relative offsets"""
         assert offset < self.length
         assert offset + size <= self.length
-        return Range(self.offset + offset, size)
+        return Range(offset=self.offset + offset, length=size)
 
     def __iter__(self):
         "iterate over the values in this range"
@@ -71,53 +72,62 @@ class Range:
         return repr(self)
 
 
-@dataclass
-class Slice:
+class Slice(BaseModel):
     """
     a contiguous range within a sequence of bytes.
     notably, it can be further sliced without copying the underlying bytes.
     a bit like a memoryview.
     """
 
-    buf: bytes
+    buf: Optional[bytes] = Field(None, exclude=True)  # Exclude from serialization
     range: Range
+
+    class Config:
+        arbitrary_types_allowed = True
 
     @property
     def data(self) -> bytes:
         "get the bytes in this slice, copying the data out"
+        if self.buf is None:
+            raise ValueError("buffer is not available")
         return self.buf[self.range.offset : self.range.end]
 
     def slice(self, offset, size) -> "Slice":
         "create a new slice thats a sub-slice of this one, using relative offsets"
-        return Slice(self.buf, self.range.slice(offset, size))
+        return Slice(buf=self.buf, range=self.range.slice(offset, size))
 
     @classmethod
     def from_bytes(cls, buf: bytes) -> "Slice":
-        return cls(buf, Range(0, len(buf)))
+        return cls(buf=buf, range=Range(offset=0, length=len(buf)))
 
     def __repr__(self):
-        return f"Slice({repr(self.range)} of bytes of size 0x{len(self.buf):x})"
+        return f"Slice({repr(self.range)} of bytes of size 0x{len(self.buf) if self.buf else 0:x})"
 
     def __str__(self):
         return repr(self)
 
 
-@dataclass
-class ExtractedString:
+class ExtractedString(BaseModel):
     string: str
     slice: Slice
     encoding: Literal["ascii", "unicode"]
+
+    @computed_field
+    @property
+    def offset(self) -> int:
+        "convenience"
+        return self.slice.range.offset
 
 
 Tag = str
 
 
-@dataclass
-class TaggedString:
+class TaggedString(BaseModel):
     string: ExtractedString
     tags: Set[Tag]
-    structure: str = ""
+    structure: Optional[str] = None
 
+    @computed_field
     @property
     def offset(self) -> int:
         "convenience"
@@ -379,13 +389,6 @@ def get_reloc_offsets(slice: Slice, pe: pefile.PE) -> Set[int]:
     return ret
 
 
-def check_is_xor(xor_key: Union[int, None]):
-    if isinstance(xor_key, int):
-        return ("#decoded",)
-
-    return ()
-
-
 def check_is_reloc(reloc_offsets: Set[int], string: ExtractedString):
     for addr in string.slice.range:
         if addr in reloc_offsets:
@@ -483,8 +486,7 @@ def load_databases() -> Sequence[Tagger]:
     return ret
 
 
-@dataclass
-class Structure:
+class Structure(BaseModel):
     slice: Slice
     name: str
 
@@ -550,8 +552,7 @@ def collect_pe_structures(slice: Slice, pe: pefile.PE) -> Sequence[Structure]:
     return structures
 
 
-@dataclass
-class Layout(abc.ABC):
+class Layout(BaseModel):
     """
     recursively describe a region of a data, as a tree.
     the compute_layout routines construct this tree.
@@ -568,10 +569,7 @@ class Layout(abc.ABC):
     each node has a list of strings that are contained by the node;
     these strings don't overlap with any children strings, they're only found in the gaps.
 
-    note that `Layout` is the abstract base class for nodes in the tree.
-    subclasses are used to represent different types of regions,
-    such as a PE file, a section, a segment, or a resource.
-    subclasses can provide more specific behavior when it comes to tagging strings.
+    `Layout` is the catch all type for expressing relations between file segments.
     """
 
     slice: Slice
@@ -579,27 +577,27 @@ class Layout(abc.ABC):
     # human readable name
     name: str
 
-    parent: Optional["Layout"] = field(init=False, default=None)
+    parent: Optional["Layout"] = Field(None, exclude=True)
 
     # ordered by address
     # non-overlapping
     # may not cover the entire range (non-contiguous)
-    children: Sequence["Layout"] = field(init=False, default_factory=list)
+    children: Sequence["Layout"] = Field(default_factory=list)
 
     # this is populated by the call to extract_strings.
     # only strings not contained by the children are in this list.
     # so they come from before/between/after the children ranges.
-    strings: List[TaggedString] = field(init=False, default_factory=list)
+    strings: List[TaggedString] = Field(default_factory=list)
 
     @property
     def predecessors(self) -> Iterable["Layout"]:
         """traverse to the prior siblings`"""
         if self.parent is None:
-            return None
+            return
 
         index = self.parent.children.index(self)
         if index == 0:
-            return None
+            return
 
         for i in range(index - 1, -1, -1):
             yield self.parent.children[i]
@@ -613,11 +611,11 @@ class Layout(abc.ABC):
     def successors(self) -> Iterable["Layout"]:
         """traverse to the next siblings"""
         if self.parent is None:
-            return None
+            return
 
         index = self.parent.children.index(self)
         if index == len(self.parent.children) - 1:
-            return None
+            return
 
         for i in range(index + 1, len(self.parent.children)):
             yield self.parent.children[i]
@@ -630,7 +628,8 @@ class Layout(abc.ABC):
     def add_child(self, child: "Layout"):
         # this works in py3.11, though mypy gets confused,
         # maybe due to the use of the key function.
-        bisect.insort(self.children, child, key=lambda c: c.slice.range.offset)  # type: ignore
+        key = lambda c: c.slice.range.offset
+        bisect.insort(self.children, child, key=key)  # type: ignore
         child.parent = self
 
     @property
@@ -653,7 +652,7 @@ class Layout(abc.ABC):
         such as a PE file and code/reloc regions.
         """
         string_counts = defaultdict(int)
-        
+
         tagged_strings: List[TaggedString] = []
 
         for string in self.strings:
@@ -666,11 +665,11 @@ class Layout(abc.ABC):
 
             if string_counts[string.string] > 1:
                 tags.add("#duplicate")
-                
+
             for tagger in taggers:
                 tags.update(tagger(string))
 
-            tagged_strings.append(TaggedString(string, tags))
+            tagged_strings.append(TaggedString(string=string, tags=tags))
         self.strings = tagged_strings
 
         for child in self.children:
@@ -696,34 +695,16 @@ class Layout(abc.ABC):
             child.mark_structures(structures=structures, **kwargs)
 
 
-@dataclass
-class SectionLayout(Layout):
-    section: pefile.SectionStructure
-
-
-@dataclass
-class SegmentLayout(Layout):
-    """region not covered by any section, such as PE header or overlay"""
-
-    pass
-
-
-@dataclass
 class PELayout(Layout):
-    # xor key if the file was xor decoded
-    xor_key: None
-
     # file offsets of bytes that are part of the relocation table
-    reloc_offsets: Set[int]
+    reloc_offsets: Set[int] = Field(default_factory=set)
 
     # file offsets of bytes that are recognized as code
-    code_offsets: Set[int]
+    code_offsets: Set[int] = Field(default_factory=set)
 
-    structures_by_address: Dict[int, Structure]
+    structures_by_address: Dict[int, Structure] = Field(default_factory=dict, exclude=True)
 
     def tag_strings(self, taggers: Sequence[Tagger]):
-        def check_is_xor_tagger(s: ExtractedString) -> Sequence[Tag]:
-            return check_is_xor(self.xor_key)
         def check_is_reloc_tagger(s: ExtractedString) -> Sequence[Tag]:
             return check_is_reloc(self.reloc_offsets, s)
 
@@ -731,31 +712,18 @@ class PELayout(Layout):
             return check_is_code(self.code_offsets, s)
 
         taggers = tuple(taggers) + (
-            check_is_xor_tagger,
             check_is_reloc_tagger,
             check_is_code_tagger,
         )
 
         super().tag_strings(taggers)
 
-    def mark_structures(self, structures=(), **kwargs):
-        for child in self.children:
-            if isinstance(child, (SectionLayout, SegmentLayout)):
-                # expected child of a PE
-                child.mark_structures(structures=structures + (self.structures_by_address,), **kwargs)
-            else:
-                # unexpected child of a PE
-                # maybe like a resource or overlay, etc.
-                # which is fine - but we don't expect it to know about the PE structures.
-                child.mark_structures(structures=structures, **kwargs)
+    def mark_structures(self, structures: Optional[Tuple[Dict[int, Structure], ...]] = (), **kwargs):
+        structures = structures + (self.structures_by_address,)
+        super().mark_structures(structures=structures, **kwargs)
 
 
-@dataclass
-class ResourceLayout(Layout):
-    pass
-
-
-def compute_pe_layout(slice: Slice, xor_key: Union[int, None]) -> Layout:
+def compute_pe_layout(slice: Slice) -> Layout:
     data = slice.data
 
     try:
@@ -796,11 +764,10 @@ def compute_pe_layout(slice: Slice, xor_key: Union[int, None]) -> Layout:
     layout = PELayout(
         slice=slice,
         name="pe",
-        xor_key=xor_key,
-        reloc_offsets=reloc_offsets,
-        code_offsets=code_offsets,
-        structures_by_address=structures_by_address,
     )
+    layout.reloc_offsets = reloc_offsets
+    layout.code_offsets = code_offsets
+    layout.structures_by_address = structures_by_address
 
     for section in pe.sections:
         if section.SizeOfRawData == 0:
@@ -813,13 +780,17 @@ def compute_pe_layout(slice: Slice, xor_key: Union[int, None]) -> Layout:
 
         offset = section.get_PointerToRawData_adj()
         size = section.SizeOfRawData
-        layout.add_child(SectionLayout(slice=slice.slice(offset, size), name=name, section=section))
+        layout.add_child(Layout(slice=slice.slice(offset, size), name=name))
+
+    # if not layout.children:
+    #     # every section has size 0 on disk, so we can't compute a layout
+    #     return layout
 
     # segment that contains all data until the first section
     offset = 0
     size = layout.children[0].offset - slice.range.offset
     layout.add_child(
-        SegmentLayout(
+        Layout(
             slice=slice.slice(offset, size),
             name="header",
         )
@@ -832,7 +803,7 @@ def compute_pe_layout(slice: Slice, xor_key: Union[int, None]) -> Layout:
         offset = last_section.end - layout.offset
         size = layout.end - last_section.end
         layout.add_child(
-            SegmentLayout(
+            Layout(
                 slice=slice.slice(offset, size),
                 name="overlay",
             )
@@ -850,7 +821,7 @@ def compute_pe_layout(slice: Slice, xor_key: Union[int, None]) -> Layout:
             logger.debug("overlay ends before authenticode digital signature")
         else:
             overlay.add_child(
-                SegmentLayout(
+                Layout(
                     slice=slice.slice(security.VirtualAddress, security.Size - 1),
                     name="Authenticode digital signature",
                 )
@@ -867,7 +838,7 @@ def compute_pe_layout(slice: Slice, xor_key: Union[int, None]) -> Layout:
             offset = prior.end
             size = current.offset - prior.end
             layout.add_child(
-                SegmentLayout(
+                Layout(
                     slice=slice.slice(offset, size),
                     name="gap",
                 )
@@ -896,7 +867,7 @@ def compute_pe_layout(slice: Slice, xor_key: Union[int, None]) -> Layout:
                     logger.debug("resource: %s, size: 0x%x", "/".join(epath), size)
 
                     resources.append(
-                        ResourceLayout(
+                        Layout(
                             slice=slice.slice(offset, size),
                             name="rsrc: " + "/".join(epath),
                         )
@@ -920,43 +891,17 @@ def compute_pe_layout(slice: Slice, xor_key: Union[int, None]) -> Layout:
     return layout
 
 
-def xor_static(data: bytes, i: int) -> bytes:
-    return bytes(c ^ i for c in data)
-
-
 def compute_layout(slice: Slice) -> Layout:
-
-    mz_xor = [
-        (
-            xor_static(b"MZ", key),
-            key,
-        )
-        for key in range(1, 256)
-    ]
-
-    xor_key = None
-
-    # Try to find the XOR key
-    for mz, key in mz_xor:
-        if slice.data.startswith(mz):
-            xor_key = key
-            break
-
-    # If XOR key is found, apply XOR decoding
-    if xor_key is not None:
-        decoded_data = xor_static(slice.data, xor_key)
-        slice = Slice(decoded_data, Range(0, len(decoded_data)))
-        
     # Try to parse as PE file
     if slice.data.startswith(b"MZ"):
         try:
-            return compute_pe_layout(slice, xor_key)
+            return compute_pe_layout(slice)
         except ValueError as e:
             logger.debug("failed to parse as PE file: %s", e)
             # Fall back to using the default binary layout
             pass
 
-    return SegmentLayout(
+    return Layout(
         slice=slice,
         name="binary",
     )
@@ -1085,7 +1030,12 @@ def render_strings(
     if not is_visible(layout):
         return
 
-    if len(layout.children) == 1 and layout.slice.range == layout.children[0].slice.range:
+    if (
+        len(layout.children) == 1
+        and layout.slice is not None
+        and layout.children[0].slice is not None
+        and layout.slice.range == layout.children[0].slice.range
+    ):
         # when a layout is completely dominated by its single child
         # then we can directly render the child,
         # retaining just a hint of the parent's name.
@@ -1098,8 +1048,6 @@ def render_strings(
     BORDER_STYLE = MUTED_STYLE
 
     name = layout.name
-    if isinstance(layout, PELayout) and layout.xor_key:  # Check if the layout is PELayout and is xored
-        name += f" (XOR decoded with key: 0x{layout.xor_key:x})"
     if name_hint:
         name = f"{name_hint} ({name})"
 
@@ -1168,11 +1116,52 @@ def render_strings(
         console.print(footer)
 
 
+def distribute_strings(layout: Layout, strings: List[TaggedString]):
+    """
+    after deserializing a layout and strings from a dict,
+    recursively associate the strings with the layout nodes.
+    """
+    if not layout.children:
+        # all the strings are found in this slice directly.
+        layout.strings = strings
+        return
+
+    else:
+        # we have children, so we need to recurse to find their strings,
+        # and also find strings in the gaps between children.
+        # lets find the gap strings first:
+        for i, child in enumerate(layout.children):
+            if i == 0:
+                # find the strings before the first child
+                child_strings = list(filter(lambda s: layout.offset <= s.offset < child.offset, strings))
+            else:
+                # find strings between children
+                prior = layout.children[i - 1]
+                child_strings = list(filter(lambda s: prior.end < s.offset < child.offset, strings))
+
+            layout.strings.extend(child_strings)
+
+        # finally, find strings after the last child
+        last_child = layout.children[-1]
+        child_strings = list(filter(lambda s: last_child.end < s.offset < layout.end, strings))
+        layout.strings.extend(child_strings)
+
+        # now recurse to find the strings in the children.
+        for child in layout.children:
+            child_strings = list(filter(lambda s: child.offset <= s.offset < child.end, strings))
+            distribute_strings(child, child_strings)
+
+
+class FlossQsOutput(BaseModel):
+    layout: Layout
+    strings: List[TaggedString]
+
+
 def main():
     # set environment variable NO_COLOR=1 to disable color output.
     # set environment variable FORCE_COLOR=1 to force color output, such as when piping to a pager.
     parser = argparse.ArgumentParser(description="Extract human readable strings from binary data, quantum-style.")
-    parser.add_argument("path", help="file or path to analyze")
+    parser.add_argument("path", nargs="?", help="file or path to analyze")
     parser.add_argument(
         "-n",
         "--minimum-length",
@@ -1181,6 +1170,9 @@ def main():
         default=MIN_STR_LEN,
         help="minimum string length",
     )
+    parser.add_argument("--json-out", help="file to write results to as JSON")
+    parser.add_argument("--json-in", help="file to read results from as JSON")
+
     logging_group = parser.add_argument_group("logging arguments")
     logging_group.add_argument("-d", "--debug", action="store_true", help="enable debugging output on STDERR")
     logging_group.add_argument(
@@ -1190,6 +1182,12 @@ def main():
         help="disable all status output except fatal errors",
     )
     args = parser.parse_args()
+
+    if not args.path and not args.json_in:
+        parser.error("either path or --json-in must be provided")
+
+    if args.path and args.json_in:
+        parser.error("cannot provide both path and --json-in")
 
     floss.main.set_log_config(args.debug, args.quiet)
     rich.traceback.install()
@@ -1208,36 +1206,58 @@ def main():
         sys.stdout.reconfigure(encoding="utf-8")
     colorama.just_fix_windows_console()
 
-    path = pathlib.Path(args.path)
-    if not path.exists():
-        logging.error("%s does not exist", path)
-        return 1
+    if args.json_in:
+        path = pathlib.Path(args.json_in)
+        if not path.exists():
+            logging.error("%s does not exist", path)
+            return 1
 
-    with path.open("rb") as f:
-        # because we store all the strings in memory
-        # in order to tag and reason about them
-        # then our input file must be reasonably sized
-        # so we just load it directly into memory.
-        # no need to mmap or play any games.
-        buf = f.read()
+        with path.open("r") as f:
+            data = json.load(f)
 
-    slice = Slice.from_bytes(buf)
+        output = FlossQsOutput.model_validate(data)
+        layout = output.layout
+        distribute_strings(layout, output.strings)
 
-    # build the layout tree that describes the structures and ranges of the file.
-    layout = compute_layout(slice)
+    else:
+        path = pathlib.Path(args.path)
+        if not path.exists():
+            logging.error("%s does not exist", path)
+            return 1
 
-    # recursively populate the `.strings: List[ExtractedString]` field of each layout node.
-    extract_layout_strings(layout, args.min_length)
+        with path.open("rb") as f:
+            # because we store all the strings in memory
+            # in order to tag and reason about them
+            # then our input file must be reasonably sized
+            # so we just load it directly into memory.
+            # no need to mmap or play any games.
+            buf = f.read()
 
-    # recursively apply tags to the strings in the layout tree.
-    # the `.strings` field now contains TaggedStrings (not ExtractedStrings).
-    taggers = load_databases()
-    layout.tag_strings(taggers)
+        slice = Slice.from_bytes(buf)
 
-    layout.mark_structures()
+        # build the layout tree that describes the structures and ranges of the file.
+        layout = compute_layout(slice)
 
-    # remove tags from libraries that have too few matches (five, by default).
-    remove_false_positive_lib_strings(layout)
+        # recursively populate the `.strings: List[ExtractedString]` field of each layout node.
+        extract_layout_strings(layout, args.min_length)
+
+        # recursively apply tags to the strings in the layout tree.
+        # the `.strings` field now contains TaggedStrings (not ExtractedStrings).
+        taggers = load_databases()
+        layout.tag_strings(taggers)
+
+        layout.mark_structures()
+
+        # remove tags from libraries that have too few matches (five, by default).
+        remove_false_positive_lib_strings(layout)
+
+    if args.json_out:
+        path = pathlib.Path(args.json_out)
+        with path.open("w") as f:
+            output = FlossQsOutput(layout=layout, strings=collect_strings(layout))
+            f.write(output.model_dump_json(indent=2))
+        logger.info("wrote results to %s", path)
+        return 0
 
     tag_rules: TagRules = {
         "#capa": "highlight",
