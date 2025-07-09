@@ -251,10 +251,7 @@ class ResultLayout(BaseModel):
     offset: int
     length: int
     strings: List[ResultString]
-    parent: Optional[str] = ""  # TODO remove?
     children: List["ResultLayout"]
-    has_visible_predecessors: bool  # TODO used for rendering, remove?
-    has_visible_successors: bool  # TODO used for rendering, remove?
 
 
 class Metadata(BaseModel):
@@ -1114,10 +1111,7 @@ def to_result_layout(layout: Layout) -> ResultLayout:
         offset=layout.slice.range.offset,
         length=layout.slice.range.length,
         strings=result_strings,
-        parent=layout.parent.name if layout.parent else "",
         children=result_children,
-        has_visible_predecessors=has_visible_predecessors(layout),
-        has_visible_successors=has_visible_successors(layout),
     )
 
 
@@ -1128,25 +1122,45 @@ def hide_strings_by_rules(layout: ResultLayout, tag_rules: TagRules):
         hide_strings_by_rules(child, tag_rules)
 
 
-def has_visible_children(layout: Layout) -> bool:
+def has_visible_children(layout: ResultLayout) -> bool:
     return any(map(is_visible, layout.children))
 
 
-def is_visible(layout: Layout) -> bool:
+def is_visible(layout: ResultLayout) -> bool:
     "a layout is visible if it has any strings (or its children do)"
     return bool(layout.strings) or has_visible_children(layout)
 
 
-def has_visible_predecessors(layout: Layout) -> bool:
-    return any(map(is_visible, layout.predecessors))
+def has_visible_predecessors(parent: ResultLayout, child_index: int) -> bool:
+    if parent is None or child_index is None:
+        # root node
+        return False
+
+    for i in range(child_index):
+        if is_visible(parent.children[i]):
+            return True
+    return False
 
 
-def has_visible_successors(layout: Layout) -> bool:
-    return any(map(is_visible, layout.successors))
+def has_visible_successors(parent: ResultLayout, child_index: int) -> bool:
+    if parent is None or child_index is None:
+        # root node
+        return False
+
+    for i in range(child_index + 1, len(parent.children)):
+        if is_visible(parent.children[i]):
+            return True
+    return False
 
 
 def render_strings(
-    console: Console, layout: ResultLayout, tag_rules: TagRules, depth: int = 0, name_hint: Optional[str] = None
+    console: Console,
+    layout: ResultLayout,
+    tag_rules: TagRules,
+    depth: int = 0,
+    name_hint: Optional[str] = None,
+    parent: Optional[ResultLayout] = None,
+    child_index: Optional[int] = None,
 ):
     if not is_visible(layout):
         return
@@ -1159,13 +1173,16 @@ def render_strings(
         # for example:
         #
         #     rsrc: BINARY/102/0 (pe)
-        return render_strings(console, layout.children[0], tag_rules, depth, name_hint=layout.name)
+        return render_strings(
+            console, layout.children[0], tag_rules, depth, name_hint=layout.name, parent=parent, child_index=child_index
+        )
 
     BORDER_STYLE = MUTED_STYLE
 
     name = layout.name
-    if isinstance(layout, PELayout) and layout.xor_key:  # Check if the layout is PELayout and is xored
-        name += f" (XOR decoded with key: 0x{layout.xor_key:x})"
+    # TODO remove
+    # if isinstance(layout, PELayout) and layout.xor_key:  # Check if the layout is PELayout and is xored
+    #     name += f" (XOR decoded with key: 0x{layout.xor_key:x})"
     if name_hint:
         name = f"{name_hint} ({name})"
 
@@ -1178,7 +1195,7 @@ def render_strings(
     name_offset = header.plain.index(" ") + 1
     header.stylize(Style(color="blue"), name_offset, name_offset + len(name))
 
-    if not layout.has_visible_predecessors:
+    if not has_visible_predecessors(parent, child_index):
         header_shape = "┓"
     else:
         header_shape = "┫"
@@ -1215,7 +1232,7 @@ def render_strings(
             for string in strings_before_child:
                 render_string_line(console, tag_rules, string, depth)
 
-            render_strings(console, child, tag_rules, depth + 1)
+            render_strings(console, child, tag_rules, depth + 1, parent=layout, child_index=i)
 
         # render strings after last child
         strings_after_children = list(filter(lambda s: child.end < s.offset < layout.end, layout.strings))
@@ -1223,7 +1240,7 @@ def render_strings(
         for string in strings_after_children:
             render_string_line(console, tag_rules, string, depth)
 
-    if not layout.has_visible_successors:
+    if not has_visible_successors(parent, child_index):
         footer = Span("", style=BORDER_STYLE)
         footer.align("center", width=console.width, character="━")
 
