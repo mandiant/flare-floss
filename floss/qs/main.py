@@ -5,20 +5,22 @@ import sys
 import json
 import time
 import bisect
+import hashlib
 import logging
 import pathlib
 import argparse
+import datetime
 import functools
 import itertools
 import contextlib
-from typing import Set, Dict, List, Tuple, Union, Literal, Callable, Iterable, Optional, Sequence, Annotated
+from typing import Set, Dict, List, Tuple, Literal, Callable, Iterable, Optional, Sequence
 from collections import defaultdict
 
 import pefile
 import colorama
 import lancelot
 import rich.traceback
-from pydantic import Field, BaseModel, ConfigDict, model_validator, model_serializer
+from pydantic import Field, BaseModel, ConfigDict
 from rich.text import Text
 from rich.style import Style
 from rich.console import Console
@@ -230,9 +232,50 @@ class ResultLayout(BaseModel):
     def end(self) -> int:
         return self.offset + self.length
 
+    @classmethod
+    def from_layout(cls, layout: "Layout") -> "ResultLayout":
+        """
+        Recursively converts a Layout object and its contents to the serializable format.
+        """
+        result_strings = []
+        for s in layout.strings:
+            result_strings.append(
+                ResultString(
+                    string=s.string.string,
+                    offset=s.string.slice.range.offset,
+                    size=s.string.slice.range.length,
+                    encoding=s.string.encoding,
+                    tags=sorted(list(s.tags)),
+                    structure=s.structure,
+                )
+            )
+
+        result_children = []
+        if layout.children:
+            for child in layout.children:
+                result_children.append(cls.from_layout(child))
+
+        return ResultLayout(
+            name=layout.name,
+            offset=layout.slice.range.offset,
+            length=layout.slice.range.length,
+            strings=result_strings,
+            children=result_children,
+        )
+
+
+class Sample(BaseModel):
+    md5: str
+    sha1: str
+    sha256: str
+    path: str
+
 
 class Metadata(BaseModel):
     version: str
+    timestamp: datetime.datetime
+    sample: Sample
+    min_str_len: int
 
 
 class ResultDocument(BaseModel):
@@ -241,7 +284,7 @@ class ResultDocument(BaseModel):
 
     @classmethod
     def from_qs(cls, meta: Metadata, layout: "Layout") -> "ResultDocument":
-        results = to_result_layout(layout)
+        results = ResultLayout.from_layout(layout)
         return ResultDocument(meta=meta, layout=results)
 
 
@@ -415,7 +458,7 @@ def get_reloc_offsets(slice: Slice, pe: pefile.PE) -> Set[int]:
     return ret
 
 
-def check_is_xor(xor_key: Union[int, None]):
+def check_is_xor(xor_key: int | None):
     if isinstance(xor_key, int):
         return ("#decoded",)
 
@@ -788,7 +831,7 @@ class ResourceLayout(Layout):
     pass
 
 
-def compute_pe_layout(slice: Slice, xor_key: Union[int, None]) -> Layout:
+def compute_pe_layout(slice: Slice, xor_key: int | None) -> Layout:
     data = slice.data
 
     try:
@@ -834,6 +877,9 @@ def compute_pe_layout(slice: Slice, xor_key: Union[int, None]) -> Layout:
         code_offsets=code_offsets,
         structures_by_address=structures_by_address,
     )
+
+    if xor_key:
+        layout.name += f" (XOR decoded with key: 0x{xor_key:x})"
 
     for section in pe.sections:
         if section.SizeOfRawData == 0:
@@ -1089,37 +1135,6 @@ def remove_false_positive_lib_strings(layout: Layout):
                     string.tags.remove(tagname)
 
 
-def to_result_layout(layout: Layout) -> ResultLayout:
-    """
-    Recursively converts a Layout object and its contents to the serializable format.
-    """
-    result_strings = []
-    for s in layout.strings:
-        result_strings.append(
-            ResultString(
-                string=s.string.string,
-                offset=s.string.slice.range.offset,
-                size=s.string.slice.range.length,
-                encoding=s.string.encoding,
-                tags=sorted(list(s.tags)),
-                structure=s.structure,
-            )
-        )
-
-    result_children = []
-    if layout.children:
-        for child in layout.children:
-            result_children.append(to_result_layout(child))
-
-    return ResultLayout(
-        name=layout.name,
-        offset=layout.slice.range.offset,
-        length=layout.slice.range.length,
-        strings=result_strings,
-        children=result_children,
-    )
-
-
 def hide_strings_by_rules(layout: ResultLayout, tag_rules: TagRules):
     layout.strings = list(filter(lambda s: not should_hide_string(s, tag_rules), layout.strings))
 
@@ -1170,7 +1185,11 @@ def render_strings(
     if not is_visible(layout):
         return
 
-    if len(layout.children) == 1 and layout.offset == layout.children[0].offset and layout.length == layout.children[0].length:
+    if (
+        len(layout.children) == 1
+        and layout.offset == layout.children[0].offset
+        and layout.length == layout.children[0].length
+    ):
         # when a layout is completely dominated by its single child
         # then we can directly render the child,
         # retaining just a hint of the parent's name.
@@ -1185,9 +1204,6 @@ def render_strings(
     BORDER_STYLE = MUTED_STYLE
 
     name = layout.name
-    # TODO remove
-    # if isinstance(layout, PELayout) and layout.xor_key:  # Check if the layout is PELayout and is xored
-    #     name += f" (XOR decoded with key: 0x{layout.xor_key:x})"
     if name_hint:
         name = f"{name_hint} ({name})"
 
@@ -1318,6 +1334,10 @@ def main():
             # no need to mmap or play any games.
             buf = f.read()
 
+        md5 = hashlib.md5(buf).hexdigest()
+        sha1 = hashlib.sha1(buf).hexdigest()
+        sha256 = hashlib.sha256(buf).hexdigest()
+
         slice = Slice.from_bytes(buf=buf)
 
         # build the layout tree that describes the structures and ranges of the file.
@@ -1336,7 +1356,18 @@ def main():
         # remove tags from libraries that have too few matches (five, by default).
         remove_false_positive_lib_strings(layout)
 
-        meta = Metadata(version=QS_VERSION)
+        sample = Sample(
+            md5=md5,
+            sha1=sha1,
+            sha256=sha256,
+            path=str(path.resolve()),
+        )
+        meta = Metadata(
+            version=QS_VERSION,
+            timestamp=datetime.datetime.now(),
+            sample=sample,
+            min_str_len=args.min_length,
+        )
         results = ResultDocument.from_qs(meta, layout)
     else:
         parser.error("either path or --json-in must be provided")

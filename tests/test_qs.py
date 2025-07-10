@@ -1,24 +1,28 @@
 import copy
+import hashlib
+import datetime
 from pathlib import Path
 
 import pytest
 
 from floss.qs.main import (
+    Slice,
+    Sample,
     Metadata,
     ResultDocument,
-    ResultLayout,
-    Slice,
     compute_layout,
     load_databases,
     collect_strings,
     extract_layout_strings,
-    to_result_layout,
 )
+
+CD = Path(__file__).resolve().parent
+MIN_STR_LEN = 6
 
 
 @pytest.fixture
 def pma_binary_path():
-    return Path("tests") / Path("data") / Path("pma") / Path("pma0303.exe_")
+    return CD / "data" / "pma" / "pma0303.exe_"
 
 
 @pytest.fixture
@@ -33,8 +37,15 @@ def analyzed_layout(pma_binary_path):
     return layout
 
 
-def test_round_trip(analyzed_layout):
-    meta = Metadata(version="1")
+def test_round_trip(analyzed_layout, pma_binary_path):
+    buf = pma_binary_path.read_bytes()
+    sample = Sample(
+        md5=hashlib.md5(buf).hexdigest(),
+        sha1=hashlib.sha1(buf).hexdigest(),
+        sha256=hashlib.sha256(buf).hexdigest(),
+        path=str(pma_binary_path.resolve()),
+    )
+    meta = Metadata(version="1", sample=sample, min_str_len=MIN_STR_LEN, timestamp=datetime.datetime.now())
     result = ResultDocument.from_qs(meta=meta, layout=analyzed_layout)
     one = result
 
