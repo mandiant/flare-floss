@@ -91,7 +91,7 @@ dependencies = [
     # These dependencies are often actively influenced by capa,
     # so we provide a minimum patch version that includes the
     # latest bug fixes we need here.
-    "viv-utils[flirt]>=0.7.9",
+    "viv-utils[flirt]>=0.8.0",
     "vivisect>=1.1.1",
     "dncil>=1.0.2",
 

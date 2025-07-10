@@ -210,11 +210,46 @@ def render_string_padding():
 TagRules = Dict[Tag, Literal["mute"] | Literal["highlight"] | Literal["default"] | Literal["hide"]]
 
 
-def should_hide_string(s: TaggedString, tag_rules: TagRules) -> bool:
+class ResultString(BaseModel):
+    string: str
+    offset: int
+    size: int
+    encoding: str
+    tags: List[str]
+    structure: str
+
+
+class ResultLayout(BaseModel):
+    name: str
+    offset: int
+    length: int
+    strings: List[ResultString]
+    children: List["ResultLayout"]
+
+    @property
+    def end(self) -> int:
+        return self.offset + self.length
+
+
+class Metadata(BaseModel):
+    version: str
+
+
+class ResultDocument(BaseModel):
+    meta: Metadata
+    layout: ResultLayout
+
+    @classmethod
+    def from_qs(cls, meta: Metadata, layout: "Layout") -> "ResultDocument":
+        results = to_result_layout(layout)
+        return ResultDocument(meta=meta, layout=results)
+
+
+def should_hide_string(s: ResultString, tag_rules: TagRules) -> bool:
     return any(map(lambda tag: tag_rules.get(tag) == "hide", s.tags))
 
 
-def compute_string_style(s: TaggedString, tag_rules: TagRules) -> Optional[Style]:
+def compute_string_style(s: ResultString, tag_rules: TagRules) -> Optional[Style]:
     """compute the style for a string based on its tags
 
     returns: Style, or None if the string should be hidden.
@@ -235,37 +270,6 @@ def compute_string_style(s: TaggedString, tag_rules: TagRules) -> Optional[Style
         return MUTED_STYLE
     else:
         return DEFAULT_STYLE
-
-
-class ResultString(BaseModel):
-    string: str
-    offset: int
-    size: int
-    encoding: str
-    tags: List[str]
-    structure: str
-
-
-class ResultLayout(BaseModel):
-    name: str
-    offset: int
-    length: int
-    strings: List[ResultString]
-    children: List["ResultLayout"]
-
-
-class Metadata(BaseModel):
-    version: str
-
-
-class ResultDocument(BaseModel):
-    meta: Metadata
-    layout: ResultLayout
-
-    @classmethod
-    def from_qs(cls, meta: Metadata, layout: "Layout") -> "ResultDocument":
-        results = to_result_layout(layout)
-        return ResultDocument(meta=meta, layout=results)
 
 
 def render_string_string(s: ResultString, tag_rules: TagRules) -> Text:
@@ -486,25 +490,25 @@ def load_databases() -> Sequence[Tagger]:
     def query_database(db, queryfn, string: ExtractedString):
         return queryfn(db, string.string)
 
-    def make_tagger(db, queryfn) -> Sequence[Tag]:
+    def make_tagger(db, queryfn) -> Tagger:
         return functools.partial(query_database, db, queryfn)
 
     for db in floss.qs.db.winapi.get_default_databases():
         ret.append(make_tagger(db, query_winapi_name_database))
 
-    for db in floss.qs.db.expert.get_default_databases():
-        ret.append(make_tagger(db, query_expert_string_database))
+    for db_expert in floss.qs.db.expert.get_default_databases():
+        ret.append(make_tagger(db_expert, query_expert_string_database))
 
-    for db in floss.qs.db.oss.get_default_databases():
-        ret.append(make_tagger(db, query_library_string_database))
+    for db_oss in floss.qs.db.oss.get_default_databases():
+        ret.append(make_tagger(db_oss, query_library_string_database))
 
-    for db in floss.qs.db.gp.get_default_databases():
-        if isinstance(db, StringGlobalPrevalenceDatabase):
-            ret.append(make_tagger(db, query_global_prevalence_database))
-        elif isinstance(db, StringHashDatabase):
-            ret.append(make_tagger(db, query_global_prevalence_hash_database))
+    for db_gp in floss.qs.db.gp.get_default_databases():
+        if isinstance(db_gp, StringGlobalPrevalenceDatabase):
+            ret.append(make_tagger(db_gp, query_global_prevalence_database))
+        elif isinstance(db_gp, StringHashDatabase):
+            ret.append(make_tagger(db_gp, query_global_prevalence_hash_database))
         else:
-            raise ValueError(f"unexpected database type: {type(db)}")
+            raise ValueError(f"unexpected database type: {type(db_gp)}")
 
     # supplement code analysis with a database of junk code strings
     junk_db = StringGlobalPrevalenceDatabase.from_file(
@@ -682,7 +686,7 @@ class Layout(BaseModel, abc.ABC):
         this can be overridden, if a subclass has more ways of tagging strings,
         such as a PE file and code/reloc regions.
         """
-        string_counts = defaultdict(int)
+        string_counts: Dict[str, int] = defaultdict(int)
 
         tagged_strings: List[TaggedString] = []
 
@@ -979,6 +983,7 @@ def compute_layout(slice: Slice) -> Layout:
     # Try to parse as PE file
     if slice.data.startswith(b"MZ"):
         try:
+            # lancelot may panic here, which we can't currently catch from Python
             return compute_pe_layout(slice, xor_key)
         except ValueError as e:
             logger.debug("failed to parse as PE file: %s", e)
@@ -1131,7 +1136,7 @@ def is_visible(layout: ResultLayout) -> bool:
     return bool(layout.strings) or has_visible_children(layout)
 
 
-def has_visible_predecessors(parent: ResultLayout, child_index: int) -> bool:
+def has_visible_predecessors(parent: ResultLayout | None, child_index: int | None) -> bool:
     if parent is None or child_index is None:
         # root node
         return False
@@ -1142,7 +1147,7 @@ def has_visible_predecessors(parent: ResultLayout, child_index: int) -> bool:
     return False
 
 
-def has_visible_successors(parent: ResultLayout, child_index: int) -> bool:
+def has_visible_successors(parent: ResultLayout | None, child_index: int | None) -> bool:
     if parent is None or child_index is None:
         # root node
         return False
@@ -1165,7 +1170,7 @@ def render_strings(
     if not is_visible(layout):
         return
 
-    if len(layout.children) == 1 and layout.slice.range == layout.children[0].slice.range:
+    if len(layout.children) == 1 and layout.offset == layout.children[0].offset and layout.length == layout.children[0].length:
         # when a layout is completely dominated by its single child
         # then we can directly render the child,
         # retaining just a hint of the parent's name.
