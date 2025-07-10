@@ -22,6 +22,11 @@ def main():
         default=floss.qs.main.MIN_STR_LEN,
         help="Minimum string length.",
     )
+    parser.add_argument(
+        "--save-rendered",
+        action="store_true",
+        help="Save the rendered output to a .txt file in the output directory.",
+    )
 
     logging_group = parser.add_argument_group("logging arguments")
     logging_group.add_argument("-d", "--debug", action="store_true", help="Enable debugging output on STDERR.")
@@ -43,7 +48,7 @@ def main():
             continue
 
         logger.info("Analyzing file: %s", file_path)
-        output_path = args.output_directory / f"{file_path.name}.json"
+        json_output_path = args.output_directory / f"{file_path.name}.json"
 
         cmd = [
             sys.executable,
@@ -51,7 +56,7 @@ def main():
             "floss.qs.main",
             str(file_path),
             "--json-out",
-            str(output_path),
+            str(json_output_path),
             "-n",
             str(args.min_length),
         ]
@@ -61,13 +66,21 @@ def main():
             cmd.append("--debug")
 
         try:
-            result = subprocess.run(cmd, check=False, capture_output=True, text=True)
+            result = subprocess.run(cmd, check=False, capture_output=True, text=True, encoding="utf-8")
+            logger.info("Wrote     JSON output to %s", json_output_path)
             if result.returncode != 0:
                 logger.error("Failed to analyze file %s, exited with code %d", file_path, result.returncode)
                 if result.stdout:
                     logger.error("stdout:\n%s", result.stdout)
                 if result.stderr:
                     logger.error("stderr:\n%s", result.stderr)
+            else:
+                # success
+                if args.save_rendered:
+                    rendered_output_path = args.output_directory / f"{file_path.name}.txt"
+                    with rendered_output_path.open("w", encoding="utf-8") as f:
+                        f.write(result.stdout)
+                    logger.info("Wrote rendered output to %s", rendered_output_path)
 
         except Exception as e:
             logger.error("Failed to run subprocess for file %s: %s", file_path, e, exc_info=True)
