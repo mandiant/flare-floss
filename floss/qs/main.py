@@ -1376,7 +1376,6 @@ def main():
         with pathlib.Path(args.json_out).open("w") as f:
             f.write(results.model_dump_json(indent=2))
         logger.info("Wrote layout to %s", args.json_out)
-        return 0
 
     tag_rules: TagRules = {
         "#capa": "highlight",

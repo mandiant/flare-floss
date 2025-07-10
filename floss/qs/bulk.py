@@ -27,6 +27,11 @@ def main():
         action="store_true",
         help="Save the rendered output to a .txt file in the output directory.",
     )
+    parser.add_argument(
+        "--reprocess",
+        action="store_true",
+        help="Reprocess files even if the output files already exist.",
+    )
 
     logging_group = parser.add_argument_group("logging arguments")
     logging_group.add_argument("-d", "--debug", action="store_true", help="Enable debugging output on STDERR.")
@@ -47,43 +52,79 @@ def main():
         if not file_path.is_file():
             continue
 
-        logger.info("Analyzing file: %s", file_path)
         json_output_path = args.output_directory / f"{file_path.name}.json"
+        rendered_output_path = args.output_directory / f"{file_path.name}.txt"
 
-        cmd = [
-            sys.executable,
-            "-m",
-            "floss.qs.main",
-            str(file_path),
-            "--json-out",
-            str(json_output_path),
-            "-n",
-            str(args.min_length),
-        ]
-        if args.quiet:
-            cmd.append("--quiet")
-        if args.debug:
-            cmd.append("--debug")
+        should_analyze = not json_output_path.exists() or args.reprocess
+        should_render = args.save_rendered and (not rendered_output_path.exists() or args.reprocess)
 
-        try:
-            result = subprocess.run(cmd, check=False, capture_output=True, text=True, encoding="utf-8")
-            logger.info("Wrote     JSON output to %s", json_output_path)
-            if result.returncode != 0:
-                logger.error("Failed to analyze file %s, exited with code %d", file_path, result.returncode)
-                if result.stdout:
-                    logger.error("stdout:\n%s", result.stdout)
-                if result.stderr:
-                    logger.error("stderr:\n%s", result.stderr)
-            else:
-                # success
-                if args.save_rendered:
-                    rendered_output_path = args.output_directory / f"{file_path.name}.txt"
+        if not should_analyze and not should_render:
+            logger.info("Skipping file, all required outputs already exist: %s", file_path)
+            continue
+
+        if should_analyze:
+            logger.info("Analyzing file: %s", file_path)
+            cmd = [
+                sys.executable,
+                "-m",
+                "floss.qs.main",
+                str(file_path),
+                "--json-out",
+                str(json_output_path),
+                "-n",
+                str(args.min_length),
+            ]
+            if args.quiet:
+                cmd.append("--quiet")
+            if args.debug:
+                cmd.append("--debug")
+
+            try:
+                result = subprocess.run(cmd, check=False, capture_output=True, text=True, encoding="utf-8")
+                if result.returncode == 0:
+                    if should_render:
+                        with rendered_output_path.open("w", encoding="utf-8") as f:
+                            f.write(result.stdout)
+                        logger.info("Wrote rendered output to %s", rendered_output_path)
+                else:
+                    logger.error("Failed to analyze file %s, exited with code %d", file_path, result.returncode)
+                    if result.stdout:
+                        logger.error("stdout:\n%s", result.stdout)
+                    if result.stderr:
+                        logger.error("stderr:\n%s", result.stderr)
+            except Exception as e:
+                logger.error("Failed to run analysis subprocess for file %s: %s", file_path, e, exc_info=True)
+
+        elif should_render:
+            logger.info("Generating rendered output from existing JSON for: %s", file_path)
+            cmd = [
+                sys.executable,
+                "-m",
+                "floss.qs.main",
+                "--json-in",
+                str(json_output_path),
+            ]
+            if args.quiet:
+                cmd.append("--quiet")
+            if args.debug:
+                cmd.append("--debug")
+
+            try:
+                result = subprocess.run(cmd, check=False, capture_output=True, text=True, encoding="utf-8")
+                if result.returncode == 0:
                     with rendered_output_path.open("w", encoding="utf-8") as f:
                         f.write(result.stdout)
                     logger.info("Wrote rendered output to %s", rendered_output_path)
-
-        except Exception as e:
-            logger.error("Failed to run subprocess for file %s: %s", file_path, e, exc_info=True)
+                else:
+                    logger.error(
+                        "Failed to generate rendered output for %s, exited with code %d", file_path, result.returncode
+                    )
+                    if result.stdout:
+                        logger.error("stdout:\n%s", result.stdout)
+                    if result.stderr:
+                        logger.error("stderr:\n%s", result.stderr)
+            except Exception as e:
+                logger.error("Failed to run rendering subprocess for file %s: %s", file_path, e, exc_info=True)
 
     return 0
 
