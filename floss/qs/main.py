@@ -95,6 +95,20 @@ class Slice(BaseModel):
         "create a new slice thats a sub-slice of this one, using relative offsets"
         return Slice(buf=self.buf, range=self.range.slice(offset, size))
 
+    def contains_range(self, offset: int, size: int) -> bool:
+        """
+        checks if this slice's buffer contains the given range,
+        where offset is relative to the start of this slice's buffer.
+        """
+        if not (0 <= offset < self.range.length):
+            return False
+
+        # size can be 0, so we don't check for size > 0
+        if (offset + size) > self.range.length:
+            return False
+
+        return True
+
     @classmethod
     def from_bytes(cls, buf: bytes) -> "Slice":
         return cls(buf=buf, range=Range(offset=0, length=len(buf)))
@@ -451,6 +465,10 @@ def get_reloc_offsets(slice: Slice, pe: pefile.PE) -> Set[int]:
     rva = dir_entry.VirtualAddress
     offset = pe.get_offset_from_rva(rva)
     size = dir_entry.Size
+
+    if not slice.contains_range(offset, size):
+        logger.warning("relocation directory points to an invalid location, skipping")
+        return ret
 
     for fo in slice.range.slice(offset, size):
         ret.add(fo)
@@ -863,8 +881,19 @@ def compute_pe_layout(slice: Slice, xor_key: int | None) -> Layout:
             for bb in cfg.basic_blocks.values():
                 va = bb.address
                 rva = va - base_address
-                offset = pe.get_offset_from_rva(rva)
+                try:
+                    offset = pe.get_offset_from_rva(rva)
+                except pefile.PEFormatError as e:
+                    logger.warning("%s", str(e))
+                    continue
+
                 size = bb.length
+
+                if not slice.contains_range(offset, size):
+                    logger.warning(
+                        "lancelot identified code at an invalid location, skipping basic block at 0x%x", rva
+                    )
+                    continue
 
                 for fo in slice.range.slice(offset, size):
                     code_offsets.add(fo)
@@ -971,6 +1000,10 @@ def compute_pe_layout(slice: Slice, xor_key: int | None) -> Layout:
                     rva = entry.data.struct.OffsetToData
                     offset = pe.get_offset_from_rva(rva)
                     size = entry.data.struct.Size
+
+                    if not slice.contains_range(offset, size):
+                        logger.warning("resource '%s' points to an invalid location, skipping", "/".join(epath))
+                        continue
 
                     logger.debug("resource: %s, size: 0x%x", "/".join(epath), size)
 
