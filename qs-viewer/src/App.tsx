@@ -4,13 +4,30 @@ import './App.css';
 import { type ResultDocument, type ResultLayout, type ResultString } from './types';
 
 const StringItem: React.FC<{ str: ResultString }> = ({ str }) => {
-  const offsetStructure = `${str.offset.toString(16).padStart(8, '0')}${str.structure ? `/${str.structure}` : ''}`;
+  const getStyleClass = () => {
+    const { tags } = str;
+    if (tags.includes('#capa')) return 'highlight';
+    if (tags.includes('#common') || tags.includes('#duplicate')) return 'mute';
+    return '';
+  };
+
+  const styleClass = getStyleClass();
+
+  const offsetHex = str.offset.toString(16).padStart(8, '0');
+  const firstDigitIndex = offsetHex.search(/[^0]/);
+  const zeroPart = firstDigitIndex === -1 ? offsetHex : offsetHex.substring(0, firstDigitIndex);
+  const digitPart = firstDigitIndex === -1 ? '' : offsetHex.substring(firstDigitIndex);
+
   return (
     <div className="string-view">
-      <span className="string-content">{JSON.stringify(str.string).slice(1, -1)}</span>
-      <span className="string-tags">{str.tags.join(' ')}</span>
+      <span className={`string-content ${styleClass}`}>{JSON.stringify(str.string).slice(1, -1)}</span>
+      <span className={`string-tags ${styleClass}`}>{str.tags.join(' ')}</span>
       <span className="string-encoding">{str.encoding === 'unicode' ? 'U' : ''}</span>
-      <span className="string-offset-structure">{offsetStructure}</span>
+      <span className="string-offset-structure">
+        <span className="offset-zeros">{zeroPart}</span>
+        <span className="offset-digits">{digitPart}</span>
+        {str.structure && <span className="structure-name">/{str.structure}</span>}
+      </span>
     </div>
   );
 };

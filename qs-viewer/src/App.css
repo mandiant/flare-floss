@@ -156,6 +156,16 @@ body {
     border-bottom: none;
 }
 
+.string-content.highlight,
+.string-tags.highlight {
+  color: #0056b3;
+}
+
+.string-content.mute,
+.string-tags.mute {
+  color: #999;
+}
+
 .string-content {
   flex-grow: 1;
   padding-right: 1em;
@@ -178,5 +188,17 @@ body {
 .string-offset-structure {
   width: 32ch;
   flex-shrink: 0;
+}
+
+.offset-zeros {
+  color: #999;
+}
+
+.offset-digits {
+  color: #333;
+}
+
+.structure-name {
   color: #4ec9b0;
+  padding-left: 2px;
 }
