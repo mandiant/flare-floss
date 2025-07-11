@@ -16,6 +16,7 @@ the jh file looks like:
 
 jh is found here: https://github.com/williballenthin/lancelot/blob/master/bin/src/bin/jh.rs
 """
+
 import sys
 import json
 import pathlib
