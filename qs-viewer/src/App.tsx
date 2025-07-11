@@ -129,9 +129,7 @@ const App: React.FC = () => {
         if (isUntagged) {
           return showUntagged;
         } else {
-          // If no tags are selected, hide all tagged strings.
           if (selectedTags.length === 0) return false;
-          // Otherwise, show if there's an intersection between the string's tags and the selected tags.
           return s.tags.some(tag => selectedTags.includes(tag));
         }
       });
@@ -163,36 +161,47 @@ const App: React.FC = () => {
           </label>
           <input {...getInputProps()} id="file-upload" />
         </div>
-        <input
-          type="search"
-          placeholder="Search strings..."
-          className="search-bar"
-          value={searchTerm}
-          onChange={handleSearchChange}
-          disabled={!data}
-        />
-        <div className="tag-filter">
-          {tagInfo.availableTags.map(tag => (
-            <label key={tag}>
-              <input
-                type="checkbox"
-                checked={selectedTags.includes(tag)}
-                onChange={() => handleTagChange(tag)}
-              />
-              {tag} ({tagInfo.tagCounts[tag]})
-            </label>
-          ))}
-          {tagInfo.untaggedCount > 0 && (
-            <label key="untagged">
-              <input
-                type="checkbox"
-                checked={showUntagged}
-                onChange={() => setShowUntagged(p => !p)}
-              />
-              (untagged) ({tagInfo.untaggedCount})
-            </label>
-          )}
-        </div>
+
+        {data && (
+          <>
+            <div className="metadata">
+              <p><strong>Path:</strong> {data.meta.sample.path}</p>
+              <p><strong>SHA256:</strong> {data.meta.sample.sha256}</p>
+              <p><strong>Version:</strong> {data.meta.version}</p>
+              <p><strong>Timestamp:</strong> {new Date(data.meta.timestamp).toLocaleString()}</p>
+            </div>
+
+            <input
+              type="search"
+              placeholder="Search strings..."
+              className="search-bar"
+              value={searchTerm}
+              onChange={handleSearchChange}
+            />
+            <div className="tag-filter">
+              {tagInfo.availableTags.map(tag => (
+                <label key={tag}>
+                  <input
+                    type="checkbox"
+                    checked={selectedTags.includes(tag)}
+                    onChange={() => handleTagChange(tag)}
+                  />
+                  {tag} ({tagInfo.tagCounts[tag]})
+                </label>
+              ))}
+              {tagInfo.untaggedCount > 0 && (
+                <label key="untagged">
+                  <input
+                    type="checkbox"
+                    checked={showUntagged}
+                    onChange={() => setShowUntagged(p => !p)}
+                  />
+                  (untagged) ({tagInfo.untaggedCount})
+                </label>
+              )}
+            </div>
+          </>
+        )}
       </div>
       <div className="results-container">
         {!data ? (

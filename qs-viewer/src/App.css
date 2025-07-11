@@ -47,6 +47,21 @@ body {
   display: none;
 }
 
+.metadata {
+  border: 1px solid #eee;
+  border-radius: 4px;
+  padding: 15px;
+  margin-bottom: 20px;
+  background-color: #f9f9f9;
+}
+.metadata p {
+  margin: 0 0 5px 0;
+  font-size: 0.9em;
+}
+.metadata p:last-child {
+  margin-bottom: 0;
+}
+
 .welcome-message {
     text-align: center;
     font-size: 1.2em;
