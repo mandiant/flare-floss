@@ -30,7 +30,19 @@ body {
 }
 
 .file-upload-area {
+  /* margin is now handled by app-header */
+}
+
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 20px;
+}
+
+.app-title {
+  font-size: 1.5em;
+  margin: 0;
 }
 
 .file-upload-label {

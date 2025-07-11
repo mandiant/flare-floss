@@ -243,20 +243,25 @@ const App: React.FC = () => {
   return (
     <div className="App" {...getRootProps()}>
       <div className="controls">
-        <div className="file-upload-area">
-          <label htmlFor="file-upload" className="file-upload-label">
-            Upload JSON
-          </label>
-          <input {...getInputProps()} id="file-upload" />
+        <div className="app-header">
+          <h1 className="app-title">Quantumstrand Viewer</h1>
+          <div className="file-upload-area">
+            <label htmlFor="file-upload" className="file-upload-label">
+              Upload JSON
+            </label>
+            <input {...getInputProps()} id="file-upload" />
+          </div>
         </div>
 
         {data && (
           <>
             <div className="metadata">
               <p><strong>Path:</strong> {data.meta.sample.path}</p>
+              <p><strong>MD5:</strong> {data.meta.sample.md5}</p>
               <p><strong>SHA256:</strong> {data.meta.sample.sha256}</p>
-              <p><strong>Version:</strong> {data.meta.version}</p>
               <p><strong>Timestamp:</strong> {new Date(data.meta.timestamp).toLocaleString()}</p>
+              <p><strong>Minimum String Length:</strong> {data.meta.min_str_len}</p>
+              <p><strong>Version:</strong> {data.meta.version}</p>
             </div>
 
             <div className="filters-container">
