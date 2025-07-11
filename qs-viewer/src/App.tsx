@@ -118,6 +118,25 @@ const App: React.FC = () => {
     };
   }, [data]);
 
+  const handleSelectAll = () => {
+    setSelectedTags(tagInfo.availableTags);
+    setShowUntagged(true);
+  };
+
+  const handleSelectNone = () => {
+    setSelectedTags([]);
+    setShowUntagged(false);
+  };
+
+  const handleFocusView = () => {
+    const noisyTags = ['#code', '#code-junk', '#duplicate', '#reloc'];
+    const focusedTags = tagInfo.availableTags.filter(
+      tag => !noisyTags.includes(tag)
+    );
+    setSelectedTags(focusedTags);
+    setShowUntagged(true);
+  };
+
   const filteredLayout = useMemo(() => {
     if (!data) return null;
 
@@ -185,15 +204,11 @@ const App: React.FC = () => {
               <p><strong>Timestamp:</strong> {new Date(data.meta.timestamp).toLocaleString()}</p>
             </div>
 
-            <input
-              type="search"
-              placeholder="Search strings..."
-              className="search-bar"
-              value={searchTerm}
-              onChange={handleSearchChange}
-            />
-            <div className="string-counts">
-              Showing {visibleStringCount} of {tagInfo.totalStringCount} strings
+            <div className="tags-header">Tags</div>
+            <div className="tag-actions">
+                <button onClick={handleSelectAll}>Select All</button>
+                <button onClick={handleSelectNone}>Select None</button>
+                <button onClick={handleFocusView}>Focus View</button>
             </div>
             <div className="tag-filter">
               {tagInfo.availableTags.map(tag => (
@@ -216,6 +231,16 @@ const App: React.FC = () => {
                   (untagged) ({tagInfo.untaggedCount})
                 </label>
               )}
+            </div>
+            <input
+              type="search"
+              placeholder="Search strings..."
+              className="search-bar"
+              value={searchTerm}
+              onChange={handleSearchChange}
+            />
+            <div className="string-counts">
+              Showing {visibleStringCount} of {tagInfo.totalStringCount} strings
             </div>
           </>
         )}

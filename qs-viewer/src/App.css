@@ -72,6 +72,7 @@ body {
 .search-bar {
   width: 100%;
   padding: 12px;
+  margin-top: 20px;
   margin-bottom: 15px;
   box-sizing: border-box;
   border: 1px solid #ccc;
@@ -83,6 +84,32 @@ body {
   margin-bottom: 15px;
   font-size: 13px;
   color: #555;
+}
+
+.tag-actions {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 15px;
+  font-size: 13px;
+}
+
+.tag-actions button {
+  background: none;
+  border: none;
+  color: #007bff;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+}
+
+.tag-actions button:hover {
+  color: #0056b3;
+}
+
+.tags-header {
+  font-weight: bold;
+  margin-bottom: 10px;
+  font-size: 14px;
 }
 
 .tag-filter {
