@@ -34,6 +34,7 @@ const App: React.FC = () => {
   const [data, setData] = useState<ResultDocument | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [showUntagged, setShowUntagged] = useState(true);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
@@ -45,6 +46,7 @@ const App: React.FC = () => {
           const jsonData: ResultDocument = JSON.parse(content);
           setData(jsonData);
           setSearchTerm('');
+          setShowUntagged(true);
 
           const allTags = new Set<string>();
           const collectTags = (layout: ResultLayout) => {
@@ -84,15 +86,32 @@ const App: React.FC = () => {
     );
   };
 
-  const availableTags = useMemo(() => {
-    if (!data) return [];
-    const allTags = new Set<string>();
-    const collectTags = (layout: ResultLayout) => {
-      layout.strings.forEach(s => s.tags.forEach(t => allTags.add(t)));
-      layout.children.forEach(collectTags);
+  const tagInfo = useMemo(() => {
+    if (!data) return { availableTags: [], tagCounts: {}, untaggedCount: 0 };
+
+    const counts: { [key: string]: number } = {};
+    let untaggedCount = 0;
+    const collect = (layout: ResultLayout) => {
+      for (const s of layout.strings) {
+        if (s.tags.length === 0) {
+          untaggedCount++;
+        } else {
+          for (const tag of s.tags) {
+            counts[tag] = (counts[tag] || 0) + 1;
+          }
+        }
+      }
+      for (const child of layout.children) {
+        collect(child);
+      }
     };
-    collectTags(data.layout);
-    return Array.from(allTags).sort();
+    collect(data.layout);
+
+    return {
+      availableTags: Object.keys(counts).sort(),
+      tagCounts: counts,
+      untaggedCount,
+    };
   }, [data]);
 
   const filteredLayout = useMemo(() => {
@@ -103,8 +122,17 @@ const App: React.FC = () => {
 
       const filteredStrings = layout.strings.filter(s => {
         const searchMatch = s.string.toLowerCase().includes(lowerCaseSearchTerm);
-        const tagsMatch = s.tags.every(tag => selectedTags.includes(tag));
-        return searchMatch && tagsMatch;
+        if (!searchMatch) return false;
+
+        const isUntagged = s.tags.length === 0;
+        if (isUntagged) {
+          return showUntagged;
+        } else {
+          // If no tags are selected, hide all tagged strings.
+          if (selectedTags.length === 0) return false;
+          // Otherwise, show if there's an intersection between the string's tags and the selected tags.
+          return s.tags.some(tag => selectedTags.includes(tag));
+        }
       });
 
       const filteredChildren = layout.children
@@ -123,7 +151,7 @@ const App: React.FC = () => {
     };
 
     return filter(data.layout);
-  }, [data, searchTerm, selectedTags]);
+  }, [data, searchTerm, selectedTags, showUntagged]);
 
   return (
     <div className="App" {...getRootProps()}>
@@ -143,16 +171,26 @@ const App: React.FC = () => {
           disabled={!data}
         />
         <div className="tag-filter">
-          {availableTags.map(tag => (
+          {tagInfo.availableTags.map(tag => (
             <label key={tag}>
               <input
                 type="checkbox"
                 checked={selectedTags.includes(tag)}
                 onChange={() => handleTagChange(tag)}
               />
-              {tag}
+              {tag} ({tagInfo.tagCounts[tag]})
             </label>
           ))}
+          {tagInfo.untaggedCount > 0 && (
+            <label key="untagged">
+              <input
+                type="checkbox"
+                checked={showUntagged}
+                onChange={() => setShowUntagged(p => !p)}
+              />
+              (untagged) ({tagInfo.untaggedCount})
+            </label>
+          )}
         </div>
       </div>
       <div className="results-container">
