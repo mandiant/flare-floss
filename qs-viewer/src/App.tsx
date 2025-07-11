@@ -259,49 +259,53 @@ const App: React.FC = () => {
               <p><strong>Timestamp:</strong> {new Date(data.meta.timestamp).toLocaleString()}</p>
             </div>
 
-            <div className="column-toggles">
-                <div className="tags-header">Show Columns</div>
-                <div className="column-toggle-group">
-                    <label>
-                        <input type="checkbox" checked={displayOptions.showTags} onChange={() => handleDisplayOptionChange('showTags')} /> Tags
-                    </label>
-                    <label>
-                        <input type="checkbox" checked={displayOptions.showEncoding} onChange={() => handleDisplayOptionChange('showEncoding')} /> Encoding
-                    </label>
-                    <label>
-                        <input type="checkbox" checked={displayOptions.showOffsetAndStructure} onChange={() => handleDisplayOptionChange('showOffsetAndStructure')} /> Offset & Structure
-                    </label>
+            <div className="filters-container">
+                <div className="filter-group">
+                    <div className="tags-header">Tags</div>
+                    <div className="tag-actions">
+                        <button onClick={handleSelectAll}>Select All</button>
+                        <button onClick={handleSelectNone}>Select None</button>
+                        <button onClick={handleFocusView}>Focus View</button>
+                    </div>
+                    <div className="tag-filter">
+                      {tagInfo.availableTags.map(tag => (
+                        <label key={tag}>
+                          <input
+                            type="checkbox"
+                            checked={selectedTags.includes(tag)}
+                            onChange={() => handleTagChange(tag)}
+                          />
+                          {tag} ({tagInfo.tagCounts[tag]})
+                        </label>
+                      ))}
+                      {tagInfo.untaggedCount > 0 && (
+                        <label key="untagged">
+                          <input
+                            type="checkbox"
+                            checked={showUntagged}
+                            onChange={() => setShowUntagged(p => !p)}
+                          />
+                          (untagged) ({tagInfo.untaggedCount})
+                        </label>
+                      )}
+                    </div>
+                </div>
+                <div className="filter-group">
+                    <div className="tags-header">Show Columns</div>
+                    <div className="column-toggle-group">
+                        <label>
+                            <input type="checkbox" checked={displayOptions.showTags} onChange={() => handleDisplayOptionChange('showTags')} /> Tags
+                        </label>
+                        <label>
+                            <input type="checkbox" checked={displayOptions.showEncoding} onChange={() => handleDisplayOptionChange('showEncoding')} /> Encoding
+                        </label>
+                        <label>
+                            <input type="checkbox" checked={displayOptions.showOffsetAndStructure} onChange={() => handleDisplayOptionChange('showOffsetAndStructure')} /> Offset & Structure
+                        </label>
+                    </div>
                 </div>
             </div>
 
-            <div className="tags-header">Tags</div>
-            <div className="tag-actions">
-                <button onClick={handleSelectAll}>Select All</button>
-                <button onClick={handleSelectNone}>Select None</button>
-                <button onClick={handleFocusView}>Focus View</button>
-            </div>
-            <div className="tag-filter">
-              {tagInfo.availableTags.map(tag => (
-                <label key={tag}>
-                  <input
-                    type="checkbox"
-                    checked={selectedTags.includes(tag)}
-                    onChange={() => handleTagChange(tag)}
-                  />
-                  {tag} ({tagInfo.tagCounts[tag]})
-                </label>
-              ))}
-              {tagInfo.untaggedCount > 0 && (
-                <label key="untagged">
-                  <input
-                    type="checkbox"
-                    checked={showUntagged}
-                    onChange={() => setShowUntagged(p => !p)}
-                  />
-                  (untagged) ({tagInfo.untaggedCount})
-                </label>
-              )}
-            </div>
             <input
               type="search"
               placeholder="Search strings..."

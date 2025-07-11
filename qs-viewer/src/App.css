@@ -142,10 +142,19 @@ body {
 }
 
 .column-toggles {
+  margin-bottom: 15px;
+}
+
+.filters-container {
+  display: flex;
+  gap: 30px;
   margin-top: 20px;
   padding-top: 15px;
   border-top: 1px solid #eee;
-  margin-bottom: 15px;
+}
+
+.filter-group {
+  flex: 1;
 }
 
 .column-toggle-group {
