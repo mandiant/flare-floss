@@ -921,6 +921,17 @@ def compute_pe_layout(slice: Slice, xor_key: int | None) -> Layout:
 
         offset = section.get_PointerToRawData_adj()
         size = section.SizeOfRawData
+
+        if offset > slice.range.end:
+            logger.warning("section %s out of range", name)
+            continue
+
+        if offset + size > slice.range.length:
+            size_orig = size
+            size = slice.range.length - offset
+            assert size >= 0
+            logger.warning("section size %s out of range, truncating from 0x%x to 0x%x bytes", name, size_orig, size)
+
         layout.add_child(SectionLayout(slice=slice.slice(offset, size), name=name, section=section))
 
     # segment that contains all data until the first section
