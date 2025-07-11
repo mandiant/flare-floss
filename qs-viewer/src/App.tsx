@@ -261,13 +261,13 @@ const App: React.FC = () => {
 
             <div className="filters-container">
                 <div className="filter-group">
-                    <div className="tags-header">Tags</div>
+                    <div className="filter-group-header">Tags</div>
                     <div className="tag-actions">
                         <button onClick={handleSelectAll}>Select All</button>
                         <button onClick={handleSelectNone}>Select None</button>
                         <button onClick={handleFocusView}>Focus View</button>
                     </div>
-                    <div className="tag-filter">
+                    <div className="filter-group-content">
                       {tagInfo.availableTags.map(tag => (
                         <label key={tag}>
                           <input
@@ -291,8 +291,8 @@ const App: React.FC = () => {
                     </div>
                 </div>
                 <div className="filter-group">
-                    <div className="tags-header">Show Columns</div>
-                    <div className="column-toggle-group">
+                    <div className="filter-group-header">Show Columns</div>
+                    <div className="filter-group-content">
                         <label>
                             <input type="checkbox" checked={displayOptions.showTags} onChange={() => handleDisplayOptionChange('showTags')} /> Tags
                         </label>
