@@ -112,6 +112,27 @@ body {
   font-size: 14px;
 }
 
+.column-toggles {
+  margin-top: 20px;
+  padding-top: 15px;
+  border-top: 1px solid #eee;
+  margin-bottom: 15px;
+}
+
+.column-toggle-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+}
+
+.column-toggles label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
 .tag-filter {
   display: flex;
   flex-wrap: wrap;
@@ -199,6 +220,6 @@ body {
 }
 
 .structure-name {
-  color: #4ec9b0;
+  color: #0056b3;
   padding-left: 2px;
 }

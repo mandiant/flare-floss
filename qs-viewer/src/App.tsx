@@ -3,7 +3,13 @@ import { useDropzone } from 'react-dropzone';
 import './App.css';
 import { type ResultDocument, type ResultLayout, type ResultString } from './types';
 
-const StringItem: React.FC<{ str: ResultString }> = ({ str }) => {
+interface DisplayOptions {
+  showTags: boolean;
+  showEncoding: boolean;
+  showOffsetAndStructure: boolean;
+}
+
+const StringItem: React.FC<{ str: ResultString; displayOptions: DisplayOptions }> = ({ str, displayOptions }) => {
   const getStyleClass = () => {
     const { tags } = str;
     if (tags.includes('#capa')) return 'highlight';
@@ -21,27 +27,29 @@ const StringItem: React.FC<{ str: ResultString }> = ({ str }) => {
   return (
     <div className="string-view">
       <span className={`string-content ${styleClass}`}>{JSON.stringify(str.string).slice(1, -1)}</span>
-      <span className={`string-tags ${styleClass}`}>{str.tags.join(' ')}</span>
-      <span className="string-encoding">{str.encoding === 'unicode' ? 'U' : ''}</span>
-      <span className="string-offset-structure">
-        <span className="offset-zeros">{zeroPart}</span>
-        <span className="offset-digits">{digitPart}</span>
-        {str.structure && <span className="structure-name">/{str.structure}</span>}
-      </span>
+      {displayOptions.showTags && <span className={`string-tags ${styleClass}`}>{str.tags.join(' ')}</span>}
+      {displayOptions.showEncoding && <span className="string-encoding">{str.encoding === 'unicode' ? 'U' : ''}</span>}
+      {displayOptions.showOffsetAndStructure && (
+        <span className="string-offset-structure">
+          <span className="offset-zeros">{zeroPart}</span>
+          <span className="offset-digits">{digitPart}</span>
+          {str.structure && <span className="structure-name">/{str.structure}</span>}
+        </span>
+      )}
     </div>
   );
 };
 
-const Layout: React.FC<{ layout: ResultLayout }> = ({ layout }) => {
+const Layout: React.FC<{ layout: ResultLayout; displayOptions: DisplayOptions }> = ({ layout, displayOptions }) => {
   return (
     <div className="layout">
       <div className="layout-header">{layout.name}</div>
       <div className="layout-content">
         {layout.strings.map((str, index) => (
-          <StringItem key={index} str={str} />
+          <StringItem key={index} str={str} displayOptions={displayOptions} />
         ))}
         {layout.children.map((child, index) => (
-          <Layout key={index} layout={child} />
+          <Layout key={index} layout={child} displayOptions={displayOptions} />
         ))}
       </div>
     </div>
@@ -53,6 +61,11 @@ const App: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [showUntagged, setShowUntagged] = useState(true);
+  const [displayOptions, setDisplayOptions] = useState<DisplayOptions>({
+    showTags: true,
+    showEncoding: true,
+    showOffsetAndStructure: true,
+  });
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
@@ -102,6 +115,10 @@ const App: React.FC = () => {
     setSelectedTags(prev =>
       prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
     );
+  };
+
+  const handleDisplayOptionChange = (option: keyof DisplayOptions) => {
+    setDisplayOptions(prev => ({ ...prev, [option]: !prev[option] }));
   };
 
   const tagInfo = useMemo(() => {
@@ -221,6 +238,21 @@ const App: React.FC = () => {
               <p><strong>Timestamp:</strong> {new Date(data.meta.timestamp).toLocaleString()}</p>
             </div>
 
+            <div className="column-toggles">
+                <div className="tags-header">Show Columns</div>
+                <div className="column-toggle-group">
+                    <label>
+                        <input type="checkbox" checked={displayOptions.showTags} onChange={() => handleDisplayOptionChange('showTags')} /> Tags
+                    </label>
+                    <label>
+                        <input type="checkbox" checked={displayOptions.showEncoding} onChange={() => handleDisplayOptionChange('showEncoding')} /> Encoding
+                    </label>
+                    <label>
+                        <input type="checkbox" checked={displayOptions.showOffsetAndStructure} onChange={() => handleDisplayOptionChange('showOffsetAndStructure')} /> Offset & Structure
+                    </label>
+                </div>
+            </div>
+
             <div className="tags-header">Tags</div>
             <div className="tag-actions">
                 <button onClick={handleSelectAll}>Select All</button>
@@ -266,7 +298,7 @@ const App: React.FC = () => {
         {!data ? (
             <div className="welcome-message">Drop a JSON file or use the upload button to get started.</div>
         ) : filteredLayout ? (
-          <Layout layout={filteredLayout} />
+          <Layout layout={filteredLayout} displayOptions={displayOptions} />
         ) : (
             <div className="welcome-message">No strings found matching your search and tag filters.</div>
         )}
