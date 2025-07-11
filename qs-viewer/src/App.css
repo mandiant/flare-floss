@@ -40,12 +40,18 @@ body {
   margin-bottom: 20px;
 }
 
+.app-header-buttons {
+    display: flex;
+    gap: 10px;
+}
+
 .app-title {
   font-size: 1.5em;
   margin: 0;
 }
 
-.file-upload-label {
+.file-upload-label,
+.preview-button {
   display: inline-block;
   padding: 10px 15px;
   background-color: #007bff;
@@ -53,6 +59,9 @@ body {
   border-radius: 4px;
   cursor: pointer;
   text-align: center;
+  border: none;
+  font-family: 'Menlo', 'Consolas', monospace;
+  font-size: inherit;
 }
 
 #file-upload {

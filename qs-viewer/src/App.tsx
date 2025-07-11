@@ -2,6 +2,7 @@ import React, { useState, useCallback, useMemo } from 'react';
 import { useDropzone } from 'react-dropzone';
 import './App.css';
 import { type ResultDocument, type ResultLayout, type ResultString } from './types';
+import previewData from './pma0303_qs.json';
 
 interface DisplayOptions {
   showTags: boolean;
@@ -68,6 +69,24 @@ const App: React.FC = () => {
   });
   const [copyFeedback, setCopyFeedback] = useState('');
 
+  const processData = (jsonData: ResultDocument) => {
+      setData(jsonData);
+      setSearchTerm('');
+      setShowUntagged(true);
+
+      const allTags = new Set<string>();
+      const collectTags = (layout: ResultLayout) => {
+        layout.strings.forEach(s => s.tags.forEach(t => allTags.add(t)));
+        layout.children.forEach(collectTags);
+      };
+      collectTags(jsonData.layout);
+
+      const defaultTags = Array.from(allTags).filter(
+        tag => tag !== '#code' && tag !== '#reloc'
+      );
+      setSelectedTags(defaultTags);
+  }
+
   const onDrop = useCallback((acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
     if (file) {
@@ -76,22 +95,7 @@ const App: React.FC = () => {
         try {
           const content = e.target?.result as string;
           const jsonData: ResultDocument = JSON.parse(content);
-          setData(jsonData);
-          setSearchTerm('');
-          setShowUntagged(true);
-
-          const allTags = new Set<string>();
-          const collectTags = (layout: ResultLayout) => {
-            layout.strings.forEach(s => s.tags.forEach(t => allTags.add(t)));
-            layout.children.forEach(collectTags);
-          };
-          collectTags(jsonData.layout);
-
-          const defaultTags = Array.from(allTags).filter(
-            tag => tag !== '#code' && tag !== '#reloc'
-          );
-          setSelectedTags(defaultTags);
-
+          processData(jsonData);
         } catch (error) {
           console.error("Error parsing JSON:", error);
           alert("Failed to parse JSON file.");
@@ -172,6 +176,12 @@ const App: React.FC = () => {
     setShowUntagged(true);
   };
 
+  const handlePreview = () => {
+    // The JSON is now imported directly, so we can just use it.
+    // The type assertion is safe because we trust the local file.
+    processData(previewData as ResultDocument);
+  };
+
   const filteredLayout = useMemo(() => {
     if (!data) return null;
 
@@ -245,11 +255,14 @@ const App: React.FC = () => {
       <div className="controls">
         <div className="app-header">
           <h1 className="app-title">Quantumstrand Viewer</h1>
-          <div className="file-upload-area">
-            <label htmlFor="file-upload" className="file-upload-label">
-              Upload JSON
-            </label>
-            <input {...getInputProps()} id="file-upload" />
+          <div className="app-header-buttons">
+            <button className="preview-button" onClick={handlePreview}>Preview PMA03-03.exe</button>
+            <div className="file-upload-area">
+              <label htmlFor="file-upload" className="file-upload-label">
+                Upload JSON
+              </label>
+              <input {...getInputProps()} id="file-upload" />
+            </div>
           </div>
         </div>
 
