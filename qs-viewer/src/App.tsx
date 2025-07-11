@@ -66,6 +66,7 @@ const App: React.FC = () => {
     showEncoding: true,
     showOffsetAndStructure: true,
   });
+  const [copyFeedback, setCopyFeedback] = useState('');
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
@@ -219,6 +220,26 @@ const App: React.FC = () => {
     return count;
   }, [filteredLayout]);
 
+  const handleCopyStrings = () => {
+    if (!filteredLayout) return;
+
+    const stringsToCopy: string[] = [];
+    const collectStrings = (layout: ResultLayout) => {
+      stringsToCopy.push(...layout.strings.map(s => s.string));
+      layout.children.forEach(collectStrings);
+    };
+    collectStrings(filteredLayout);
+
+    navigator.clipboard.writeText(stringsToCopy.join('\n')).then(() => {
+      setCopyFeedback('Copied!');
+      setTimeout(() => setCopyFeedback(''), 2000);
+    }, (err) => {
+      console.error('Could not copy text: ', err);
+      setCopyFeedback('Failed to copy.');
+      setTimeout(() => setCopyFeedback(''), 2000);
+    });
+  };
+
   return (
     <div className="App" {...getRootProps()}>
       <div className="controls">
@@ -288,8 +309,14 @@ const App: React.FC = () => {
               value={searchTerm}
               onChange={handleSearchChange}
             />
-            <div className="string-counts">
-              Showing {visibleStringCount} of {tagInfo.totalStringCount} strings
+            <div className="actions-bar">
+                <div className="string-counts">
+                  Showing {visibleStringCount} of {tagInfo.totalStringCount} strings
+                </div>
+                <div>
+                    <button className="copy-button" onClick={handleCopyStrings}>Copy Strings</button>
+                    {copyFeedback && <span className="copy-feedback">{copyFeedback}</span>}
+                </div>
             </div>
           </>
         )}

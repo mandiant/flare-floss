@@ -81,9 +81,32 @@ body {
 }
 
 .string-counts {
-  margin-bottom: 15px;
   font-size: 13px;
   color: #555;
+  display: flex;
+  align-items: center;
+}
+
+.actions-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 15px;
+}
+
+.copy-button {
+    background-color: #28a745;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 13px;
+    font-family: 'Menlo', 'Consolas', monospace;
+}
+
+.copy-button:hover {
+    background-color: #218838;
 }
 
 .tag-actions {
@@ -104,6 +127,12 @@ body {
 
 .tag-actions button:hover {
   color: #0056b3;
+}
+
+.copy-feedback {
+  font-size: 13px;
+  color: #28a745;
+  margin-left: 15px;
 }
 
 .tags-header {
