@@ -4,12 +4,13 @@ import './App.css';
 import { type ResultDocument, type ResultLayout, type ResultString } from './types';
 
 const StringItem: React.FC<{ str: ResultString }> = ({ str }) => {
+  const offsetStructure = `${str.offset.toString(16).padStart(8, '0')}${str.structure ? `/${str.structure}` : ''}`;
   return (
     <div className="string-view">
-      <span className="string-offset">{str.offset.toString(16).padStart(8, '0')}</span>
       <span className="string-content">{JSON.stringify(str.string).slice(1, -1)}</span>
       <span className="string-tags">{str.tags.join(' ')}</span>
-      <span className="string-structure">{str.structure}</span>
+      <span className="string-encoding">{str.encoding === 'unicode' ? 'U' : ''}</span>
+      <span className="string-offset-structure">{offsetStructure}</span>
     </div>
   );
 };

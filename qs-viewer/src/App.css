@@ -121,14 +121,14 @@ body {
   color: #808080;
 }
 
-.string-offset {
-  width: 12ch;
+.string-encoding {
+  width: 3ch;
   flex-shrink: 0;
-  color: #569cd6;
+  color: #9cdcfe;
 }
 
-.string-structure {
-  width: 20ch;
+.string-offset-structure {
+  width: 32ch;
   flex-shrink: 0;
   color: #4ec9b0;
 }
