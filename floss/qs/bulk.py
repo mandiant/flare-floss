@@ -48,12 +48,16 @@ def main():
 
     args.output_directory.mkdir(parents=True, exist_ok=True)
 
-    for file_path in args.input_directory.iterdir():
+    for file_path in args.input_directory.rglob("*"):
         if not file_path.is_file():
             continue
 
-        json_output_path = args.output_directory / f"{file_path.name}.json"
-        rendered_output_path = args.output_directory / f"{file_path.name}.txt"
+        relative_path = file_path.relative_to(args.input_directory)
+        output_dir_for_file = args.output_directory / relative_path.parent
+        output_dir_for_file.mkdir(parents=True, exist_ok=True)
+
+        json_output_path = output_dir_for_file / f"{file_path.name}.json"
+        rendered_output_path = output_dir_for_file / f"{file_path.name}.txt"
 
         should_analyze = not json_output_path.exists() or args.reprocess
         should_render = args.save_rendered and (not rendered_output_path.exists() or args.reprocess)
