@@ -88,11 +88,13 @@ const App: React.FC = () => {
   };
 
   const tagInfo = useMemo(() => {
-    if (!data) return { availableTags: [], tagCounts: {}, untaggedCount: 0 };
+    if (!data) return { availableTags: [], tagCounts: {}, untaggedCount: 0, totalStringCount: 0 };
 
     const counts: { [key: string]: number } = {};
     let untaggedCount = 0;
+    let totalStringCount = 0;
     const collect = (layout: ResultLayout) => {
+      totalStringCount += layout.strings.length;
       for (const s of layout.strings) {
         if (s.tags.length === 0) {
           untaggedCount++;
@@ -112,6 +114,7 @@ const App: React.FC = () => {
       availableTags: Object.keys(counts).sort(),
       tagCounts: counts,
       untaggedCount,
+      totalStringCount,
     };
   }, [data]);
 
@@ -152,6 +155,17 @@ const App: React.FC = () => {
     return filter(data.layout);
   }, [data, searchTerm, selectedTags, showUntagged]);
 
+  const visibleStringCount = useMemo(() => {
+    if (!filteredLayout) return 0;
+    let count = 0;
+    const countStrings = (layout: ResultLayout) => {
+      count += layout.strings.length;
+      layout.children.forEach(countStrings);
+    };
+    countStrings(filteredLayout);
+    return count;
+  }, [filteredLayout]);
+
   return (
     <div className="App" {...getRootProps()}>
       <div className="controls">
@@ -178,6 +192,9 @@ const App: React.FC = () => {
               value={searchTerm}
               onChange={handleSearchChange}
             />
+            <div className="string-counts">
+              Showing {visibleStringCount} of {tagInfo.totalStringCount} strings
+            </div>
             <div className="tag-filter">
               {tagInfo.availableTags.map(tag => (
                 <label key={tag}>

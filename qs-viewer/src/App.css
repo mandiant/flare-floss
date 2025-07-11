@@ -79,6 +79,12 @@ body {
   font-size: 14px;
 }
 
+.string-counts {
+  margin-bottom: 15px;
+  font-size: 13px;
+  color: #555;
+}
+
 .tag-filter {
   display: flex;
   flex-wrap: wrap;
