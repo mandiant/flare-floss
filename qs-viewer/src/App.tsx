@@ -60,6 +60,7 @@ const Layout: React.FC<{ layout: ResultLayout; displayOptions: DisplayOptions }>
 const App: React.FC = () => {
   const [data, setData] = useState<ResultDocument | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [minStringLength, setMinStringLength] = useState(0);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [showUntagged, setShowUntagged] = useState(true);
   const [displayOptions, setDisplayOptions] = useState<DisplayOptions>({
@@ -73,6 +74,7 @@ const App: React.FC = () => {
       setData(jsonData);
       setSearchTerm('');
       setShowUntagged(true);
+      setMinStringLength(jsonData.meta.min_str_len);
 
       const allTags = new Set<string>();
       const collectTags = (layout: ResultLayout) => {
@@ -114,6 +116,11 @@ const App: React.FC = () => {
 
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(event.target.value);
+  };
+
+  const handleMinLengthChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const value = event.target.value;
+    setMinStringLength(value === '' ? 0 : parseInt(value, 10));
   };
 
   const handleTagChange = (tag: string) => {
@@ -189,6 +196,8 @@ const App: React.FC = () => {
       const lowerCaseSearchTerm = searchTerm.toLowerCase();
 
       const filteredStrings = layout.strings.filter(s => {
+        if (s.string.length < minStringLength) return false;
+
         const searchMatch = s.string.toLowerCase().includes(lowerCaseSearchTerm);
         if (!searchMatch) return false;
 
@@ -217,7 +226,7 @@ const App: React.FC = () => {
     };
 
     return filter(data.layout);
-  }, [data, searchTerm, selectedTags, showUntagged]);
+  }, [data, searchTerm, selectedTags, showUntagged, minStringLength]);
 
   const visibleStringCount = useMemo(() => {
     if (!filteredLayout) return 0;
@@ -324,13 +333,26 @@ const App: React.FC = () => {
                 </div>
             </div>
 
-            <input
-              type="search"
-              placeholder="Search strings..."
-              className="search-bar"
-              value={searchTerm}
-              onChange={handleSearchChange}
-            />
+            <div className="search-controls">
+              <input
+                type="search"
+                placeholder="Search strings..."
+                className="search-bar"
+                value={searchTerm}
+                onChange={handleSearchChange}
+              />
+              <div className="min-length-control">
+                <label htmlFor="min-length-input">Min. Length:</label>
+                <input
+                  id="min-length-input"
+                  type="number"
+                  value={minStringLength}
+                  onChange={handleMinLengthChange}
+                  min="0"
+                />
+              </div>
+            </div>
+
             <div className="actions-bar">
                 <div className="string-counts">
                   Showing {visibleStringCount} of {tagInfo.totalStringCount} strings
