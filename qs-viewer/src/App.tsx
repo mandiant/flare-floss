@@ -27,7 +27,7 @@ const StringItem: React.FC<{ str: ResultString; displayOptions: DisplayOptions }
 
   return (
     <div className="string-view">
-      <span className={`string-content ${styleClass}`}>{JSON.stringify(str.string).slice(1, -1)}</span>
+      <span className={`string-content ${styleClass}`}>{str.string}</span>
       {displayOptions.showTags && <span className={`string-tags ${styleClass}`}>{str.tags.join(' ')}</span>}
       {displayOptions.showEncoding && <span className="string-encoding">{str.encoding === 'unicode' ? 'U' : ''}</span>}
       {displayOptions.showOffsetAndStructure && (
