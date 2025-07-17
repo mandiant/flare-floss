@@ -93,7 +93,6 @@ dependencies = [
     # latest bug fixes we need here.
     "viv-utils[flirt]>=0.7.9",
     "vivisect>=1.1.1",
-    "dncil>=1.0.2",
 
     # ---------------------------------------
     # Dependencies with version caps
