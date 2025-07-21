@@ -252,7 +252,7 @@ def log_result(decoded_string, verbosity):
                 decoded_string.program_counter,
             )
         else:
-            ValueError("unknown decoded or extracted string type: %s", type(decoded_string))
+            raise ValueError("unknown decoded or extracted string type: %s", type(decoded_string))
 
 
 def load(sample: Path, analysis: Analysis, functions: List[int], min_length: int) -> ResultDocument:
