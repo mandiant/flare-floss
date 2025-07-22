@@ -1070,13 +1070,13 @@ def compute_layout(slice: Slice) -> Layout:
     # If XOR key is found, apply XOR decoding
     if xor_key is not None:
         decoded_data = xor_static(slice.data, xor_key)
-        slice_candidate = Slice(buf=decoded_data, range=Range(offset=0, length=len(decoded_data)))
+        decoded_slice = Slice(buf=decoded_data, range=Range(offset=0, length=len(decoded_data)))
 
     # Try to parse as PE file
-    if slice_candidate.data.startswith(b"MZ"):
+    if decoded_slice.data.startswith(b"MZ"):
         try:
             # lancelot may panic here, which we can't currently catch from Python
-            return compute_pe_layout(slice_candidate, xor_key)
+            return compute_pe_layout(decoded_slice, xor_key)
         except ValueError as e:
             logger.debug("failed to parse as PE file: %s", e)
             # Fall back to using the default binary layout
