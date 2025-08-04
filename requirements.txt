@@ -45,7 +45,7 @@ pytest-instafail==0.5.0
 pytest-sugar==1.0.0
 python-flirt==0.9.2
 pyyaml==6.0.1
-rich==13.9.2
+rich==14.1.0
 setuptools==80.9.0
 six==1.17.0
 sortedcontainers==2.4.0
