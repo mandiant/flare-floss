@@ -229,10 +229,6 @@ const App: React.FC = () => {
         } else {
           for (const tag of s.tags) {
             counts[tag] = (counts[tag] || 0) + 1;
-            // Debug logging - remove after fixing
-            if (tag.startsWith('#debug')) {
-              console.log(`Counting tag ${tag} for string at offset ${s.offset}, current count: ${counts[tag]}`);
-            }
           }
         }
       }
