@@ -10,12 +10,37 @@ interface DisplayOptions {
   showOffsetAndStructure: boolean;
 }
 
-const StringItem: React.FC<{ str: ResultString; displayOptions: DisplayOptions }> = ({ str, displayOptions }) => {
+const StringItem: React.FC<{ 
+  str: ResultString; 
+  displayOptions: DisplayOptions;
+  onAddTag: (offset: number, tag: string) => void;
+}> = ({ str, displayOptions, onAddTag }) => {
+  const [showTagInput, setShowTagInput] = useState(false);
+  const [newTag, setNewTag] = useState('');
+
   const getStyleClass = () => {
     const { tags } = str;
     if (tags.includes('#capa')) return 'highlight';
     if (tags.includes('#common') || tags.includes('#duplicate')) return 'mute';
     return '';
+  };
+
+  const handleAddTag = () => {
+    if (newTag.trim()) {
+      const formattedTag = newTag.trim().startsWith('#') ? newTag.trim() : `#${newTag.trim()}`;
+      onAddTag(str.offset, formattedTag);
+      setNewTag('');
+      setShowTagInput(false);
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleAddTag();
+    } else if (e.key === 'Escape') {
+      setShowTagInput(false);
+      setNewTag('');
+    }
   };
 
   const styleClass = getStyleClass();
@@ -28,7 +53,32 @@ const StringItem: React.FC<{ str: ResultString; displayOptions: DisplayOptions }
   return (
     <div className="string-view">
       <span className={`string-content ${styleClass}`}>{JSON.stringify(str.string).slice(1, -1)}</span>
-      {displayOptions.showTags && <span className={`string-tags ${styleClass}`}>{str.tags.join(' ')}</span>}
+      {displayOptions.showTags && (
+        <div className="tags-section">
+          <button 
+            className="add-tag-button" 
+            onClick={() => setShowTagInput(true)}
+            title="Add tag"
+          >
+            +
+          </button>
+          <span className={`string-tags ${styleClass}`}>
+            {showTagInput && (
+              <input
+                type="text"
+                className="tag-input"
+                value={newTag}
+                onChange={(e) => setNewTag(e.target.value)}
+                onKeyDown={handleKeyPress}
+                onBlur={() => setShowTagInput(false)}
+                placeholder="Enter tag..."
+                autoFocus
+              />
+            )}
+            {str.tags.join(' ')}
+          </span>
+        </div>
+      )}
       {displayOptions.showEncoding && <span className="string-encoding">{str.encoding === 'unicode' ? 'U' : ''}</span>}
       {displayOptions.showOffsetAndStructure && (
         <span className="string-offset-structure">
@@ -41,16 +91,25 @@ const StringItem: React.FC<{ str: ResultString; displayOptions: DisplayOptions }
   );
 };
 
-const Layout: React.FC<{ layout: ResultLayout; displayOptions: DisplayOptions }> = ({ layout, displayOptions }) => {
+const Layout: React.FC<{ 
+  layout: ResultLayout; 
+  displayOptions: DisplayOptions;
+  onAddTag: (offset: number, tag: string) => void;
+}> = ({ layout, displayOptions, onAddTag }) => {
   return (
     <div className="layout">
       <div className="layout-header">{layout.name}</div>
       <div className="layout-content">
         {layout.strings.map((str, index) => (
-          <StringItem key={index} str={str} displayOptions={displayOptions} />
+          <StringItem 
+            key={index} 
+            str={str} 
+            displayOptions={displayOptions} 
+            onAddTag={onAddTag}
+          />
         ))}
         {layout.children.map((child, index) => (
-          <Layout key={index} layout={child} displayOptions={displayOptions} />
+          <Layout key={index} layout={child} displayOptions={displayOptions} onAddTag={onAddTag} />
         ))}
       </div>
     </div>
@@ -180,6 +239,34 @@ const App: React.FC = () => {
     // The JSON is now imported directly, so we can just use it.
     // The type assertion is safe because we trust the local file.
     processData(previewData as ResultDocument);
+  };
+
+  const handleAddTag = (offset: number, tag: string) => {
+    if (!data) return;
+    
+    // Create a deep copy of the data to modify
+    const updatedData = JSON.parse(JSON.stringify(data));
+    
+    // Find and update the string with the specified offset
+    const updateLayout = (layout: ResultLayout): boolean => {
+      for (let i = 0; i < layout.strings.length; i++) {
+        if (layout.strings[i].offset === offset) {
+          if (!layout.strings[i].tags.includes(tag)) {
+            layout.strings[i].tags.push(tag);
+          }
+          return true;
+        }
+      }
+      for (const child of layout.children) {
+        if (updateLayout(child)) {
+          return true;
+        }
+      }
+      return false;
+    };
+    
+    updateLayout(updatedData.layout);
+    setData(updatedData);
   };
 
   const filteredLayout = useMemo(() => {
@@ -347,7 +434,7 @@ const App: React.FC = () => {
         {!data ? (
             <div className="welcome-message">Drop a JSON file or use the upload button to get started.</div>
         ) : filteredLayout ? (
-          <Layout layout={filteredLayout} displayOptions={displayOptions} />
+          <Layout layout={filteredLayout} displayOptions={displayOptions} onAddTag={handleAddTag} />
         ) : (
             <div className="welcome-message">No strings found matching your search and tag filters.</div>
         )}
