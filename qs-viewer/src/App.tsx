@@ -453,6 +453,25 @@ const App: React.FC = () => {
     });
   };
 
+  const handleExportJSON = () => {
+    if (!data) return;
+
+    const jsonString = JSON.stringify(data, null, 2);
+    const blob = new Blob([jsonString], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${data.meta.sample.path.split(/[\\/]/).pop() || 'exported'}_tagged.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    setCopyFeedback('Exported!');
+    setTimeout(() => setCopyFeedback(''), 2000);
+  };
+
   return (
     <div className="App" {...getRootProps()}>
       <div className="controls">
@@ -548,6 +567,7 @@ const App: React.FC = () => {
                         Tag Selected ({selectedStrings.size})
                       </button>
                     )}
+                    <button className="copy-button" onClick={handleExportJSON}>Export JSON</button>
                     <button className="copy-button" onClick={handleCopyStrings}>Copy Strings</button>
                     {copyFeedback && <span className="copy-feedback">{copyFeedback}</span>}
                 </div>
