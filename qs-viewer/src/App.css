@@ -117,9 +117,14 @@ body {
     margin-top: 15px;
 }
 
-.copy-button {
-    background-color: #28a745;
-    color: white;
+.actions-buttons {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.copy-button,
+.mass-tag-button {
     border: none;
     border-radius: 4px;
     padding: 8px 12px;
@@ -128,8 +133,22 @@ body {
     font-family: 'Menlo', 'Consolas', monospace;
 }
 
+.copy-button {
+    background-color: #28a745;
+    color: white;
+}
+
 .copy-button:hover {
     background-color: #218838;
+}
+
+.mass-tag-button {
+    background-color: #007bff;
+    color: white;
+}
+
+.mass-tag-button:hover {
+    background-color: #0056b3;
 }
 
 .tag-actions {
@@ -216,6 +235,13 @@ body {
   justify-content: space-between;
   padding: 4px 0;
   border-bottom: 1px dotted #eee;
+  align-items: center;
+}
+
+.string-select {
+  margin-right: 8px;
+  flex-shrink: 0;
+  cursor: pointer;
 }
 
 .tags-section {
@@ -376,4 +402,112 @@ body {
     padding-top: 10px;
     gap: 15px;
   }
+}
+
+/* Modal Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(2px);
+}
+
+.modal-content {
+  background: white;
+  border-radius: 8px;
+  padding: 24px;
+  min-width: 400px;
+  max-width: 500px;
+  position: relative;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #666;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+}
+
+.modal-close:hover {
+  background-color: #f0f0f0;
+  color: #333;
+}
+
+.modal-content h3 {
+  margin: 0 0 8px 0;
+  font-size: 18px;
+  color: #333;
+}
+
+.modal-content p {
+  margin: 0 0 16px 0;
+  color: #666;
+  font-size: 14px;
+}
+
+.modal-input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 14px;
+  font-family: 'Menlo', 'Consolas', monospace;
+  margin-bottom: 20px;
+  box-sizing: border-box;
+}
+
+.modal-input:focus {
+  outline: none;
+  border-color: #007bff;
+}
+
+.modal-buttons {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.modal-button {
+  padding: 10px 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-family: 'Menlo', 'Consolas', monospace;
+}
+
+.modal-button-primary {
+  background-color: #007bff;
+  color: white;
+}
+
+.modal-button-primary:hover {
+  background-color: #0056b3;
+}
+
+.modal-button-secondary {
+  background-color: #6c757d;
+  color: white;
+}
+
+.modal-button-secondary:hover {
+  background-color: #545b62;
 }
