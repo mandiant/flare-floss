@@ -39,6 +39,15 @@ logger = logging.getLogger("quantumstrand")
 
 
 QS_VERSION = "0.0.1"
+KNOWN_TAGS = {
+    "#code",
+    "#code-junk",
+    "#common",
+    "#duplicate",
+    "#reloc",
+    "#winapi",
+    "#decoded",
+}
 
 
 @contextlib.contextmanager
@@ -1315,6 +1324,31 @@ def render_strings(
 
         console.print(footer)
 
+def addToUserDatabase(path, note, author, reference):
+    with open(path, 'r', encoding='utf-8') as f:
+        data = json.loads(f.read())
+        strings = collectStrings(data["layout"])
+        # for s in strings:
+        #     print(s["string"])
+        
+
+def collectStrings(node, results = None):
+    if results is None:
+        results = []
+    if "strings" in node and node["strings"]:
+        for s in node["strings"]:
+            tags = s.get("tags", [])
+            unknownTags = [t for t in tags if t not in KNOWN_TAGS]
+            if unknownTags:
+                results.append({
+                    "string": s["string"],
+                    "unknown_tags": unknownTags
+                })
+    if "children" in node:
+        for child in node["children"]:
+            collectStrings(child, results)
+    
+    return results
 
 def main():
     # set environment variable NO_COLOR=1 to disable color output.
@@ -1332,6 +1366,8 @@ def main():
     parser.add_argument("--json-out", help="path to write layout to as JSON")
     parser.add_argument("--json-in", help="path to read layout from as JSON")
 
+    parser.add_argument("--expand", "-e", nargs="?", const=True, help="add strings to database (optionally specify JSON file path)")
+
     logging_group = parser.add_argument_group("logging arguments")
     logging_group.add_argument("-d", "--debug", action="store_true", help="enable debugging output on STDERR")
     logging_group.add_argument(
@@ -1340,6 +1376,7 @@ def main():
         action="store_true",
         help="disable all status output except fatal errors",
     )
+
     args = parser.parse_args()
 
     floss.main.set_log_config(args.debug, args.quiet)
@@ -1413,6 +1450,18 @@ def main():
             min_str_len=args.min_length,
         )
         results = ResultDocument.from_qs(meta, layout)
+    elif args.expand:
+        if isinstance(args.expand, str):
+            expand_path = pathlib.Path(args.expand)
+        if not expand_path.exists():
+            logging.error("%s does not exist", expand_path)
+            return 1
+        
+        note = input("A note for these strings: ")
+        author = input("Author: ")
+        reference = input("Reference: ")
+        addToUserDatabase(str(expand_path), note, author, reference)
+        return 0
     else:
         parser.error("either path or --json-in must be provided")
 
@@ -1429,6 +1478,7 @@ def main():
         "#reloc": "hide",
         # lib strings are muted (default)
     }
+
     # hide (remove) strings according to the above rules
     hide_strings_by_rules(results.layout, tag_rules)
 
