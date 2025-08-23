@@ -50,6 +50,7 @@ KNOWN_TAGS = {
     "#decoded",
     "#capa"
 }
+USER_DB_PATH = pathlib.Path(floss.qs.db.__file__).parent / "data" / "expert" / "user.jsonl"
 
 
 @contextlib.contextmanager
@@ -1326,13 +1327,18 @@ def render_strings(
 
         console.print(footer)
 
+def create_user_db():
+    if not USER_DB_PATH.exists():
+        USER_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+        USER_DB_PATH.write_text("")
+
 def addToUserDatabase(path, note, author, reference):
     with open(path, 'r', encoding='utf-8') as f:
         data = json.loads(f.read())
         strings = collectStrings(data["layout"])
+        create_user_db()
         for s in strings:
-            user_db_path = pathlib.Path(floss.qs.db.__file__).parent / "data" / "expert" / "user.jsonl"
-            with open(user_db_path, 'a', encoding='utf-8') as user_db:
+            with open(USER_DB_PATH, 'a', encoding='utf-8') as user_db:
                 new_string = {
                     "type":"string",
                     "value": s["string"],

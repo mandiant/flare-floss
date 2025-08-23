@@ -6,6 +6,7 @@ from dataclasses import dataclass
 import msgspec
 
 import floss.qs.db
+import floss.qs.main
 
 
 class ExpertRule(msgspec.Struct):
@@ -84,6 +85,12 @@ class ExpertStringDatabase:
 
 DEFAULT_PATHS = (pathlib.Path(floss.qs.db.__file__).parent / "data" / "expert" / "capa.jsonl",pathlib.Path(floss.qs.db.__file__).parent / "data" / "expert" / "user.jsonl")
 
+def create_user_db():
+    user_json = pathlib.Path(floss.qs.db.__file__).parent / "data" / "expert" / "user.jsonl"
+    if not user_json.exists():
+        user_json.parent.mkdir(parents=True, exist_ok=True)
+        user_json.write_text("")
 
 def get_default_databases() -> Sequence[ExpertStringDatabase]:
+    create_user_db()
     return [ExpertStringDatabase.from_file(path) for path in DEFAULT_PATHS]
