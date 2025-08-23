@@ -1,2 +1,33 @@
-# Created by venv; see https://docs.python.org/3/library/venv.html
-*
+### Python template
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+build/
+dist/
+floss.egg-info/
+lib/
+.cache
+
+# Pyenv file
+.python-version
+.venv
+
+# Test executables
+bin/
+
+.idea
+venv
+flare_floss.egg-info
+.eggs
+.direnv/
+.envrc
+.vscode
+.direnv/
+.env/
+.envrc
