@@ -82,7 +82,7 @@ class ExpertStringDatabase:
         )
 
 
-DEFAULT_PATHS = (pathlib.Path(floss.qs.db.__file__).parent / "data" / "expert" / "capa.jsonl",)
+DEFAULT_PATHS = (pathlib.Path(floss.qs.db.__file__).parent / "data" / "expert" / "capa.jsonl",pathlib.Path(floss.qs.db.__file__).parent / "data" / "expert" / "user.jsonl")
 
 
 def get_default_databases() -> Sequence[ExpertStringDatabase]:

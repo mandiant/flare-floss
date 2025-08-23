@@ -8,6 +8,7 @@ import bisect
 import hashlib
 import logging
 import pathlib
+import msgspec
 import argparse
 import datetime
 import functools
@@ -47,6 +48,7 @@ KNOWN_TAGS = {
     "#reloc",
     "#winapi",
     "#decoded",
+    "#capa"
 }
 
 
@@ -1328,9 +1330,21 @@ def addToUserDatabase(path, note, author, reference):
     with open(path, 'r', encoding='utf-8') as f:
         data = json.loads(f.read())
         strings = collectStrings(data["layout"])
-        # for s in strings:
-        #     print(s["string"])
-        
+        for s in strings:
+            user_db_path = pathlib.Path(floss.qs.db.__file__).parent / "data" / "expert" / "user.jsonl"
+            with open(user_db_path, 'a', encoding='utf-8') as user_db:
+                new_string = {
+                    "type":"string",
+                    "value": s["string"],
+                    "tag": s.get("unknown_tags", []),
+                    "action": "highlight",
+                    "note": note,
+                    "description": "",
+                    "authors": author,
+                    "references": reference
+                }
+                user_db.write(msgspec.json.encode(new_string).decode('utf-8'))
+                user_db.write('\n')
 
 def collectStrings(node, results = None):
     if results is None:
@@ -1347,7 +1361,6 @@ def collectStrings(node, results = None):
     if "children" in node:
         for child in node["children"]:
             collectStrings(child, results)
-    
     return results
 
 def main():
