@@ -91,6 +91,8 @@ jobs:
     name: zip and upload ${{ matrix.asset_name }}
     runs-on: ubuntu-22.04
     needs: [build]
+    permissions:
+      contents: write
     strategy:
       matrix:
         include:
