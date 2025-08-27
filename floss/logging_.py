@@ -38,7 +38,7 @@ RESET = "\x1b[0m"
 
 
 def make_format(color):
-    return f"{color}%(levelname)s{RESET}: %(name)s: %(message)s"
+    return f"%(asctime)s {color}%(levelname)s{RESET}: %(name)s: %(message)s"
 
 
 FORMATS = {
@@ -50,7 +50,7 @@ FORMATS = {
     logging.CRITICAL: make_format(BOLD_RED),
 }
 
-FORMATTERS = {level: logging.Formatter(FORMATS[level]) for level in FORMATS.keys()}
+FORMATTERS = {level: logging.Formatter(FORMATS[level], "%Y-%m-%d %H:%M:%S") for level in FORMATS.keys()}
 
 
 class ColorFormatter(logging.Formatter):

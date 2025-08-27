@@ -5,20 +5,22 @@ import sys
 import json
 import time
 import bisect
+import hashlib
 import logging
 import pathlib
 import argparse
+import datetime
 import functools
 import itertools
 import contextlib
+from typing import Set, Dict, List, Tuple, Literal, Callable, Iterable, Optional, Sequence
 from collections import defaultdict
-from typing import Set, Dict, List, Union, Tuple, Literal, Callable, Iterable, Optional, Sequence
-from dataclasses import field, dataclass
 
 import pefile
 import colorama
 import lancelot
 import rich.traceback
+from pydantic import Field, BaseModel, ConfigDict
 from rich.text import Text
 from rich.style import Style
 from rich.console import Console
@@ -36,6 +38,9 @@ from floss.qs.db.winapi import WindowsApiStringDatabase
 logger = logging.getLogger("quantumstrand")
 
 
+QS_VERSION = "0.1.0"
+
+
 @contextlib.contextmanager
 def timing(msg: str):
     t0 = time.time()
@@ -44,9 +49,9 @@ def timing(msg: str):
     logger.debug("perf: %s: %0.2fs", msg, t1 - t0)
 
 
-@dataclass
-class Range:
+class Range(BaseModel):
     "a range of contiguous integer values, such as offsets within a byte sequence"
+
     offset: int
     length: int
 
@@ -58,7 +63,7 @@ class Range:
         "create a new range thats a sub-range of this one, using relative offsets"
         assert offset < self.length
         assert offset + size <= self.length
-        return Range(self.offset + offset, size)
+        return Range(offset=self.offset + offset, length=size)
 
     def __iter__(self):
         "iterate over the values in this range"
@@ -71,8 +76,7 @@ class Range:
         return repr(self)
 
 
-@dataclass
-class Slice:
+class Slice(BaseModel):
     """
     a contiguous range within a sequence of bytes.
     notably, it can be further sliced without copying the underlying bytes.
@@ -89,21 +93,35 @@ class Slice:
 
     def slice(self, offset, size) -> "Slice":
         "create a new slice thats a sub-slice of this one, using relative offsets"
-        return Slice(self.buf, self.range.slice(offset, size))
+        return Slice(buf=self.buf, range=self.range.slice(offset, size))
+
+    def contains_range(self, offset: int, size: int) -> bool:
+        """
+        checks if this slice's buffer contains the given range,
+        where offset is relative to the start of this slice's buffer.
+        """
+        if not (0 <= offset < self.range.length):
+            return False
+
+        # size can be 0, so we don't check for size > 0
+        if (offset + size) > self.range.length:
+            return False
+
+        return True
 
     @classmethod
     def from_bytes(cls, buf: bytes) -> "Slice":
-        return cls(buf, Range(0, len(buf)))
+        return cls(buf=buf, range=Range(offset=0, length=len(buf)))
 
     def __repr__(self):
-        return f"Slice({repr(self.range)} of bytes of size 0x{len(self.buf):x})"
+        buf_len = len(self.buf) if self.buf is not None else 0
+        return f"Slice({repr(self.range)} of bytes of size 0x{buf_len:x})"
 
     def __str__(self):
         return repr(self)
 
 
-@dataclass
-class ExtractedString:
+class ExtractedString(BaseModel):
     string: str
     slice: Slice
     encoding: Literal["ascii", "unicode"]
@@ -112,8 +130,7 @@ class ExtractedString:
 Tag = str
 
 
-@dataclass
-class TaggedString:
+class TaggedString(BaseModel):
     string: ExtractedString
     tags: Set[Tag]
     structure: str = ""
@@ -124,10 +141,9 @@ class TaggedString:
         return self.string.slice.range.offset
 
 
-MIN_STR_LEN = 6
-ASCII_BYTE = r" !\"#\$%&\'\(\)\*\+,-\./0123456789:;<=>\?@ABCDEFGHIJKLMNOPQRSTUVWXYZ\[\]\^_`abcdefghijklmnopqrstuvwxyz\{\|\}\\\~\t".encode(
-    "ascii"
-)
+MIN_STR_LEN = 4
+# we don't include \r and \n to make output easier to understand by humans and to simplify rendering
+ASCII_BYTE = rb" !\"#\$%&\'\(\)\*\+,-\./0123456789:;<=>\?@ABCDEFGHIJKLMNOPQRSTUVWXYZ\[\]\^_`abcdefghijklmnopqrstuvwxyz\{\|\}\\\~\t"
 ASCII_RE_MIN = re.compile(b"([%s]{%d,})" % (ASCII_BYTE, MIN_STR_LEN))
 UNICODE_RE_MIN = re.compile(b"((?:[%s]\x00){%d,})" % (ASCII_BYTE, MIN_STR_LEN))
 
@@ -209,11 +225,87 @@ def render_string_padding():
 TagRules = Dict[Tag, Literal["mute"] | Literal["highlight"] | Literal["default"] | Literal["hide"]]
 
 
-def should_hide_string(s: TaggedString, tag_rules: TagRules) -> bool:
+class ResultString(BaseModel):
+    string: str
+    offset: int
+    size: int
+    encoding: str
+    tags: List[str]
+    structure: str
+
+
+class ResultLayout(BaseModel):
+    name: str
+    offset: int
+    length: int
+    strings: List[ResultString]
+    children: List["ResultLayout"]
+
+    @property
+    def end(self) -> int:
+        return self.offset + self.length
+
+    @classmethod
+    def from_layout(cls, layout: "Layout") -> "ResultLayout":
+        """
+        Recursively converts a Layout object and its contents to the serializable format.
+        """
+        result_strings = []
+        for s in layout.strings:
+            result_strings.append(
+                ResultString(
+                    string=s.string.string,
+                    offset=s.string.slice.range.offset,
+                    size=s.string.slice.range.length,
+                    encoding=s.string.encoding,
+                    tags=sorted(list(s.tags)),
+                    structure=s.structure,
+                )
+            )
+
+        result_children = []
+        if layout.children:
+            for child in layout.children:
+                result_children.append(cls.from_layout(child))
+
+        return ResultLayout(
+            name=layout.name,
+            offset=layout.slice.range.offset,
+            length=layout.slice.range.length,
+            strings=result_strings,
+            children=result_children,
+        )
+
+
+class Sample(BaseModel):
+    md5: str
+    sha1: str
+    sha256: str
+    path: str
+
+
+class Metadata(BaseModel):
+    version: str
+    timestamp: datetime.datetime
+    sample: Sample
+    min_str_len: int
+
+
+class ResultDocument(BaseModel):
+    meta: Metadata
+    layout: ResultLayout
+
+    @classmethod
+    def from_qs(cls, meta: Metadata, layout: "Layout") -> "ResultDocument":
+        results = ResultLayout.from_layout(layout)
+        return ResultDocument(meta=meta, layout=results)
+
+
+def should_hide_string(s: ResultString, tag_rules: TagRules) -> bool:
     return any(map(lambda tag: tag_rules.get(tag) == "hide", s.tags))
 
 
-def compute_string_style(s: TaggedString, tag_rules: TagRules) -> Optional[Style]:
+def compute_string_style(s: ResultString, tag_rules: TagRules) -> Optional[Style]:
     """compute the style for a string based on its tags
 
     returns: Style, or None if the string should be hidden.
@@ -236,7 +328,7 @@ def compute_string_style(s: TaggedString, tag_rules: TagRules) -> Optional[Style
         return DEFAULT_STYLE
 
 
-def render_string_string(s: TaggedString, tag_rules: TagRules) -> Text:
+def render_string_string(s: ResultString, tag_rules: TagRules) -> Text:
     string_style = compute_string_style(s, tag_rules)
     if string_style is None:
         raise ValueError("string should be hidden")
@@ -244,11 +336,11 @@ def render_string_string(s: TaggedString, tag_rules: TagRules) -> Text:
     # render like json, but strip the leading/trailing quote marks.
     # this means that whitespace characters like \t and \n will be rendered as such,
     # which ensures that the rendered string will be a single line.
-    rendered_string = json.dumps(s.string.string)[1:-1]
+    rendered_string = json.dumps(s.string)[1:-1]
     return Span(rendered_string, style=string_style)
 
 
-def render_string_tags(s: TaggedString, tag_rules: TagRules):
+def render_string_tags(s: ResultString, tag_rules: TagRules):
     ret = Text()
 
     tags = s.tags
@@ -276,7 +368,7 @@ def render_string_tags(s: TaggedString, tag_rules: TagRules):
     return ret
 
 
-def render_string_offset(s: TaggedString):
+def render_string_offset(s: ResultString):
     # render the 000 prefix of the 8-digit offset in muted gray
     # and the non-zero suffix as blue.
     offset_chars = f"{s.offset:08x}"
@@ -290,7 +382,7 @@ def render_string_offset(s: TaggedString):
     return offset
 
 
-def render_string_structure(s: TaggedString):
+def render_string_structure(s: ResultString):
     ret = Text()
 
     if s.structure:
@@ -304,7 +396,7 @@ def render_string_structure(s: TaggedString):
     return ret
 
 
-def render_string(width: int, s: TaggedString, tag_rules: TagRules) -> Text:
+def render_string(width: int, s: ResultString, tag_rules: TagRules) -> Text:
     #
     #  | stringstringstring              #tag #tag #tag  00000001 |
     #  | stringstring                              #tag  0000004A |
@@ -339,7 +431,7 @@ def render_string(width: int, s: TaggedString, tag_rules: TagRules) -> Text:
     right.append_text(render_string_tags(s, tag_rules))
     right.append_text(render_string_padding())
     # indicate encoding: ascii implicit default
-    right.append_text(Span("U " if s.string.encoding == "unicode" else "  "))
+    right.append_text(Span("U " if s.encoding == "unicode" else "  "))
     right.append_text(render_string_offset(s))
     right.append_text(render_string_structure(s))
 
@@ -373,13 +465,17 @@ def get_reloc_offsets(slice: Slice, pe: pefile.PE) -> Set[int]:
     offset = pe.get_offset_from_rva(rva)
     size = dir_entry.Size
 
+    if not slice.contains_range(offset, size):
+        logger.warning("relocation directory points to an invalid location, skipping")
+        return ret
+
     for fo in slice.range.slice(offset, size):
         ret.add(fo)
 
     return ret
 
 
-def check_is_xor(xor_key: Union[int, None]):
+def check_is_xor(xor_key: int | None):
     if isinstance(xor_key, int):
         return ("#decoded",)
 
@@ -454,25 +550,25 @@ def load_databases() -> Sequence[Tagger]:
     def query_database(db, queryfn, string: ExtractedString):
         return queryfn(db, string.string)
 
-    def make_tagger(db, queryfn) -> Sequence[Tag]:
+    def make_tagger(db, queryfn) -> Tagger:
         return functools.partial(query_database, db, queryfn)
 
     for db in floss.qs.db.winapi.get_default_databases():
         ret.append(make_tagger(db, query_winapi_name_database))
 
-    for db in floss.qs.db.expert.get_default_databases():
-        ret.append(make_tagger(db, query_expert_string_database))
+    for db_expert in floss.qs.db.expert.get_default_databases():
+        ret.append(make_tagger(db_expert, query_expert_string_database))
 
-    for db in floss.qs.db.oss.get_default_databases():
-        ret.append(make_tagger(db, query_library_string_database))
+    for db_oss in floss.qs.db.oss.get_default_databases():
+        ret.append(make_tagger(db_oss, query_library_string_database))
 
-    for db in floss.qs.db.gp.get_default_databases():
-        if isinstance(db, StringGlobalPrevalenceDatabase):
-            ret.append(make_tagger(db, query_global_prevalence_database))
-        elif isinstance(db, StringHashDatabase):
-            ret.append(make_tagger(db, query_global_prevalence_hash_database))
+    for db_gp in floss.qs.db.gp.get_default_databases():
+        if isinstance(db_gp, StringGlobalPrevalenceDatabase):
+            ret.append(make_tagger(db_gp, query_global_prevalence_database))
+        elif isinstance(db_gp, StringHashDatabase):
+            ret.append(make_tagger(db_gp, query_global_prevalence_hash_database))
         else:
-            raise ValueError(f"unexpected database type: {type(db)}")
+            raise ValueError(f"unexpected database type: {type(db_gp)}")
 
     # supplement code analysis with a database of junk code strings
     junk_db = StringGlobalPrevalenceDatabase.from_file(
@@ -483,8 +579,7 @@ def load_databases() -> Sequence[Tagger]:
     return ret
 
 
-@dataclass
-class Structure:
+class Structure(BaseModel):
     slice: Slice
     name: str
 
@@ -550,8 +645,7 @@ def collect_pe_structures(slice: Slice, pe: pefile.PE) -> Sequence[Structure]:
     return structures
 
 
-@dataclass
-class Layout(abc.ABC):
+class Layout(BaseModel, abc.ABC):
     """
     recursively describe a region of a data, as a tree.
     the compute_layout routines construct this tree.
@@ -579,27 +673,27 @@ class Layout(abc.ABC):
     # human readable name
     name: str
 
-    parent: Optional["Layout"] = field(init=False, default=None)
+    parent: Optional["Layout"] = Field(default=None, init=False)
 
     # ordered by address
     # non-overlapping
     # may not cover the entire range (non-contiguous)
-    children: Sequence["Layout"] = field(init=False, default_factory=list)
+    children: Sequence["Layout"] = Field(default_factory=list, init=False)
 
     # this is populated by the call to extract_strings.
     # only strings not contained by the children are in this list.
     # so they come from before/between/after the children ranges.
-    strings: List[TaggedString] = field(init=False, default_factory=list)
+    strings: List[TaggedString] = Field(default_factory=list, init=False)
 
     @property
     def predecessors(self) -> Iterable["Layout"]:
         """traverse to the prior siblings`"""
         if self.parent is None:
-            return None
+            return
 
         index = self.parent.children.index(self)
         if index == 0:
-            return None
+            return
 
         for i in range(index - 1, -1, -1):
             yield self.parent.children[i]
@@ -613,11 +707,11 @@ class Layout(abc.ABC):
     def successors(self) -> Iterable["Layout"]:
         """traverse to the next siblings"""
         if self.parent is None:
-            return None
+            return
 
         index = self.parent.children.index(self)
         if index == len(self.parent.children) - 1:
-            return None
+            return
 
         for i in range(index + 1, len(self.parent.children)):
             yield self.parent.children[i]
@@ -652,8 +746,8 @@ class Layout(abc.ABC):
         this can be overridden, if a subclass has more ways of tagging strings,
         such as a PE file and code/reloc regions.
         """
-        string_counts = defaultdict(int)
-        
+        string_counts: Dict[str, int] = defaultdict(int)
+
         tagged_strings: List[TaggedString] = []
 
         for string in self.strings:
@@ -666,11 +760,11 @@ class Layout(abc.ABC):
 
             if string_counts[string.string] > 1:
                 tags.add("#duplicate")
-                
+
             for tagger in taggers:
                 tags.update(tagger(string))
 
-            tagged_strings.append(TaggedString(string, tags))
+            tagged_strings.append(TaggedString(string=string, tags=tags))
         self.strings = tagged_strings
 
         for child in self.children:
@@ -696,22 +790,21 @@ class Layout(abc.ABC):
             child.mark_structures(structures=structures, **kwargs)
 
 
-@dataclass
 class SectionLayout(Layout):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     section: pefile.SectionStructure
 
 
-@dataclass
 class SegmentLayout(Layout):
     """region not covered by any section, such as PE header or overlay"""
 
     pass
 
 
-@dataclass
 class PELayout(Layout):
     # xor key if the file was xor decoded
-    xor_key: None
+    xor_key: Optional[int]
 
     # file offsets of bytes that are part of the relocation table
     reloc_offsets: Set[int]
@@ -724,6 +817,7 @@ class PELayout(Layout):
     def tag_strings(self, taggers: Sequence[Tagger]):
         def check_is_xor_tagger(s: ExtractedString) -> Sequence[Tag]:
             return check_is_xor(self.xor_key)
+
         def check_is_reloc_tagger(s: ExtractedString) -> Sequence[Tag]:
             return check_is_reloc(self.reloc_offsets, s)
 
@@ -750,12 +844,11 @@ class PELayout(Layout):
                 child.mark_structures(structures=structures, **kwargs)
 
 
-@dataclass
 class ResourceLayout(Layout):
     pass
 
 
-def compute_pe_layout(slice: Slice, xor_key: Union[int, None]) -> Layout:
+def compute_pe_layout(slice: Slice, xor_key: int | None) -> Layout:
     data = slice.data
 
     try:
@@ -787,8 +880,19 @@ def compute_pe_layout(slice: Slice, xor_key: Union[int, None]) -> Layout:
             for bb in cfg.basic_blocks.values():
                 va = bb.address
                 rva = va - base_address
-                offset = pe.get_offset_from_rva(rva)
+                try:
+                    offset = pe.get_offset_from_rva(rva)
+                except pefile.PEFormatError as e:
+                    logger.warning("%s", str(e))
+                    continue
+
                 size = bb.length
+
+                if not slice.contains_range(offset, size):
+                    logger.warning(
+                        "lancelot identified code at an invalid location, skipping basic block at 0x%x", rva
+                    )
+                    continue
 
                 for fo in slice.range.slice(offset, size):
                     code_offsets.add(fo)
@@ -802,6 +906,9 @@ def compute_pe_layout(slice: Slice, xor_key: Union[int, None]) -> Layout:
         structures_by_address=structures_by_address,
     )
 
+    if xor_key:
+        layout.name += f" (XOR decoded with key: 0x{xor_key:x})"
+
     for section in pe.sections:
         if section.SizeOfRawData == 0:
             continue
@@ -813,6 +920,17 @@ def compute_pe_layout(slice: Slice, xor_key: Union[int, None]) -> Layout:
 
         offset = section.get_PointerToRawData_adj()
         size = section.SizeOfRawData
+
+        if offset > slice.range.end:
+            logger.warning("section %s out of range", name)
+            continue
+
+        if offset + size > slice.range.length:
+            size_orig = size
+            size = slice.range.length - offset
+            assert size >= 0
+            logger.warning("section size %s out of range, truncating from 0x%x to 0x%x bytes", name, size_orig, size)
+
         layout.add_child(SectionLayout(slice=slice.slice(offset, size), name=name, section=section))
 
     # segment that contains all data until the first section
@@ -893,6 +1011,10 @@ def compute_pe_layout(slice: Slice, xor_key: Union[int, None]) -> Layout:
                     offset = pe.get_offset_from_rva(rva)
                     size = entry.data.struct.Size
 
+                    if not slice.contains_range(offset, size):
+                        logger.warning("resource '%s' points to an invalid location, skipping", "/".join(epath))
+                        continue
+
                     logger.debug("resource: %s, size: 0x%x", "/".join(epath), size)
 
                     resources.append(
@@ -926,6 +1048,8 @@ def xor_static(data: bytes, i: int) -> bytes:
 
 def compute_layout(slice: Slice) -> Layout:
 
+    # TODO don't do this for text or other obvious non-xored data
+
     mz_xor = [
         (
             xor_static(b"MZ", key),
@@ -935,6 +1059,7 @@ def compute_layout(slice: Slice) -> Layout:
     ]
 
     xor_key = None
+    decoded_slice = slice
 
     # Try to find the XOR key
     for mz, key in mz_xor:
@@ -945,12 +1070,13 @@ def compute_layout(slice: Slice) -> Layout:
     # If XOR key is found, apply XOR decoding
     if xor_key is not None:
         decoded_data = xor_static(slice.data, xor_key)
-        slice = Slice(decoded_data, Range(0, len(decoded_data)))
-        
+        decoded_slice = Slice(buf=decoded_data, range=Range(offset=0, length=len(decoded_data)))
+
     # Try to parse as PE file
-    if slice.data.startswith(b"MZ"):
+    if decoded_slice.data.startswith(b"MZ"):
         try:
-            return compute_pe_layout(slice, xor_key)
+            # lancelot may panic here, which we can't currently catch from Python
+            return compute_pe_layout(decoded_slice, xor_key)
         except ValueError as e:
             logger.debug("failed to parse as PE file: %s", e)
             # Fall back to using the default binary layout
@@ -995,7 +1121,7 @@ def extract_layout_strings(layout: Layout, min_len: int):
 
             # at this moment, layout.strings contains only ExtractedStrings
             # after layout.tag_strings, it will contain TaggedStrings.
-            layout.strings.extend(extract_strings(gap))  # type: ignore
+            layout.strings.extend(extract_strings(gap, min_len))  # type: ignore
 
         # finally, find strings after the last child
         last_child = layout.children[-1]
@@ -1006,7 +1132,7 @@ def extract_layout_strings(layout: Layout, min_len: int):
             gap = layout.slice.slice(offset, size)
             # at this moment, layout.strings contains only ExtractedStrings
             # after layout.tag_strings, it will contain TaggedStrings.
-            layout.strings.extend(extract_strings(gap))  # type: ignore
+            layout.strings.extend(extract_strings(gap, min_len))  # type: ignore
 
         # now recurse to find the strings in the children.
         for child in layout.children:
@@ -1055,37 +1181,61 @@ def remove_false_positive_lib_strings(layout: Layout):
                     string.tags.remove(tagname)
 
 
-def hide_strings_by_rules(layout: Layout, tag_rules: TagRules):
+def hide_strings_by_rules(layout: ResultLayout, tag_rules: TagRules):
     layout.strings = list(filter(lambda s: not should_hide_string(s, tag_rules), layout.strings))
 
     for child in layout.children:
         hide_strings_by_rules(child, tag_rules)
 
 
-def has_visible_children(layout: Layout) -> bool:
+def has_visible_children(layout: ResultLayout) -> bool:
     return any(map(is_visible, layout.children))
 
 
-def is_visible(layout: Layout) -> bool:
+def is_visible(layout: ResultLayout) -> bool:
     "a layout is visible if it has any strings (or its children do)"
     return bool(layout.strings) or has_visible_children(layout)
 
 
-def has_visible_predecessors(layout: Layout) -> bool:
-    return any(map(is_visible, layout.predecessors))
+def has_visible_predecessors(parent: ResultLayout | None, child_index: int | None) -> bool:
+    if parent is None or child_index is None:
+        # root node
+        return False
+
+    for i in range(child_index):
+        if is_visible(parent.children[i]):
+            return True
+    return False
 
 
-def has_visible_successors(layout: Layout) -> bool:
-    return any(map(is_visible, layout.successors))
+def has_visible_successors(parent: ResultLayout | None, child_index: int | None) -> bool:
+    if parent is None or child_index is None:
+        # root node
+        return False
+
+    for i in range(child_index + 1, len(parent.children)):
+        if is_visible(parent.children[i]):
+            return True
+    return False
 
 
 def render_strings(
-    console: Console, layout: Layout, tag_rules: TagRules, depth: int = 0, name_hint: Optional[str] = None
+    console: Console,
+    layout: ResultLayout,
+    tag_rules: TagRules,
+    depth: int = 0,
+    name_hint: Optional[str] = None,
+    parent: Optional[ResultLayout] = None,
+    child_index: Optional[int] = None,
 ):
     if not is_visible(layout):
         return
 
-    if len(layout.children) == 1 and layout.slice.range == layout.children[0].slice.range:
+    if (
+        len(layout.children) == 1
+        and layout.offset == layout.children[0].offset
+        and layout.length == layout.children[0].length
+    ):
         # when a layout is completely dominated by its single child
         # then we can directly render the child,
         # retaining just a hint of the parent's name.
@@ -1093,13 +1243,13 @@ def render_strings(
         # for example:
         #
         #     rsrc: BINARY/102/0 (pe)
-        return render_strings(console, layout.children[0], tag_rules, depth, name_hint=layout.name)
+        return render_strings(
+            console, layout.children[0], tag_rules, depth, name_hint=layout.name, parent=parent, child_index=child_index
+        )
 
     BORDER_STYLE = MUTED_STYLE
 
     name = layout.name
-    if isinstance(layout, PELayout) and layout.xor_key:  # Check if the layout is PELayout and is xored
-        name += f" (XOR decoded with key: 0x{layout.xor_key:x})"
     if name_hint:
         name = f"{name_hint} ({name})"
 
@@ -1112,7 +1262,7 @@ def render_strings(
     name_offset = header.plain.index(" ") + 1
     header.stylize(Style(color="blue"), name_offset, name_offset + len(name))
 
-    if not has_visible_predecessors(layout):
+    if not has_visible_predecessors(parent, child_index):
         header_shape = "┓"
     else:
         header_shape = "┫"
@@ -1123,7 +1273,7 @@ def render_strings(
 
     console.print(header)
 
-    def render_string_line(console: Console, tag_rules: TagRules, string: TaggedString, depth: int):
+    def render_string_line(console: Console, tag_rules: TagRules, string: ResultString, depth: int):
         line = render_string(console.width, string, tag_rules)
         # TODO: this truncates the structure column
         line = line[: -depth - 1]
@@ -1149,7 +1299,7 @@ def render_strings(
             for string in strings_before_child:
                 render_string_line(console, tag_rules, string, depth)
 
-            render_strings(console, child, tag_rules, depth + 1)
+            render_strings(console, child, tag_rules, depth + 1, parent=layout, child_index=i)
 
         # render strings after last child
         strings_after_children = list(filter(lambda s: child.end < s.offset < layout.end, layout.strings))
@@ -1157,7 +1307,7 @@ def render_strings(
         for string in strings_after_children:
             render_string_line(console, tag_rules, string, depth)
 
-    if not has_visible_successors(layout):
+    if not has_visible_successors(parent, child_index):
         footer = Span("", style=BORDER_STYLE)
         footer.align("center", width=console.width, character="━")
 
@@ -1181,6 +1331,9 @@ def main():
         default=MIN_STR_LEN,
         help="minimum string length",
     )
+    parser.add_argument("-j", "--json", action="store_true", help="emit JSON instead of text")
+    parser.add_argument("-l", "--load", action="store_true", help="load from existing FLOSS QUANTUMSTRAND results document")
+
     logging_group = parser.add_argument_group("logging arguments")
     logging_group.add_argument("-d", "--debug", action="store_true", help="enable debugging output on STDERR")
     logging_group.add_argument(
@@ -1213,45 +1366,70 @@ def main():
         logging.error("%s does not exist", path)
         return 1
 
-    with path.open("rb") as f:
-        # because we store all the strings in memory
-        # in order to tag and reason about them
-        # then our input file must be reasonably sized
-        # so we just load it directly into memory.
-        # no need to mmap or play any games.
-        buf = f.read()
+    if args.load:
+        with path.open("r") as f:
+            results = ResultDocument.model_validate_json(f.read())
+    else:
+        with path.open("rb") as f:
+            # because we store all the strings in memory
+            # in order to tag and reason about them
+            # then our input file must be reasonably sized
+            # so we just load it directly into memory.
+            # no need to mmap or play any games.
+            buf = f.read()
 
-    slice = Slice.from_bytes(buf)
+        md5 = hashlib.md5(buf).hexdigest()
+        sha1 = hashlib.sha1(buf).hexdigest()
+        sha256 = hashlib.sha256(buf).hexdigest()
 
-    # build the layout tree that describes the structures and ranges of the file.
-    layout = compute_layout(slice)
+        slice = Slice.from_bytes(buf=buf)
 
-    # recursively populate the `.strings: List[ExtractedString]` field of each layout node.
-    extract_layout_strings(layout, args.min_length)
+        # build the layout tree that describes the structures and ranges of the file.
+        layout = compute_layout(slice)
 
-    # recursively apply tags to the strings in the layout tree.
-    # the `.strings` field now contains TaggedStrings (not ExtractedStrings).
-    taggers = load_databases()
-    layout.tag_strings(taggers)
+        # recursively populate the `.strings: List[ExtractedString]` field of each layout node.
+        extract_layout_strings(layout, args.min_length)
 
-    layout.mark_structures()
+        # recursively apply tags to the strings in the layout tree.
+        # the `.strings` field now contains TaggedStrings (not ExtractedStrings).
+        taggers = load_databases()
+        layout.tag_strings(taggers)
 
-    # remove tags from libraries that have too few matches (five, by default).
-    remove_false_positive_lib_strings(layout)
+        layout.mark_structures()
 
-    tag_rules: TagRules = {
-        "#capa": "highlight",
-        "#common": "mute",
-        "#duplicate": "mute",
-        "#code": "hide",
-        "#reloc": "hide",
-        # lib strings are muted (default)
-    }
-    # hide (remove) strings according to the above rules
-    hide_strings_by_rules(layout, tag_rules)
+        # remove tags from libraries that have too few matches (five, by default).
+        remove_false_positive_lib_strings(layout)
 
-    console = Console()
-    render_strings(console, layout, tag_rules)
+        sample = Sample(
+            md5=md5,
+            sha1=sha1,
+            sha256=sha256,
+            path=str(path.resolve()),
+        )
+        meta = Metadata(
+            version=QS_VERSION,
+            timestamp=datetime.datetime.now(),
+            sample=sample,
+            min_str_len=args.min_length,
+        )
+        results = ResultDocument.from_qs(meta, layout)
+
+    if args.json:
+        print(results.model_dump_json(indent=0))
+    else:
+        tag_rules: TagRules = {
+            "#capa": "highlight",
+            "#common": "mute",
+            "#duplicate": "mute",
+            "#code": "hide",
+            "#reloc": "hide",
+            # lib strings are muted (default)
+        }
+        # hide (remove) strings according to the above rules
+        hide_strings_by_rules(results.layout, tag_rules)
+
+        console = Console()
+        render_strings(console, results.layout, tag_rules)
 
     return 0
 
