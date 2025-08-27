@@ -38,7 +38,7 @@ from floss.qs.db.winapi import WindowsApiStringDatabase
 logger = logging.getLogger("quantumstrand")
 
 
-QS_VERSION = "0.0.1"
+QS_VERSION = "0.1.0"
 
 
 @contextlib.contextmanager
@@ -1322,7 +1322,7 @@ def main():
     # set environment variable NO_COLOR=1 to disable color output.
     # set environment variable FORCE_COLOR=1 to force color output, such as when piping to a pager.
     parser = argparse.ArgumentParser(description="Extract human readable strings from binary data, quantum-style.")
-    parser.add_argument("path", nargs="?", help="file or path to analyze")
+    parser.add_argument("path", help="file or path to analyze")
     parser.add_argument(
         "-n",
         "--minimum-length",
@@ -1331,8 +1331,8 @@ def main():
         default=MIN_STR_LEN,
         help="minimum string length",
     )
-    parser.add_argument("--json-out", help="path to write layout to as JSON")
-    parser.add_argument("--json-in", help="path to read layout from as JSON")
+    parser.add_argument("-j", "--json", action="store_true", help="emit JSON instead of text")
+    parser.add_argument("-l", "--load", action="store_true", help="load from existing FLOSS QUANTUMSTRAND results document")
 
     logging_group = parser.add_argument_group("logging arguments")
     logging_group.add_argument("-d", "--debug", action="store_true", help="enable debugging output on STDERR")
@@ -1361,17 +1361,15 @@ def main():
         sys.stdout.reconfigure(encoding="utf-8")
     colorama.just_fix_windows_console()
 
-    if args.json_in:
-        if args.path:
-            parser.error("cannot specify both --json-in and path")
-        with pathlib.Path(args.json_in).open("r") as f:
-            results = ResultDocument.model_validate_json(f.read())
-    elif args.path:
-        path = pathlib.Path(args.path)
-        if not path.exists():
-            logging.error("%s does not exist", path)
-            return 1
+    path = pathlib.Path(args.path)
+    if not path.exists():
+        logging.error("%s does not exist", path)
+        return 1
 
+    if args.load:
+        with path.open("r") as f:
+            results = ResultDocument.model_validate_json(f.read())
+    else:
         with path.open("rb") as f:
             # because we store all the strings in memory
             # in order to tag and reason about them
@@ -1415,27 +1413,23 @@ def main():
             min_str_len=args.min_length,
         )
         results = ResultDocument.from_qs(meta, layout)
+
+    if args.json:
+        print(results.model_dump_json(indent=0))
     else:
-        parser.error("either path or --json-in must be provided")
+        tag_rules: TagRules = {
+            "#capa": "highlight",
+            "#common": "mute",
+            "#duplicate": "mute",
+            "#code": "hide",
+            "#reloc": "hide",
+            # lib strings are muted (default)
+        }
+        # hide (remove) strings according to the above rules
+        hide_strings_by_rules(results.layout, tag_rules)
 
-    if args.json_out:
-        with pathlib.Path(args.json_out).open("w") as f:
-            f.write(results.model_dump_json(indent=2))
-        logger.info("Wrote layout to %s", args.json_out)
-
-    tag_rules: TagRules = {
-        "#capa": "highlight",
-        "#common": "mute",
-        "#duplicate": "mute",
-        "#code": "hide",
-        "#reloc": "hide",
-        # lib strings are muted (default)
-    }
-    # hide (remove) strings according to the above rules
-    hide_strings_by_rules(results.layout, tag_rules)
-
-    console = Console()
-    render_strings(console, results.layout, tag_rules)
+        console = Console()
+        render_strings(console, results.layout, tag_rules)
 
     return 0
 
