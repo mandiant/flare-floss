@@ -141,10 +141,9 @@ class TaggedString(BaseModel):
         return self.string.slice.range.offset
 
 
-MIN_STR_LEN = 6
-ASCII_BYTE = r" !\"#\$%&\'\(\)\*\+,-\./0123456789:;<=>\?@ABCDEFGHIJKLMNOPQRSTUVWXYZ\[\]\^_`abcdefghijklmnopqrstuvwxyz\{\|\}\\\~\t".encode(
-    "ascii"
-)
+MIN_STR_LEN = 4
+# we don't include \r and \n to make output easier to understand by humans and to simplify rendering
+ASCII_BYTE = rb" !\"#\$%&\'\(\)\*\+,-\./0123456789:;<=>\?@ABCDEFGHIJKLMNOPQRSTUVWXYZ\[\]\^_`abcdefghijklmnopqrstuvwxyz\{\|\}\\\~\t"
 ASCII_RE_MIN = re.compile(b"([%s]{%d,})" % (ASCII_BYTE, MIN_STR_LEN))
 UNICODE_RE_MIN = re.compile(b"((?:[%s]\x00){%d,})" % (ASCII_BYTE, MIN_STR_LEN))
 
@@ -1060,6 +1059,7 @@ def compute_layout(slice: Slice) -> Layout:
     ]
 
     xor_key = None
+    decoded_slice = slice
 
     # Try to find the XOR key
     for mz, key in mz_xor:
@@ -1121,7 +1121,7 @@ def extract_layout_strings(layout: Layout, min_len: int):
 
             # at this moment, layout.strings contains only ExtractedStrings
             # after layout.tag_strings, it will contain TaggedStrings.
-            layout.strings.extend(extract_strings(gap))  # type: ignore
+            layout.strings.extend(extract_strings(gap, min_len))  # type: ignore
 
         # finally, find strings after the last child
         last_child = layout.children[-1]
@@ -1132,7 +1132,7 @@ def extract_layout_strings(layout: Layout, min_len: int):
             gap = layout.slice.slice(offset, size)
             # at this moment, layout.strings contains only ExtractedStrings
             # after layout.tag_strings, it will contain TaggedStrings.
-            layout.strings.extend(extract_strings(gap))  # type: ignore
+            layout.strings.extend(extract_strings(gap, min_len))  # type: ignore
 
         # now recurse to find the strings in the children.
         for child in layout.children:
