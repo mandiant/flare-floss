@@ -507,6 +507,12 @@ class OffsetRanges:
         ranges.append((start, end))
         self._ranges = ranges
 
+    @classmethod
+    def from_merged_ranges(cls, merged_ranges: List[Tuple[int, int]]):
+        instance = cls.__new__(cls)
+        instance._ranges = merged_ranges
+        return instance
+
     def __contains__(self, offset: int) -> bool:
         if not self._ranges:
             return False
@@ -984,12 +990,7 @@ def compute_pe_layout(slice: Slice, xor_key: int | None) -> Layout:
                     else:
                         merged_ranges.append(higher)
 
-            # build a new set of offsets from the merged ranges
-            offsets = set()
-            for start, end in merged_ranges:
-                for i in range(start, end + 1):
-                    offsets.add(i)
-            code_offsets = OffsetRanges(offsets)
+            code_offsets = OffsetRanges.from_merged_ranges(merged_ranges)
 
     layout = PELayout(
         slice=slice,
