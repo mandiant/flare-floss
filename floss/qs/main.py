@@ -482,18 +482,77 @@ def check_is_xor(xor_key: int | None):
     return ()
 
 
-def check_is_reloc(reloc_offsets: Set[int], string: ExtractedString):
-    for addr in string.slice.range:
-        if addr in reloc_offsets:
-            return ("#reloc",)
+class OffsetRanges:
+    def __init__(self, offsets: Set[int]):
+        if not offsets:
+            self._ranges: List[Tuple[int, int]] = []
+            return
+
+        sorted_offsets = sorted(list(offsets))
+
+        ranges: List[Tuple[int, int]] = []
+        if not sorted_offsets:
+            self._ranges = ranges
+            return
+
+        start = sorted_offsets[0]
+        end = start
+        for offset in sorted_offsets[1:]:
+            if offset == end + 1:
+                end = offset
+            else:
+                ranges.append((start, end))
+                start = offset
+                end = offset
+        ranges.append((start, end))
+        self._ranges = ranges
+
+    def __contains__(self, offset: int) -> bool:
+        if not self._ranges:
+            return False
+
+        # Find the index where the offset would be inserted
+        # The range that might contain the offset will be at index i-1
+        index = bisect.bisect_left(self._ranges, (offset, 0))
+
+        if index == 0:
+            return False
+
+        start, end = self._ranges[index - 1]
+        return start <= offset <= end
+
+    def overlaps(self, start: int, end: int) -> bool:
+        if not self._ranges:
+            return False
+
+        # Find the index where the start of the given range would be inserted
+        index = bisect.bisect_right(self._ranges, (start, 0))
+
+        # Check the range at index-1 for overlap
+        if index > 0:
+            prev_start, prev_end = self._ranges[index - 1]
+            if max(start, prev_start) <= min(end, prev_end):
+                return True
+
+        # Check the range at index for overlap
+        if index < len(self._ranges):
+            next_start, next_end = self._ranges[index]
+            if max(start, next_start) <= min(end, next_end):
+                return True
+
+        return False
+
+
+def check_is_reloc(reloc_offsets: OffsetRanges, string: ExtractedString):
+    if reloc_offsets.overlaps(string.slice.range.offset, string.slice.range.end - 1):
+        return ("#reloc",)
 
     return ()
 
 
-def check_is_code(code_offsets: Set[int], string: ExtractedString):
-    for addr in string.slice.range:
-        if addr in code_offsets:
-            return ("#code",)
+def check_is_code(code_offsets: OffsetRanges, string: ExtractedString):
+    if code_offsets.overlaps(string.slice.range.offset, string.slice.range.end - 1):
+        return ("#code",)
 
     return ()
 
@@ -803,14 +862,16 @@ class SegmentLayout(Layout):
 
 
 class PELayout(Layout):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     # xor key if the file was xor decoded
     xor_key: Optional[int]
 
     # file offsets of bytes that are part of the relocation table
-    reloc_offsets: Set[int]
+    reloc_offsets: OffsetRanges
 
     # file offsets of bytes that are recognized as code
-    code_offsets: Set[int]
+    code_offsets: OffsetRanges
 
     structures_by_address: Dict[int, Structure]
 
@@ -857,7 +918,7 @@ def compute_pe_layout(slice: Slice, xor_key: int | None) -> Layout:
         raise ValueError("pefile failed to load workspace") from e
 
     structures = collect_pe_structures(slice, pe)
-    reloc_offsets = get_reloc_offsets(slice, pe)
+    reloc_offsets = OffsetRanges(get_reloc_offsets(slice, pe))
 
     structures_by_address = {}
     for structure in structures:
@@ -872,18 +933,26 @@ def compute_pe_layout(slice: Slice, xor_key: int | None) -> Layout:
             raise ValueError("lancelot failed to load workspace") from e
 
     # contains the file offsets of bytes that are part of recognized instructions.
-    code_offsets = set()
+    code_offsets: OffsetRanges
     with timing("lancelot: find code"):
         base_address = ws.base_address
+
+        @functools.lru_cache(maxsize=None)
+        def get_offset_from_rva_cached(rva):
+            try:
+                return pe.get_offset_from_rva(rva)
+            except pefile.PEFormatError as e:
+                logger.warning("%s", str(e))
+                return None
+
+        code_ranges: List[Tuple[int, int]] = []
         for function in ws.get_functions():
             cfg = ws.build_cfg(function)
             for bb in cfg.basic_blocks.values():
                 va = bb.address
                 rva = va - base_address
-                try:
-                    offset = pe.get_offset_from_rva(rva)
-                except pefile.PEFormatError as e:
-                    logger.warning("%s", str(e))
+                offset = get_offset_from_rva_cached(rva)
+                if offset is None:
                     continue
 
                 size = bb.length
@@ -894,8 +963,33 @@ def compute_pe_layout(slice: Slice, xor_key: int | None) -> Layout:
                     )
                     continue
 
-                for fo in slice.range.slice(offset, size):
-                    code_offsets.add(fo)
+                code_ranges.append((offset, offset + size - 1))
+
+        if not code_ranges:
+            code_offsets = OffsetRanges(set())
+        else:
+            # from: https://stackoverflow.com/a/43382615/87207
+            sorted_ranges = sorted(code_ranges)
+            merged_ranges: List[Tuple[int, int]] = []
+            for higher in sorted_ranges:
+                if not merged_ranges:
+                    merged_ranges.append(higher)
+                else:
+                    lower = merged_ranges[-1]
+                    # test for intersection between lower and higher:
+                    # we know via sorting that lower[0] <= higher[0]
+                    if higher[0] <= lower[1] + 1:
+                        upper_bound = max(lower[1], higher[1])
+                        merged_ranges[-1] = (lower[0], upper_bound)
+                    else:
+                        merged_ranges.append(higher)
+
+            # build a new set of offsets from the merged ranges
+            offsets = set()
+            for start, end in merged_ranges:
+                for i in range(start, end + 1):
+                    offsets.add(i)
+            code_offsets = OffsetRanges(offsets)
 
     layout = PELayout(
         slice=slice,
