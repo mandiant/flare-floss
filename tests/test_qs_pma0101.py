@@ -84,11 +84,9 @@ def test_data_strings(pma0101_layout):
 
 def test_strings(pma0101_layout):
     all_strings = collect_strings(pma0101_layout)
-    import json
 
-    print(all_strings)
     assert len(all_strings) == 21
 
-    # Assert that there are 24 strings that are not tagged as #code or #reloc
+    # assert count of expected strings not tagged as #code or #reloc
     filtered_strings = [s for s in all_strings if not s.tags.intersection({"#code", "#reloc"})]
     assert len(filtered_strings) == 17

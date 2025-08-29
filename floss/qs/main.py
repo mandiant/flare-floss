@@ -483,7 +483,11 @@ def check_is_xor(xor_key: int | None):
 
 
 class OffsetRanges:
-    def __init__(self, offsets: Set[int]):
+    def __init__(self, offsets: Optional[Set[int]] = None, *, _merged_ranges: Optional[List[Tuple[int, int]]] = None):
+        if _merged_ranges is not None:
+            self._ranges = _merged_ranges
+            return
+
         if not offsets:
             self._ranges: List[Tuple[int, int]] = []
             return
@@ -491,10 +495,6 @@ class OffsetRanges:
         sorted_offsets = sorted(list(offsets))
 
         ranges: List[Tuple[int, int]] = []
-        if not sorted_offsets:
-            self._ranges = ranges
-            return
-
         start = sorted_offsets[0]
         end = start
         for offset in sorted_offsets[1:]:
@@ -553,9 +553,8 @@ class OffsetRanges:
 
     @classmethod
     def from_merged_ranges(cls, merged_ranges: List[Tuple[int, int]]):
-        instance = cls.__new__(cls)
-        instance._ranges = merged_ranges
-        return instance
+        return cls(_merged_ranges=merged_ranges)
+
 
 def check_is_reloc(reloc_offsets: OffsetRanges, string: ExtractedString):
     if reloc_offsets.overlaps(string.slice.range.offset, string.slice.range.end - 1):
