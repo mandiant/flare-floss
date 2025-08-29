@@ -507,25 +507,28 @@ class OffsetRanges:
         ranges.append((start, end))
         self._ranges = ranges
 
-    @classmethod
-    def from_merged_ranges(cls, merged_ranges: List[Tuple[int, int]]):
-        instance = cls.__new__(cls)
-        instance._ranges = merged_ranges
-        return instance
-
     def __contains__(self, offset: int) -> bool:
         if not self._ranges:
             return False
 
-        # Find the index where the offset would be inserted
-        # The range that might contain the offset will be at index i-1
+        # Find the index where the offset would be inserted to maintain order.
         index = bisect.bisect_left(self._ranges, (offset, 0))
 
-        if index == 0:
-            return False
+        # Check the range at the insertion index.
+        # This handles cases where the offset is the start of a range.
+        if index < len(self._ranges):
+            start, end = self._ranges[index]
+            if start == offset:
+                return True
 
-        start, end = self._ranges[index - 1]
-        return start <= offset <= end
+        # Check the range just before the insertion index.
+        # This handles cases where the offset is within or at the end of a range.
+        if index > 0:
+            start, end = self._ranges[index - 1]
+            if start <= offset <= end:
+                return True
+
+        return False
 
     def overlaps(self, start: int, end: int) -> bool:
         if not self._ranges:
@@ -548,6 +551,11 @@ class OffsetRanges:
 
         return False
 
+    @classmethod
+    def from_merged_ranges(cls, merged_ranges: List[Tuple[int, int]]):
+        instance = cls.__new__(cls)
+        instance._ranges = merged_ranges
+        return instance
 
 def check_is_reloc(reloc_offsets: OffsetRanges, string: ExtractedString):
     if reloc_offsets.overlaps(string.slice.range.offset, string.slice.range.end - 1):
@@ -943,6 +951,7 @@ def compute_pe_layout(slice: Slice, xor_key: int | None) -> Layout:
     with timing("lancelot: find code"):
         base_address = ws.base_address
 
+        # cache because getting the offset is slow
         @functools.lru_cache(maxsize=None)
         def get_offset_from_rva_cached(rva):
             try:
@@ -951,6 +960,7 @@ def compute_pe_layout(slice: Slice, xor_key: int | None) -> Layout:
                 logger.warning("%s", str(e))
                 return None
 
+        # list of (start_bb, end_bb)
         code_ranges: List[Tuple[int, int]] = []
         for function in ws.get_functions():
             cfg = ws.build_cfg(function)
@@ -974,7 +984,6 @@ def compute_pe_layout(slice: Slice, xor_key: int | None) -> Layout:
         if not code_ranges:
             code_offsets = OffsetRanges(set())
         else:
-            # from: https://stackoverflow.com/a/43382615/87207
             sorted_ranges = sorted(code_ranges)
             merged_ranges: List[Tuple[int, int]] = []
             for higher in sorted_ranges:
@@ -982,11 +991,14 @@ def compute_pe_layout(slice: Slice, xor_key: int | None) -> Layout:
                     merged_ranges.append(higher)
                 else:
                     lower = merged_ranges[-1]
+                    lower_start, lower_end = lower
+                    higher_start, higher_end = higher
+
                     # test for intersection between lower and higher:
-                    # we know via sorting that lower[0] <= higher[0]
-                    if higher[0] <= lower[1] + 1:
-                        upper_bound = max(lower[1], higher[1])
-                        merged_ranges[-1] = (lower[0], upper_bound)
+                    # we know via sorting that lower_start <= higher_start
+                    if higher_start <= lower_end + 1:
+                        upper_bound = max(lower_end, higher_end)
+                        merged_ranges[-1] = (lower_start, upper_bound)
                     else:
                         merged_ranges.append(higher)
 
