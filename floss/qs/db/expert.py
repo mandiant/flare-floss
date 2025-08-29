@@ -6,7 +6,6 @@ from dataclasses import dataclass
 import msgspec
 
 import floss.qs.db
-import floss.qs.main
 
 
 class ExpertRule(msgspec.Struct):

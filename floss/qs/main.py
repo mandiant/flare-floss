@@ -1338,19 +1338,23 @@ def addToUserDatabase(path, note, author, reference):
         strings = collectStrings(data["layout"])
         create_user_db()
         for s in strings:
-            with open(USER_DB_PATH, 'a', encoding='utf-8') as user_db:
-                new_string = {
-                    "type":"string",
-                    "value": s["string"],
-                    "tag": s.get("unknown_tags", []),
-                    "action": "highlight",
-                    "note": note,
-                    "description": "",
-                    "authors": author,
-                    "references": reference
-                }
-                user_db.write(msgspec.json.encode(new_string).decode('utf-8'))
-                user_db.write('\n')
+            unknown_tags = s.get("unknown_tags", [])
+            if not unknown_tags:
+                continue
+            for tag in unknown_tags:
+                with open(USER_DB_PATH, 'a', encoding='utf-8') as user_db:
+                    new_string = {
+                        "type": "string",
+                        "value": s["string"],
+                        "tag": tag,
+                        "action": "highlight",
+                        "note": note,
+                        "description": "",
+                        "authors": [author] if author else [],
+                        "references": [r.strip() for r in reference.split(',')] if reference else []
+                    }
+                    user_db.write(msgspec.json.encode(new_string).decode('utf-8'))
+                    user_db.write('\n')
 
 def collectStrings(node, results = None):
     if results is None:
