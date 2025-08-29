@@ -923,6 +923,68 @@ class ResourceLayout(Layout):
     pass
 
 
+def _merge_overlapping_ranges(ranges: List[Tuple[int, int]]) -> List[Tuple[int, int]]:
+    """
+    Merge a list of (start, end) tuples into a list of contiguous ranges.
+    """
+    if not ranges:
+        return []
+
+    sorted_ranges = sorted(ranges)
+    merged_ranges: List[Tuple[int, int]] = []
+    for higher in sorted_ranges:
+        if not merged_ranges:
+            merged_ranges.append(higher)
+        else:
+            lower = merged_ranges[-1]
+            lower_start, lower_end = lower
+            higher_start, higher_end = higher
+
+            # test for intersection between lower and higher:
+            # we know via sorting that lower_start <= higher_start
+            if higher_start <= lower_end + 1:
+                upper_bound = max(lower_end, higher_end)
+                merged_ranges[-1] = (lower_start, upper_bound)
+            else:
+                merged_ranges.append(higher)
+    return merged_ranges
+
+
+def _get_code_ranges(ws: lancelot.Workspace, pe: pefile.PE, slice_: Slice) -> List[Tuple[int, int]]:
+    """
+    Extract and return the raw, unmerged code ranges from a PE file.
+    """
+    base_address = ws.base_address
+
+    # cache because getting the offset is slow
+    @functools.lru_cache(maxsize=None)
+    def get_offset_from_rva_cached(rva):
+        try:
+            return pe.get_offset_from_rva(rva)
+        except pefile.PEFormatError as e:
+            logger.warning("%s", str(e))
+            return None
+
+    code_ranges: List[Tuple[int, int]] = []
+    for function in ws.get_functions():
+        cfg = ws.build_cfg(function)
+        for bb in cfg.basic_blocks.values():
+            va = bb.address
+            rva = va - base_address
+            offset = get_offset_from_rva_cached(rva)
+            if offset is None:
+                continue
+
+            size = bb.length
+
+            if not slice_.contains_range(offset, size):
+                logger.warning("lancelot identified code at an invalid location, skipping basic block at 0x%x", rva)
+                continue
+
+            code_ranges.append((offset, offset + size - 1))
+    return code_ranges
+
+
 def compute_pe_layout(slice: Slice, xor_key: int | None) -> Layout:
     data = slice.data
 
@@ -947,62 +1009,10 @@ def compute_pe_layout(slice: Slice, xor_key: int | None) -> Layout:
             raise ValueError("lancelot failed to load workspace") from e
 
     # contains the file offsets of bytes that are part of recognized instructions.
-    code_offsets: OffsetRanges
     with timing("lancelot: find code"):
-        base_address = ws.base_address
-
-        # cache because getting the offset is slow
-        @functools.lru_cache(maxsize=None)
-        def get_offset_from_rva_cached(rva):
-            try:
-                return pe.get_offset_from_rva(rva)
-            except pefile.PEFormatError as e:
-                logger.warning("%s", str(e))
-                return None
-
-        # list of (start_bb, end_bb)
-        code_ranges: List[Tuple[int, int]] = []
-        for function in ws.get_functions():
-            cfg = ws.build_cfg(function)
-            for bb in cfg.basic_blocks.values():
-                va = bb.address
-                rva = va - base_address
-                offset = get_offset_from_rva_cached(rva)
-                if offset is None:
-                    continue
-
-                size = bb.length
-
-                if not slice.contains_range(offset, size):
-                    logger.warning(
-                        "lancelot identified code at an invalid location, skipping basic block at 0x%x", rva
-                    )
-                    continue
-
-                code_ranges.append((offset, offset + size - 1))
-
-        if not code_ranges:
-            code_offsets = OffsetRanges(set())
-        else:
-            sorted_ranges = sorted(code_ranges)
-            merged_ranges: List[Tuple[int, int]] = []
-            for higher in sorted_ranges:
-                if not merged_ranges:
-                    merged_ranges.append(higher)
-                else:
-                    lower = merged_ranges[-1]
-                    lower_start, lower_end = lower
-                    higher_start, higher_end = higher
-
-                    # test for intersection between lower and higher:
-                    # we know via sorting that lower_start <= higher_start
-                    if higher_start <= lower_end + 1:
-                        upper_bound = max(lower_end, higher_end)
-                        merged_ranges[-1] = (lower_start, upper_bound)
-                    else:
-                        merged_ranges.append(higher)
-
-            code_offsets = OffsetRanges.from_merged_ranges(merged_ranges)
+        code_ranges = _get_code_ranges(ws, pe, slice)
+        merged_code_ranges = _merge_overlapping_ranges(code_ranges)
+        code_offsets = OffsetRanges.from_merged_ranges(merged_code_ranges)
 
     layout = PELayout(
         slice=slice,
