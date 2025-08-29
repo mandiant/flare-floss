@@ -1322,6 +1322,12 @@ def main():
     # set environment variable NO_COLOR=1 to disable color output.
     # set environment variable FORCE_COLOR=1 to force color output, such as when piping to a pager.
     parser = argparse.ArgumentParser(description="Extract human readable strings from binary data, quantum-style.")
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"%(prog)s {QS_VERSION}",
+        help="show program's version number and exit",
+    )
     parser.add_argument("path", help="file or path to analyze")
     parser.add_argument(
         "-n",
