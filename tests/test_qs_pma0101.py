@@ -14,11 +14,11 @@ from floss.qs.main import (
 @pytest.fixture(scope="module")
 def pma0101_layout():
     """
-    Provides the analyzed layout for the pma0101.dll_ sample.
+    Provides the analyzed layout.
     The analysis pipeline (string extraction, tagging, structure marking)
     is run once for all tests in this module.
     """
-    binary_path = Path("tests") / Path("data") / Path("pma") / Path("pma0101.dll_")
+    binary_path = Path("tests") / Path("data") / Path("pma") / Path("Practical Malware Analysis Lab 01-01.dll_")
     slice_buf = binary_path.read_bytes()
     file_slice = Slice.from_bytes(slice_buf)
     layout = compute_layout(file_slice)

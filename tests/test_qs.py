@@ -22,7 +22,7 @@ MIN_STR_LEN = 6
 
 @pytest.fixture
 def pma_binary_path():
-    return CD / "data" / "pma" / "pma0303.exe_"
+    return CD / "data" / "pma" / "Practical Malware Analysis Lab 03-03.exe_"
 
 
 @pytest.fixture
