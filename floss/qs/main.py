@@ -1334,7 +1334,7 @@ def create_user_db():
         USER_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
         USER_DB_PATH.write_text("")
 
-def add_to_user_db(path, note, author, reference):
+def add_to_user_db(path: str, note: str, author: str, reference: str):
     with open(path, 'r', encoding='utf-8') as f:
         data = json.loads(f.read())
         strings = collect_strings(data["layout"])
