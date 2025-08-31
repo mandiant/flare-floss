@@ -1329,16 +1329,12 @@ def render_strings(
 
         console.print(footer)
 
-def create_user_db():
-    if not USER_DB_PATH.exists():
-        USER_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-        USER_DB_PATH.write_text("")
 
 def add_to_user_db(path: str, note: str, author: str, reference: str):
     with open(path, 'r', encoding='utf-8') as f:
         data = json.loads(f.read())
         strings = collect_strings(data["layout"])
-        create_user_db()
+        floss.qs.db.expert.create_user_db()
         new_entries = []
         for s in strings:
             unknown_tags = s.get("unknown_tags", [])
@@ -1432,57 +1428,49 @@ def main():
         sys.stdout.reconfigure(encoding="utf-8")
     colorama.just_fix_windows_console()
 
-    # Check if path is required based on the operation
-    if not args.load and not args.expand and not args.path:
-        parser.error("path argument is required when not using --load or --expand")
-    
-    if args.path:
-        path = pathlib.Path(args.path)
-        if not path.exists():
-            logging.error("%s does not exist", path)
-            return 1
+    if args.expand:  
+        if args.expand is True:  
+            if not args.path:  
+                parser.error("--expand without a value requires a path argument")  
+            expand_path = pathlib.Path(args.path)  
+        else:  
+            expand_path = pathlib.Path(args.expand)  
 
-    if args.load:
-        if args.path:
-            load_path = pathlib.Path(args.path)
-        else:
-            # If no path provided with --load, we need to get the JSON file path
-            if not args.json_in:
-                parser.error("--load requires either a path argument or --json-in option")
-            load_path = pathlib.Path(args.json_in)
-        
-        if not load_path.exists():
-            logging.error("%s does not exist", load_path)
-            return 1
-            
-        with load_path.open("r") as f:
-            results = ResultDocument.model_validate_json(f.read())
-    elif args.expand:
-        if args.expand is True:
-            if not args.path:
-                parser.error("--expand without a value requires a path argument")
-            expand_path = pathlib.Path(args.path)
-        else:
-            expand_path = pathlib.Path(args.expand)
-        
-        if not expand_path.exists():
-            logging.error("%s does not exist", expand_path)
-            return 1
-        
-        note = input("A note for these strings: ")
-        author = input("Author: ")
-        reference = input("Reference: ")
-        add_to_user_db(str(expand_path), note, author, reference)
-        return 0
-    else:
-        # Normal analysis mode - path is required
-        if not args.path:
-            parser.error("path argument is required for analysis")
-            
-        path = pathlib.Path(args.path)
-        with path.open("rb") as f:
-            # because we store all the strings in memory
-            # in order to tag and reason about them
+        if not expand_path.exists():  
+            logging.error("%s does not exist", expand_path)  
+            return 1  
+
+        note = input("A note for these strings: ")  
+        author = input("Author: ")  
+        reference = input("Reference: ")  
+        add_to_user_db(str(expand_path), note, author, reference)  
+        return 0  
+    elif args.load:  
+        if args.path:  
+            load_path = pathlib.Path(args.path)  
+        elif args.json_in:  
+            load_path = pathlib.Path(args.json_in)  
+        else:  
+            parser.error("--load requires either a path argument or --json-in option")  
+
+        if not load_path.exists():  
+            logging.error("%s does not exist", load_path)  
+            return 1  
+
+        with load_path.open("r") as f:  
+            results = ResultDocument.model_validate_json(f.read())  
+    else:  
+        if not args.path:  
+            parser.error("path argument is required for analysis")  
+
+        path = pathlib.Path(args.path)  
+        if not path.exists():  
+            logging.error("%s does not exist", path)  
+            return 1  
+
+        with path.open("rb") as f:  
+            # because we store all the strings in memory  
+            # in order to tag and reason about them  
             # then our input file must be reasonably sized
             # so we just load it directly into memory.
             # no need to mmap or play any games.

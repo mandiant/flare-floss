@@ -379,7 +379,6 @@ const App: React.FC = () => {
     if (!data || !massTagInput.trim()) return;
 
     const formattedTag = massTagInput.trim().startsWith('#') ? massTagInput.trim() : `#${massTagInput.trim()}`;
-    console.log('Mass tagging with tag:', formattedTag, 'for', selectedStrings.size, 'strings');
     const updatedData = JSON.parse(JSON.stringify(data));
     
     let taggedCount = 0;
@@ -389,9 +388,6 @@ const App: React.FC = () => {
           if (!layout.strings[i].tags.includes(formattedTag)) {
             layout.strings[i].tags.push(formattedTag);
             taggedCount++;
-            console.log('Added tag to string at offset:', layout.strings[i].offset);
-          } else {
-            console.log('Tag already exists on string at offset:', layout.strings[i].offset);
           }
         }
       }
@@ -401,7 +397,6 @@ const App: React.FC = () => {
     };
 
     updateLayout(updatedData.layout);
-    console.log('Total strings tagged:', taggedCount);
     setData(updatedData);
     
     // Add the new tag to selectedTags if it's not already there
