@@ -1361,21 +1361,21 @@ def add_to_user_db(path, note, author, reference):
             with open(USER_DB_PATH, 'a', encoding='utf-8') as user_db:
                 user_db.write('\n'.join(new_entries) + '\n')
 
-def collect_strings(node, results = None):
+def collect_strings_with_unknown_tags(node, results = None):
     if results is None:
         results = []
     if "strings" in node and node["strings"]:
         for s in node["strings"]:
             tags = s.get("tags", [])
-            unknownTags = [t for t in tags if t not in KNOWN_TAGS]
-            if unknownTags:
+            unknown_tags = [t for t in tags if t not in KNOWN_TAGS]
+            if unknown_tags:
                 results.append({
                     "string": s["string"],
-                    "unknown_tags": unknownTags
+                    "unknown_tags": unknown_tags
                 })
     if "children" in node:
         for child in node["children"]:
-            collect_strings(child, results)
+            collect_strings_with_unknown_tags(child, results)
     return results
 
 def main():
