@@ -1388,7 +1388,7 @@ def main():
         version=f"%(prog)s {QS_VERSION}",
         help="show program's version number and exit",
     )
-    parser.add_argument("path", help="file or path to analyze")
+    parser.add_argument("path", nargs="?", help="file or path to analyze")
     parser.add_argument(
         "-n",
         "--minimum-length",
@@ -1402,7 +1402,7 @@ def main():
     parser.add_argument("--json-out", help="path to write layout to as JSON")
     parser.add_argument("--json-in", help="path to read layout from as JSON")
 
-    parser.add_argument("--expand", "-e", nargs="?", const=True, help="add strings to database (optionally specify JSON file path)")
+    parser.add_argument("--expand", "-e", nargs="?", const=True, help="add strings to database")
 
     logging_group = parser.add_argument_group("logging arguments")
     logging_group.add_argument("-d", "--debug", action="store_true", help="enable debugging output on STDERR")
@@ -1432,19 +1432,39 @@ def main():
         sys.stdout.reconfigure(encoding="utf-8")
     colorama.just_fix_windows_console()
 
-    path = pathlib.Path(args.path)
-    if not path.exists():
-        logging.error("%s does not exist", path)
-        return 1
+    # Check if path is required based on the operation
+    if not args.load and not args.expand and not args.path:
+        parser.error("path argument is required when not using --load or --expand")
+    
+    if args.path:
+        path = pathlib.Path(args.path)
+        if not path.exists():
+            logging.error("%s does not exist", path)
+            return 1
 
     if args.load:
-        with path.open("r") as f:
+        if args.path:
+            load_path = pathlib.Path(args.path)
+        else:
+            # If no path provided with --load, we need to get the JSON file path
+            if not args.json_in:
+                parser.error("--load requires either a path argument or --json-in option")
+            load_path = pathlib.Path(args.json_in)
+        
+        if not load_path.exists():
+            logging.error("%s does not exist", load_path)
+            return 1
+            
+        with load_path.open("r") as f:
             results = ResultDocument.model_validate_json(f.read())
     elif args.expand:
-        if not isinstance(args.expand, str):
-            parser.error("--expand requires a file path argument.")
-
-        expand_path = pathlib.Path(args.expand)
+        if args.expand is True:
+            if not args.path:
+                parser.error("--expand without a value requires a path argument")
+            expand_path = pathlib.Path(args.path)
+        else:
+            expand_path = pathlib.Path(args.expand)
+        
         if not expand_path.exists():
             logging.error("%s does not exist", expand_path)
             return 1
@@ -1455,6 +1475,11 @@ def main():
         add_to_user_db(str(expand_path), note, author, reference)
         return 0
     else:
+        # Normal analysis mode - path is required
+        if not args.path:
+            parser.error("path argument is required for analysis")
+            
+        path = pathlib.Path(args.path)
         with path.open("rb") as f:
             # because we store all the strings in memory
             # in order to tag and reason about them
@@ -1499,7 +1524,11 @@ def main():
         )
         results = ResultDocument.from_qs(meta, layout)
 
-
+    # Output handling - works for both load and analysis modes
+    if args.json_out:
+        with pathlib.Path(args.json_out).open("w") as f:
+            f.write(results.model_dump_json(indent=2))
+        logger.info("Wrote layout to %s", args.json_out)
 
     if args.json:
         print(results.model_dump_json(indent=0))
@@ -1512,27 +1541,12 @@ def main():
             "#reloc": "hide",
             # lib strings are muted (default)
         }
+        
         # hide (remove) strings according to the above rules
         hide_strings_by_rules(results.layout, tag_rules)
-    if args.json_out:
-        with pathlib.Path(args.json_out).open("w") as f:
-            f.write(results.model_dump_json(indent=2))
-        logger.info("Wrote layout to %s", args.json_out)
-
-    tag_rules: TagRules = {
-        "#capa": "highlight",
-        "#common": "mute",
-        "#duplicate": "mute",
-        "#code": "hide",
-        "#reloc": "hide",
-        # lib strings are muted (default)
-    }
-
-    # hide (remove) strings according to the above rules
-    hide_strings_by_rules(results.layout, tag_rules)
-
-    console = Console()
-    render_strings(console, results.layout, tag_rules)
+        
+        console = Console()
+        render_strings(console, results.layout, tag_rules)
 
     return 0
 
