@@ -23,7 +23,7 @@ const StringItem: React.FC<{
 
   const getStyleClass = () => {
     const { tags } = str;
-    const systemTags = ['#code', '#code-junk', '#common', '#duplicate', '#reloc', '#winapi','#decoded'];
+    const systemTags = ['#code', '#code-junk', '#common', '#duplicate', '#reloc', '#winapi', '#decoded'];
     const highlightTags = tags.some(tag => !systemTags.includes(tag));
     
     if (highlightTags) return 'highlight';
