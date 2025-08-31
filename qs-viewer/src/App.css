@@ -92,16 +92,37 @@ body {
     margin-top: 50px;
 }
 
-.search-bar {
-  width: 100%;
-  padding: 12px;
+.search-controls {
+  display: flex;
+  gap: 15px;
+  align-items: center;
   margin-top: 20px;
   margin-bottom: 15px;
+}
+
+.search-bar {
+  flex-grow: 1;
+  padding: 12px;
   box-sizing: border-box;
   border: 1px solid #ccc;
   border-radius: 4px;
   font-size: 14px;
 }
+
+.min-length-control {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.min-length-control input {
+  width: 60px;
+  padding: 12px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
 
 .string-counts {
   font-size: 13px;

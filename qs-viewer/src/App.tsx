@@ -145,8 +145,11 @@ const Layout: React.FC<{
 const App: React.FC = () => {
   const [data, setData] = useState<ResultDocument | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [minStringLength, setMinStringLength] = useState(0);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [showUntagged, setShowUntagged] = useState(true);
+  const [selectedStructures, setSelectedStructures] = useState<string[]>([]);
+  const [showStringsWithoutStructure, setShowStringsWithoutStructure] = useState(true);
   const [displayOptions, setDisplayOptions] = useState<DisplayOptions>({
     showTags: true,
     showEncoding: true,
@@ -162,18 +165,27 @@ const App: React.FC = () => {
       setData(jsonData);
       setSearchTerm('');
       setShowUntagged(true);
+      setShowStringsWithoutStructure(true);
+      setMinStringLength(jsonData.meta.min_str_len);
 
       const allTags = new Set<string>();
-      const collectTags = (layout: ResultLayout) => {
-        layout.strings.forEach(s => s.tags.forEach(t => allTags.add(t)));
-        layout.children.forEach(collectTags);
+      const allStructures = new Set<string>();
+      const collect = (layout: ResultLayout) => {
+        layout.strings.forEach(s => {
+          s.tags.forEach(t => allTags.add(t));
+          if (s.structure) {
+            allStructures.add(s.structure);
+          }
+        });
+        layout.children.forEach(collect);
       };
-      collectTags(jsonData.layout);
+      collect(jsonData.layout);
 
       const defaultTags = Array.from(allTags).filter(
         tag => tag !== '#code' && tag !== '#reloc'
       );
       setSelectedTags(defaultTags);
+      setSelectedStructures(Array.from(allStructures));
   }
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
@@ -205,9 +217,20 @@ const App: React.FC = () => {
     setSearchTerm(event.target.value);
   };
 
+  const handleMinLengthChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const value = event.target.value;
+    setMinStringLength(value === '' ? 0 : parseInt(value, 10));
+  };
+
   const handleTagChange = (tag: string) => {
     setSelectedTags(prev =>
       prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
+    );
+  };
+
+  const handleStructureChange = (structure: string) => {
+    setSelectedStructures(prev =>
+      prev.includes(structure) ? prev.filter(s => s !== structure) : [...prev, structure]
     );
   };
 
@@ -245,6 +268,33 @@ const App: React.FC = () => {
       totalStringCount,
     };
   }, [data]);
+
+  const structureInfo = useMemo(() => {
+    if (!data) return { availableStructures: [], structureCounts: {}, withoutStructureCount: 0 };
+
+    const counts: { [key: string]: number } = {};
+    let withoutStructureCount = 0;
+    const collect = (layout: ResultLayout) => {
+      for (const s of layout.strings) {
+        if (!s.structure) {
+          withoutStructureCount++;
+        } else {
+          counts[s.structure] = (counts[s.structure] || 0) + 1;
+        }
+      }
+      for (const child of layout.children) {
+        collect(child);
+      }
+    };
+    collect(data.layout);
+
+    return {
+      availableStructures: Object.keys(counts).sort(),
+      structureCounts: counts,
+      withoutStructureCount,
+    };
+  }, [data]);
+
 
   const handleSelectAll = () => {
     setSelectedTags(tagInfo.availableTags);
@@ -388,16 +438,22 @@ const App: React.FC = () => {
       const lowerCaseSearchTerm = searchTerm.toLowerCase();
 
       const filteredStrings = layout.strings.filter(s => {
+        if (s.string.length < minStringLength) return false;
+
         const searchMatch = s.string.toLowerCase().includes(lowerCaseSearchTerm);
         if (!searchMatch) return false;
 
-        const isUntagged = s.tags.length === 0;
-        if (isUntagged) {
-          return showUntagged;
-        } else {
-          if (selectedTags.length === 0) return false;
-          return s.tags.some(tag => selectedTags.includes(tag));
-        }
+        const tagMatch = s.tags.length === 0
+          ? showUntagged
+          : selectedTags.length === 0 ? false : s.tags.some(tag => selectedTags.includes(tag));
+        if (!tagMatch) return false;
+
+        const structureMatch = !s.structure
+          ? showStringsWithoutStructure
+          : selectedStructures.length === 0 ? false : selectedStructures.includes(s.structure);
+        if (!structureMatch) return false;
+
+        return true;
       });
 
       const filteredChildren = layout.children
@@ -416,7 +472,7 @@ const App: React.FC = () => {
     };
 
     return filter(data.layout);
-  }, [data, searchTerm, selectedTags, showUntagged]);
+  }, [data, searchTerm, selectedTags, showUntagged, minStringLength, selectedStructures, showStringsWithoutStructure]);
 
   const visibleStringCount = useMemo(() => {
     if (!filteredLayout) return 0;
@@ -527,6 +583,31 @@ const App: React.FC = () => {
                     </div>
                 </div>
                 <div className="filter-group">
+                    <div className="filter-group-header">Structures</div>
+                    <div className="filter-group-content">
+                      {structureInfo.availableStructures.map(structure => (
+                        <label key={structure}>
+                          <input
+                            type="checkbox"
+                            checked={selectedStructures.includes(structure)}
+                            onChange={() => handleStructureChange(structure)}
+                          />
+                          {structure} ({structureInfo.structureCounts[structure]})
+                        </label>
+                      ))}
+                      {structureInfo.withoutStructureCount > 0 && (
+                        <label key="no-structure">
+                          <input
+                            type="checkbox"
+                            checked={showStringsWithoutStructure}
+                            onChange={() => setShowStringsWithoutStructure(p => !p)}
+                          />
+                          (no structure) ({structureInfo.withoutStructureCount})
+                        </label>
+                      )}
+                    </div>
+                </div>
+                <div className="filter-group">
                     <div className="filter-group-header">Show Columns</div>
                     <div className="filter-group-content">
                         <label>
@@ -545,13 +626,26 @@ const App: React.FC = () => {
                 </div>
             </div>
 
-            <input
-              type="search"
-              placeholder="Search strings..."
-              className="search-bar"
-              value={searchTerm}
-              onChange={handleSearchChange}
-            />
+            <div className="search-controls">
+              <input
+                type="search"
+                placeholder="Search strings..."
+                className="search-bar"
+                value={searchTerm}
+                onChange={handleSearchChange}
+              />
+              <div className="min-length-control">
+                <label htmlFor="min-length-input">Min. Length:</label>
+                <input
+                  id="min-length-input"
+                  type="number"
+                  value={minStringLength}
+                  onChange={handleMinLengthChange}
+                  min="0"
+                />
+              </div>
+            </div>
+
             <div className="actions-bar">
                 <div className="string-counts">
                   Showing {visibleStringCount} of {tagInfo.totalStringCount} strings

@@ -82,7 +82,10 @@ class ExpertStringDatabase:
         )
 
 
-DEFAULT_PATHS = (pathlib.Path(floss.qs.db.__file__).parent / "data" / "expert" / "capa.jsonl",pathlib.Path(floss.qs.db.__file__).parent / "data" / "expert" / "user.jsonl")
+DEFAULT_PATHS = (
+    pathlib.Path(floss.qs.db.__file__).parent / "data" / "expert" / "capa.jsonl",
+    pathlib.Path(floss.qs.db.__file__).parent / "data" / "expert" / "user.jsonl",
+)
 
 def create_user_db():
     user_json = pathlib.Path(floss.qs.db.__file__).parent / "data" / "expert" / "user.jsonl"

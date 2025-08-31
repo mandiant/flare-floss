@@ -39,7 +39,7 @@ from floss.qs.db.winapi import WindowsApiStringDatabase
 logger = logging.getLogger("quantumstrand")
 
 
-QS_VERSION = "0.0.1"
+QS_VERSION = "0.1.0"
 KNOWN_TAGS = {
     "#code",
     "#code-junk",
@@ -153,10 +153,9 @@ class TaggedString(BaseModel):
         return self.string.slice.range.offset
 
 
-MIN_STR_LEN = 6
-ASCII_BYTE = r" !\"#\$%&\'\(\)\*\+,-\./0123456789:;<=>\?@ABCDEFGHIJKLMNOPQRSTUVWXYZ\[\]\^_`abcdefghijklmnopqrstuvwxyz\{\|\}\\\~\t".encode(
-    "ascii"
-)
+MIN_STR_LEN = 4
+# we don't include \r and \n to make output easier to understand by humans and to simplify rendering
+ASCII_BYTE = rb" !\"#\$%&\'\(\)\*\+,-\./0123456789:;<=>\?@ABCDEFGHIJKLMNOPQRSTUVWXYZ\[\]\^_`abcdefghijklmnopqrstuvwxyz\{\|\}\\\~\t"
 ASCII_RE_MIN = re.compile(b"([%s]{%d,})" % (ASCII_BYTE, MIN_STR_LEN))
 UNICODE_RE_MIN = re.compile(b"((?:[%s]\x00){%d,})" % (ASCII_BYTE, MIN_STR_LEN))
 
@@ -1061,6 +1060,8 @@ def xor_static(data: bytes, i: int) -> bytes:
 
 def compute_layout(slice: Slice) -> Layout:
 
+    # TODO don't do this for text or other obvious non-xored data
+
     mz_xor = [
         (
             xor_static(b"MZ", key),
@@ -1070,6 +1071,7 @@ def compute_layout(slice: Slice) -> Layout:
     ]
 
     xor_key = None
+    decoded_slice = slice
 
     # Try to find the XOR key
     for mz, key in mz_xor:
@@ -1080,13 +1082,13 @@ def compute_layout(slice: Slice) -> Layout:
     # If XOR key is found, apply XOR decoding
     if xor_key is not None:
         decoded_data = xor_static(slice.data, xor_key)
-        slice = Slice(buf=decoded_data, range=Range(offset=0, length=len(decoded_data)))
+        decoded_slice = Slice(buf=decoded_data, range=Range(offset=0, length=len(decoded_data)))
 
     # Try to parse as PE file
-    if slice.data.startswith(b"MZ"):
+    if decoded_slice.data.startswith(b"MZ"):
         try:
             # lancelot may panic here, which we can't currently catch from Python
-            return compute_pe_layout(slice, xor_key)
+            return compute_pe_layout(decoded_slice, xor_key)
         except ValueError as e:
             logger.debug("failed to parse as PE file: %s", e)
             # Fall back to using the default binary layout
@@ -1131,7 +1133,7 @@ def extract_layout_strings(layout: Layout, min_len: int):
 
             # at this moment, layout.strings contains only ExtractedStrings
             # after layout.tag_strings, it will contain TaggedStrings.
-            layout.strings.extend(extract_strings(gap))  # type: ignore
+            layout.strings.extend(extract_strings(gap, min_len))  # type: ignore
 
         # finally, find strings after the last child
         last_child = layout.children[-1]
@@ -1142,7 +1144,7 @@ def extract_layout_strings(layout: Layout, min_len: int):
             gap = layout.slice.slice(offset, size)
             # at this moment, layout.strings contains only ExtractedStrings
             # after layout.tag_strings, it will contain TaggedStrings.
-            layout.strings.extend(extract_strings(gap))  # type: ignore
+            layout.strings.extend(extract_strings(gap, min_len))  # type: ignore
 
         # now recurse to find the strings in the children.
         for child in layout.children:
@@ -1332,31 +1334,34 @@ def create_user_db():
         USER_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
         USER_DB_PATH.write_text("")
 
-def addToUserDatabase(path, note, author, reference):
+def add_to_user_db(path, note, author, reference):
     with open(path, 'r', encoding='utf-8') as f:
         data = json.loads(f.read())
-        strings = collectStrings(data["layout"])
+        strings = collect_strings(data["layout"])
         create_user_db()
+        new_entries = []
         for s in strings:
             unknown_tags = s.get("unknown_tags", [])
             if not unknown_tags:
                 continue
             for tag in unknown_tags:
-                with open(USER_DB_PATH, 'a', encoding='utf-8') as user_db:
-                    new_string = {
-                        "type": "string",
-                        "value": s["string"],
-                        "tag": tag,
-                        "action": "highlight",
-                        "note": note,
-                        "description": "",
-                        "authors": [author] if author else [],
-                        "references": [r.strip() for r in reference.split(',')] if reference else []
-                    }
-                    user_db.write(msgspec.json.encode(new_string).decode('utf-8'))
-                    user_db.write('\n')
+                new_string = {
+                    "type": "string",
+                    "value": s["string"],
+                    "tag": tag,
+                    "action": "highlight",
+                    "note": note,
+                    "description": "",
+                    "authors": [author] if author else [],
+                    "references": [r.strip() for r in reference.split(',')] if reference else []
+                }
+                new_entries.append(msgspec.json.encode(new_string).decode('utf-8'))
 
-def collectStrings(node, results = None):
+        if new_entries:
+            with open(USER_DB_PATH, 'a', encoding='utf-8') as user_db:
+                user_db.write('\n'.join(new_entries) + '\n')
+
+def collect_strings(node, results = None):
     if results is None:
         results = []
     if "strings" in node and node["strings"]:
@@ -1370,14 +1375,20 @@ def collectStrings(node, results = None):
                 })
     if "children" in node:
         for child in node["children"]:
-            collectStrings(child, results)
+            collect_strings(child, results)
     return results
 
 def main():
     # set environment variable NO_COLOR=1 to disable color output.
     # set environment variable FORCE_COLOR=1 to force color output, such as when piping to a pager.
     parser = argparse.ArgumentParser(description="Extract human readable strings from binary data, quantum-style.")
-    parser.add_argument("path", nargs="?", help="file or path to analyze")
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"%(prog)s {QS_VERSION}",
+        help="show program's version number and exit",
+    )
+    parser.add_argument("path", help="file or path to analyze")
     parser.add_argument(
         "-n",
         "--minimum-length",
@@ -1386,6 +1397,8 @@ def main():
         default=MIN_STR_LEN,
         help="minimum string length",
     )
+    parser.add_argument("-j", "--json", action="store_true", help="emit JSON instead of text")
+    parser.add_argument("-l", "--load", action="store_true", help="load from existing FLOSS QUANTUMSTRAND results document")
     parser.add_argument("--json-out", help="path to write layout to as JSON")
     parser.add_argument("--json-in", help="path to read layout from as JSON")
 
@@ -1419,17 +1432,29 @@ def main():
         sys.stdout.reconfigure(encoding="utf-8")
     colorama.just_fix_windows_console()
 
-    if args.json_in:
-        if args.path:
-            parser.error("cannot specify both --json-in and path")
-        with pathlib.Path(args.json_in).open("r") as f:
-            results = ResultDocument.model_validate_json(f.read())
-    elif args.path:
-        path = pathlib.Path(args.path)
-        if not path.exists():
-            logging.error("%s does not exist", path)
-            return 1
+    path = pathlib.Path(args.path)
+    if not path.exists():
+        logging.error("%s does not exist", path)
+        return 1
 
+    if args.load:
+        with path.open("r") as f:
+            results = ResultDocument.model_validate_json(f.read())
+    elif args.expand:
+        if not isinstance(args.expand, str):
+            parser.error("--expand requires a file path argument.")
+
+        expand_path = pathlib.Path(args.expand)
+        if not expand_path.exists():
+            logging.error("%s does not exist", expand_path)
+            return 1
+        
+        note = input("A note for these strings: ")
+        author = input("Author: ")
+        reference = input("Reference: ")
+        add_to_user_db(str(expand_path), note, author, reference)
+        return 0
+    else:
         with path.open("rb") as f:
             # because we store all the strings in memory
             # in order to tag and reason about them
@@ -1473,21 +1498,22 @@ def main():
             min_str_len=args.min_length,
         )
         results = ResultDocument.from_qs(meta, layout)
-    elif args.expand:
-        if isinstance(args.expand, str):
-            expand_path = pathlib.Path(args.expand)
-        if not expand_path.exists():
-            logging.error("%s does not exist", expand_path)
-            return 1
-        
-        note = input("A note for these strings: ")
-        author = input("Author: ")
-        reference = input("Reference: ")
-        addToUserDatabase(str(expand_path), note, author, reference)
-        return 0
-    else:
-        parser.error("either path or --json-in must be provided")
 
+
+
+    if args.json:
+        print(results.model_dump_json(indent=0))
+    else:
+        tag_rules: TagRules = {
+            "#capa": "highlight",
+            "#common": "mute",
+            "#duplicate": "mute",
+            "#code": "hide",
+            "#reloc": "hide",
+            # lib strings are muted (default)
+        }
+        # hide (remove) strings according to the above rules
+        hide_strings_by_rules(results.layout, tag_rules)
     if args.json_out:
         with pathlib.Path(args.json_out).open("w") as f:
             f.write(results.model_dump_json(indent=2))

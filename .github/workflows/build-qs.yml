@@ -87,11 +87,13 @@ jobs:
     name: zip and upload ${{ matrix.asset_name }}
     runs-on: ubuntu-22.04
     needs: [build]
+    permissions:
+      contents: write
     strategy:
       matrix:
         include:
           - asset_name: linux
-            artifact_name: quantumstrand 
+            artifact_name: quantumstrand
           - asset_name: windows
             artifact_name: quantumstrand.exe
           - asset_name: macos
@@ -108,7 +110,7 @@ jobs:
       - name: Zip ${{ matrix.artifact_name }} into ${{ env.zip_name }}
         run: zip ${{ env.zip_name }} ${{ matrix.artifact_name }}
       - name: Upload ${{ env.zip_name }} to GH Release
-        uses: svenstaro/upload-release-action@v2
+        uses: svenstaro/upload-release-action@81c65b7cd4de9b2570615ce3aad67a41de5b1a13 # v2.11.2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: ${{ env.zip_name }}
