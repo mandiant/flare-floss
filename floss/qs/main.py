@@ -1333,7 +1333,7 @@ def render_strings(
 def add_to_user_db(path: str, note: str, author: str, reference: str):
     with open(path, 'r', encoding='utf-8') as f:
         data = json.loads(f.read())
-        strings = collect_strings(data["layout"])
+        strings = collect_strings_with_unknown_tags(data["layout"])
         floss.qs.db.expert.create_user_db()
         new_entries = []
         for s in strings:
