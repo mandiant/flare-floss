@@ -25,6 +25,7 @@ from pydantic import Field, BaseModel, ConfigDict
 from rich.text import Text
 from rich.style import Style
 from rich.console import Console
+from elftools.elf.elffile import ELFFile
 
 import floss.main
 import floss.qs.db.gp
@@ -486,6 +487,22 @@ def get_reloc_offsets(slice: Slice, pe: pefile.PE) -> Set[int]:
 
     return ret
 
+def get_reloc_offsets(slice: Slice, elf: ELFFile) -> Set[int]:
+    ret: Set[int] = set()
+    for section in elf.iter_sections():
+        if section.name.startswith('.rel'):
+            if hasattr(section, 'iter_relocations'):
+                for relocation in section.iter_relocations():
+                    offset = relocation['r_offset']
+                    for segment in elf.iter_segments():
+                        if segment['p_type'] == 'PT_LOAD':
+                            if segment['p_vaddr'] <= offset < segment['p_vaddr'] + segment['p_memsz']:
+                                file_offset = offset - segment['p_vaddr'] + segment['p_offset']
+                                if 0 <= file_offset < len(slice.data):
+                                    ret.add(file_offset)
+                                break
+
+    return ret
 
 def check_is_xor(xor_key: int | None):
     if isinstance(xor_key, int):
@@ -656,6 +673,100 @@ def collect_pe_structures(slice: Slice, pe: pefile.PE) -> Sequence[Structure]:
 
     return structures
 
+def get_elf_structure_name(section_name: str, sh_type: int) -> str:
+    """ELF section types found from here: https://refspecs.linuxbase.org/elf/gabi4+/ch4.sheader.html"""
+    
+    # convert sh_type to integer if string
+    if isinstance(sh_type, str):
+        # map string constants to integers
+        sh_type_map = {
+            'SHT_NULL': 0,
+            'SHT_PROGBITS': 1,
+            'SHT_SYMTAB': 2,
+            'SHT_STRTAB': 3,
+            'SHT_RELA': 4,
+            'SHT_HASH': 5,
+            'SHT_DYNAMIC': 6,
+            'SHT_NOTE': 7,
+            'SHT_NOBITS': 8,
+            'SHT_REL': 9,
+            'SHT_SHLIB': 10,
+            'SHT_DYNSYM': 11,
+            'SHT_INIT_ARRAY': 14,
+            'SHT_FINI_ARRAY': 15,
+            'SHT_PREINIT_ARRAY': 16,
+            'SHT_GROUP': 17,
+            'SHT_SYMTAB_SHNDX': 18,
+            'SHT_LOOS': 0x60000000,
+            'SHT_HIOS': 0x6fffffff,
+            'SHT_LOPROC': 0x70000000,
+            'SHT_HIPROC': 0x7fffffff,
+            'SHT_LOUSER': 0x80000000,
+            'SHT_HIUSER': 0x8fffffff,
+        }
+        sh_type = sh_type_map.get(sh_type, 0)  # default to SHT_NULL if unknown
+
+    if section_name.startswith('.dynsym') or section_name.startswith('.dynstr'):
+        return "import table"
+    elif section_name.startswith('.plt') or section_name.startswith('.got'):
+        return "import table"
+
+    elif sh_type == 2:
+        return "symbol table"
+    elif sh_type == 3:
+        return "string table"
+    elif sh_type == 11:
+        return "import table"
+
+    elif sh_type == 4 or sh_type == 9:
+        return "relocation table"
+
+    elif sh_type == 6:
+        return "dynamic table"
+
+    elif sh_type == 7:
+        return "note section"
+
+    elif sh_type == 5:
+        return "hash table"
+
+    elif sh_type in (14, 15, 16):
+        return "constructor/destructor table"
+
+    elif 0x60000000 <= sh_type <= 0x6fffffff:
+        return "OS-specific section"
+
+    elif 0x70000000 <= sh_type <= 0x7fffffff:
+        return "processor-specific section"
+
+    elif 0x80000000 <= sh_type <= 0x8fffffff:
+        return "application-specific section"
+    
+    return ""
+
+
+def collect_elf_structures(slice: Slice, elf: ELFFile) -> Sequence[Structure]:
+    structures = []
+    logger = logging.getLogger(__name__)
+    
+    for section in elf.iter_sections():
+        offset = section['sh_offset']
+        size = section['sh_size']
+        sh_type = section['sh_type']
+        
+        # skip SHT_NULL
+        if sh_type == 0 or size == 0:
+            continue
+            
+        structure_name = get_elf_structure_name(section.name, sh_type)
+
+        structures.append(
+            Structure(
+                slice=slice.slice(offset, size),
+                name=structure_name,
+            )
+        )
+    return structures
 
 class Layout(BaseModel, abc.ABC):
     """
@@ -853,6 +964,43 @@ class PELayout(Layout):
                 # unexpected child of a PE
                 # maybe like a resource or overlay, etc.
                 # which is fine - but we don't expect it to know about the PE structures.
+                child.mark_structures(structures=structures, **kwargs)
+
+class ELFLayout(Layout):
+    # xor key if the file was xor decoded
+    xor_key: Optional[int]
+
+    # file offsets of bytes that are part of the relocation table
+    reloc_offsets: Set[int]
+
+    # file offsets of bytes that are recognized as code
+    code_offsets: Set[int]
+
+    structures_by_address: Dict[int, Structure]
+
+    def tag_strings(self, taggers: Sequence[Tagger]):
+        def check_is_xor_tagger(s: ExtractedString) -> Sequence[Tag]:
+            return check_is_xor(self.xor_key)
+
+        def check_is_reloc_tagger(s: ExtractedString) -> Sequence[Tag]:
+            return check_is_reloc(self.reloc_offsets, s)
+
+        def check_is_code_tagger(s: ExtractedString) -> Sequence[Tag]:
+            return check_is_code(self.code_offsets, s)
+
+        taggers = tuple(taggers) + (
+            check_is_xor_tagger,
+            check_is_reloc_tagger,
+            check_is_code_tagger,
+        )
+
+        super().tag_strings(taggers)
+    
+    def mark_structures(self, structures=(), **kwargs):
+        for child in self.children:
+            if isinstance(child, (SectionLayout, SegmentLayout)):
+                child.mark_structures(structures=structures + (self.structures_by_address,), **kwargs)
+            else:
                 child.mark_structures(structures=structures, **kwargs)
 
 
@@ -1053,6 +1201,95 @@ def compute_pe_layout(slice: Slice, xor_key: int | None) -> Layout:
 
     return layout
 
+def compute_elf_layout(slice: Slice, xor_key: int | None) -> Layout:
+    data = slice.data
+
+    try:
+        elf = ELFFile(io.BytesIO(data))
+    except Exception as e:
+        raise ValueError("pyelftools failed to load workspace") from e
+    
+    structures = collect_elf_structures(slice, elf)
+    reloc_offsets = get_reloc_offsets(slice, elf)
+
+    structures_by_address = {}
+    for structure in structures:
+        for offset in structure.slice.range:
+            structures_by_address[offset] = structure
+
+    code_offsets = set()
+
+    layout = ELFLayout(
+        slice=slice,
+        name="elf",
+        xor_key=xor_key,
+        reloc_offsets=reloc_offsets,
+        code_offsets=code_offsets,
+        structures_by_address=structures_by_address,
+    )
+
+    if xor_key:
+        layout.name += f" (XOR decoded with key: 0x{xor_key:x})"
+    
+    for section in elf.iter_sections():
+        if section['sh_size'] == 0:
+            continue
+
+        try:
+            name = section.name
+        except UnicodeDecodeError:
+            name = "(invalid)"
+
+        offset = section['sh_offset']
+        size = section['sh_size']
+
+        if offset > slice.range.end:
+            logger.warning("section %s out of range", name)
+            continue
+
+        if offset + size > slice.range.length:
+            size_orig = size
+            size = slice.range.length - offset
+            assert size >= 0
+            logger.warning("section size %s out of range, truncating from 0x%x to 0x%x bytes", name, size_orig, size)
+
+        layout.add_child(SegmentLayout(slice=slice.slice(offset, size), name=name))
+
+    offset = 0
+    size = layout.children[0].offset - slice.range.offset
+    layout.add_child(
+        SegmentLayout(
+            slice=slice.slice(offset, size),
+            name="header",
+        )
+    )
+
+    last_section: Layout = layout.children[-1]
+    if last_section.end < layout.end:
+        offset = last_section.end - layout.offset
+        size = layout.end - last_section.end
+        layout.add_child(
+            SegmentLayout(
+                slice=slice.slice(offset, size),
+                name="overlay",
+            )
+        )
+    
+    for i in range(1, len(layout.children)):
+        prior: Layout = layout.children[i - 1]
+        current: Layout = layout.children[i]
+
+        if prior.end != current.offset:
+            offset = prior.end
+            size = current.offset - prior.end
+            layout.add_child(
+                SegmentLayout(
+                    slice=slice.slice(offset, size),
+                    name="gap",
+                )
+            )
+
+    return layout
 
 def xor_static(data: bytes, i: int) -> bytes:
     return bytes(c ^ i for c in data)
@@ -1092,6 +1329,14 @@ def compute_layout(slice: Slice) -> Layout:
         except ValueError as e:
             logger.debug("failed to parse as PE file: %s", e)
             # Fall back to using the default binary layout
+            pass
+
+    # Try to parse as ELF file
+    elif decoded_slice.data.startswith(b"\x7fELF"):
+        try:
+            return compute_elf_layout(decoded_slice, xor_key)
+        except Exception as e:
+            logger.debug("failed to parse as ELF file: %s", e)
             pass
 
     return SegmentLayout(
