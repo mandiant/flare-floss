@@ -8,14 +8,46 @@ interface DisplayOptions {
   showTags: boolean;
   showEncoding: boolean;
   showOffsetAndStructure: boolean;
+  showSelection: boolean;
 }
 
-const StringItem: React.FC<{ str: ResultString; displayOptions: DisplayOptions }> = ({ str, displayOptions }) => {
+const StringItem: React.FC<{ 
+  str: ResultString; 
+  displayOptions: DisplayOptions;
+  onAddTag: (offset: number, tag: string) => void;
+  isSelected: boolean;
+  onToggleSelect: (offset: number) => void;
+}> = ({ str, displayOptions, onAddTag, isSelected, onToggleSelect }) => {
+  const [showTagInput, setShowTagInput] = useState(false);
+  const [newTag, setNewTag] = useState('');
+
   const getStyleClass = () => {
     const { tags } = str;
-    if (tags.includes('#capa')) return 'highlight';
+    const systemTags = ['#code', '#code-junk', '#common', '#duplicate', '#reloc', '#winapi', '#decoded'];
+    const highlightTags = tags.some(tag => !systemTags.includes(tag));
+    
+    if (highlightTags) return 'highlight';
     if (tags.includes('#common') || tags.includes('#duplicate')) return 'mute';
     return '';
+  };
+
+  const handleAddTag = () => {
+    if (newTag.trim()) {
+      const formattedTag = newTag.trim().startsWith('#') ? newTag.trim() : `#${newTag.trim()}`;
+      onAddTag(str.offset, formattedTag);
+      setNewTag('');
+      setShowTagInput(false);
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleAddTag();
+    } else if (e.key === 'Escape') {
+      setShowTagInput(false);
+      setNewTag('');
+    }
   };
 
   const styleClass = getStyleClass();
@@ -27,8 +59,41 @@ const StringItem: React.FC<{ str: ResultString; displayOptions: DisplayOptions }
 
   return (
     <div className="string-view">
-      <span className={`string-content ${styleClass}`}>{str.string}</span>
-      {displayOptions.showTags && <span className={`string-tags ${styleClass}`}>{str.tags.join(' ')}</span>}
+      {displayOptions.showSelection && (
+        <input
+          type="checkbox"
+          className="string-select"
+          checked={isSelected}
+          onChange={() => onToggleSelect(str.offset)}
+        />
+      )}
+      <span className={`string-content ${styleClass}`}>{JSON.stringify(str.string).slice(1, -1)}</span>
+      {displayOptions.showTags && (
+        <div className="tags-section">
+          <button 
+            className="add-tag-button" 
+            onClick={() => setShowTagInput(true)}
+            title="Add tag"
+          >
+            +
+          </button>
+          <span className={`string-tags ${styleClass}`}>
+            {showTagInput && (
+              <input
+                type="text"
+                className="tag-input"
+                value={newTag}
+                onChange={(e) => setNewTag(e.target.value)}
+                onKeyDown={handleKeyPress}
+                onBlur={() => setShowTagInput(false)}
+                placeholder="Enter tag..."
+                autoFocus
+              />
+            )}
+            {str.tags.join(' ')}
+          </span>
+        </div>
+      )}
       {displayOptions.showEncoding && <span className="string-encoding">{str.encoding === 'unicode' ? 'U' : ''}</span>}
       {displayOptions.showOffsetAndStructure && (
         <span className="string-offset-structure">
@@ -41,16 +106,36 @@ const StringItem: React.FC<{ str: ResultString; displayOptions: DisplayOptions }
   );
 };
 
-const Layout: React.FC<{ layout: ResultLayout; displayOptions: DisplayOptions }> = ({ layout, displayOptions }) => {
+const Layout: React.FC<{ 
+  layout: ResultLayout; 
+  displayOptions: DisplayOptions;
+  onAddTag: (offset: number, tag: string) => void;
+  selectedStrings: Set<number>;
+  onToggleSelect: (offset: number) => void;
+}> = ({ layout, displayOptions, onAddTag, selectedStrings, onToggleSelect }) => {
   return (
     <div className="layout">
       <div className="layout-header">{layout.name}</div>
       <div className="layout-content">
         {layout.strings.map((str, index) => (
-          <StringItem key={index} str={str} displayOptions={displayOptions} />
+          <StringItem 
+            key={index} 
+            str={str} 
+            displayOptions={displayOptions} 
+            onAddTag={onAddTag}
+            isSelected={selectedStrings.has(str.offset)}
+            onToggleSelect={onToggleSelect}
+          />
         ))}
         {layout.children.map((child, index) => (
-          <Layout key={index} layout={child} displayOptions={displayOptions} />
+          <Layout 
+            key={index} 
+            layout={child} 
+            displayOptions={displayOptions} 
+            onAddTag={onAddTag}
+            selectedStrings={selectedStrings}
+            onToggleSelect={onToggleSelect}
+          />
         ))}
       </div>
     </div>
@@ -69,8 +154,12 @@ const App: React.FC = () => {
     showTags: true,
     showEncoding: true,
     showOffsetAndStructure: true,
+    showSelection: false,
   });
   const [copyFeedback, setCopyFeedback] = useState('');
+  const [selectedStrings, setSelectedStrings] = useState<Set<number>>(new Set());
+  const [showMassTagModal, setShowMassTagModal] = useState(false);
+  const [massTagInput, setMassTagInput] = useState('');
 
   const processData = (jsonData: ResultDocument) => {
       setData(jsonData);
@@ -232,6 +321,111 @@ const App: React.FC = () => {
     processData(previewData as ResultDocument);
   };
 
+  const handleAddTag = (offset: number, tag: string) => {
+    if (!data) return;
+    
+    // Create a deep copy of the data to modify
+    const updatedData = JSON.parse(JSON.stringify(data));
+    
+    // Find and update the string with the specified offset
+    const updateLayout = (layout: ResultLayout): boolean => {
+      for (let i = 0; i < layout.strings.length; i++) {
+        if (layout.strings[i].offset === offset) {
+          if (!layout.strings[i].tags.includes(tag)) {
+            layout.strings[i].tags.push(tag);
+          }
+          return true;
+        }
+      }
+      for (const child of layout.children) {
+        if (updateLayout(child)) {
+          return true;
+        }
+      }
+      return false;
+    };
+    
+    updateLayout(updatedData.layout);
+    setData(updatedData);
+    
+    // Add the new tag to selectedTags if it's not already there
+    setSelectedTags(prev => {
+      if (!prev.includes(tag)) {
+        return [...prev, tag];
+      }
+      return prev;
+    });
+  };
+
+  const handleToggleSelect = (offset: number) => {
+    setSelectedStrings(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(offset)) {
+        newSet.delete(offset);
+      } else {
+        newSet.add(offset);
+      }
+      return newSet;
+    });
+  };
+
+  const handleMassTag = () => {
+    if (selectedStrings.size > 0) {
+      setShowMassTagModal(true);
+    }
+  };
+
+  const handleMassTagSubmit = () => {
+    if (!data || !massTagInput.trim()) return;
+
+    const formattedTag = massTagInput.trim().startsWith('#') ? massTagInput.trim() : `#${massTagInput.trim()}`;
+    const updatedData = JSON.parse(JSON.stringify(data));
+    
+    let taggedCount = 0;
+    const updateLayout = (layout: ResultLayout): void => {
+      for (let i = 0; i < layout.strings.length; i++) {
+        if (selectedStrings.has(layout.strings[i].offset)) {
+          if (!layout.strings[i].tags.includes(formattedTag)) {
+            layout.strings[i].tags.push(formattedTag);
+            taggedCount++;
+          }
+        }
+      }
+      for (const child of layout.children) {
+        updateLayout(child);
+      }
+    };
+
+    updateLayout(updatedData.layout);
+    setData(updatedData);
+    
+    // Add the new tag to selectedTags if it's not already there
+    setSelectedTags(prev => {
+      if (!prev.includes(formattedTag)) {
+        return [...prev, formattedTag];
+      }
+      return prev;
+    });
+    
+    setMassTagInput('');
+    setShowMassTagModal(false);
+    setSelectedStrings(new Set());
+  };
+
+  const handleMassTagCancel = () => {
+    setMassTagInput('');
+    setShowMassTagModal(false);
+  };
+
+  const handleMassTagKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleMassTagSubmit();
+    } else if (e.key === 'Escape') {
+      handleMassTagCancel();
+    }
+  };
+
   const filteredLayout = useMemo(() => {
     if (!data) return null;
 
@@ -304,6 +498,25 @@ const App: React.FC = () => {
       setCopyFeedback('Failed to copy.');
       setTimeout(() => setCopyFeedback(''), 2000);
     });
+  };
+
+  const handleExportJSON = () => {
+    if (!data) return;
+
+    const jsonString = JSON.stringify(data, null, 2);
+    const blob = new Blob([jsonString], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${data.meta.sample.path.split(/[\\/]/).pop() || 'exported'}_tagged.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    setCopyFeedback('Exported!');
+    setTimeout(() => setCopyFeedback(''), 2000);
   };
 
   return (
@@ -393,6 +606,9 @@ const App: React.FC = () => {
                     <div className="filter-group-header">Show Columns</div>
                     <div className="filter-group-content">
                         <label>
+                            <input type="checkbox" checked={displayOptions.showSelection} onChange={() => handleDisplayOptionChange('showSelection')} /> Selection
+                        </label>
+                        <label>
                             <input type="checkbox" checked={displayOptions.showTags} onChange={() => handleDisplayOptionChange('showTags')} /> Tags
                         </label>
                         <label>
@@ -428,8 +644,15 @@ const App: React.FC = () => {
             <div className="actions-bar">
                 <div className="string-counts">
                   Showing {visibleStringCount} of {tagInfo.totalStringCount} strings
+                  {selectedStrings.size > 0 && ` (${selectedStrings.size} selected)`}
                 </div>
-                <div>
+                <div className="actions-buttons">
+                    {selectedStrings.size > 0 && (
+                      <button className="mass-tag-button" onClick={handleMassTag}>
+                        Tag Selected ({selectedStrings.size})
+                      </button>
+                    )}
+                    <button className="copy-button" onClick={handleExportJSON}>Export JSON</button>
                     <button className="copy-button" onClick={handleCopyStrings}>Copy Strings</button>
                     {copyFeedback && <span className="copy-feedback">{copyFeedback}</span>}
                 </div>
@@ -441,11 +664,44 @@ const App: React.FC = () => {
         {!data ? (
             <div className="welcome-message">Drop a JSON file or use the upload button to get started.</div>
         ) : filteredLayout ? (
-          <Layout layout={filteredLayout} displayOptions={displayOptions} />
+          <Layout 
+            layout={filteredLayout} 
+            displayOptions={displayOptions} 
+            onAddTag={handleAddTag}
+            selectedStrings={selectedStrings}
+            onToggleSelect={handleToggleSelect}
+          />
         ) : (
             <div className="welcome-message">No strings found matching your search and tag filters.</div>
         )}
       </div>
+      
+      {showMassTagModal && (
+        <div className="modal-overlay" onClick={handleMassTagCancel}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close" onClick={handleMassTagCancel}>×</button>
+            <h3>Add Tag to Selected Strings</h3>
+            <p>Adding tag to {selectedStrings.size} selected string{selectedStrings.size !== 1 ? 's' : ''}</p>
+            <input
+              type="text"
+              className="modal-input"
+              value={massTagInput}
+              onChange={(e) => setMassTagInput(e.target.value)}
+              onKeyDown={handleMassTagKeyPress}
+              placeholder="Enter tag name..."
+              autoFocus
+            />
+            <div className="modal-buttons">
+              <button className="modal-button modal-button-primary" onClick={handleMassTagSubmit}>
+                Add Tag
+              </button>
+              <button className="modal-button modal-button-secondary" onClick={handleMassTagCancel}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
