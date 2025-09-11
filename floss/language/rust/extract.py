@@ -148,6 +148,21 @@ def get_static_strings_from_rdata(sample, static_strings) -> List[StaticString]:
     return list(filter(lambda s: start_rdata <= s.offset < end_rdata, static_strings))
 
 
+def get_file_offset_in_rdata(sample: pathlib.Path) -> int:
+    pe = pefile.PE(data=pathlib.Path(sample).read_bytes(), fast_load=True)
+
+    try:
+        rdata_section = get_rdata_section(pe)
+    except ValueError:
+        return -1
+
+    image_base = pe.OPTIONAL_HEADER.ImageBase
+    virtual_address = rdata_section.VirtualAddress
+    pointer_to_raw_data = rdata_section.PointerToRawData
+
+    return image_base + virtual_address - pointer_to_raw_data
+
+
 def get_string_blob_strings(pe: pefile.PE, min_length: int) -> Iterable[StaticString]:
     image_base = pe.OPTIONAL_HEADER.ImageBase
 
