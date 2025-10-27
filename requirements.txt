@@ -32,7 +32,7 @@ pre-commit==4.2.0
 pyasn1==0.5.1
 pyasn1-modules==0.3.0
 pycodestyle==2.14.0
-pycparser==2.22
+pycparser==2.23
 pydantic==2.10.1
 # pydantic pins pydantic-core, 
 # but dependabot updates these separately (which is broken) and is annoying,
