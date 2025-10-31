@@ -76,4 +76,4 @@ which can be used to load its output into other tools such as Binary Ninja or ID
 For detailed description of these scripts review the documentation [here](scripts/README.md).
 
 ## Mailing List
-Subscribe to the FLARE mailing list for community announcements! Email "subscribe" to [flare-external@google.com](mailto:flare-external@google.com?subject=subscribe).
+Subscribe to the FLARE mailing list for community announcements by sending an email with the subject "subscribe" to [flare-external@google.com](mailto:flare-external@google.com?subject=subscribe&body=subscribe).
