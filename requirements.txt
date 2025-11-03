@@ -2,7 +2,7 @@ annotated-types==0.7.0
 binary2strings==0.1.13
 black==25.9.0
 cfgv==3.4.0
-click==8.2.1
+click==8.3.0
 colorama==0.4.6
 coverage==7.9.2
 cxxfilt==0.3.0
