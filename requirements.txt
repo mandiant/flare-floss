@@ -1,6 +1,6 @@
 annotated-types==0.7.0
 binary2strings==0.1.13
-black==25.9.0
+black==25.11.0
 cfgv==3.4.0
 click==8.3.0
 colorama==0.4.6
