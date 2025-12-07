@@ -653,14 +653,12 @@ def main(argv=None) -> int:
 
     if results.metadata.language not in ("", "unknown"):
         if args.enabled_types == [] and args.disabled_types == []:
+            prompt = "n"
             if args.deobfuscate:
                 prompt = "y"
-            else:
                 # if flag isn't set when stdout is redirected, such as in 'floss foo.exe | less' use default prompt values
-                if sys.stdout.isatty():
-                    prompt = input("Do you want to enable string deobfuscation? (this could take a long time) [y/N] ")
-                else:
-                    prompt = "n"
+            elif sys.stdout.isatty():
+                prompt = input("Do you want to enable string deobfuscation? (this could take a long time) [y/N] ")
 
             if prompt.lower() == "y":
                 logger.info("enabled string deobfuscation")
