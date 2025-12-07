@@ -178,6 +178,12 @@ def make_parser(argv):
         help="path to sample to analyze",
     )
 
+    parser.add_argument(
+        "--deobfuscate",
+        action="store_true",
+        help="Enable auto string deobfuscation without prompting"
+    )
+
     analysis_group = parser.add_argument_group("analysis arguments")
     analysis_group.add_argument(
         "--no",
@@ -647,11 +653,14 @@ def main(argv=None) -> int:
 
     if results.metadata.language not in ("", "unknown"):
         if args.enabled_types == [] and args.disabled_types == []:
-            # when stdout is redirected, such as in 'floss foo.exe | less' use default prompt values
-            if sys.stdout.isatty():
-                prompt = input("Do you want to enable string deobfuscation? (this could take a long time) [y/N] ")
+            if args.deobfuscate:
+                prompt = "y"
             else:
-                prompt = "n"
+                # if flag isn't set when stdout is redirected, such as in 'floss foo.exe | less' use default prompt values
+                if sys.stdout.isatty():
+                    prompt = input("Do you want to enable string deobfuscation? (this could take a long time) [y/N] ")
+                else:
+                    prompt = "n"
 
             if prompt.lower() == "y":
                 logger.info("enabled string deobfuscation")
