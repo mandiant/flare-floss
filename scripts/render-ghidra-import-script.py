@@ -112,7 +112,7 @@ def append_eol_comment_at_address(addr, comment_text: str) -> bool:
     return True
 
 
-def find_stack_var_references(func, target_offset: int):
+def find_stack_var_references(func, target_offset: int) -> list:
     """
     Find all instruction addresses that reference a stack variable at the given offset.
 
