@@ -38,7 +38,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04, windows-2022, macos-13]
+        os: [ubuntu-22.04, windows-2022, macos-14]
         # across all operating systems
         # version numbers are strings, not floats
         python-version: ['3.10', '3.11']
