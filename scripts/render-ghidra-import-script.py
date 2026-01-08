@@ -224,16 +224,12 @@ def render_ghidra_script(result_document: ResultDocument) -> str:
                 main_commands.append(
                     f'    print(f"FLOSS: string \\"{{decode_string(\\"{b64}\\")}}\\" at global VA 0x{ds.address:x}")'
                 )
-                main_commands.append(
-                    f'    append_comment(0x{ds.address:x}, "FLOSS: " + decode_string("{b64}"))'
-                )
+                main_commands.append(f'    append_comment(0x{ds.address:x}, "FLOSS: " + decode_string("{b64}"))')
             else:
                 main_commands.append(
                     f'    print(f"FLOSS: string \\"{{decode_string(\\"{b64}\\")}}\\" decoded at VA 0x{ds.decoded_at:x}")'
                 )
-                main_commands.append(
-                    f'    append_comment(0x{ds.decoded_at:x}, "FLOSS: " + decode_string("{b64}"))'
-                )
+                main_commands.append(f'    append_comment(0x{ds.decoded_at:x}, "FLOSS: " + decode_string("{b64}"))')
     main_commands.append('    print("Imported decoded strings from FLOSS")')
 
     for ss in result_document.strings.stack_strings:
@@ -269,24 +265,13 @@ def render_ghidra_script(result_document: ResultDocument) -> str:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(
-        description="Generate a PyGhidra script to apply FLOSS results (Ghidra 12.0+)."
-    )
-    parser.add_argument(
-        "/path/to/report.json",
-        help="path to JSON document from `floss --json`"
-    )
+    parser = argparse.ArgumentParser(description="Generate a PyGhidra script to apply FLOSS results (Ghidra 12.0+).")
+    parser.add_argument("/path/to/report.json", help="path to JSON document from `floss --json`")
 
     logging_group = parser.add_argument_group("logging arguments")
+    logging_group.add_argument("-d", "--debug", action="store_true", help="enable debugging output on STDERR")
     logging_group.add_argument(
-        "-d", "--debug",
-        action="store_true",
-        help="enable debugging output on STDERR"
-    )
-    logging_group.add_argument(
-        "-q", "--quiet",
-        action="store_true",
-        help="disable all status output except fatal errors"
+        "-q", "--quiet", action="store_true", help="disable all status output except fatal errors"
     )
 
     args = parser.parse_args()
@@ -306,9 +291,7 @@ def main() -> int:
     json_path = Path(args.report_path)
     if hasattr(ResultDocument, "model_validate_json"):
         # Pydantic v2
-        result_document = ResultDocument.model_validate_json(
-            json_path.read_text(encoding="utf-8")
-        )
+        result_document = ResultDocument.model_validate_json(json_path.read_text(encoding="utf-8"))
     else:
         # Pydantic v1
         result_document = ResultDocument.parse_file(json_path)
