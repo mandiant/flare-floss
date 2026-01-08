@@ -1001,17 +1001,19 @@ def compute_pe_layout(slice: Slice, xor_key: int | None) -> Layout:
             structures_by_address[offset] = structure
 
     # lancelot only accepts bytes, not mmap
+    ws = None
     with timing("lancelot: load workspace"):
         try:
             ws = lancelot.from_bytes(data)
         except ValueError as e:
-            raise ValueError("lancelot failed to load workspace") from e
+            logger.warning("lancelot failed to load workspace: %s", e)
 
     # contains the file offsets of bytes that are part of recognized instructions.
-    with timing("lancelot: find code"):
-        code_ranges = _get_code_ranges(ws, pe, slice)
-        merged_code_ranges = _merge_overlapping_ranges(code_ranges)
-        code_offsets = OffsetRanges.from_merged_ranges(merged_code_ranges)
+    if ws:
+        with timing("lancelot: find code"):
+            code_ranges = _get_code_ranges(ws, pe, slice)
+            merged_code_ranges = _merge_overlapping_ranges(code_ranges)
+            code_offsets = OffsetRanges.from_merged_ranges(merged_code_ranges)
 
     layout = PELayout(
         slice=slice,
