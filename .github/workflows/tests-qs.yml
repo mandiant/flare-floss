@@ -1,0 +1,27 @@
+name: quantumstrand tests
+
+on:
+  push:
+    branches: [ quantumstrand ]
+  pull_request:
+    branches: [ quantumstrand ]
+
+jobs:
+  qs_tests:
+    name: quantumstrand tests
+    runs-on: ubuntu-22.04
+    steps:
+    - name: Checkout FLOSS with submodule
+      uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      with:
+        submodules: true
+    - name: Set up Python 3.11
+      uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c # v5.0.0
+      with:
+        python-version: '3.11'
+    - name: Install FLOSS
+      run: |
+        pip install -r requirements.txt
+        pip install -e .[dev,qs]
+    - name: Run tests
+      run: pytest -k qs
