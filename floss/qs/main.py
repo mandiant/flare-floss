@@ -8,6 +8,7 @@ import bisect
 import hashlib
 import logging
 import pathlib
+import msgspec
 import argparse
 import datetime
 import functools
@@ -24,6 +25,7 @@ from pydantic import Field, BaseModel, ConfigDict
 from rich.text import Text
 from rich.style import Style
 from rich.console import Console
+from elftools.elf.elffile import ELFFile
 
 import floss.main
 import floss.qs.db.gp
@@ -39,6 +41,17 @@ logger = logging.getLogger("quantumstrand")
 
 
 QS_VERSION = "0.1.0"
+KNOWN_TAGS = {
+    "#code",
+    "#code-junk",
+    "#common",
+    "#duplicate",
+    "#reloc",
+    "#winapi",
+    "#decoded",
+    "#capa"
+}
+USER_DB_PATH = pathlib.Path(floss.qs.db.__file__).parent / "data" / "expert" / "user.jsonl"
 
 
 @contextlib.contextmanager
@@ -474,6 +487,22 @@ def get_reloc_offsets(slice: Slice, pe: pefile.PE) -> Set[int]:
 
     return ret
 
+def get_reloc_offsets(slice: Slice, elf: ELFFile) -> Set[int]:
+    ret: Set[int] = set()
+    for section in elf.iter_sections():
+        if section.name.startswith('.rel'):
+            if hasattr(section, 'iter_relocations'):
+                for relocation in section.iter_relocations():
+                    offset = relocation['r_offset']
+                    for segment in elf.iter_segments():
+                        if segment['p_type'] == 'PT_LOAD':
+                            if segment['p_vaddr'] <= offset < segment['p_vaddr'] + segment['p_memsz']:
+                                file_offset = offset - segment['p_vaddr'] + segment['p_offset']
+                                if 0 <= file_offset < len(slice.data):
+                                    ret.add(file_offset)
+                                break
+
+    return ret
 
 def check_is_xor(xor_key: int | None):
     if isinstance(xor_key, int):
@@ -716,6 +745,100 @@ def collect_pe_structures(slice: Slice, pe: pefile.PE) -> Sequence[Structure]:
 
     return structures
 
+def get_elf_structure_name(section_name: str, sh_type: int) -> str:
+    """ELF section types found from here: https://refspecs.linuxbase.org/elf/gabi4+/ch4.sheader.html"""
+    
+    # convert sh_type to integer if string
+    if isinstance(sh_type, str):
+        # map string constants to integers
+        sh_type_map = {
+            'SHT_NULL': 0,
+            'SHT_PROGBITS': 1,
+            'SHT_SYMTAB': 2,
+            'SHT_STRTAB': 3,
+            'SHT_RELA': 4,
+            'SHT_HASH': 5,
+            'SHT_DYNAMIC': 6,
+            'SHT_NOTE': 7,
+            'SHT_NOBITS': 8,
+            'SHT_REL': 9,
+            'SHT_SHLIB': 10,
+            'SHT_DYNSYM': 11,
+            'SHT_INIT_ARRAY': 14,
+            'SHT_FINI_ARRAY': 15,
+            'SHT_PREINIT_ARRAY': 16,
+            'SHT_GROUP': 17,
+            'SHT_SYMTAB_SHNDX': 18,
+            'SHT_LOOS': 0x60000000,
+            'SHT_HIOS': 0x6fffffff,
+            'SHT_LOPROC': 0x70000000,
+            'SHT_HIPROC': 0x7fffffff,
+            'SHT_LOUSER': 0x80000000,
+            'SHT_HIUSER': 0x8fffffff,
+        }
+        sh_type = sh_type_map.get(sh_type, 0)  # default to SHT_NULL if unknown
+
+    if section_name.startswith('.dynsym') or section_name.startswith('.dynstr'):
+        return "import table"
+    elif section_name.startswith('.plt') or section_name.startswith('.got'):
+        return "import table"
+
+    elif sh_type == 2:
+        return "symbol table"
+    elif sh_type == 3:
+        return "string table"
+    elif sh_type == 11:
+        return "import table"
+
+    elif sh_type == 4 or sh_type == 9:
+        return "relocation table"
+
+    elif sh_type == 6:
+        return "dynamic table"
+
+    elif sh_type == 7:
+        return "note section"
+
+    elif sh_type == 5:
+        return "hash table"
+
+    elif sh_type in (14, 15, 16):
+        return "constructor/destructor table"
+
+    elif 0x60000000 <= sh_type <= 0x6fffffff:
+        return "OS-specific section"
+
+    elif 0x70000000 <= sh_type <= 0x7fffffff:
+        return "processor-specific section"
+
+    elif 0x80000000 <= sh_type <= 0x8fffffff:
+        return "application-specific section"
+    
+    return ""
+
+
+def collect_elf_structures(slice: Slice, elf: ELFFile) -> Sequence[Structure]:
+    structures = []
+    logger = logging.getLogger(__name__)
+    
+    for section in elf.iter_sections():
+        offset = section['sh_offset']
+        size = section['sh_size']
+        sh_type = section['sh_type']
+        
+        # skip SHT_NULL
+        if sh_type == 0 or size == 0:
+            continue
+            
+        structure_name = get_elf_structure_name(section.name, sh_type)
+
+        structures.append(
+            Structure(
+                slice=slice.slice(offset, size),
+                name=structure_name,
+            )
+        )
+    return structures
 
 class Layout(BaseModel, abc.ABC):
     """
@@ -915,6 +1038,43 @@ class PELayout(Layout):
                 # unexpected child of a PE
                 # maybe like a resource or overlay, etc.
                 # which is fine - but we don't expect it to know about the PE structures.
+                child.mark_structures(structures=structures, **kwargs)
+
+class ELFLayout(Layout):
+    # xor key if the file was xor decoded
+    xor_key: Optional[int]
+
+    # file offsets of bytes that are part of the relocation table
+    reloc_offsets: Set[int]
+
+    # file offsets of bytes that are recognized as code
+    code_offsets: Set[int]
+
+    structures_by_address: Dict[int, Structure]
+
+    def tag_strings(self, taggers: Sequence[Tagger]):
+        def check_is_xor_tagger(s: ExtractedString) -> Sequence[Tag]:
+            return check_is_xor(self.xor_key)
+
+        def check_is_reloc_tagger(s: ExtractedString) -> Sequence[Tag]:
+            return check_is_reloc(self.reloc_offsets, s)
+
+        def check_is_code_tagger(s: ExtractedString) -> Sequence[Tag]:
+            return check_is_code(self.code_offsets, s)
+
+        taggers = tuple(taggers) + (
+            check_is_xor_tagger,
+            check_is_reloc_tagger,
+            check_is_code_tagger,
+        )
+
+        super().tag_strings(taggers)
+    
+    def mark_structures(self, structures=(), **kwargs):
+        for child in self.children:
+            if isinstance(child, (SectionLayout, SegmentLayout)):
+                child.mark_structures(structures=structures + (self.structures_by_address,), **kwargs)
+            else:
                 child.mark_structures(structures=structures, **kwargs)
 
 
@@ -1157,6 +1317,95 @@ def compute_pe_layout(slice: Slice, xor_key: int | None) -> Layout:
 
     return layout
 
+def compute_elf_layout(slice: Slice, xor_key: int | None) -> Layout:
+    data = slice.data
+
+    try:
+        elf = ELFFile(io.BytesIO(data))
+    except Exception as e:
+        raise ValueError("pyelftools failed to load workspace") from e
+    
+    structures = collect_elf_structures(slice, elf)
+    reloc_offsets = get_reloc_offsets(slice, elf)
+
+    structures_by_address = {}
+    for structure in structures:
+        for offset in structure.slice.range:
+            structures_by_address[offset] = structure
+
+    code_offsets = set()
+
+    layout = ELFLayout(
+        slice=slice,
+        name="elf",
+        xor_key=xor_key,
+        reloc_offsets=reloc_offsets,
+        code_offsets=code_offsets,
+        structures_by_address=structures_by_address,
+    )
+
+    if xor_key:
+        layout.name += f" (XOR decoded with key: 0x{xor_key:x})"
+    
+    for section in elf.iter_sections():
+        if section['sh_size'] == 0:
+            continue
+
+        try:
+            name = section.name
+        except UnicodeDecodeError:
+            name = "(invalid)"
+
+        offset = section['sh_offset']
+        size = section['sh_size']
+
+        if offset > slice.range.end:
+            logger.warning("section %s out of range", name)
+            continue
+
+        if offset + size > slice.range.length:
+            size_orig = size
+            size = slice.range.length - offset
+            assert size >= 0
+            logger.warning("section size %s out of range, truncating from 0x%x to 0x%x bytes", name, size_orig, size)
+
+        layout.add_child(SegmentLayout(slice=slice.slice(offset, size), name=name))
+
+    offset = 0
+    size = layout.children[0].offset - slice.range.offset
+    layout.add_child(
+        SegmentLayout(
+            slice=slice.slice(offset, size),
+            name="header",
+        )
+    )
+
+    last_section: Layout = layout.children[-1]
+    if last_section.end < layout.end:
+        offset = last_section.end - layout.offset
+        size = layout.end - last_section.end
+        layout.add_child(
+            SegmentLayout(
+                slice=slice.slice(offset, size),
+                name="overlay",
+            )
+        )
+    
+    for i in range(1, len(layout.children)):
+        prior: Layout = layout.children[i - 1]
+        current: Layout = layout.children[i]
+
+        if prior.end != current.offset:
+            offset = prior.end
+            size = current.offset - prior.end
+            layout.add_child(
+                SegmentLayout(
+                    slice=slice.slice(offset, size),
+                    name="gap",
+                )
+            )
+
+    return layout
 
 def xor_static(data: bytes, i: int) -> bytes:
     return bytes(c ^ i for c in data)
@@ -1196,6 +1445,14 @@ def compute_layout(slice: Slice) -> Layout:
         except ValueError as e:
             logger.debug("failed to parse as PE file: %s", e)
             # Fall back to using the default binary layout
+            pass
+
+    # Try to parse as ELF file
+    elif decoded_slice.data.startswith(b"\x7fELF"):
+        try:
+            return compute_elf_layout(decoded_slice, xor_key)
+        except Exception as e:
+            logger.debug("failed to parse as ELF file: %s", e)
             pass
 
     return SegmentLayout(
@@ -1434,6 +1691,50 @@ def render_strings(
         console.print(footer)
 
 
+def add_to_user_db(path: str, note: str, author: str, reference: str):
+    with open(path, 'r', encoding='utf-8') as f:
+        data = json.loads(f.read())
+        strings = collect_strings_with_unknown_tags(data["layout"])
+        floss.qs.db.expert.create_user_db()
+        new_entries = []
+        for s in strings:
+            unknown_tags = s.get("unknown_tags", [])
+            if not unknown_tags:
+                continue
+            for tag in unknown_tags:
+                new_string = {
+                    "type": "string",
+                    "value": s["string"],
+                    "tag": tag,
+                    "action": "highlight",
+                    "note": note,
+                    "description": "",
+                    "authors": [author] if author else [],
+                    "references": [r.strip() for r in reference.split(',')] if reference else []
+                }
+                new_entries.append(msgspec.json.encode(new_string).decode('utf-8'))
+
+        if new_entries:
+            with open(USER_DB_PATH, 'a', encoding='utf-8') as user_db:
+                user_db.write('\n'.join(new_entries) + '\n')
+
+def collect_strings_with_unknown_tags(node, results = None):
+    if results is None:
+        results = []
+    if "strings" in node and node["strings"]:
+        for s in node["strings"]:
+            tags = s.get("tags", [])
+            unknown_tags = [t for t in tags if t not in KNOWN_TAGS]
+            if unknown_tags:
+                results.append({
+                    "string": s["string"],
+                    "unknown_tags": unknown_tags
+                })
+    if "children" in node:
+        for child in node["children"]:
+            collect_strings_with_unknown_tags(child, results)
+    return results
+
 def main():
     # set environment variable NO_COLOR=1 to disable color output.
     # set environment variable FORCE_COLOR=1 to force color output, such as when piping to a pager.
@@ -1444,7 +1745,7 @@ def main():
         version=f"%(prog)s {QS_VERSION}",
         help="show program's version number and exit",
     )
-    parser.add_argument("path", help="file or path to analyze")
+    parser.add_argument("path", nargs="?", help="file or path to analyze")
     parser.add_argument(
         "-n",
         "--minimum-length",
@@ -1455,6 +1756,10 @@ def main():
     )
     parser.add_argument("-j", "--json", action="store_true", help="emit JSON instead of text")
     parser.add_argument("-l", "--load", action="store_true", help="load from existing FLOSS QUANTUMSTRAND results document")
+    parser.add_argument("--json-out", help="path to write layout to as JSON")
+    parser.add_argument("--json-in", help="path to read layout from as JSON")
+
+    parser.add_argument("--expand", "-e", nargs="?", const=True, help="add strings to database")
 
     logging_group = parser.add_argument_group("logging arguments")
     logging_group.add_argument("-d", "--debug", action="store_true", help="enable debugging output on STDERR")
@@ -1464,6 +1769,7 @@ def main():
         action="store_true",
         help="disable all status output except fatal errors",
     )
+
     args = parser.parse_args()
 
     floss.main.set_log_config(args.debug, args.quiet)
@@ -1483,18 +1789,49 @@ def main():
         sys.stdout.reconfigure(encoding="utf-8")
     colorama.just_fix_windows_console()
 
-    path = pathlib.Path(args.path)
-    if not path.exists():
-        logging.error("%s does not exist", path)
-        return 1
+    if args.expand:  
+        if args.expand is True:  
+            if not args.path:  
+                parser.error("--expand without a value requires a path argument")  
+            expand_path = pathlib.Path(args.path)  
+        else:  
+            expand_path = pathlib.Path(args.expand)  
 
-    if args.load:
-        with path.open("r") as f:
-            results = ResultDocument.model_validate_json(f.read())
-    else:
-        with path.open("rb") as f:
-            # because we store all the strings in memory
-            # in order to tag and reason about them
+        if not expand_path.exists():  
+            logging.error("%s does not exist", expand_path)  
+            return 1  
+
+        note = input("A note for these strings: ")  
+        author = input("Author: ")  
+        reference = input("Reference: ")  
+        add_to_user_db(str(expand_path), note, author, reference)  
+        return 0  
+    elif args.load:  
+        if args.path:  
+            load_path = pathlib.Path(args.path)  
+        elif args.json_in:  
+            load_path = pathlib.Path(args.json_in)  
+        else:  
+            parser.error("--load requires either a path argument or --json-in option")  
+
+        if not load_path.exists():  
+            logging.error("%s does not exist", load_path)  
+            return 1  
+
+        with load_path.open("r") as f:  
+            results = ResultDocument.model_validate_json(f.read())  
+    else:  
+        if not args.path:  
+            parser.error("path argument is required for analysis")  
+
+        path = pathlib.Path(args.path)  
+        if not path.exists():  
+            logging.error("%s does not exist", path)  
+            return 1  
+
+        with path.open("rb") as f:  
+            # because we store all the strings in memory  
+            # in order to tag and reason about them  
             # then our input file must be reasonably sized
             # so we just load it directly into memory.
             # no need to mmap or play any games.
@@ -1536,6 +1873,12 @@ def main():
         )
         results = ResultDocument.from_qs(meta, layout)
 
+    # Output handling - works for both load and analysis modes
+    if args.json_out:
+        with pathlib.Path(args.json_out).open("w") as f:
+            f.write(results.model_dump_json(indent=2))
+        logger.info("Wrote layout to %s", args.json_out)
+
     if args.json:
         print(results.model_dump_json(indent=0))
     else:
@@ -1547,9 +1890,10 @@ def main():
             "#reloc": "hide",
             # lib strings are muted (default)
         }
+        
         # hide (remove) strings according to the above rules
         hide_strings_by_rules(results.layout, tag_rules)
-
+        
         console = Console()
         render_strings(console, results.layout, tag_rules)
 
