@@ -1009,6 +1009,7 @@ def compute_pe_layout(slice: Slice, xor_key: int | None) -> Layout:
             logger.warning("lancelot failed to load workspace: %s", e)
 
     # contains the file offsets of bytes that are part of recognized instructions.
+    code_offsets = OffsetRanges()
     if ws:
         with timing("lancelot: find code"):
             code_ranges = _get_code_ranges(ws, pe, slice)
