@@ -24,7 +24,7 @@ jobs:
     - name: Install FLOSS
       run: |
         pip install -r requirements.txt
-        pip install -e .[dev,qs]
+        pip install -e .[dev,qs,ida]
     - name: Install IDA
       if: ${{ env.IDA_LICENSE_ID != 0 }}
       run: |

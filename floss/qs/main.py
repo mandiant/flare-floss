@@ -23,10 +23,14 @@ import colorama
 import rich.traceback
 from pydantic import Field, BaseModel, ConfigDict
 from rich.text import Text
-from ida_domain import Database, flowchart
 from rich.style import Style
 from rich.console import Console
-from ida_domain.database import IdaCommandOptions
+
+try:
+    import ida_domain
+    HAS_IDA = True
+except ImportError:
+    HAS_IDA = False
 
 import floss.main
 import floss.qs.db.gp
@@ -960,10 +964,14 @@ def _merge_overlapping_ranges(ranges: List[Tuple[int, int]]) -> List[Tuple[int, 
     return merged_ranges
 
 
-def _get_code_ranges(db: Database, pe: pefile.PE, slice_: Slice) -> List[Tuple[int, int]]:
+def _get_code_ranges(db, pe: pefile.PE, slice_: Slice) -> List[Tuple[int, int]]:
     """
     Extract and return the raw, unmerged code ranges from a PE file.
+
+    db is an ida_domain.Database instance.
     """
+    from ida_domain import flowchart
+
     base_address = db.metadata.base_address
 
     # cache because getting the offset is slow
@@ -1017,7 +1025,12 @@ def compute_pe_layout(slice: Slice, xor_key: int | None, path: Optional[Path] = 
     # contains the file offsets of bytes that are part of recognized instructions.
     code_offsets = OffsetRanges()
 
-    if path:
+    if path and not HAS_IDA:
+        logger.debug("ida-domain not available, skipping code analysis")
+
+    if path and HAS_IDA:
+        from ida_domain import Database
+        from ida_domain.database import IdaCommandOptions
 
         with tempfile.TemporaryDirectory() as tmpdir:
             # TODO: if there's already an .i64, maybe we should use that instead.

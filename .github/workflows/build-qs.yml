@@ -38,8 +38,8 @@ jobs:
           python-version: '3.11'
       - name: Install floss[build]
         run: pip install -e .[build]
-      - name: Install floss[qs]
-        run: pip install -e .[qs]
+      - name: Install floss[qs,ida]
+        run: pip install -e .[qs,ida]
       - name: Build standalone executable
         run: pyinstaller .github/pyinstaller/qs.spec
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.4
