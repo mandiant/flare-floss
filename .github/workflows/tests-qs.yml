@@ -19,9 +19,18 @@ jobs:
       uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c # v5.0.0
       with:
         python-version: '3.11'
+    - name: Setup uv
+      uses: astral-sh/setup-uv@61cb8a9741eeb8a550a1b8544337180c0fc8476b # v7.2.0
     - name: Install FLOSS
       run: |
         pip install -r requirements.txt
         pip install -e .[dev,qs]
+    - name: Install IDA
+      if: ${{ env.IDA_LICENSE_ID != 0 }}
+      run: |
+        uv run --with ida-hcli hcli ida install --download-id ida-pro:latest --license-id ${{ secrets.IDA_LICENSE_ID }} --set-default --accept-eula --yes
+      env:
+        HCLI_API_KEY: ${{ secrets.HCLI_API_KEY }}
+        IDA_LICENSE_ID: ${{ secrets.IDA_LICENSE_ID }}
     - name: Run tests
       run: pytest -k qs
