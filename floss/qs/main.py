@@ -5,25 +5,32 @@ import sys
 import json
 import time
 import bisect
+import shutil
 import hashlib
 import logging
-import pathlib
 import argparse
 import datetime
+import tempfile
 import functools
 import itertools
 import contextlib
 from typing import Set, Dict, List, Tuple, Literal, Callable, Iterable, Optional, Sequence
+from pathlib import Path
 from collections import defaultdict
 
 import pefile
 import colorama
-import lancelot
 import rich.traceback
 from pydantic import Field, BaseModel, ConfigDict
 from rich.text import Text
 from rich.style import Style
 from rich.console import Console
+
+try:
+    import ida_domain
+    HAS_IDA = True
+except ImportError:
+    HAS_IDA = False
 
 import floss.main
 import floss.qs.db.gp
@@ -652,7 +659,7 @@ def load_databases() -> Sequence[Tagger]:
 
     # supplement code analysis with a database of junk code strings
     junk_db = StringGlobalPrevalenceDatabase.from_file(
-        pathlib.Path(floss.qs.db.__file__).parent / "data" / "gp" / "junk-code.jsonl.gz"
+        Path(floss.qs.db.__file__).parent / "data" / "gp" / "junk-code.jsonl.gz"
     )
     ret.append(make_tagger(junk_db, query_code_string_database))
 
@@ -957,11 +964,15 @@ def _merge_overlapping_ranges(ranges: List[Tuple[int, int]]) -> List[Tuple[int, 
     return merged_ranges
 
 
-def _get_code_ranges(ws: lancelot.Workspace, pe: pefile.PE, slice_: Slice) -> List[Tuple[int, int]]:
+def _get_code_ranges(db, pe: pefile.PE, slice_: Slice) -> List[Tuple[int, int]]:
     """
     Extract and return the raw, unmerged code ranges from a PE file.
+
+    db is an ida_domain.Database instance.
     """
-    base_address = ws.base_address
+    from ida_domain import flowchart
+
+    base_address = db.metadata.base_address
 
     # cache because getting the offset is slow
     @functools.lru_cache(maxsize=None)
@@ -973,26 +984,29 @@ def _get_code_ranges(ws: lancelot.Workspace, pe: pefile.PE, slice_: Slice) -> Li
             return None
 
     code_ranges: List[Tuple[int, int]] = []
-    for function in ws.get_functions():
-        cfg = ws.build_cfg(function)
-        for bb in cfg.basic_blocks.values():
-            va = bb.address
-            rva = va - base_address
-            offset = get_offset_from_rva_cached(rva)
-            if offset is None:
-                continue
+    for function in db.functions:
+        try:
+            fc = flowchart.FlowChart(db, function)
+            for block in fc:
+                va: int = block.start_ea
+                rva: int = va - base_address
+                offset: int = get_offset_from_rva_cached(rva)
+                if offset is None:
+                    continue
 
-            size = bb.length
+                size: int = block.end_ea - block.start_ea
 
-            if not slice_.contains_range(offset, size):
-                logger.warning("lancelot identified code at an invalid location, skipping basic block at 0x%x", rva)
-                continue
+                if not slice_.contains_range(offset, size):
+                    logger.warning("IDA identified code at an invalid location, skipping basic block at 0x%x", rva)
+                    continue
 
-            code_ranges.append((offset, offset + size - 1))
+                code_ranges.append((offset, offset + size - 1))
+        except Exception as e:
+            logger.warning("Failed to get flowchart for function at 0x%x: %s", function.start_ea, e)
     return code_ranges
 
 
-def compute_pe_layout(slice: Slice, xor_key: int | None) -> Layout:
+def compute_pe_layout(slice: Slice, xor_key: int | None, path: Optional[Path] = None) -> Layout:
     data = slice.data
 
     try:
@@ -1008,21 +1022,33 @@ def compute_pe_layout(slice: Slice, xor_key: int | None) -> Layout:
         for offset in structure.slice.range:
             structures_by_address[offset] = structure
 
-    # lancelot only accepts bytes, not mmap
-    ws = None
-    with timing("lancelot: load workspace"):
-        try:
-            ws = lancelot.from_bytes(data)
-        except ValueError as e:
-            logger.warning("lancelot failed to load workspace: %s", e)
-
     # contains the file offsets of bytes that are part of recognized instructions.
     code_offsets = OffsetRanges()
-    if ws:
-        with timing("lancelot: find code"):
-            code_ranges = _get_code_ranges(ws, pe, slice)
-            merged_code_ranges = _merge_overlapping_ranges(code_ranges)
-            code_offsets = OffsetRanges.from_merged_ranges(merged_code_ranges)
+
+    if path and not HAS_IDA:
+        logger.debug("ida-domain not available, skipping code analysis")
+
+    if path and HAS_IDA:
+        from ida_domain import Database
+        from ida_domain.database import IdaCommandOptions
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # TODO: if there's already an .i64, maybe we should use that instead.
+            work_path = Path(tmpdir) / path.name
+            shutil.copy2(path, work_path)
+
+            logger.debug("ida-domain: opening database...")
+            opts = IdaCommandOptions(
+                # - we set the primary and secondary Lumina servers to 0.0.0.0 to disable Lumina,
+                #  which sometimes provides bad names, including overwriting names from debug info.
+                auto_analysis=True,
+                plugin_options="lumina:host=0.0.0.0 -Osecondary_lumina:host=0.0.0.0 -R",
+            )
+            with Database.open(path=str(work_path), args=opts, save_on_close=False) as db:
+                with timing("ida-domain: find code"):
+                    code_ranges = _get_code_ranges(db, pe, slice)
+                    merged_code_ranges = _merge_overlapping_ranges(code_ranges)
+                    code_offsets = OffsetRanges.from_merged_ranges(merged_code_ranges)
 
     layout = PELayout(
         slice=slice,
@@ -1157,7 +1183,11 @@ def compute_pe_layout(slice: Slice, xor_key: int | None) -> Layout:
 
         for resource in resources:
             # parse content of resources, such as embedded PE files
-            resource.add_child(compute_layout(resource.slice))
+            #
+            # IDA can't load more than one file at once, nor can it load from memory,
+            # so we can't analyze the code of the embedded file, unfortunately.
+            # this is why we pass `path=None`.
+            resource.add_child(compute_layout(resource.slice, path=None))
 
         for resource in resources:
             # place resources into their parent section, usually .rsrc
@@ -1173,7 +1203,7 @@ def xor_static(data: bytes, i: int) -> bytes:
     return bytes(c ^ i for c in data)
 
 
-def compute_layout(slice: Slice) -> Layout:
+def compute_layout(slice: Slice, path: Optional[Path] = None) -> Layout:
 
     # TODO don't do this for text or other obvious non-xored data
 
@@ -1202,8 +1232,7 @@ def compute_layout(slice: Slice) -> Layout:
     # Try to parse as PE file
     if decoded_slice.data.startswith(b"MZ"):
         try:
-            # lancelot may panic here, which we can't currently catch from Python
-            return compute_pe_layout(decoded_slice, xor_key)
+            return compute_pe_layout(decoded_slice, xor_key, path)
         except ValueError as e:
             logger.debug("failed to parse as PE file: %s", e)
             # Fall back to using the default binary layout
@@ -1496,7 +1525,7 @@ def main():
         sys.stdout.reconfigure(encoding="utf-8")
     colorama.just_fix_windows_console()
 
-    path = pathlib.Path(args.path)
+    path = Path(args.path)
     if not path.exists():
         logging.error("%s does not exist", path)
         return 1
@@ -1520,7 +1549,7 @@ def main():
         slice = Slice.from_bytes(buf=buf)
 
         # build the layout tree that describes the structures and ranges of the file.
-        layout = compute_layout(slice)
+        layout = compute_layout(slice, path)
 
         # recursively populate the `.strings: List[ExtractedString]` field of each layout node.
         extract_layout_strings(layout, args.min_length)
