@@ -5,30 +5,30 @@ from floss.qs.main import OffsetRanges
 
 def test_offset_ranges_init_empty():
     """Test initialization with no offsets."""
-    offsets = set()
-    ranges = OffsetRanges(offsets)
-    assert ranges._ranges == []
+    offsets: set[int] = set()
+    ranges = OffsetRanges.from_offsets(offsets)
+    assert ranges.ranges == []
 
 
 def test_offset_ranges_init():
     """Test initialization with a mix of contiguous and non-contiguous offsets."""
     offsets = {0, 1, 2, 5, 6, 8, 10}
-    ranges = OffsetRanges(offsets)
-    assert ranges._ranges == [(0, 2), (5, 6), (8, 8), (10, 10)]
+    ranges = OffsetRanges.from_offsets(offsets)
+    assert ranges.ranges == [(0, 2), (5, 6), (8, 8), (10, 10)]
 
 
 def test_offset_ranges_init_single_range():
     """Test initialization with a single contiguous block of offsets."""
     offsets = {10, 11, 12, 13, 14}
-    ranges = OffsetRanges(offsets)
-    assert ranges._ranges == [(10, 14)]
+    ranges = OffsetRanges.from_offsets(offsets)
+    assert ranges.ranges == [(10, 14)]
 
 
 def test_offset_ranges_from_merged_ranges():
     """Test the from_merged_ranges class method."""
     merged = [(10, 20), (30, 40)]
     ranges = OffsetRanges.from_merged_ranges(merged)
-    assert ranges._ranges == [(10, 20), (30, 40)]
+    assert ranges.ranges == [(10, 20), (30, 40)]
 
 
 @pytest.fixture
@@ -36,12 +36,12 @@ def sample_ranges():
     """Provides a standard OffsetRanges instance for testing."""
     # Ranges will be: (10, 15), (20, 25), (30, 30)
     offsets = {10, 11, 12, 13, 14, 15, 20, 21, 22, 23, 24, 25, 30}
-    return OffsetRanges(offsets)
+    return OffsetRanges.from_offsets(offsets)
 
 
 def test_contains_empty(sample_ranges):
     """Test __contains__ on an empty OffsetRanges instance."""
-    empty_ranges = OffsetRanges(set())
+    empty_ranges = OffsetRanges()
     assert 10 not in empty_ranges
 
 
@@ -62,7 +62,7 @@ def test_contains_edges(sample_ranges):
 
 def test_contains_outside(sample_ranges):
     """Test __contains__ for offsets outside of any range."""
-    assert 9 not in sample_ranges   # Before first range
+    assert 9 not in sample_ranges  # Before first range
     assert 16 not in sample_ranges  # Between ranges
     assert 29 not in sample_ranges  # Between ranges
     assert 31 not in sample_ranges  # After last range
@@ -70,7 +70,7 @@ def test_contains_outside(sample_ranges):
 
 def test_overlaps_empty(sample_ranges):
     """Test overlaps on an empty OffsetRanges instance."""
-    empty_ranges = OffsetRanges(set())
+    empty_ranges = OffsetRanges()
     assert not empty_ranges.overlaps(10, 20)
 
 
@@ -82,14 +82,14 @@ def test_overlaps_fully_contained(sample_ranges):
 
 def test_overlaps_contains_full_range(sample_ranges):
     """Test overlaps where the query range fully contains an existing range."""
-    assert sample_ranges.overlaps(9, 16)    # Contains (10, 15)
-    assert sample_ranges.overlaps(19, 26)   # Contains (20, 25)
-    assert sample_ranges.overlaps(29, 31)   # Contains (30, 30)
+    assert sample_ranges.overlaps(9, 16)  # Contains (10, 15)
+    assert sample_ranges.overlaps(19, 26)  # Contains (20, 25)
+    assert sample_ranges.overlaps(29, 31)  # Contains (30, 30)
 
 
 def test_overlaps_start(sample_ranges):
     """Test overlaps where the query range overlaps the beginning of an existing range."""
-    assert sample_ranges.overlaps(8, 12)   # Overlaps start of (10, 15)
+    assert sample_ranges.overlaps(8, 12)  # Overlaps start of (10, 15)
     assert sample_ranges.overlaps(18, 20)  # Touches start of (20, 25)
 
 
@@ -107,7 +107,7 @@ def test_overlaps_multiple_ranges(sample_ranges):
 
 def test_no_overlap(sample_ranges):
     """Test overlaps for ranges that do not overlap at all."""
-    assert not sample_ranges.overlaps(0, 8)      # Before all ranges
-    assert not sample_ranges.overlaps(16, 19)    # Between ranges
-    assert not sample_ranges.overlaps(26, 29)    # Between ranges
-    assert not sample_ranges.overlaps(31, 40)    # After all ranges
+    assert not sample_ranges.overlaps(0, 8)  # Before all ranges
+    assert not sample_ranges.overlaps(16, 19)  # Between ranges
+    assert not sample_ranges.overlaps(26, 29)  # Between ranges
+    assert not sample_ranges.overlaps(31, 40)  # After all ranges
