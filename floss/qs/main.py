@@ -482,18 +482,25 @@ def check_is_xor(xor_key: int | None):
     return ()
 
 
-class OffsetRanges:
-    def __init__(self, offsets: Optional[Set[int]] = None, *, _merged_ranges: Optional[List[Tuple[int, int]]] = None):
-        if _merged_ranges is not None:
-            self._ranges = _merged_ranges
-            return
+class OffsetRanges(BaseModel):
+    ranges: list[tuple[int, int]] = Field(default_factory=list)
 
+    @classmethod
+    def from_offsets(cls, offsets: Set[int]) -> "OffsetRanges":
+        """given a bunch of number, return the contiguous spans (start, end).
+
+        example:
+
+            {1, 2, 3, 5, 6, 9} -> [(1, 3), (5, 6), (9, 9)]
+        """
         if not offsets:
-            self._ranges: List[Tuple[int, int]] = []
-            return
+            return cls(ranges=[])
 
-        sorted_offsets = sorted(list(offsets))
+        if len(offsets) == 1:
+            v = next(iter(offsets))
+            return cls(ranges=[(v, v)])
 
+        sorted_offsets = list(sorted(offsets))
         ranges: List[Tuple[int, int]] = []
         start = sorted_offsets[0]
         end = start
@@ -505,55 +512,56 @@ class OffsetRanges:
                 start = offset
                 end = offset
         ranges.append((start, end))
-        self._ranges = ranges
+
+        return cls(ranges=ranges)
+
+    @classmethod
+    def from_merged_ranges(cls, merged_ranges: List[Tuple[int, int]]) -> "OffsetRanges":
+        return cls(ranges=merged_ranges)
 
     def __contains__(self, offset: int) -> bool:
-        if not self._ranges:
+        if not self.ranges:
             return False
 
         # Find the index where the offset would be inserted to maintain order.
-        index = bisect.bisect_left(self._ranges, (offset, 0))
+        index = bisect.bisect_left(self.ranges, (offset, 0))
 
         # Check the range at the insertion index.
         # This handles cases where the offset is the start of a range.
-        if index < len(self._ranges):
-            start, end = self._ranges[index]
+        if index < len(self.ranges):
+            start, end = self.ranges[index]
             if start == offset:
                 return True
 
         # Check the range just before the insertion index.
         # This handles cases where the offset is within or at the end of a range.
         if index > 0:
-            start, end = self._ranges[index - 1]
+            start, end = self.ranges[index - 1]
             if start <= offset <= end:
                 return True
 
         return False
 
     def overlaps(self, start: int, end: int) -> bool:
-        if not self._ranges:
+        if not self.ranges:
             return False
 
         # Find the index where the start of the given range would be inserted
-        index = bisect.bisect_right(self._ranges, (start, 0))
+        index = bisect.bisect_right(self.ranges, (start, 0))
 
         # Check the range at index-1 for overlap
         if index > 0:
-            prev_start, prev_end = self._ranges[index - 1]
+            prev_start, prev_end = self.ranges[index - 1]
             if max(start, prev_start) <= min(end, prev_end):
                 return True
 
         # Check the range at index for overlap
-        if index < len(self._ranges):
-            next_start, next_end = self._ranges[index]
+        if index < len(self.ranges):
+            next_start, next_end = self.ranges[index]
             if max(start, next_start) <= min(end, next_end):
                 return True
 
         return False
-
-    @classmethod
-    def from_merged_ranges(cls, merged_ranges: List[Tuple[int, int]]):
-        return cls(_merged_ranges=merged_ranges)
 
 
 def check_is_reloc(reloc_offsets: OffsetRanges, string: ExtractedString):
@@ -993,7 +1001,7 @@ def compute_pe_layout(slice: Slice, xor_key: int | None) -> Layout:
         raise ValueError("pefile failed to load workspace") from e
 
     structures = collect_pe_structures(slice, pe)
-    reloc_offsets = OffsetRanges(get_reloc_offsets(slice, pe))
+    reloc_offsets = OffsetRanges.from_offsets(get_reloc_offsets(slice, pe))
 
     structures_by_address = {}
     for structure in structures:
@@ -1457,7 +1465,9 @@ def main():
         help="minimum string length",
     )
     parser.add_argument("-j", "--json", action="store_true", help="emit JSON instead of text")
-    parser.add_argument("-l", "--load", action="store_true", help="load from existing FLOSS QUANTUMSTRAND results document")
+    parser.add_argument(
+        "-l", "--load", action="store_true", help="load from existing FLOSS QUANTUMSTRAND results document"
+    )
 
     logging_group = parser.add_argument_group("logging arguments")
     logging_group.add_argument("-d", "--debug", action="store_true", help="enable debugging output on STDERR")

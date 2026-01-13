@@ -1,12 +1,12 @@
-import pytest
 from unittest.mock import Mock, MagicMock
 
 import pefile
+import pytest
 import lancelot
 
 from floss.qs.main import (
-    Slice,
     Range,
+    Slice,
     _get_code_ranges,
     _merge_overlapping_ranges,
 )
@@ -119,6 +119,7 @@ def test_get_code_ranges_skips_invalid_offset(mock_ws, mock_pe):
 
 def test_get_code_ranges_handles_pe_error(mock_ws, mock_pe):
     """Test that it handles PEFormatError when getting an offset."""
+
     # Make one of the RVA lookups fail
     def get_offset_from_rva_with_error(rva):
         if rva == 0x1020:  # Corresponds to bb2
