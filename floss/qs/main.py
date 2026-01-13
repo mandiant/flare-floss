@@ -8,7 +8,6 @@ import bisect
 import shutil
 import hashlib
 import logging
-import pathlib
 import argparse
 import datetime
 import tempfile
@@ -656,7 +655,7 @@ def load_databases() -> Sequence[Tagger]:
 
     # supplement code analysis with a database of junk code strings
     junk_db = StringGlobalPrevalenceDatabase.from_file(
-        pathlib.Path(floss.qs.db.__file__).parent / "data" / "gp" / "junk-code.jsonl.gz"
+        Path(floss.qs.db.__file__).parent / "data" / "gp" / "junk-code.jsonl.gz"
     )
     ret.append(make_tagger(junk_db, query_code_string_database))
 
@@ -999,7 +998,7 @@ def _get_code_ranges(db: Database, pe: pefile.PE, slice_: Slice) -> List[Tuple[i
     return code_ranges
 
 
-def compute_pe_layout(slice: Slice, xor_key: int | None, path: Optional[pathlib.Path] = None) -> Layout:
+def compute_pe_layout(slice: Slice, xor_key: int | None, path: Optional[Path] = None) -> Layout:
     data = slice.data
 
     try:
@@ -1191,7 +1190,7 @@ def xor_static(data: bytes, i: int) -> bytes:
     return bytes(c ^ i for c in data)
 
 
-def compute_layout(slice: Slice, path: Optional[pathlib.Path] = None) -> Layout:
+def compute_layout(slice: Slice, path: Optional[Path] = None) -> Layout:
 
     # TODO don't do this for text or other obvious non-xored data
 
@@ -1513,7 +1512,7 @@ def main():
         sys.stdout.reconfigure(encoding="utf-8")
     colorama.just_fix_windows_console()
 
-    path = pathlib.Path(args.path)
+    path = Path(args.path)
     if not path.exists():
         logging.error("%s does not exist", path)
         return 1
