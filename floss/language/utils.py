@@ -473,6 +473,42 @@ def get_struct_string_candidates(pe: pefile.PE) -> Iterable[StructString]:
             # dozens of seconds or more (suspect many minutes).
 
 
+def get_raw_xrefs_rdata_i386(pe: pefile.PE, buf: bytes) -> Iterable[VA]:
+    """
+    scan for raw xrefs that are 32-bit absolute addresses in the PE file (i386).
+    They are not encoded as struct String instances.
+
+    example:
+    .rdata:004D6234                 dd offset unk_4C85C9
+    .rdata:004D6238                 dd offset unk_4C85C3
+    .rdata:004D623C                 dd offset unk_4C85BB
+    .rdata:004D6240                 dd offset unk_4C85B3
+
+    From the disassembly, they are called as follows:
+    .text:00498E56                 push    ds:off_4D61E0[ecx*4]
+
+    The above are not struct String instances, but are references to strings in the PE file.
+    They can be used to divide the string blobs into smaller chunks.
+    """
+    format = "I"
+
+    if not buf:
+        return
+
+    low, high = get_image_range(pe)
+
+    # using array module as a high-performance way to access the data as fixed-sized words.
+    words = iter(array.array(format, buf))
+
+    last = next(words)
+    for current in words:
+        address = last
+        last = current
+
+        if address != 0x0 and low <= address < high:
+            yield address
+
+
 def get_extract_stats(
     pe: pefile, all_ss_strings: List[StaticString], lang_strings: List[StaticString], min_len: int, min_blob_len=0
 ) -> float:
