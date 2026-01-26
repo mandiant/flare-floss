@@ -21,7 +21,7 @@ mdurl==0.1.2
 msgpack==1.0.8
 mypy==1.18.2
 networkx==3.4.2
-nodeenv==1.9.1
+nodeenv==1.10.0
 packaging==25.0
 pathspec==1.0.3
 pefile==2024.8.26
