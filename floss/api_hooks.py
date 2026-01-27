@@ -329,6 +329,94 @@ class MemsetHook:
             fu.call_return(emu, api, argv, ptr)
             return True
 
+class SnprintfHook:
+    """
+    Uses Python's native % formatting for simplicity.
+    Supports: %d, %s, %x, %X, %u, %c, %o, and width/precision modifiers.
+    """
+    def _prepare_args(self, emu, fmt, argv, arg_start_idx):
+        args = []
+        arg_idx = arg_start_idx
+
+        # Find all format specifiers
+        i = 0
+        while i < len(fmt):
+            if fmt[i] == '%':
+                if i + 1 < len(fmt) and fmt[i + 1] == '%':
+                    i += 2
+                    continue
+
+                if arg_idx >= len(argv):
+                    break
+                arg_val = argv[arg_idx]
+                arg_idx += 1
+
+                # Find the specifier type (last char of this format spec)
+                j = i + 1
+                while j < len(fmt) and fmt[j] in '0123456789+-# .hlL':
+                    j += 1
+
+                if j < len(fmt):
+                    spec_char = fmt[j]
+                    if spec_char == 's':
+                        # %s - read string from emulator memory
+                        if isinstance(arg_val, int) and arg_val != 0:
+                            try:
+                                arg_val = fu.readStringAtRva(emu, arg_val, maxsize=MAX_STR_SIZE).decode(errors="ignore")
+                            except Exception:
+                                arg_val = ""
+                        else:
+                            arg_val = "(null)"
+                    elif spec_char in 'di':
+                        # Signed types - convert from unsigned to signed if needed
+                        if isinstance(arg_val, int) and arg_val > 0x7FFFFFFF:
+                            arg_val = arg_val - 0x100000000  # Convert to signed 32-bit
+                    elif spec_char in 'xXuo':
+                        # Unsigned types - mask to ensure positive
+                        arg_val = arg_val & 0xFFFFFFFF
+
+                args.append(arg_val)
+                i = j + 1
+            else:
+                i += 1
+
+        return tuple(args)
+
+    def __call__(self, emu, api, argv):
+        if fu.contains_funcname(api, ("snprintf", "sprintf", "_snprintf", "_sprintf")):
+            try:
+                # snprintf(buf, size, fmt, ...) vs sprintf(buf, fmt, ...)
+                if fu.contains_funcname(api, ("sprintf",)) and not fu.contains_funcname(api, ("snprintf",)):
+                    buf_ptr, fmt_ptr = argv[:2]
+                    size = MAX_STR_SIZE
+                    arg_start = 2
+                else:
+                    buf_ptr, size, fmt_ptr = argv[:3]
+                    arg_start = 3
+
+                fmt = fu.readStringAtRva(emu, fmt_ptr, maxsize=256).decode(errors="ignore")
+
+                args = self._prepare_args(emu, fmt, argv, arg_start)
+
+                # Use Python's native % formatting
+                try:
+                    result = fmt % args
+                except (TypeError, ValueError):
+                    result = fmt
+
+                result_bytes = result.encode("utf-8")
+                if size > 0:
+                    result_bytes = result_bytes[:size - 1]
+                emu.writeMemory(buf_ptr, result_bytes + b"\x00")
+
+                fu.call_return(emu, api, argv, len(result_bytes))
+                return True
+
+            except Exception as e:
+                logger.warning(f"SnprintfHook error: {e}")
+                return False
+
+        return False
 
 class PrintfHook:
     # TODO disabled for now as incomplete (need to implement string format) and could result in FP strings as is
@@ -406,6 +494,7 @@ DEFAULT_HOOKS = (
     StrlenHook(),
     MemchrHook(),
     MemsetHook(),
+    SnprintfHook(),
     # PrintfHook(), currently disabled, see comments above
     StrncmpHook(),
     GetLastErrorHook(),
