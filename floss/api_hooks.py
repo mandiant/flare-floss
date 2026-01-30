@@ -329,11 +329,13 @@ class MemsetHook:
             fu.call_return(emu, api, argv, ptr)
             return True
 
+
 class SnprintfHook:
     """
     Uses Python's native % formatting for simplicity.
     Supports: %d, %s, %x, %X, %u, %c, %o, and width/precision modifiers.
     """
+
     def _prepare_args(self, emu, fmt, argv, arg_start_idx):
         args = []
         arg_idx = arg_start_idx
@@ -341,8 +343,8 @@ class SnprintfHook:
         # Find all format specifiers
         i = 0
         while i < len(fmt):
-            if fmt[i] == '%':
-                if i + 1 < len(fmt) and fmt[i + 1] == '%':
+            if fmt[i] == "%":
+                if i + 1 < len(fmt) and fmt[i + 1] == "%":
                     i += 2
                     continue
 
@@ -353,12 +355,12 @@ class SnprintfHook:
 
                 # Find the specifier type (last char of this format spec)
                 j = i + 1
-                while j < len(fmt) and fmt[j] in '0123456789+-# .hlL':
+                while j < len(fmt) and fmt[j] in "0123456789+-# .hlL":
                     j += 1
 
                 if j < len(fmt):
                     spec_char = fmt[j]
-                    if spec_char == 's':
+                    if spec_char == "s":
                         # %s - read string from emulator memory
                         if isinstance(arg_val, int) and arg_val != 0:
                             try:
@@ -367,11 +369,11 @@ class SnprintfHook:
                                 arg_val = ""
                         else:
                             arg_val = "(null)"
-                    elif spec_char in 'di':
+                    elif spec_char in "di":
                         # Signed types - convert from unsigned to signed if needed
                         if isinstance(arg_val, int) and arg_val > 0x7FFFFFFF:
                             arg_val = arg_val - 0x100000000  # Convert to signed 32-bit
-                    elif spec_char in 'xXuo':
+                    elif spec_char in "xXuo":
                         # Unsigned types - mask to ensure positive
                         arg_val = arg_val & 0xFFFFFFFF
 
@@ -406,7 +408,7 @@ class SnprintfHook:
 
                 result_bytes = result.encode("utf-8")
                 if size > 0:
-                    result_bytes = result_bytes[:size - 1]
+                    result_bytes = result_bytes[: size - 1]
                 emu.writeMemory(buf_ptr, result_bytes + b"\x00")
 
                 fu.call_return(emu, api, argv, len(result_bytes))
@@ -417,6 +419,7 @@ class SnprintfHook:
                 return False
 
         return False
+
 
 class PrintfHook:
     # TODO disabled for now as incomplete (need to implement string format) and could result in FP strings as is

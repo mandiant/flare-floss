@@ -122,7 +122,7 @@ class TestSnprintfHookCall:
         buf_ptr = 0x2000
         fmt_ptr = 0x1000
 
-        api = (None, None, None, "snprintf", [])
+        api: tuple = (None, None, None, "snprintf", [])
         argv = [buf_ptr, 64, fmt_ptr, 42]
 
         with (
@@ -145,7 +145,7 @@ class TestSnprintfHookCall:
         buf_ptr = 0x2000
         fmt_ptr = 0x1000
 
-        api = (None, None, None, "sprintf", [])
+        api: tuple = (None, None, None, "sprintf", [])
         argv = [buf_ptr, fmt_ptr, 1337]
 
         with (
