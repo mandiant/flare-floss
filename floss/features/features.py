@@ -204,12 +204,11 @@ class NzxorLoop(Feature):
 class ComplexFunctions(Feature):
     weight = MEDIUM
 
-    def __init__(self,comp):
-        super(ComplexFunctions, self).__init__(True)
-        self.comp = comp
+    def __init__(self, comp):
+        super(ComplexFunctions, self).__init__(comp)
 
     def score(self):
-        complexity = self.comp
+        complexity = self.value
 
         if complexity <= 1:
             return 0.0

@@ -344,7 +344,9 @@ def extract_function_complex_functions(f):
 
         yield ComplexFunctions(complexity)
 
-    except Exception:
+    except Exception as e:
+        logger.warning("Failed to calculate complexity for function: %s", e)
+        # Yield default complexity of 1(a purely linear function, with no branches) on error
         yield ComplexFunctions(1)
 
 
