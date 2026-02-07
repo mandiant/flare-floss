@@ -36,6 +36,7 @@ from floss.features.features import (
     TightFunction,
     KindaTightLoop,
     NzxorTightLoop,
+    ComplexFunctions,
 )
 
 # security cookie checks may perform non-zeroing XORs, these are expected within a certain
@@ -317,10 +318,41 @@ def extract_function_loop(f):
             yield Loop(comp)
 
 
+def extract_function_complex_functions(f):
+    """
+    Cyclomatic complexity
+    M = E - N + 2P
+    where:
+        E = edges
+        N = nodes (basic blocks)
+        P = number of connected components (usually 1)
+    """
+    try:
+        cfg = viv_utils.CFG(f)
+        blocks = list(cfg.basic_blocks)
+
+        num_nodes = len(blocks)
+
+        num_edges = 0
+        for bb in blocks:
+            succs = cfg.get_successor_basic_blocks(bb)
+            num_edges += len(list(succs))
+
+        complexity = num_edges - num_nodes + 2
+
+        complexity = max(1, complexity)
+
+        yield ComplexFunctions(complexity)
+
+    except Exception:
+        yield ComplexFunctions(1)
+
+
 FUNCTION_HANDLERS = (
     extract_function_calls_to,
     extract_function_loop,
     extract_function_kinda_tight_loop,
+    extract_function_complex_functions,
     # extract_function_order,  # TODO decoding functions are often one of the first in a program
     # extract_num_api_calls,  # TODO decoding functions don't normally contain many (API) calls
 )
