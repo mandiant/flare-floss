@@ -77,7 +77,6 @@ import binaryninja as bn
 
 def AppendComment(ea, s):
 
-    s = s.encode('ascii')
     refAddrs = []
     for ref in bv.get_code_refs(ea):
         refAddrs.append(ref)
@@ -101,7 +100,6 @@ def AppendLvarComment(fva, s):
 
     # stack var comments are not a thing in Binary Ninja so just add at top of function
     # and at location where it's used as an arg
-    s = s.encode('ascii')
     fn = bv.get_function_at(fva)
 
     for addr in [fva, pc]:
@@ -114,7 +112,7 @@ def AppendLvarComment(fva, s):
                 return
             string = string + "\\n" + s
 
-        fn.set_comment(addr, string)
+        fn.set_comment_at(addr, string)
 
 print("Annotating %d strings from FLOSS for %s")
 %s
