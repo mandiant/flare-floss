@@ -1251,7 +1251,7 @@ def _parse_fat_arches(data: bytes) -> List[Tuple[str, int, int]]:
         if is_64:
             if offset + 32 > len(data):
                 break
-            cputype, cpusubtype, arch_offset, size, align, _reserved = struct.unpack(
+            cputype, cpusubtype, arch_offset, size, _align, _reserved = struct.unpack(
                 endian + "IIQQII", data[offset : offset + 32]
             )
             offset += 32
@@ -1290,6 +1290,14 @@ def _add_macho_segments(parent: Layout, slice_: Slice, segments: Sequence[Dict[s
         parent.add_child(SegmentLayout(slice=slice_.slice(offset, size), name=name))
 
 
+def _build_thin_macho_layout(slice: Slice, macho: machofile.UniversalMachO, arch_name: str) -> Layout:
+    layout = MachOLayout(slice=slice, name=f"macho: {arch_name}", arch=arch_name)
+    segments = macho.get_segments()
+    if isinstance(segments, list):
+        _add_macho_segments(layout, slice, segments)
+    return layout
+
+
 def compute_macho_layout(slice: Slice) -> Layout:
     data = slice.data
     magic = _get_u32_be(data, 0)
@@ -1305,12 +1313,7 @@ def compute_macho_layout(slice: Slice) -> Layout:
             arch_slice = slice.slice(offset, size)
             macho = machofile.UniversalMachO(data=arch_slice.data)
             macho.parse()
-            arch_layout = MachOLayout(slice=arch_slice, name=f"macho: {arch_name}", arch=arch_name)
-
-            segments = macho.get_segments()
-            if isinstance(segments, list):
-                _add_macho_segments(arch_layout, arch_slice, segments)
-
+            arch_layout = _build_thin_macho_layout(arch_slice, macho, arch_name)
             layout.add_child(arch_layout)
 
         return layout
@@ -1326,12 +1329,7 @@ def compute_macho_layout(slice: Slice) -> Layout:
         if isinstance(cputype, int) and isinstance(cpusubtype, int):
             arch_name = _format_macho_arch(cputype, cpusubtype)
 
-    layout = MachOLayout(slice=slice, name=f"macho: {arch_name}", arch=arch_name)
-    segments = macho.get_segments()
-    if isinstance(segments, list):
-        _add_macho_segments(layout, slice, segments)
-
-    return layout
+    return _build_thin_macho_layout(slice, macho, arch_name)
 
 
 def xor_static(data: bytes, i: int) -> bytes:
