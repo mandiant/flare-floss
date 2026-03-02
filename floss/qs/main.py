@@ -1,4 +1,5 @@
 import io
+import struct
 import re
 import abc
 import sys
@@ -17,6 +18,7 @@ from typing import Set, Dict, List, Tuple, Literal, Callable, Iterable, Optional
 from collections import defaultdict
 
 import pefile
+import machofile
 import colorama
 import lancelot
 import rich.traceback
@@ -146,6 +148,34 @@ MIN_STR_LEN = 4
 ASCII_BYTE = rb" !\"#\$%&\'\(\)\*\+,-\./0123456789:;<=>\?@ABCDEFGHIJKLMNOPQRSTUVWXYZ\[\]\^_`abcdefghijklmnopqrstuvwxyz\{\|\}\\\~\t"
 ASCII_RE_MIN = re.compile(b"([%s]{%d,})" % (ASCII_BYTE, MIN_STR_LEN))
 UNICODE_RE_MIN = re.compile(b"((?:[%s]\x00){%d,})" % (ASCII_BYTE, MIN_STR_LEN))
+
+MACHO_MAGIC = 0xFEEDFACE
+MACHO_CIGAM = 0xCEFAEDFE
+MACHO_MAGIC_64 = 0xFEEDFACF
+MACHO_CIGAM_64 = 0xCFFAEDFE
+FAT_MAGIC = 0xCAFEBABE
+FAT_CIGAM = 0xBEBAFECA
+FAT_MAGIC_64 = 0xCAFEBABF
+FAT_CIGAM_64 = 0xBFBAFECA
+
+MACHO_MAGICS = {MACHO_MAGIC, MACHO_CIGAM, MACHO_MAGIC_64, MACHO_CIGAM_64}
+FAT_MAGICS = {FAT_MAGIC, FAT_CIGAM, FAT_MAGIC_64, FAT_CIGAM_64}
+
+CPU_TYPE_X86 = 0x7
+CPU_TYPE_X86_64 = 0x1000007
+CPU_TYPE_ARM = 0xC
+CPU_TYPE_ARM64 = 0x100000C
+CPU_TYPE_PPC = 0x12
+CPU_TYPE_PPC64 = 0x10000012
+
+CPU_TYPE_MAP = {
+    CPU_TYPE_X86: "x86",
+    CPU_TYPE_X86_64: "x86_64",
+    CPU_TYPE_ARM: "arm",
+    CPU_TYPE_ARM64: "arm64",
+    CPU_TYPE_PPC: "ppc",
+    CPU_TYPE_PPC64: "ppc64",
+}
 
 
 def extract_ascii_strings(slice: Slice, n: int = MIN_STR_LEN) -> Iterable[ExtractedString]:
@@ -930,6 +960,14 @@ class ResourceLayout(Layout):
     pass
 
 
+class MachOLayout(Layout):
+    arch: str
+
+
+class MachOFatLayout(Layout):
+    pass
+
+
 def _merge_overlapping_ranges(ranges: List[Tuple[int, int]]) -> List[Tuple[int, int]]:
     """
     Merge a list of (start, end) tuples into a list of contiguous ranges.
@@ -1169,6 +1207,133 @@ def compute_pe_layout(slice: Slice, xor_key: int | None) -> Layout:
     return layout
 
 
+def _get_u32_be(data: bytes, offset: int) -> Optional[int]:
+    if offset + 4 > len(data):
+        return None
+    return struct.unpack(">I", data[offset : offset + 4])[0]
+
+
+def _is_macho_magic(magic: Optional[int]) -> bool:
+    if magic is None:
+        return False
+    return magic in MACHO_MAGICS or magic in FAT_MAGICS
+
+
+def _format_macho_arch(cputype: int, cpusubtype: int) -> str:
+    base = CPU_TYPE_MAP.get(cputype, f"cpu_{cputype}")
+    clean_subtype = cpusubtype & 0x00FFFFFF
+    if cputype == CPU_TYPE_ARM64:
+        if clean_subtype == 0:
+            return "arm64"
+        if clean_subtype == 2:
+            return "arm64e"
+        return f"arm64_{clean_subtype}"
+    return base
+
+
+def _parse_fat_arches(data: bytes) -> List[Tuple[str, int, int]]:
+    arches: List[Tuple[str, int, int]] = []
+    if len(data) < 8:
+        return arches
+
+    magic = _get_u32_be(data, 0)
+    if magic not in FAT_MAGICS:
+        return arches
+
+    swap = magic in {FAT_CIGAM, FAT_CIGAM_64}
+    endian = "<" if swap else ">"
+    nfat_arch = struct.unpack(endian + "I", data[4:8])[0]
+
+    is_64 = magic in {FAT_MAGIC_64, FAT_CIGAM_64}
+    offset = 8
+
+    for _ in range(nfat_arch):
+        if is_64:
+            if offset + 32 > len(data):
+                break
+            cputype, cpusubtype, arch_offset, size, align, _reserved = struct.unpack(
+                endian + "IIQQII", data[offset : offset + 32]
+            )
+            offset += 32
+        else:
+            if offset + 20 > len(data):
+                break
+            cputype, cpusubtype, arch_offset, size, _align = struct.unpack(
+                endian + "IIIII", data[offset : offset + 20]
+            )
+            offset += 20
+
+        arch_name = _format_macho_arch(cputype, cpusubtype)
+        arches.append((arch_name, arch_offset, size))
+
+    return arches
+
+
+def _add_macho_segments(parent: Layout, slice_: Slice, segments: Sequence[Dict[str, int]]):
+    for segment in segments:
+        offset = segment.get("offset", 0)
+        size = segment.get("size", 0)
+        name = str(segment.get("segname", "segment"))
+
+        if size <= 0:
+            continue
+
+        if not slice_.contains_range(offset, size):
+            if offset >= slice_.range.length:
+                logger.warning("Mach-O segment %s out of range", name)
+                continue
+            size = slice_.range.length - offset
+            if size <= 0:
+                continue
+            logger.warning("Mach-O segment %s size out of range, truncating", name)
+
+        parent.add_child(SegmentLayout(slice=slice_.slice(offset, size), name=name))
+
+
+def compute_macho_layout(slice: Slice) -> Layout:
+    data = slice.data
+    magic = _get_u32_be(data, 0)
+
+    if magic in FAT_MAGICS:
+        layout = MachOFatLayout(slice=slice, name="macho (fat)")
+        arches = _parse_fat_arches(data)
+        for arch_name, offset, size in arches:
+            if not slice.contains_range(offset, size):
+                logger.warning("fat arch %s out of range, skipping", arch_name)
+                continue
+
+            arch_slice = slice.slice(offset, size)
+            macho = machofile.UniversalMachO(data=arch_slice.data)
+            macho.parse()
+            arch_layout = MachOLayout(slice=arch_slice, name=f"macho: {arch_name}", arch=arch_name)
+
+            segments = macho.get_segments()
+            if isinstance(segments, list):
+                _add_macho_segments(arch_layout, arch_slice, segments)
+
+            layout.add_child(arch_layout)
+
+        return layout
+
+    macho = machofile.UniversalMachO(data=data)
+    macho.parse()
+
+    header = macho.get_macho_header()
+    arch_name = "macho"
+    if isinstance(header, dict):
+        cputype = header.get("cputype")
+        cpusubtype = header.get("cpusubtype")
+        if isinstance(cputype, int) and isinstance(cpusubtype, int):
+            arch_name = _format_macho_arch(cputype, cpusubtype)
+
+    layout = MachOLayout(slice=slice, name=f"macho: {arch_name}", arch=arch_name)
+    segments = macho.get_segments()
+    if isinstance(segments, list):
+        _add_macho_segments(layout, slice, segments)
+
+    return layout
+
+
 def xor_static(data: bytes, i: int) -> bytes:
     return bytes(c ^ i for c in data)
 
@@ -1208,6 +1373,12 @@ def compute_layout(slice: Slice) -> Layout:
             logger.debug("failed to parse as PE file: %s", e)
             # Fall back to using the default binary layout
             pass
+
+    if _is_macho_magic(_get_u32_be(slice.data, 0)):
+        try:
+            return compute_macho_layout(slice)
+        except Exception as e:
+            logger.debug("failed to parse as Mach-O file: %s", e)
 
     return SegmentLayout(
         slice=slice,

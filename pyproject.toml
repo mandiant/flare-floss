@@ -121,6 +121,7 @@ packages = ["floss", "floss.sigs"]
 qs = [
     "dnfile==0.13.0",
     "colorama==0.4.6",
+    "machofile==2026.2.4",
     "msgspec==0.14.2",
     "python-lancelot==0.8.10",
 ]
@@ -154,3 +155,4 @@ Signatures = "https://github.com/mandiant/flare-floss/tree/master/floss/sigs"
 
 [project.scripts]
 floss = "floss.main:main"
+qs = "floss.qs.main:main"
