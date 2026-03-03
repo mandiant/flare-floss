@@ -41,6 +41,7 @@ import floss.language.go.extract
 import floss.language.go.coverage
 import floss.language.rust.extract
 import floss.language.rust.coverage
+import floss.language.dotnet.extract
 from floss.const import (
     MEGABYTE,
     MAX_FILE_SIZE,
@@ -634,13 +635,18 @@ def main(argv=None) -> int:
             )
 
     elif results.metadata.language == Language.DOTNET.value:
-        logger.warning(".NET language-specific string extraction is not supported yet")
-        logger.warning("FLOSS does NOT attempt to deobfuscate any strings from .NET binaries")
+        if results.analysis.enable_static_strings:
+            logger.info("extracting language-specific .NET strings from #US heap")
 
-        # enable .NET strings once we can extract them
-        # results.metadata.language = Language.DOTNET.value
+            interim = time()
+            results.strings.language_strings = floss.language.dotnet.extract.extract_dotnet_strings(
+                sample, args.min_length
+            )
+            results.metadata.runtime.language_strings = get_runtime_diff(interim)
 
-        # TODO for pure .NET binaries our deobfuscation algorithms do nothing, but for mixed-mode assemblies they may
+        # .NET deobfuscation (stack/tight/decoded) is not meaningful for pure managed assemblies.
+        # For mixed-mode assemblies it may produce output, but accuracy is low — skip for now.
+        # TODO(gsoc): investigate mixed-mode .NET assembly deobfuscation
         analysis.enable_stack_strings = False
         analysis.enable_tight_strings = False
         analysis.enable_decoded_strings = False
