@@ -1486,9 +1486,104 @@ def _scan_entitlements_plist(slice_: Slice, cs_offset: int, cs_size: int) -> Seq
     bplist_marker = b"bplist00"
     index = cs_data.find(bplist_marker)
     if index != -1:
-        entitlements.append((cs_offset + index, cs_size - index))
+        bplist_len = _find_bplist_length(cs_data, index)
+        if bplist_len:
+            entitlements.append((cs_offset + index, bplist_len))
 
     return entitlements
+
+
+def _find_bplist_length(data: bytes, start: int) -> Optional[int]:
+    bplist_marker = b"bplist00"
+    if start < 0 or start + 8 > len(data):
+        return None
+
+    trailer_size = 32
+    min_len = 8 + trailer_size
+    max_len = len(data) - start
+    if max_len < min_len:
+        return None
+
+    for end in range(start + max_len, start + min_len - 1, -1):
+        trailer_offset = end - trailer_size
+        trailer = data[trailer_offset:end]
+
+        offset_size = trailer[6]
+        object_ref_size = trailer[7]
+        num_objects = int.from_bytes(trailer[8:16], "big")
+        top_object = int.from_bytes(trailer[16:24], "big")
+        offset_table_offset = int.from_bytes(trailer[24:32], "big")
+
+        if offset_size == 0 or offset_size > 8:
+            continue
+        if object_ref_size == 0 or object_ref_size > 8:
+            continue
+        if num_objects == 0:
+            continue
+        if top_object >= num_objects:
+            continue
+
+        length = end - start
+        if offset_table_offset < 8 or offset_table_offset >= length:
+            continue
+
+        offset_table_size = num_objects * offset_size
+        if offset_table_offset + offset_table_size > length - trailer_size:
+            continue
+
+        if data[start : start + 8] == bplist_marker:
+            return length
+
+    return None
+
+
+def _populate_thin_macho_layout(layout: MachOLayout, slice_: Slice):
+    try:
+        endian, is_64, ncmds, _sizeofcmds = _parse_macho_endian_and_cmds(slice_.data)
+        structures, segments, code_sig = _parse_macho_load_commands(slice_, endian, is_64, ncmds)
+    except ValueError:
+        structures = []
+        segments = []
+        code_sig = None
+
+    if segments:
+        _add_macho_segments(layout, slice_, segments)
+
+    if code_sig:
+        cs_offset, cs_size = code_sig
+        if slice_.contains_range(cs_offset, cs_size):
+            cs_layout = SegmentLayout(slice=slice_.slice(cs_offset, cs_size), name="code signature")
+            blobs = _parse_superblob_blobs(slice_, cs_offset, cs_size)
+            entitlements: List[Tuple[int, int]] = []
+            for blob_magic, blob_offset, blob_length in blobs:
+                if not slice_.contains_range(blob_offset, blob_length):
+                    continue
+                if blob_magic in {CSMAGIC_EMBEDDED_ENTITLEMENTS, CSMAGIC_EMBEDDED_DER_ENTITLEMENTS}:
+                    entitlements.append((blob_offset, blob_length))
+                elif blob_magic == CSMAGIC_BLOBWRAPPER:
+                    cs_layout.add_child(
+                        SegmentLayout(
+                            slice=slice_.slice(blob_offset, blob_length),
+                            name="certificates",
+                        )
+                    )
+
+            if not entitlements:
+                entitlements = list(_scan_entitlements_plist(slice_, cs_offset, cs_size))
+
+            for ent_offset, ent_size in entitlements:
+                if slice_.contains_range(ent_offset, ent_size):
+                    plist_layout = SegmentLayout(
+                        slice=slice_.slice(ent_offset, ent_size),
+                        name="plist: entitlements",
+                    )
+                    _attach_nested_layout(cs_layout, plist_layout)
+            _attach_nested_layout(layout, cs_layout)
+
+    if structures:
+        for structure in structures:
+            for offset_value in structure.slice.range:
+                layout.structures_by_address[offset_value] = structure
 
 
 def compute_macho_layout(slice: Slice) -> Layout:
@@ -1506,52 +1601,7 @@ def compute_macho_layout(slice: Slice) -> Layout:
             arch_slice = slice.slice(offset, size)
             arch_layout = MachOLayout(slice=arch_slice, name=f"macho: {arch_name}", arch=arch_name)
 
-            try:
-                endian, is_64, ncmds, _sizeofcmds = _parse_macho_endian_and_cmds(arch_slice.data)
-                structures, segments, code_sig = _parse_macho_load_commands(arch_slice, endian, is_64, ncmds)
-            except ValueError:
-                structures = []
-                segments = []
-                code_sig = None
-
-            if segments:
-                _add_macho_segments(arch_layout, arch_slice, segments)
-
-            if code_sig:
-                cs_offset, cs_size = code_sig
-                if arch_slice.contains_range(cs_offset, cs_size):
-                    cs_layout = SegmentLayout(slice=arch_slice.slice(cs_offset, cs_size), name="code signature")
-                    blobs = _parse_superblob_blobs(arch_slice, cs_offset, cs_size)
-                    entitlements: List[Tuple[int, int]] = []
-                    for blob_magic, blob_offset, blob_length in blobs:
-                        if not arch_slice.contains_range(blob_offset, blob_length):
-                            continue
-                        if blob_magic in {CSMAGIC_EMBEDDED_ENTITLEMENTS, CSMAGIC_EMBEDDED_DER_ENTITLEMENTS}:
-                            entitlements.append((blob_offset, blob_length))
-                        elif blob_magic == CSMAGIC_BLOBWRAPPER:
-                            cs_layout.add_child(
-                                SegmentLayout(
-                                    slice=arch_slice.slice(blob_offset, blob_length),
-                                    name="certificates",
-                                )
-                            )
-
-                    if not entitlements:
-                        entitlements = list(_scan_entitlements_plist(arch_slice, cs_offset, cs_size))
-
-                    for ent_offset, ent_size in entitlements:
-                        if arch_slice.contains_range(ent_offset, ent_size):
-                            plist_layout = SegmentLayout(
-                                slice=arch_slice.slice(ent_offset, ent_size),
-                                name="plist: entitlements",
-                            )
-                            _attach_nested_layout(cs_layout, plist_layout)
-                    _attach_nested_layout(arch_layout, cs_layout)
-
-            if structures:
-                for structure in structures:
-                    for offset_value in structure.slice.range:
-                        arch_layout.structures_by_address[offset_value] = structure
+            _populate_thin_macho_layout(arch_layout, arch_slice)
 
             layout.add_child(arch_layout)
 
@@ -1572,52 +1622,7 @@ def compute_macho_layout(slice: Slice) -> Layout:
 
     layout = MachOLayout(slice=slice, name=f"macho: {arch_name}", arch=arch_name)
 
-    try:
-        endian, is_64, ncmds, _sizeofcmds = _parse_macho_endian_and_cmds(slice.data)
-        structures, segments, code_sig = _parse_macho_load_commands(slice, endian, is_64, ncmds)
-    except ValueError:
-        structures = []
-        segments = []
-        code_sig = None
-
-    if segments:
-        _add_macho_segments(layout, slice, segments)
-
-    if code_sig:
-        cs_offset, cs_size = code_sig
-        if slice.contains_range(cs_offset, cs_size):
-            cs_layout = SegmentLayout(slice=slice.slice(cs_offset, cs_size), name="code signature")
-            blobs = _parse_superblob_blobs(slice, cs_offset, cs_size)
-            entitlements: List[Tuple[int, int]] = []
-            for blob_magic, blob_offset, blob_length in blobs:
-                if not slice.contains_range(blob_offset, blob_length):
-                    continue
-                if blob_magic in {CSMAGIC_EMBEDDED_ENTITLEMENTS, CSMAGIC_EMBEDDED_DER_ENTITLEMENTS}:
-                    entitlements.append((blob_offset, blob_length))
-                elif blob_magic == CSMAGIC_BLOBWRAPPER:
-                    cs_layout.add_child(
-                        SegmentLayout(
-                            slice=slice.slice(blob_offset, blob_length),
-                            name="certificates",
-                        )
-                    )
-
-            if not entitlements:
-                entitlements = list(_scan_entitlements_plist(slice, cs_offset, cs_size))
-
-            for ent_offset, ent_size in entitlements:
-                if slice.contains_range(ent_offset, ent_size):
-                    plist_layout = SegmentLayout(
-                        slice=slice.slice(ent_offset, ent_size),
-                        name="plist: entitlements",
-                    )
-                    _attach_nested_layout(cs_layout, plist_layout)
-            _attach_nested_layout(layout, cs_layout)
-
-    if structures:
-        for structure in structures:
-            for offset_value in structure.slice.range:
-                layout.structures_by_address[offset_value] = structure
+    _populate_thin_macho_layout(layout, slice)
 
     return layout
 
@@ -1666,6 +1671,7 @@ def compute_layout(slice: Slice) -> Layout:
         try:
             return compute_macho_layout(slice)
         except Exception as e:
+            # TODO: narrow exception handling once machofile error types are clearer.
             logger.debug("failed to parse as Mach-O file: %s", e)
 
     return SegmentLayout(
