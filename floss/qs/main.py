@@ -390,12 +390,13 @@ def render_string_tags_continuation(tags_width: int, is_group_end: bool = False)
     if tags_width == 0:
         return Span("")
     # center position for the single block
-    left_pad = (tags_width - 1) // 2
-    if is_group_end:
+    if is_group_end and tags_width >= 2:
         # place ██ so the first block aligns with the normal continuation position
-        right_pad = max(0, tags_width - left_pad - 2)
+        left_pad = (tags_width - 1) // 2
+        right_pad = tags_width - left_pad - 2
         bar = Span(" " * left_pad + "██" + " " * right_pad, style=MUTED_STYLE)
     else:
+        # for non-group-end, or group-end with not enough space for terminator
         bar = Span("█", style=MUTED_STYLE)
         bar.align("center", tags_width)
     return bar
