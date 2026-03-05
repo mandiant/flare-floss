@@ -340,10 +340,23 @@ def render_string_string(s: ResultString, tag_rules: TagRules) -> Text:
     return Span(rendered_string, style=string_style)
 
 
+def get_visible_tags(s: ResultString) -> tuple:
+    """compute the tuple of visible tag names for a string, in sorted order.
+
+    this applies the same filtering as render_string_tags
+    (e.g. removing #common when there are other tags).
+    the result can be compared across strings to detect tag groups.
+    """
+    tags = list(s.tags)
+    if len(tags) != 1 and "#common" in tags:
+        tags.remove("#common")
+    return tuple(sorted(tags))
+
+
 def render_string_tags(s: ResultString, tag_rules: TagRules):
     ret = Text()
 
-    tags = s.tags
+    tags = list(s.tags)
     if len(tags) != 1 and "#common" in tags:
         # don't show #common if there are other tags,
         # because the other tags will be more specific (like library names).
@@ -362,10 +375,23 @@ def render_string_tags(s: ResultString, tag_rules: TagRules):
             raise ValueError(f"unknown tag rule: {rule}")
 
         ret.append_text(Span(tag, style=tag_style))
-        if i < len(s.tags) - 1:
+        if i < len(tags) - 1:
             ret.append_text(Span(" "))
 
     return ret
+
+
+def render_string_tags_continuation(tags_width: int) -> Text:
+    """render a vertical bar continuation indicator instead of repeating tag text.
+
+    the bar is right-aligned to the given width so it lines up
+    with the tag column of the previous line.
+    """
+    if tags_width == 0:
+        return Span("")
+    bar = Span("█", style=MUTED_STYLE)
+    bar.align("right", tags_width)
+    return bar
 
 
 def render_string_offset(s: ResultString):
@@ -396,16 +422,22 @@ def render_string_structure(s: ResultString):
     return ret
 
 
-def render_string(width: int, s: ResultString, tag_rules: TagRules) -> Text:
+def render_string(
+    width: int,
+    s: ResultString,
+    tag_rules: TagRules,
+    prev_tags: Optional[tuple] = None,
+    prev_tags_width: int = 0,
+) -> Text:
     #
     #  | stringstringstring              #tag #tag #tag  00000001 |
     #  | stringstring                              #tag  0000004A |
-    #  | string                                    #tag  00000050 |
+    #  | string                                       │  00000050 |
     #  | stringstringstringstringstringst...  #tag #tag  0000005E |
     #    ^                                  ^ ^        ^ ^
     #    |                                  | |        | offset
     #    |                                  | |        padding
-    #    |                                  | tags
+    #    |                                  | tags (or │ continuation)
     #    |                                  padding
     #    string
     #
@@ -426,9 +458,15 @@ def render_string(width: int, s: ResultString, tag_rules: TagRules) -> Text:
 
     left = render_string_string(s, tag_rules)
 
+    visible_tags = get_visible_tags(s)
+    use_continuation = prev_tags is not None and visible_tags == prev_tags and len(visible_tags) > 0
+
     right = Span("")
     right.append_text(render_string_padding())
-    right.append_text(render_string_tags(s, tag_rules))
+    if use_continuation:
+        right.append_text(render_string_tags_continuation(prev_tags_width))
+    else:
+        right.append_text(render_string_tags(s, tag_rules))
     right.append_text(render_string_padding())
     # indicate encoding: ascii implicit default
     right.append_text(Span("U " if s.encoding == "unicode" else "  "))
@@ -1400,17 +1438,27 @@ def render_strings(
 
     console.print(header)
 
-    def render_string_line(console: Console, tag_rules: TagRules, string: ResultString, depth: int):
-        line = render_string(console.width, string, tag_rules)
-        # TODO: this truncates the structure column
-        line = line[: -depth - 1]
-        line.append_text(Span("┃" * (depth + 1), style=BORDER_STYLE))
-        console.print(line)
+    def render_string_lines(console: Console, tag_rules: TagRules, strings: list, depth: int):
+        """render a batch of strings, grouping consecutive strings with the same tags."""
+        prev_tags = None
+        prev_tags_width = 0
+        for string in strings:
+            visible_tags = get_visible_tags(string)
+            line = render_string(console.width, string, tag_rules, prev_tags=prev_tags, prev_tags_width=prev_tags_width)
+            # TODO: this truncates the structure column
+            line = line[: -depth - 1]
+            line.append_text(Span("┃" * (depth + 1), style=BORDER_STYLE))
+            console.print(line)
+
+            # track for next iteration
+            if visible_tags != prev_tags:
+                # tags changed — compute the rendered width for continuation bars
+                prev_tags = visible_tags
+                prev_tags_width = len(render_string_tags(string, tag_rules))
 
     if not layout.children:
         # for string in layout.strings[:4]:
-        for string in layout.strings:
-            render_string_line(console, tag_rules, string, depth)
+        render_string_lines(console, tag_rules, layout.strings, depth)
 
     else:
         for i, child in enumerate(layout.children):
@@ -1423,16 +1471,14 @@ def render_strings(
                 strings_before_child = list(filter(lambda s: last_child.end < s.offset < child.offset, layout.strings))
 
             # for string in strings_before_child[:4]:
-            for string in strings_before_child:
-                render_string_line(console, tag_rules, string, depth)
+            render_string_lines(console, tag_rules, strings_before_child, depth)
 
             render_strings(console, child, tag_rules, depth + 1, parent=layout, child_index=i)
 
         # render strings after last child
         strings_after_children = list(filter(lambda s: child.end < s.offset < layout.end, layout.strings))
         # for string in strings_after_children[:4]:
-        for string in strings_after_children:
-            render_string_line(console, tag_rules, string, depth)
+        render_string_lines(console, tag_rules, strings_after_children, depth)
 
     if not has_visible_successors(parent, child_index):
         footer = Span("", style=BORDER_STYLE)
