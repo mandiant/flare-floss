@@ -381,16 +381,23 @@ def render_string_tags(s: ResultString, tag_rules: TagRules):
     return ret
 
 
-def render_string_tags_continuation(tags_width: int) -> Text:
-    """render a vertical bar continuation indicator instead of repeating tag text.
+def render_string_tags_continuation(tags_width: int, is_group_end: bool = False) -> Text:
+    """render a continuation indicator instead of repeating tag text.
 
-    the bar is right-aligned to the given width so it lines up
-    with the tag column of the previous line.
+    the block is centered in the given width.
+    on the last line of a group, render ██ (double block) as a terminator.
     """
     if tags_width == 0:
         return Span("")
-    bar = Span("█", style=MUTED_STYLE)
-    bar.align("right", tags_width)
+    # center position for the single block
+    left_pad = (tags_width - 1) // 2
+    if is_group_end:
+        # place ██ so the first block aligns with the normal continuation position
+        right_pad = max(0, tags_width - left_pad - 2)
+        bar = Span(" " * left_pad + "██" + " " * right_pad, style=MUTED_STYLE)
+    else:
+        bar = Span("█", style=MUTED_STYLE)
+        bar.align("center", tags_width)
     return bar
 
 
@@ -428,6 +435,7 @@ def render_string(
     tag_rules: TagRules,
     prev_tags: Optional[tuple] = None,
     prev_tags_width: int = 0,
+    is_group_end: bool = False,
 ) -> Text:
     #
     #  | stringstringstring              #tag #tag #tag  00000001 |
@@ -464,7 +472,7 @@ def render_string(
     right = Span("")
     right.append_text(render_string_padding())
     if use_continuation:
-        right.append_text(render_string_tags_continuation(prev_tags_width))
+        right.append_text(render_string_tags_continuation(prev_tags_width, is_group_end=is_group_end))
     else:
         right.append_text(render_string_tags(s, tag_rules))
     right.append_text(render_string_padding())
@@ -1442,9 +1450,25 @@ def render_strings(
         """render a batch of strings, grouping consecutive strings with the same tags."""
         prev_tags = None
         prev_tags_width = 0
-        for string in strings:
+        for idx, string in enumerate(strings):
             visible_tags = get_visible_tags(string)
-            line = render_string(console.width, string, tag_rules, prev_tags=prev_tags, prev_tags_width=prev_tags_width)
+
+            # lookahead: is this the last line in a continuation group?
+            is_group_end = False
+            if prev_tags is not None and visible_tags == prev_tags and len(visible_tags) > 0:
+                # we are in a continuation — check if the next string breaks the group
+                if idx + 1 >= len(strings):
+                    is_group_end = True
+                else:
+                    next_tags = get_visible_tags(strings[idx + 1])
+                    if next_tags != visible_tags:
+                        is_group_end = True
+
+            line = render_string(
+                console.width, string, tag_rules,
+                prev_tags=prev_tags, prev_tags_width=prev_tags_width,
+                is_group_end=is_group_end,
+            )
             # TODO: this truncates the structure column
             line = line[: -depth - 1]
             line.append_text(Span("┃" * (depth + 1), style=BORDER_STYLE))
