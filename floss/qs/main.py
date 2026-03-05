@@ -1252,6 +1252,14 @@ def _format_macho_arch(cputype: int, cpusubtype: int) -> str:
 
 
 def _parse_fat_arches(data: bytes) -> List[Tuple[str, int, int]]:
+    """
+    Parse the Mach-O fat header to extract architecture information.
+    Returns:
+        List of (arch_name, offset, size) tuples:
+            - arch_name (str): The name of the architecture (e.g., 'x86_64', 'arm64').
+            - offset (int): The file offset to the architecture-specific binary.
+            - size (int): The size of the architecture-specific binary in bytes.
+    """
     arches: List[Tuple[str, int, int]] = []
     if len(data) < 8:
         return arches
