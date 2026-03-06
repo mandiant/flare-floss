@@ -353,7 +353,7 @@ def get_visible_tags(s: ResultString) -> tuple:
     return tuple(sorted(tags))
 
 
-def render_string_tags(s: ResultString, tag_rules: TagRules):
+def render_string_tags(s: ResultString, tag_rules: TagRules, is_group_start: bool = False):
     ret = Text()
 
     tags = list(s.tags)
@@ -378,27 +378,29 @@ def render_string_tags(s: ResultString, tag_rules: TagRules):
         if i < len(tags) - 1:
             ret.append_text(Span(" "))
 
+    if is_group_start:
+        ret.append_text(Span(" ━┓", style=MUTED_STYLE))
+    else:
+        # reserve same width as " ━┓" so tags stay aligned
+        ret.append_text(Span("   "))
+
     return ret
 
 
 def render_string_tags_continuation(tags_width: int, is_group_end: bool = False) -> Text:
     """render a continuation indicator instead of repeating tag text.
 
-    the block is centered in the given width.
-    on the last line of a group, render ██ (double block) as a terminator.
+    the character is right-aligned in the given width to line up with the ┓.
+    on the last line of a group, render ┛ as a terminator.
     """
     if tags_width == 0:
         return Span("")
-    # center position for the single block
-    if is_group_end and tags_width >= 2:
-        # place ██ so the first block aligns with the normal continuation position
-        left_pad = (tags_width - 1) // 2
-        right_pad = tags_width - left_pad - 2
-        bar = Span(" " * left_pad + "██" + " " * right_pad, style=MUTED_STYLE)
+    if is_group_end:
+        left_pad = tags_width - 2
+        bar = Span(" " * left_pad + "━┛", style=MUTED_STYLE)
     else:
-        # for non-group-end, or group-end with not enough space for terminator
-        bar = Span("█", style=MUTED_STYLE)
-        bar.align("center", tags_width)
+        left_pad = tags_width - 1
+        bar = Span(" " * left_pad + "┃", style=MUTED_STYLE)
     return bar
 
 
@@ -437,6 +439,7 @@ def render_string(
     prev_tags: Optional[tuple] = None,
     prev_tags_width: int = 0,
     is_group_end: bool = False,
+    is_group_start: bool = False,
 ) -> Text:
     #
     #  | stringstringstring              #tag #tag #tag  00000001 |
@@ -475,7 +478,7 @@ def render_string(
     if use_continuation:
         right.append_text(render_string_tags_continuation(prev_tags_width, is_group_end=is_group_end))
     else:
-        right.append_text(render_string_tags(s, tag_rules))
+        right.append_text(render_string_tags(s, tag_rules, is_group_start=is_group_start))
     right.append_text(render_string_padding())
     # indicate encoding: ascii implicit default
     right.append_text(Span("U " if s.encoding == "unicode" else "  "))
@@ -1429,7 +1432,7 @@ def render_strings(
 
     header = Span(name, style=BORDER_STYLE)
     header.pad(1)
-    header.align("center", width=console.width, character="━")
+    header.align("center", width=console.width, character="─")
 
     # box is muted color
     # name of section is blue
@@ -1437,13 +1440,13 @@ def render_strings(
     header.stylize(Style(color="blue"), name_offset, name_offset + len(name))
 
     if not has_visible_predecessors(parent, child_index):
-        header_shape = "┓"
+        header_shape = "┐"
     else:
-        header_shape = "┫"
+        header_shape = "┤"
 
-    header.remove_suffix("━" * (depth + 1))
+    header.remove_suffix("─" * (depth + 1))
     header.append_text(Span(header_shape, style=BORDER_STYLE))
-    header.append_text(Span("┃" * depth, style=BORDER_STYLE))
+    header.append_text(Span("│" * depth, style=BORDER_STYLE))
 
     console.print(header)
 
@@ -1465,21 +1468,30 @@ def render_strings(
                     if next_tags != visible_tags:
                         is_group_end = True
 
+            # lookahead: is this the first line of a continuation group?
+            is_group_start = False
+            if (prev_tags is None or visible_tags != prev_tags) and len(visible_tags) > 0:
+                if idx + 1 < len(strings):
+                    next_tags = get_visible_tags(strings[idx + 1])
+                    if next_tags == visible_tags:
+                        is_group_start = True
+
             line = render_string(
                 console.width, string, tag_rules,
                 prev_tags=prev_tags, prev_tags_width=prev_tags_width,
                 is_group_end=is_group_end,
+                is_group_start=is_group_start,
             )
             # TODO: this truncates the structure column
             line = line[: -depth - 1]
-            line.append_text(Span("┃" * (depth + 1), style=BORDER_STYLE))
+            line.append_text(Span("│" * (depth + 1), style=BORDER_STYLE))
             console.print(line)
 
             # track for next iteration
             if visible_tags != prev_tags:
                 # tags changed — compute the rendered width for continuation bars
                 prev_tags = visible_tags
-                prev_tags_width = len(render_string_tags(string, tag_rules))
+                prev_tags_width = len(render_string_tags(string, tag_rules, is_group_start=is_group_start))
 
     if not layout.children:
         # for string in layout.strings[:4]:
@@ -1507,11 +1519,11 @@ def render_strings(
 
     if not has_visible_successors(parent, child_index):
         footer = Span("", style=BORDER_STYLE)
-        footer.align("center", width=console.width, character="━")
+        footer.align("center", width=console.width, character="─")
 
-        footer.remove_suffix("━" * (depth + 1))
-        footer.append_text(Span("┛", style=BORDER_STYLE))
-        footer.append_text(Span("┃" * depth, style=BORDER_STYLE))
+        footer.remove_suffix("─" * (depth + 1))
+        footer.append_text(Span("┘", style=BORDER_STYLE))
+        footer.append_text(Span("│" * depth, style=BORDER_STYLE))
 
         console.print(footer)
 
