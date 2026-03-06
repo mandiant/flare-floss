@@ -379,10 +379,10 @@ def render_string_tags(s: ResultString, tag_rules: TagRules, is_group_start: boo
             ret.append_text(Span(" "))
 
     if is_group_start:
-        ret.append_text(Span(" ━┓", style=MUTED_STYLE))
+        ret.append_text(Span(" ┓", style=MUTED_STYLE))
     else:
-        # reserve same width as " ━┓" so tags stay aligned
-        ret.append_text(Span("   "))
+        # reserve same width as " ┓" so tags stay aligned
+        ret.append_text(Span("  "))
 
     return ret
 
@@ -396,8 +396,8 @@ def render_string_tags_continuation(tags_width: int, is_group_end: bool = False)
     if tags_width == 0:
         return Span("")
     if is_group_end:
-        left_pad = tags_width - 2
-        bar = Span(" " * left_pad + "━┛", style=MUTED_STYLE)
+        left_pad = tags_width - 1
+        bar = Span(" " * left_pad + "┛", style=MUTED_STYLE)
     else:
         left_pad = tags_width - 1
         bar = Span(" " * left_pad + "┃", style=MUTED_STYLE)
