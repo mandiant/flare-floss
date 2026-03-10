@@ -18,12 +18,15 @@ import pathlib
 import argparse
 from typing import List
 
-import pefile
-
 from floss.utils import get_static_strings
 from floss.results import StaticString, StringEncoding
 from floss.language.utils import get_extract_stats
 from floss.language.go.extract import extract_go_strings
+from floss.language.cli_common import (
+    add_common_argparse_options,
+    configure_logging,
+    open_and_validate_pe,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -32,36 +35,13 @@ MIN_STR_LEN = 4
 
 def main():
     parser = argparse.ArgumentParser(description="Get Go strings")
-    parser.add_argument("path", help="file or path to analyze")
-    parser.add_argument(
-        "-n",
-        "--minimum-length",
-        dest="min_length",
-        type=int,
-        default=MIN_STR_LEN,
-        help="minimum string length",
-    )
-    logging_group = parser.add_argument_group("logging arguments")
-    logging_group.add_argument("-d", "--debug", action="store_true", help="enable debugging output on STDERR")
-    logging_group.add_argument(
-        "-q",
-        "--quiet",
-        action="store_true",
-        help="disable all status output except fatal errors",
-    )
+    add_common_argparse_options(parser, MIN_STR_LEN)
     args = parser.parse_args()
 
-    if args.debug:
-        logging.basicConfig(level=logging.DEBUG)
-        logging.getLogger().setLevel(logging.DEBUG)
-    else:
-        logging.basicConfig(level=logging.INFO)
-        logging.getLogger().setLevel(logging.INFO)
+    configure_logging(args)
 
-    try:
-        pe = pefile.PE(args.path)
-    except pefile.PEFormatError as err:
-        logger.debug(f"NOT a valid PE file: {err}")
+    pe = open_and_validate_pe(args.path)
+    if pe is None:
         return 1
 
     path = pathlib.Path(args.path)
