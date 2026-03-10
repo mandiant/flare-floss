@@ -116,7 +116,6 @@ def split_strings(
             rest = string.string[address - string.offset :]
 
             if len(rust_string) >= min_length:
-                # Part 1: Keeps the original base address
                 static_strings.append(
                     StaticString(
                         string=rust_string,
@@ -126,7 +125,6 @@ def split_strings(
                     )
                 )
             if len(rest) >= min_length:
-                # Part 2: Calculate the new VA for the split point
                 va_at_split = string.address + (address - string.offset)
                 static_strings.append(
                     StaticString(
@@ -137,11 +135,8 @@ def split_strings(
                     )
                 )
 
-            # Remove the original unsplit string
-            for static_string in static_strings:
-                if static_string == string:
-                    static_strings.remove(static_string)
-                    return
+            # Fix: Directly remove the item instead of using a nested loop
+            static_strings.remove(string)
             return
 
 

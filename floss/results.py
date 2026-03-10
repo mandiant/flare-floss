@@ -144,9 +144,7 @@ class StaticString:
     address: int = 0  # <--- New field added
 
     @classmethod
-    def from_utf8(
-        cls, buf, addr, min_length, address=0
-    ):  # <--- Added address parameter
+    def from_utf8(cls, buf, addr, min_length, address=0):
         try:
             decoded_string = buf.decode("utf-8")
         except UnicodeDecodeError:
@@ -158,22 +156,13 @@ class StaticString:
         if len(decoded_string) < min_length:
             raise ValueError("too short")
 
-        # --- SAFETY CHECK START ---
-        try:
-            # We try to create the object with our new field
-            new_string_obj = cls(
-                string=decoded_string,
-                offset=addr,
-                encoding=StringEncoding.UTF8,
-                address=address,
-            )
-            return new_string_obj
-        except Exception as e:
-            # If something is wrong with the class definition, this will catch it
-            print(f"\n[!] ERROR in results.py: Could not create StaticString object.")
-            print(f"[!] Technical details: {e}")
-            sys.exit(1)  # Stop the program immediately so we can fix it
-        # --- SAFETY CHECK END ---
+        # Directly return the object and let the caller handle any unexpected errors
+        return cls(
+            string=decoded_string,
+            offset=addr,
+            encoding=StringEncoding.UTF8,
+            address=address,
+        )
 
 
 @dataclass

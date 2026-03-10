@@ -315,8 +315,10 @@ def get_string_blob_strings(pe: pefile.PE, min_length) -> Iterable[StaticString]
                 pe, struct_strings
             )
         except ValueError:
-            
-            pass
+            logger.warning(
+                "Failed to find string blob range: Is this a Go binary? If so, the Go version may be unsupported."
+            )
+            return
 
     with floss.utils.timing("collect string blob strings"):
         string_blob_size = string_blob_end - string_blob_start
@@ -402,17 +404,17 @@ def get_string_blob_strings(pe: pefile.PE, min_length) -> Iterable[StaticString]
             except UnicodeDecodeError:
                 continue
             else:
+
                 try:
                     string = StaticString.from_utf8(
-                        last_buf[:size],
-                        pe.get_offset_from_rva(last_pointer - image_base),
+                        sbuf,
+                        pe.get_offset_from_rva(start - image_base),
                         min_length,
-                        address=last_pointer,
+                        address=start,
                     )
                     yield string
                 except ValueError:
                     pass
-                break
 
 
 def extract_go_strings(sample, min_length) -> List[StaticString]:
@@ -442,10 +444,17 @@ def get_static_strings_from_blob_range(
     if not struct_strings:
         return []
 
-    try:
-        string_blob_start, string_blob_end = find_string_blob_range(pe, struct_strings)
-    except ValueError:
-        return []
+    with floss.utils.timing("find string blob"):
+        try:
+            string_blob_start, string_blob_end = find_string_blob_range(
+                pe, struct_strings
+            )
+        except ValueError:
+            # This restores the safe behavior the mentor requested
+            logger.warning(
+                "Failed to find string blob range: Is this a Go binary? If so, the Go version may be unsupported."
+            )
+            return
 
     image_base = pe.OPTIONAL_HEADER.ImageBase
     string_blob_start = pe.get_offset_from_rva(string_blob_start - image_base)
