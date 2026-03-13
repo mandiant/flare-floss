@@ -1260,10 +1260,9 @@ def compute_pe_layout(slice: Slice, xor_key: int | None) -> Layout:
                 if entry.name:
                     name = str(entry.name)
                 else:
+                    name = str(entry.id)
                     if not path and entry.id in PE_RESOURCE_TYPES:
                         name = PE_RESOURCE_TYPES[entry.id]
-                    else:
-                        name = str(entry.id)
 
                 epath = path + (name,)
 
