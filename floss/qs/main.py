@@ -183,7 +183,8 @@ PE_RESOURCE_TYPES = {
     22: "Animated Icons",
     23: "HTML",
     24: "Manifest",
-    240: "DLGInit",
+    240: "DLGInit",  # MFC specific
+    241: "Toolbars",  # MFC specific
 }
 
 CPU_TYPE_X86 = 0x7
