@@ -161,6 +161,31 @@ FAT_CIGAM_64 = 0xBFBAFECA
 MACHO_MAGICS = {MACHO_MAGIC, MACHO_CIGAM, MACHO_MAGIC_64, MACHO_CIGAM_64}
 FAT_MAGICS = {FAT_MAGIC, FAT_CIGAM, FAT_MAGIC_64, FAT_CIGAM_64}
 
+PE_RESOURCE_TYPES = {
+    1: "Cursors",
+    2: "Bitmaps",
+    3: "Icons",
+    4: "Menus",
+    5: "Dialogs",
+    6: "String Tables",
+    7: "Font Directories",
+    8: "Fonts",
+    9: "Accelerators",
+    10: "RCData",
+    11: "Message Tables",
+    12: "Cursor Groups",
+    14: "Icon Groups",
+    16: "Version Info",
+    17: "DLGInclude",
+    19: "Plug and Play",
+    20: "VXD",
+    21: "Animated Cursors",
+    22: "Animated Icons",
+    23: "HTML",
+    24: "Manifest",
+    240: "DLGInit",
+}
+
 CPU_TYPE_X86 = 0x7
 CPU_TYPE_X86_64 = 0x1000007
 CPU_TYPE_ARM = 0xC
@@ -1234,7 +1259,10 @@ def compute_pe_layout(slice: Slice, xor_key: int | None) -> Layout:
                 if entry.name:
                     name = str(entry.name)
                 else:
-                    name = str(entry.id)
+                    if not path and entry.id in PE_RESOURCE_TYPES:
+                        name = PE_RESOURCE_TYPES[entry.id]
+                    else:
+                        name = str(entry.id)
 
                 epath = path + (name,)
 
