@@ -850,7 +850,7 @@ def collect_pe_structures(slice: Slice, pe: pefile.PE) -> Sequence[Structure]:
                     )
                 )
 
-                if hasattr(entry, "forwarder") and entry.forwarder is not None and hasattr(entry, "forwarder_offset") and entry.forwarder_offset is not None:
+                if entry.forwarder:
                     try:
                         forwarder_name = entry.forwarder.decode("ascii")
                     except UnicodeDecodeError:
