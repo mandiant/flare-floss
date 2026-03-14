@@ -824,8 +824,8 @@ def collect_pe_structures(slice: Slice, pe: pefile.PE) -> Sequence[Structure]:
                         name="export table",
                     )
                 )
-            except (UnicodeDecodeError, pefile.PEFormatError):
-                pass
+            except (UnicodeDecodeError, pefile.PEFormatError) as e:
+                logger.warning("failed to parse export table DLL name: %s", e)
 
         if hasattr(exp, "symbols"):
             for entry in exp.symbols:
