@@ -835,8 +835,62 @@ def collect_pe_structures(slice: Slice, pe: pefile.PE) -> Sequence[Structure]:
                     )
                 )
 
+    if hasattr(pe, "DIRECTORY_ENTRY_EXPORT"):
+        exp = pe.DIRECTORY_ENTRY_EXPORT
+        if hasattr(exp, "name") and exp.name:
+            try:
+                dll_name = exp.name.decode("ascii")
+                rva = exp.struct.Name
+                size = len(dll_name)
+                offset = pe.get_offset_from_rva(rva)
+
+                structures.append(
+                    Structure(
+                        slice=slice.slice(offset, size),
+                        name="export table",
+                    )
+                )
+            except (UnicodeDecodeError, pefile.PEFormatError) as e:
+                logger.warning("failed to parse export table DLL name: %s", e)
+
+        if hasattr(exp, "symbols"):
+            for entry in exp.symbols:
+                if entry.name is None:
+                    continue
+
+                if entry.name_offset is None:
+                    continue
+
+                try:
+                    symbol_name = entry.name.decode("ascii")
+                except UnicodeDecodeError:
+                    continue
+
+                offset = entry.name_offset
+                size = len(symbol_name)
+
+                structures.append(
+                    Structure(
+                        slice=slice.slice(offset, size),
+                        name="export table",
+                    )
+                )
+
+                if entry.forwarder:
+                    try:
+                        forwarder_name = entry.forwarder.decode("ascii")
+                    except UnicodeDecodeError:
+                        continue
+                    offset = entry.forwarder_offset
+                    size = len(forwarder_name)
+                    structures.append(
+                        Structure(
+                            slice=slice.slice(offset, size),
+                            name="export table",
+                        )
+                    )
+
     # TODO: other structures
-    # export table
     # rich header
 
     return structures
