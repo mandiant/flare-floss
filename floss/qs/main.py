@@ -890,8 +890,25 @@ def collect_pe_structures(slice: Slice, pe: pefile.PE) -> Sequence[Structure]:
                         )
                     )
 
-    # TODO: other structures
-    # rich header
+    if hasattr(pe, 'RICH_HEADER'):
+        key_bytes = pe.RICH_HEADER.key
+
+        rich_sig_offset = pe.__data__.find(b'Rich', 0x40, pe.DOS_HEADER.e_lfanew)
+        # The structure end is 'Rich' (4) + key (4) = 8 bytes
+        rich_end = rich_sig_offset + 8
+
+        # Find the start of rich header by looking for 'DanS' XORed with the key
+        xor_dans = bytes(a ^ b for a, b in zip(b'DanS', key_bytes))
+        rich_start = pe.__data__.rfind(xor_dans, 0x40, rich_sig_offset)
+
+        if rich_sig_offset != -1 and rich_start != -1:
+                rich_end = rich_sig_offset + 8
+                structures.append(
+                    Structure(
+                        slice=slice.slice(rich_start, rich_end - rich_start),
+                        name="rich header"
+                    )
+                )
 
     return structures
 
