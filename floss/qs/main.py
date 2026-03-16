@@ -890,7 +890,7 @@ def collect_pe_structures(slice: Slice, pe: pefile.PE) -> Sequence[Structure]:
                         )
                     )
 
-    if hasattr(pe, 'RICH_HEADER'):
+    if hasattr(pe, 'RICH_HEADER') and pe.RICH_HEADER:
         key_bytes = pe.RICH_HEADER.key
 
         rich_sig_offset = pe.__data__.find(b'Rich', 0x40, pe.DOS_HEADER.e_lfanew)
