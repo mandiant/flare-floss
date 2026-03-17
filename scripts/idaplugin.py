@@ -39,6 +39,8 @@ import floss.identify
 import floss.stackstrings
 import floss.tightstrings
 import floss.string_decoder
+from floss.language.go.extract import extract_go_strings
+from floss.language.rust.extract import extract_rust_strings
 from floss.results import AddressType, StackString, TightString, DecodedString
 
 logger = logging.getLogger("floss.idaplugin")
@@ -79,7 +81,9 @@ def append_comment(ea: int, s: str, repeatable: bool = False) -> None:
         idc.set_cmt(ea, cmt, False)
 
 
-def append_lvar_comment(fva: int, frame_offset: int, s: str, repeatable: bool = False) -> None:
+def append_lvar_comment(
+    fva: int, frame_offset: int, s: str, repeatable: bool = False
+) -> None:
     """
     add the given string as a (possibly repeatable) stack variable comment to the given function.
     does not add the comment if it already exists.
@@ -101,10 +105,15 @@ def append_lvar_comment(fva: int, frame_offset: int, s: str, repeatable: bool = 
         idc.get_func_attr(fva, idc.FUNCATTR_FRSIZE) - frame_offset
     )  # alternative: idc.get_frame_lvar_size(fva) - frame_offset
     if not lvar_offset:
-        raise RuntimeError("failed to compute local variable offset: 0x%x 0x%x %s" % (fva, stack, s))
+        raise RuntimeError(
+            "failed to compute local variable offset: 0x%x 0x%x %s" % (fva, stack, s)
+        )
 
     if lvar_offset <= 0:
-        raise RuntimeError("failed to compute positive local variable offset: 0x%x 0x%x %s" % (fva, stack, s))
+        raise RuntimeError(
+            "failed to compute positive local variable offset: 0x%x 0x%x %s"
+            % (fva, stack, s)
+        )
 
     string = idc.get_member_cmt(stack, lvar_offset, repeatable)
     if not string:
@@ -115,7 +124,10 @@ def append_lvar_comment(fva: int, frame_offset: int, s: str, repeatable: bool = 
         string = string + "\n" + s
 
     if not idc.set_member_cmt(stack, lvar_offset, string, repeatable):
-        raise RuntimeError("failed to set comment: 0x%08x 0x%08x 0x%08x: %s" % (fva, stack, lvar_offset, s))
+        raise RuntimeError(
+            "failed to set comment: 0x%08x 0x%08x 0x%08x: %s"
+            % (fva, stack, lvar_offset, s)
+        )
 
 
 def apply_decoded_strings(decoded_strings: List[DecodedString]) -> None:
@@ -124,15 +136,51 @@ def apply_decoded_strings(decoded_strings: List[DecodedString]) -> None:
             continue
 
         if ds.address_type == AddressType.GLOBAL:
-            logger.info("decoded string at global address 0x%x: %s", ds.address, ds.string)
+            logger.info(
+                "decoded string at global address 0x%x: %s", ds.address, ds.string
+            )
             append_comment(ds.address, ds.string)
         else:
-            logger.info("decoded string for function call at 0x%x: %s", ds.decoded_at, ds.string)
+            logger.info(
+                "decoded string for function call at 0x%x: %s", ds.decoded_at, ds.string
+            )
             append_comment(ds.decoded_at, ds.string)
 
 
+def apply_language_strings(fpath: Path, min_length: int = MIN_LENGTH) -> None:
+    """
+    Extract and apply language-specific strings for Go and Rust binaries.
+    """
+    try:
+        go_strings = list(extract_go_strings(fpath, min_length))
+        if go_strings:
+            logger.info("extracted %d Go strings", len(go_strings))
+            for s in go_strings:
+                if s.string:
+                    append_comment(s.address, "FLOSS Go: " + s.string)
+        else:
+            logger.info("no Go strings found")
+    except Exception as e:
+        logger.warning("failed to extract Go strings: %s", str(e))
+
+    try:
+        rust_strings = list(extract_rust_strings(fpath, min_length))
+        if rust_strings:
+            logger.info("extracted %d Rust strings", len(rust_strings))
+            for s in rust_strings:
+                if s.string:
+                    append_comment(s.address, "FLOSS Rust: " + s.string)
+        else:
+            logger.info("no Rust strings found")
+    except Exception as e:
+        logger.warning("failed to extract Rust strings: %s", str(e))
+
+
 def apply_stack_strings(
-    stack_strings: List[StackString], tight_strings: List[TightString], lvar_cmt: bool = True, cmt: bool = True
+    stack_strings: List[StackString],
+    tight_strings: List[TightString],
+    lvar_cmt: bool = True,
+    cmt: bool = True,
 ) -> None:
     """
     lvar_cmt: apply stack variable comment
@@ -144,7 +192,10 @@ def apply_stack_strings(
             continue
 
         logger.info(
-            "decoded stack/tight string in function 0x%x (pc: 0x%x): %s", s.function, s.program_counter, s.string
+            "decoded stack/tight string in function 0x%x (pc: 0x%x): %s",
+            s.function,
+            s.program_counter,
+            s.string,
         )
         if lvar_cmt:
             try:
@@ -185,19 +236,29 @@ def main(argv=None):
     time0 = time.time()
 
     logger.info("identifying decoding functions...")
-    decoding_function_features, library_functions = floss.identify.find_decoding_function_features(
-        vw, selected_functions, disable_progress=True
+    decoding_function_features, library_functions = (
+        floss.identify.find_decoding_function_features(
+            vw, selected_functions, disable_progress=True
+        )
     )
 
     logger.info("extracting stackstrings...")
-    selected_functions = floss.identify.get_functions_without_tightloops(decoding_function_features)
+    selected_functions = floss.identify.get_functions_without_tightloops(
+        decoding_function_features
+    )
     stack_strings = floss.stackstrings.extract_stackstrings(
-        vw, selected_functions, MIN_LENGTH, verbosity=floss.render.Verbosity.VERBOSE, disable_progress=True
+        vw,
+        selected_functions,
+        MIN_LENGTH,
+        verbosity=floss.render.Verbosity.VERBOSE,
+        disable_progress=True,
     )
     logger.info("decoded %d stack strings", len(stack_strings))
 
     logger.info("extracting tightstrings...")
-    tightloop_functions = floss.identify.get_functions_with_tightloops(decoding_function_features)
+    tightloop_functions = floss.identify.get_functions_with_tightloops(
+        decoding_function_features
+    )
     tight_strings = floss.tightstrings.extract_tightstrings(
         vw,
         tightloop_functions,
@@ -213,8 +274,12 @@ def main(argv=None):
 
     top_functions = floss.identify.get_top_functions(decoding_function_features, 20)
     fvas_to_emulate = floss.identify.get_function_fvas(top_functions)
-    fvas_tight_functions = floss.identify.get_tight_function_fvas(decoding_function_features)
-    fvas_to_emulate = floss.identify.append_unique(fvas_to_emulate, fvas_tight_functions)
+    fvas_tight_functions = floss.identify.get_tight_function_fvas(
+        decoding_function_features
+    )
+    fvas_to_emulate = floss.identify.append_unique(
+        fvas_to_emulate, fvas_tight_functions
+    )
     decoded_strings = floss.string_decoder.decode_strings(
         vw,
         fvas_to_emulate,
@@ -224,6 +289,8 @@ def main(argv=None):
     )
     logger.info("decoded %d strings", len(decoded_strings))
     apply_decoded_strings(decoded_strings)
+    logger.info("extracting language-specific strings (Go/Rust)...")
+    apply_language_strings(fpath)
 
     time1 = time.time()
     logger.debug("finished execution after %f seconds", (time1 - time0))
