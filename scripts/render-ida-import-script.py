@@ -176,11 +176,35 @@ def run_in_ida():
     # apply stack strings
     for ss in result_document.strings.stack_strings:
         if ss.string:
+            stack = idc.get_func_attr(ss.function, idc.FUNCATTR_FRAME)
+            if stack:
+                lvar_offset = (
+                    idc.get_func_attr(ss.function, idc.FUNCATTR_FRSIZE)
+                    - ss.frame_offset
+                )
+                if lvar_offset and lvar_offset > 0:
+                    idc.set_member_cmt(
+                        stack, lvar_offset, "FLOSS stackstring: " + ss.string, False
+                    )
+                    continue
+            # fallback to program counter if stack variable comment fails
             idc.set_cmt(ss.program_counter, "FLOSS stackstring: " + ss.string, False)
 
     # apply tight strings
     for ts in result_document.strings.tight_strings:
         if ts.string:
+            stack = idc.get_func_attr(ts.function, idc.FUNCATTR_FRAME)
+            if stack:
+                lvar_offset = (
+                    idc.get_func_attr(ts.function, idc.FUNCATTR_FRSIZE)
+                    - ts.frame_offset
+                )
+                if lvar_offset and lvar_offset > 0:
+                    idc.set_member_cmt(
+                        stack, lvar_offset, "FLOSS tightstring: " + ts.string, False
+                    )
+                    continue
+            # fallback to program counter if stack variable comment fails
             idc.set_cmt(ts.program_counter, "FLOSS tightstring: " + ts.string, False)
 
     ida_kernwin.refresh_idaview_anyway()

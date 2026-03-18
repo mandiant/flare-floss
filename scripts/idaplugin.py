@@ -151,29 +151,23 @@ def apply_language_strings(fpath: Path, min_length: int = MIN_LENGTH) -> None:
     """
     Extract and apply language-specific strings for Go and Rust binaries.
     """
-    try:
-        go_strings = list(extract_go_strings(fpath, min_length))
-        if go_strings:
-            logger.info("extracted %d Go strings", len(go_strings))
-            for s in go_strings:
-                if s.string:
-                    append_comment(s.address, "FLOSS Go: " + s.string)
-        else:
-            logger.info("no Go strings found")
-    except Exception as e:
-        logger.warning("failed to extract Go strings: %s", str(e))
+    language_extractors = {
+        "Go": extract_go_strings,
+        "Rust": extract_rust_strings,
+    }
 
-    try:
-        rust_strings = list(extract_rust_strings(fpath, min_length))
-        if rust_strings:
-            logger.info("extracted %d Rust strings", len(rust_strings))
-            for s in rust_strings:
-                if s.string:
-                    append_comment(s.address, "FLOSS Rust: " + s.string)
-        else:
-            logger.info("no Rust strings found")
-    except Exception as e:
-        logger.warning("failed to extract Rust strings: %s", str(e))
+    for lang, extractor in language_extractors.items():
+        try:
+            strings = list(extractor(fpath, min_length))
+            if strings:
+                logger.info("extracted %d %s strings", len(strings), lang)
+                for s in strings:
+                    if s.string:
+                        append_comment(s.address, "FLOSS " + lang + ": " + s.string)
+            else:
+                logger.info("no %s strings found", lang)
+        except Exception as e:
+            logger.warning("failed to extract %s strings: %s", lang, str(e))
 
 
 def apply_stack_strings(
