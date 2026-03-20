@@ -17,6 +17,7 @@ from typing import List, Tuple
 from dataclasses import dataclass
 
 import viv_utils
+import vivisect.const
 import envi.memory
 import viv_utils.emulator_drivers
 from envi import Emulator
@@ -35,11 +36,18 @@ def is_import(emu, va):
     """
     Return True if the given VA is that of an imported function.
     """
-    # TODO: also check location type
     t = emu.getVivTaint(va)
     if t is None:
         return False
-    return t[1] == "import"
+
+    _, ttype, tinfo = t
+    if ttype != "import":
+        return False
+
+    if not isinstance(tinfo, tuple) or len(tinfo) < 3:
+        return False
+
+    return tinfo[2] == vivisect.const.LOC_IMPORT
 
 
 # type aliases for envi.memory map
