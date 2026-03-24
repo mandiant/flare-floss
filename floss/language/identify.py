@@ -22,6 +22,8 @@ import pefile
 
 import floss.logging_
 from floss.results import StaticString
+from floss.const import SUPPORTED_FILE_MAGIC_ELF, SUPPORTED_FILE_MAGIC_PE
+from floss.language.elf import ELF
 from floss.language.utils import get_rdata_section
 from floss.language.rust.rust_version_database import rust_commit_hash
 
@@ -29,6 +31,24 @@ logger = floss.logging_.getLogger(__name__)
 
 
 VERSION_UNKNOWN_OR_NA = "version unknown"
+
+GO_MAGIC = [
+    b"\xf0\xff\xff\xff\x00\x00",
+    b"\xfb\xff\xff\xff\x00\x00",
+    b"\xfa\xff\xff\xff\x00\x00",
+    b"\xf1\xff\xff\xff\x00\x00",
+]
+
+GO_FUNCTIONS = [
+    b"runtime.main",
+    b"main.main",
+    b"runtime.gcWork",
+    b"runtime.morestack",
+    b"runtime.morestack_noctxt",
+    b"runtime.newproc",
+    b"runtime.gcWriteBarrier",
+    b"runtime.Gosched",
+]
 
 
 class Language(Enum):
@@ -45,24 +65,43 @@ def identify_language_and_version(sample: Path, static_strings: Iterable[StaticS
         logger.info("Rust binary found with version: %s", version)
         return Language.RUST, version
 
-    # open file as PE for further checks
-    try:
-        pe = pefile.PE(str(sample))
-    except pefile.PEFormatError as err:
-        logger.debug(
-            f"FLOSS currently only detects if Windows PE files were written in Go or .NET. "
-            f"This is not a valid PE file: {err}"
-        )
+    from floss.main import get_file_type
+
+    file_type = get_file_type(sample)
+
+    # ELF Go binary
+    if file_type == SUPPORTED_FILE_MAGIC_ELF:
+        try:
+            elf_view = ELF(sample)
+        except ValueError as elf_err:
+            logger.debug(f"This is not a supported ELF file: {elf_err}")
+            return Language.UNKNOWN, VERSION_UNKNOWN_OR_NA
+
+        is_go, version = get_if_go_and_version_elf(elf_view)
+        if is_go:
+            logger.info("Go ELF binary found with version %s", version)
+            return Language.GO, version
+
         return Language.UNKNOWN, VERSION_UNKNOWN_OR_NA
 
-    is_go, version = get_if_go_and_version(pe)
-    if is_go:
-        logger.info("Go binary found with version %s", version)
-        return Language.GO, version
-    elif is_dotnet_bin(pe):
-        return Language.DOTNET, VERSION_UNKNOWN_OR_NA
-    else:
+    # PE Go bianry
+    if file_type == SUPPORTED_FILE_MAGIC_PE:
+        try:
+            pe = pefile.PE(str(sample))
+        except pefile.PEFormatError as err:
+            logger.debug(f"This is not a valid PE file: {err}")
+            return Language.UNKNOWN, VERSION_UNKNOWN_OR_NA
+
+        is_go, version = get_if_go_and_version(pe)
+        if is_go:
+            logger.info("Go binary found with version %s", version)
+            return Language.GO, version
+        if is_dotnet_bin(pe):
+            return Language.DOTNET, VERSION_UNKNOWN_OR_NA
+
         return Language.UNKNOWN, VERSION_UNKNOWN_OR_NA
+
+    return Language.UNKNOWN, VERSION_UNKNOWN_OR_NA
 
 
 def get_if_rust_and_version(static_strings: Iterable[StaticString]) -> Tuple[bool, str]:
@@ -107,22 +146,6 @@ def get_if_go_and_version(pe: pefile.PE) -> Tuple[bool, str]:
     https://github.com/0xjiayu/go_parser/blob/865359c297257e00165beb1683ef6a679edc2c7f/pclntbl.py#L46
     """
 
-    go_magic = [
-        b"\xf0\xff\xff\xff\x00\x00",
-        b"\xfb\xff\xff\xff\x00\x00",
-        b"\xfa\xff\xff\xff\x00\x00",
-        b"\xf1\xff\xff\xff\x00\x00",
-    ]
-    go_functions = [
-        b"runtime.main",
-        b"main.main",
-        b"runtime.gcWork",
-        b"runtime.morestack",
-        b"runtime.morestack_noctxt",
-        b"runtime.newproc",
-        b"runtime.gcWriteBarrier",
-        b"runtime.Gosched",
-    ]
     # look for the .rdata section first
     try:
         section = get_rdata_section(pe)
@@ -132,14 +155,14 @@ def get_if_go_and_version(pe: pefile.PE) -> Tuple[bool, str]:
         section_va = section.VirtualAddress
         section_size = section.SizeOfRawData
         section_data = section.get_data(section_va, section_size)
-        for magic in go_magic:
+        for magic in GO_MAGIC:
             if magic in section_data:
                 pclntab_va = section_data.index(magic) + section_va
                 if verify_pclntab(section, pclntab_va):
                     return True, get_go_version(magic)
 
     # if not found, search in all the available sections
-    for magic in go_magic:
+    for magic in GO_MAGIC:
         for section in pe.sections:
             section_va = section.VirtualAddress
             section_size = section.SizeOfRawData
@@ -159,7 +182,7 @@ def get_if_go_and_version(pe: pefile.PE) -> Tuple[bool, str]:
         section_va = section.VirtualAddress
         section_size = section.SizeOfRawData
         section_data = section.get_data(section_va, section_size)
-        for go_function in go_functions:
+        for go_function in GO_FUNCTIONS:
             if go_function in section_data:
                 logger.info("Go binary found, function name %s", go_function)
                 return True, VERSION_UNKNOWN_OR_NA
@@ -169,7 +192,7 @@ def get_if_go_and_version(pe: pefile.PE) -> Tuple[bool, str]:
         section_va = section.VirtualAddress
         section_size = section.SizeOfRawData
         section_data = section.get_data(section_va, section_size)
-        for go_function in go_functions:
+        for go_function in GO_FUNCTIONS:
             if go_function in section_data:
                 logger.info("Go binary found, function name %s", go_function)
                 return True, VERSION_UNKNOWN_OR_NA
@@ -209,6 +232,58 @@ def verify_pclntab(section, pclntab_va: int) -> bool:
         logger.error("Error parsing pclntab header")
         return False
     return True if pc_quanum in {1, 2, 4} and pointer_size in {4, 8} else False
+
+
+def verify_pclntab_elf(view: ELF, pclntab_va: int) -> bool:
+    """
+    Parse headers of pclntab to verify it is legit
+    """
+    try:
+        pc_quanum = view.read_va(pclntab_va + 6, 1)[0]
+        pointer_size = view.read_va(pclntab_va + 7, 1)[0]
+    except Exception:
+        logger.debug("Error parsing ELF pclntab header")
+        return False
+    return True if pc_quanum in {1, 2, 4} and pointer_size in {4, 8} else False
+
+
+def _iter_magic_matches(data: bytes, magic: bytes):
+    start = 0
+    while True:
+        idx = data.find(magic, start)
+        if idx == -1:
+            break
+        yield idx
+        start = idx + 1
+
+
+def get_if_go_and_version_elf(elf_view: ELF) -> Tuple[bool, str]:
+    """
+    Return if the ELF binary was compiled with Go and its version
+    """
+
+    ordered_segments = [
+        list(elf_view.iter_readonly_segments()),
+        list(elf_view.iter_load_segments()),
+    ]
+
+    for segments in ordered_segments:
+        for segment in segments:
+            segment_data = elf_view.data[segment.file_off : segment.file_end]
+            for magic in GO_MAGIC:
+                for match_offset in _iter_magic_matches(segment_data, magic):
+                    pclntab_va = segment.vaddr_start + match_offset
+                    if verify_pclntab_elf(elf_view, pclntab_va):
+                        return True, get_go_version(magic)
+
+    for segment in elf_view.iter_readable_segments():
+        segment_data = elf_view.data[segment.file_off : segment.file_end]
+        for go_function in GO_FUNCTIONS:
+            if go_function in segment_data:
+                logger.info("Go ELF binary found, function name %s", go_function)
+                return True, VERSION_UNKNOWN_OR_NA
+
+    return False, VERSION_UNKNOWN_OR_NA
 
 
 def is_dotnet_bin(pe: pefile.PE) -> bool:
