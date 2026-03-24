@@ -33,12 +33,14 @@ with open("./floss/version.py", "wb") as f:
     )
     f.write(("__version__ = '%s'" % version).encode("utf-8"))
 
+spec_dir = os.path.dirname(os.path.abspath(SPEC))
+repo_root = os.path.abspath(os.path.join(spec_dir, "../../"))
 a = Analysis(
     # when invoking pyinstaller from the project root,
     # this gets invoked from the directory of the spec file,
     # i.e. ./.github/pyinstaller
     ["../../floss/main.py"],
-    pathex=["floss"],
+    pathex=[repo_root],
     binaries=[],
     datas=[
         # when invoking pyinstaller from the project root,
