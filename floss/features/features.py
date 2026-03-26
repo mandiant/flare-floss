@@ -199,3 +199,32 @@ class NzxorLoop(Feature):
 
     def score(self):
         return 1.0
+
+
+class NumAPICalls(Feature):
+    """
+    Number of external/API calls made by a function.
+
+    Heuristic motivation:
+      decoding/deobfuscation functions often do tight arithmetic over buffers
+      and tend to have few or zero API calls
+    """
+
+    weight = LOW
+
+    def __init__(self, api_call_count: int):
+        super(NumAPICalls, self).__init__(int(api_call_count))
+
+    def score(self):
+        # 0-1 API calls: very decoder-like
+        # 2-4: plausible
+        # 5-8: less likely
+        # >8: unlikely
+        if self.value <= 1:
+            return 1.0
+        elif 2 <= self.value <= 4:
+            return 0.7
+        elif 5 <= self.value <= 8:
+            return 0.3
+        else:
+            return 0.1
