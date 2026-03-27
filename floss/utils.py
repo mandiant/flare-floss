@@ -615,5 +615,5 @@ def get_static_strings(sample: Path, min_length: int) -> list:
             # windows
             kwargs = {"access": mmap.ACCESS_READ}
 
-        with contextlib.closing(mmap.mmap(f.fileno(), 0, **kwargs)) as buf:
+        with contextlib.closing(mmap.mmap(f.fileno(), 0, **kwargs)) as buf:  # type: ignore[arg-type]
             return list(extract_ascii_unicode_strings(buf, min_length))
