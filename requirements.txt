@@ -29,7 +29,7 @@ pip==26.0
 platformdirs==4.5.0
 pluggy==1.6.0
 pre-commit==4.2.0
-pyasn1==0.5.1
+pyasn1==0.6.3
 pyasn1-modules==0.3.0
 pycodestyle==2.14.0
 pycparser==2.23
