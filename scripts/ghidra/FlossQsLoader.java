@@ -1,6 +1,6 @@
 // Synchronizes FLOSS-QS string attribution into Ghidra 12.0.3+
 // @category FLOSS.QS
-// @author Vikas
+// @author Vikas kumar
 
 import java.nio.file.Files;
 import java.nio.file.Paths;
