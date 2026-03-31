@@ -63,7 +63,7 @@ jobs:
         pip install -r requirements.txt
         pip install -e .[dev]
     - name: Cache vivisect workspaces
-      uses: actions/cache@ab5e6d0c87105b4c9c20473b0388ffdea1f22d00 # v4.2.0
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
       with:
         path: tests/data/**/*.viv
         key: viv-${{ runner.os }}-${{ runner.arch }}-${{ matrix.python-version }}-${{ hashFiles('**/requirements.txt') }}
