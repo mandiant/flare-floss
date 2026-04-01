@@ -41,12 +41,7 @@ def is_import(emu, va):
         return False
 
     _, ttype, tinfo = t
-    return (
-        ttype == "import"
-        and isinstance(tinfo, tuple)
-        and len(tinfo) >= 3
-        and tinfo[2] == vivisect.const.LOC_IMPORT
-    )
+    return ttype == "import" and isinstance(tinfo, tuple) and len(tinfo) >= 3 and tinfo[2] == vivisect.const.LOC_IMPORT
 
 
 # type aliases for envi.memory map
