@@ -174,6 +174,10 @@ def strtime(seconds):
 def render_language_strings(language, language_strings, language_strings_missed, console, verbose, disable_headers):
     strings = sorted(language_strings + language_strings_missed, key=lambda s: s.offset)
     render_heading(f"FLOSS {language.upper()} STRINGS ({len(strings)})", console, verbose, disable_headers)
+    # when no language strings are extracted
+    if not strings:
+        return
+
     offset_len = len(f"{strings[-1].offset}")
     for s in strings:
         if verbose == Verbosity.DEFAULT:
