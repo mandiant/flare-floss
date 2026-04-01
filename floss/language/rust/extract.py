@@ -37,7 +37,9 @@ MIN_STR_LEN = 4
 
 
 def fix_b2s_wide_strings(
-    strings: List[Tuple[str, str, Tuple[int, int], bool]], min_length: int, buffer: bytes
+    strings: List[Tuple[str, str, Tuple[int, int], bool]],
+    min_length: int,
+    buffer: bytes,
 ) -> List[Tuple[str, str, Tuple[int, int], bool]]:
     # TODO(mr-tz): b2s may parse wide strings where there really should be utf-8 strings
     #  handle special cases here until fixed
@@ -74,30 +76,40 @@ def fix_b2s_wide_strings(
 def filter_and_transform_utf8_strings(
     strings: List[Tuple[str, str, Tuple[int, int], bool]],
     start_rdata: int,
+    image_base: int,
+    virtual_address: int,
 ) -> List[StaticString]:
     transformed_strings = []
 
     for string in strings:
         s = string[0]
         string_type = string[1]
+
+        # Calculate file offset
         start = string[2][0] + start_rdata
+
+        # Calculate memory address (VA)
+        address = image_base + virtual_address + string[2][0]
 
         if string_type != "UTF8":
             continue
 
-        # our static algorithm does not extract new lines either
+        # FLOSS logic: remove new lines
         s = s.replace("\n", "")
-        transformed_strings.append(StaticString(string=s, offset=start, encoding=StringEncoding.UTF8))
+
+        # We pass the calculated address here
+        transformed_strings.append(
+            StaticString(
+                string=s, offset=start, encoding=StringEncoding.UTF8, address=address
+            )
+        )
 
     return transformed_strings
 
 
-def split_strings(static_strings: List[StaticString], address: int, min_length: int) -> None:
-    """
-    if address is in between start and end of a string in ref data then split the string
-    this modifies the elements of the static strings list directly
-    """
-
+def split_strings(
+    static_strings: List[StaticString], address: int, min_length: int
+) -> None:
     for string in static_strings:
         if string.offset < address < string.offset + len(string.string):
             rust_string = string.string[0 : address - string.offset]
@@ -105,17 +117,26 @@ def split_strings(static_strings: List[StaticString], address: int, min_length: 
 
             if len(rust_string) >= min_length:
                 static_strings.append(
-                    StaticString(string=rust_string, offset=string.offset, encoding=StringEncoding.UTF8)
+                    StaticString(
+                        string=rust_string,
+                        offset=string.offset,
+                        encoding=StringEncoding.UTF8,
+                        address=string.address,
+                    )
                 )
             if len(rest) >= min_length:
-                static_strings.append(StaticString(string=rest, offset=address, encoding=StringEncoding.UTF8))
+                va_at_split = string.address + (address - string.offset)
+                static_strings.append(
+                    StaticString(
+                        string=rest,
+                        offset=address,
+                        encoding=StringEncoding.UTF8,
+                        address=va_at_split,
+                    )
+                )
 
-            # remove string from static_strings
-            for static_string in static_strings:
-                if static_string == string:
-                    static_strings.remove(static_string)
-                    return
-
+            # Fix: Directly remove the item instead of using a nested loop
+            static_strings.remove(string)
             return
 
 
@@ -168,7 +189,9 @@ def get_string_blob_strings(pe: pefile.PE, min_length: int) -> Iterable[StaticSt
     fixed_strings = fix_b2s_wide_strings(strings, min_length, buffer_rdata)
 
     # select only UTF-8 strings and adjust offset
-    static_strings = filter_and_transform_utf8_strings(fixed_strings, start_rdata)
+    static_strings = filter_and_transform_utf8_strings(
+        fixed_strings, start_rdata, image_base, virtual_address
+    )
 
     # TODO(mr-tz) - handle miss in rust-hello64.exe
     #  .rdata:00000001400C1270 0A                      aPanickedAfterP db 0Ah                  ; DATA XREF: .rdata:00000001400C12B8↓o
@@ -222,7 +245,9 @@ def main(argv=None):
 
     logging.basicConfig(level=logging.DEBUG)
 
-    rust_strings = sorted(extract_rust_strings(args.path, args.min_length), key=lambda s: s.offset)
+    rust_strings = sorted(
+        extract_rust_strings(args.path, args.min_length), key=lambda s: s.offset
+    )
     for string in rust_strings:
         print(f"{string.offset:#x}: {string.string}")
 
