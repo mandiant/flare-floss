@@ -17,8 +17,8 @@ from typing import List, Tuple
 from dataclasses import dataclass
 
 import viv_utils
-import vivisect.const
 import envi.memory
+import vivisect.const
 import viv_utils.emulator_drivers
 from envi import Emulator
 
