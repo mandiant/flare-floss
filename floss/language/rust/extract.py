@@ -17,11 +17,11 @@ import logging
 import pathlib
 import argparse
 import itertools
-from typing import List, Tuple, Iterable, Optional
+from typing import List, Iterable
 
 import pefile
-import binary2strings as b2s
 
+from .utf8_strings import extract_utf8_strings
 from floss.results import StaticString, StringEncoding
 from floss.language.utils import (
     find_lea_xrefs,
@@ -34,62 +34,6 @@ from floss.language.utils import (
 logger = logging.getLogger(__name__)
 
 MIN_STR_LEN = 4
-
-
-def fix_b2s_wide_strings(
-    strings: List[Tuple[str, str, Tuple[int, int], bool]], min_length: int, buffer: bytes
-) -> List[Tuple[str, str, Tuple[int, int], bool]]:
-    # TODO(mr-tz): b2s may parse wide strings where there really should be utf-8 strings
-    #  handle special cases here until fixed
-    #  https://github.com/mandiant/flare-floss/issues/867
-    fixed_strings: List[Tuple[str, str, Tuple[int, int], bool]] = list()
-    last_fixup: Optional[Tuple[str, str, Tuple[int, int], bool]] = None
-    for string in strings:
-        s = string[0]
-        string_type = string[1]
-        start = string[2][0]
-
-        if string_type == "WIDE_STRING":
-            sd = s.encode("utf-16le", "ignore")
-            # utf-8 strings will not start with \x00
-            if sd[0] == 0:
-                new_string = b2s.extract_string(buffer[start + 1 :])
-                last_fixup = (
-                    new_string[0],
-                    new_string[1],
-                    (new_string[2][0] + start + 1, new_string[2][1] + start + 1),
-                    new_string[3],
-                )
-                if len(last_fixup[0]) < min_length:
-                    last_fixup = None
-        else:
-            if last_fixup and s in last_fixup[0]:
-                fixed_strings.append(last_fixup)
-            else:
-                fixed_strings.append(string)
-            last_fixup = None
-    return fixed_strings
-
-
-def filter_and_transform_utf8_strings(
-    strings: List[Tuple[str, str, Tuple[int, int], bool]],
-    start_rdata: int,
-) -> List[StaticString]:
-    transformed_strings = []
-
-    for string in strings:
-        s = string[0]
-        string_type = string[1]
-        start = string[2][0] + start_rdata
-
-        if string_type != "UTF8":
-            continue
-
-        # our static algorithm does not extract new lines either
-        s = s.replace("\n", "")
-        transformed_strings.append(StaticString(string=s, offset=start, encoding=StringEncoding.UTF8))
-
-    return transformed_strings
 
 
 def split_strings(static_strings: List[StaticString], address: int, min_length: int) -> None:
@@ -163,12 +107,20 @@ def get_string_blob_strings(pe: pefile.PE, min_length: int) -> Iterable[StaticSt
     pointer_to_raw_data = rdata_section.PointerToRawData
     buffer_rdata = rdata_section.get_data()
 
-    # extract utf-8 and wide strings, latter not needed here
-    strings = b2s.extract_all_strings(buffer_rdata, min_length)
-    fixed_strings = fix_b2s_wide_strings(strings, min_length, buffer_rdata)
-
-    # select only UTF-8 strings and adjust offset
-    static_strings = filter_and_transform_utf8_strings(fixed_strings, start_rdata)
+    # Extract strictly valid UTF-8 strings using our custom regex implementation
+    # This automatically prevents the b2s wide-string garbage extraction bug
+    static_strings: List[StaticString] = []
+    for offset, string_val in extract_utf8_strings(buffer_rdata, min_length=min_length):
+        # our static algorithm does not extract new lines either
+        clean_str = string_val.replace("\n", "")
+        
+        static_strings.append(
+            StaticString(
+                string=clean_str, 
+                offset=offset + start_rdata, 
+                encoding=StringEncoding.UTF8
+            )
+        )
 
     # TODO(mr-tz) - handle miss in rust-hello64.exe
     #  .rdata:00000001400C1270 0A                      aPanickedAfterP db 0Ah                  ; DATA XREF: .rdata:00000001400C12B8↓o
