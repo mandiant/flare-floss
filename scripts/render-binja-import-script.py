@@ -76,14 +76,30 @@ import binaryninja as bn
 
 
 def AppendComment(ea, s):
+    ea = int(ea)
+    refAddrs = list(bv.get_code_refs(ea))
 
-    s = s.encode('ascii')
-    refAddrs = []
-    for ref in bv.get_code_refs(ea):
-        refAddrs.append(ref)
+    if not refAddrs:
+        fnc = bv.get_functions_containing(ea)
+        if fnc:
+            fn = fnc[0]
+            string = fn.get_comment_at(ea)
+            if not string:
+                fn.set_comment_at(ea, s)
+            elif s not in string:
+                fn.set_comment_at(ea, string + "\\n" + s)
+        else:
+            string = bv.get_comment_at(ea)
+            if not string:
+                bv.set_comment_at(ea, s)
+            elif s not in string:
+                bv.set_comment_at(ea, string + "\\n" + s)
+        return
 
     for addr in refAddrs:
         fnc = bv.get_functions_containing(addr.address)
+        if not fnc:
+            continue
         fn = fnc[0]
 
         string = fn.get_comment_at(addr.address)
@@ -92,29 +108,34 @@ def AppendComment(ea, s):
             string = s  # no existing comment
         else:
             if s in string:  # ignore duplicates
-                return
+                continue
             string = string + "\\n" + s
 
         fn.set_comment_at(addr.address, string)
 
+
 def AppendLvarComment(fva, s):
-
     # stack var comments are not a thing in Binary Ninja so just add at top of function
-    # and at location where it's used as an arg
-    s = s.encode('ascii')
+    fva = int(fva)
     fn = bv.get_function_at(fva)
-
-    for addr in [fva, pc]:
-        string = fn.get_comment_at(addr)
-
+    if not fn:
+        string = bv.get_comment_at(fva)
         if not string:
-            string = s
-        else:
-            if s in string:  # ignore duplicates
-                return
-            string = string + "\\n" + s
+            bv.set_comment_at(fva, s)
+        elif s not in string:
+            bv.set_comment_at(fva, string + "\\n" + s)
+        return
 
-        fn.set_comment(addr, string)
+    string = fn.get_comment_at(fva)
+
+    if not string:
+        string = s
+    else:
+        if s in string:  # ignore duplicates
+            return
+        string = string + "\\n" + s
+
+    fn.set_comment_at(fva, string)
 
 print("Annotating %d strings from FLOSS for %s")
 %s
