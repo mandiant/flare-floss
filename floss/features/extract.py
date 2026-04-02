@@ -33,6 +33,7 @@ from floss.features.features import (
     NzxorLoop,
     TightLoop,
     BlockCount,
+    NumAPICalls,
     TightFunction,
     KindaTightLoop,
     NzxorTightLoop,
@@ -317,12 +318,94 @@ def extract_function_loop(f):
             yield Loop(comp)
 
 
+def _iter_call_targets(insn):
+    """
+    Yield target VAs for call like branches
+    """
+    try:
+        for bva, bflags in insn.getBranches():
+            if bva is None:
+                continue
+            # envi.BR_PROC = call-like branch
+            if bflags & envi.BR_PROC:
+                yield bva
+    except Exception:
+        return
+
+
+def _looks_like_import_name(name) -> bool:
+    """
+    imported APIs usually contain a module or DLL name
+    (ex 'kernel32.CreateFileW', 'KERNEL32.dll_CreateFileW')
+    """
+    if not name:
+        return False
+    n = name.lower()
+    return "." in name or "dll" in n  # kernel32.CreateFileW style  # KERNEL32.dll_CreateFileW style
+
+
+def _is_external_api_target(vw, target_va) -> bool:
+    """
+    Decide whether a resolved call target VA is an external/API target
+    """
+    # name-based heuristic
+    try:
+        name = vw.getName(target_va)
+        if _looks_like_import_name(name):
+            return True
+    except Exception:
+        pass
+
+    # location-based heuristic
+    try:
+        loc = vw.getLocation(target_va)
+        if not loc:
+            return False
+
+        _lva, _lsize, ltype, _linfo = loc
+        # if stringified ltype mentions import, count it
+        if "import" in str(ltype).lower():
+            return True
+    except Exception:
+        pass
+
+    return False
+
+
+def extract_num_api_calls(f):
+    """
+    Count API/external calls within a function
+
+    String decoding functions usually perform arithmetic on buffers and
+    make few or no API calls. A high count suggests normal program logic
+    """
+    vw = f.vw
+    if vw is None:
+        yield NumAPICalls(0)
+        return
+
+    api_calls = 0
+
+    for bb in f.basic_blocks:
+        for insn in bb.instructions:
+            # only proceed on call mnemonics when available
+            mnem = insn.mnem.lower()
+            if mnem and mnem != "call":
+                continue
+
+            for target_va in _iter_call_targets(insn):
+                if _is_external_api_target(vw, target_va):
+                    api_calls += 1
+
+    yield NumAPICalls(api_calls)
+
+
 FUNCTION_HANDLERS = (
     extract_function_calls_to,
     extract_function_loop,
     extract_function_kinda_tight_loop,
     # extract_function_order,  # TODO decoding functions are often one of the first in a program
-    # extract_num_api_calls,  # TODO decoding functions don't normally contain many (API) calls
+    extract_num_api_calls,
 )
 
 
