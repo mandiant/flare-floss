@@ -99,8 +99,8 @@ def render_meta(results: ResultDocument, console, verbose):
 def render_string_type_rows(results: ResultDocument) -> List[Tuple[str, str]]:
     len_ss = len(results.strings.static_strings)
     len_ls = len(results.strings.language_strings)
-    len_chars_ss = sum([len(s.string) for s in results.strings.static_strings])
-    len_chars_ls = sum([len(s.string) for s in results.strings.language_strings])
+    len_chars_ss = sum(len(s.string) for s in results.strings.static_strings)
+    len_chars_ls = sum(len(s.string) for s in results.strings.language_strings)
     return [
         (
             " static strings",

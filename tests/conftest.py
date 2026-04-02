@@ -68,18 +68,27 @@ def pytest_collect_file(parent, file_path):
         return YamlFile.from_parent(parent, path=file_path)
 
 
+def pytest_addoption(parser):
+    parser.addoption(
+        "--max-runtime",
+        action="store",
+        default=30.0,
+        type=float,
+        help="Skip YAML test cases whose running time exceeds this value (in secs)",
+    )
+
+
 class YamlFile(pytest.File):
     def collect(self):
         spec = yaml.safe_load(self.path.open())
         test_dir = self.path.parent
+        max_runtime = self.config.getoption("max_runtime")
         for platform, archs in spec["Output Files"].items():
             for arch, filename in archs.items():
-                # TODO specify max runtime via command line option
-                MAX_RUNTIME = 30.0
                 try:
                     runtime_raw = spec["FLOSS running time"]
                     runtime = float(runtime_raw.split(" ")[0])
-                    if runtime > MAX_RUNTIME:
+                    if runtime > max_runtime:
                         # skip this test
                         continue
                 except KeyError:

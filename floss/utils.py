@@ -130,7 +130,7 @@ def remove_stack_memory(emu: Emulator):
     # TODO this is a hack while vivisect's initStackMemory() has a bug
     memory_snap = emu.getMemorySnap()
     for i in range((len(memory_snap) - 1), -1, -1):
-        (_, _, info, _) = memory_snap[i]
+        _, _, info, _ = memory_snap[i]
         if info[3] == STACK_MEM_NAME:
             del memory_snap[i]
             emu.setMemorySnap(memory_snap)

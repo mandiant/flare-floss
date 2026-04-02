@@ -25,6 +25,7 @@ Usage:
   $ python render-binja-import-script.py floss-results.json > apply_floss.py
   # now run `apply_floss.py` in Binary Ninja
 """
+
 import sys
 import base64
 import logging

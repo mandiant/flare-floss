@@ -26,6 +26,7 @@ Usage:
   $ python render-r2-import-script.py floss-results.json > apply_floss.py
   # now run `apply_floss.py` in radare2
 """
+
 import sys
 import base64
 import logging
