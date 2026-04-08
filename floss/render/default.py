@@ -175,6 +175,7 @@ def render_language_strings(language, language_strings, language_strings_missed,
     strings = sorted(language_strings + language_strings_missed, key=lambda s: s.offset)
     render_heading(f"FLOSS {language.upper()} STRINGS ({len(strings)})", console, verbose, disable_headers)
     if not strings:
+        logger.info("no %s strings found", language)
         return
 
     offset_len = len(f"{strings[-1].offset}")
