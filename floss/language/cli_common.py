@@ -1,4 +1,4 @@
-# Copyright 2023 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,8 +14,6 @@
 
 import logging
 import argparse
-
-import pefile
 
 logger = logging.getLogger(__name__)
 
@@ -48,11 +46,3 @@ def configure_logging(args: argparse.Namespace):
     else:
         logging.basicConfig(level=logging.INFO)
         logging.getLogger().setLevel(logging.INFO)
-
-
-def open_pe_or_none(path: str):
-    try:
-        return pefile.PE(path)
-    except pefile.PEFormatError as err:
-        logger.debug(f"NOT a valid PE file: {err}")
-        return None

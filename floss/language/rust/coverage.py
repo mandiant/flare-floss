@@ -23,7 +23,7 @@ import pefile
 
 from floss.strings import extract_ascii_unicode_strings
 from floss.language.utils import get_extract_stats
-from floss.language.cli_common import add_common_args, open_pe_or_none, configure_logging
+from floss.language.cli_common import add_common_args, configure_logging
 from floss.language.rust.extract import extract_rust_strings
 
 logger = logging.getLogger(__name__)
@@ -38,8 +38,10 @@ def main():
 
     configure_logging(args)
 
-    pe = open_pe_or_none(args.path)
-    if pe is None:
+    try:
+        pe = pefile.PE(args.path)
+    except pefile.PEFormatError as err:
+        logger.debug(f"NOT a valid PE file: {err}")
         return 1
 
     path = pathlib.Path(args.path)
