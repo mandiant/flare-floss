@@ -18,8 +18,6 @@ import pathlib
 import argparse
 from typing import List
 
-import pefile
-
 from floss.utils import get_static_strings
 from floss.results import StaticString, StringEncoding
 from floss.language.utils import get_extract_stats
@@ -33,12 +31,12 @@ MIN_STR_LEN = 4
 
 def main():
     parser = argparse.ArgumentParser(description="Get Go strings")
-    add_common_args(parser, default_min_length=MIN_STR_LEN)
+    add_common_args(parser, MIN_STR_LEN)
     args = parser.parse_args()
 
-    configure_logging(debug=args.debug)
+    configure_logging(args)
 
-    pe = open_pe_or_none(args.path, logger)
+    pe = open_pe_or_none(args.path)
     if pe is None:
         return 1
 

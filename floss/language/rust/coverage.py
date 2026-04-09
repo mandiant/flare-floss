@@ -33,12 +33,12 @@ MIN_STR_LEN = 4
 
 def main():
     parser = argparse.ArgumentParser(description="Get Rust strings")
-    add_common_args(parser, default_min_length=MIN_STR_LEN)
+    add_common_args(parser, MIN_STR_LEN)
     args = parser.parse_args()
 
-    configure_logging(debug=args.debug)
+    configure_logging(args)
 
-    pe = open_pe_or_none(args.path, logger)
+    pe = open_pe_or_none(args.path)
     if pe is None:
         return 1
 
