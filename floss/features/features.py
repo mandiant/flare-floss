@@ -199,3 +199,29 @@ class NzxorLoop(Feature):
 
     def score(self):
         return 1.0
+
+
+class ComplexFunctions(Feature):
+    weight = MEDIUM
+
+    def __init__(self, comp):
+        super(ComplexFunctions, self).__init__(comp)
+
+    def score(self):
+        complexity = self.value
+
+        if complexity <= 1:
+            return 0.0
+        elif complexity <= 10:
+            # Simple functions
+            return 0.2
+        elif complexity <= 20:
+            return 0.4
+        elif complexity <= 30:
+            return 0.6
+        elif complexity <= 50:
+            # Very complex
+            return 0.8
+        else:
+            # Extremely complex
+            return 1.0
