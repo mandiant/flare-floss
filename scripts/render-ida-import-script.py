@@ -40,6 +40,14 @@ import logging
 import argparse
 from pathlib import Path
 
+try:
+    import idc
+    import ida_kernwin
+
+    IDA_ENV = True
+except ImportError:
+    IDA_ENV = False
+
 from floss.results import AddressType, ResultDocument
 
 logger = logging.getLogger("floss.render-ida-import-script")
@@ -55,13 +63,21 @@ def render_ida_script(result_document: ResultDocument) -> str:
             b64 = base64.b64encode(ds.string.encode("utf-8")).decode("ascii")
             b64 = 'base64.b64decode("%s").decode("utf-8")' % b64
             if ds.address_type == AddressType.GLOBAL:
-                main_commands.append('print("FLOSS: string \\"%%s\\" at global VA 0x%x" %% (%s))' % (ds.address, b64))
-                main_commands.append('AppendComment(%d, "FLOSS: " + %s, True)' % (ds.address, b64))
+                main_commands.append(
+                    'print("FLOSS: string \\"%%s\\" at global VA 0x%x" %% (%s))'
+                    % (ds.address, b64)
+                )
+                main_commands.append(
+                    'AppendComment(%d, "FLOSS: " + %s, True)' % (ds.address, b64)
+                )
             else:
                 main_commands.append(
-                    'print("FLOSS: string \\"%%s\\" decoded at VA 0x%x" %% (%s))' % (ds.decoded_at, b64)
+                    'print("FLOSS: string \\"%%s\\" decoded at VA 0x%x" %% (%s))'
+                    % (ds.decoded_at, b64)
                 )
-                main_commands.append('AppendComment(%d, "FLOSS: " + %s)' % (ds.decoded_at, b64))
+                main_commands.append(
+                    'AppendComment(%d, "FLOSS: " + %s)' % (ds.decoded_at, b64)
+                )
     main_commands.append('print("Imported decoded strings from FLOSS")')
 
     for ss in result_document.strings.stack_strings:
@@ -69,7 +85,8 @@ def render_ida_script(result_document: ResultDocument) -> str:
             b64 = base64.b64encode(ss.string.encode("utf-8")).decode("ascii")
             b64 = 'base64.b64decode("%s").decode("utf-8")' % b64
             main_commands.append(
-                'AppendLvarComment(%d, %d, "FLOSS stackstring: " + %s, True)' % (ss.function, ss.frame_offset, b64)
+                'AppendLvarComment(%d, %d, "FLOSS stackstring: " + %s, True)'
+                % (ss.function, ss.frame_offset, b64)
             )
     main_commands.append('print("Imported stackstrings from FLOSS")')
 
@@ -78,7 +95,8 @@ def render_ida_script(result_document: ResultDocument) -> str:
             b64 = base64.b64encode(ts.string.encode("utf-8")).decode("ascii")
             b64 = 'base64.b64decode("%s").decode("utf-8")' % b64
             main_commands.append(
-                'AppendLvarComment(%d, %d, "FLOSS tightstring: " + %s, True)' % (ts.function, ts.frame_offset, b64)
+                'AppendLvarComment(%d, %d, "FLOSS tightstring: " + %s, True)'
+                % (ts.function, ts.frame_offset, b64)
             )
     main_commands.append('print("Imported tightstrings from FLOSS")')
 
@@ -132,15 +150,85 @@ if __name__ == "__main__":
     return script_content
 
 
+def run_in_ida():
+    """
+    Run directly as an IDAPython script inside IDA Pro.
+    Prompts user to select a FLOSS JSON result file and applies
+    annotations directly to the current IDB without generating
+    an intermediate script.
+    """
+    json_path = ida_kernwin.ask_file(0, "*.json", "Select FLOSS result JSON file")
+    if not json_path:
+        logger.warning("no file selected, exiting")
+        return
+
+    result_document = ResultDocument.parse_file(Path(json_path))
+
+    # apply decoded strings
+    for ds in result_document.strings.decoded_strings:
+        if not ds.string:
+            continue
+        if ds.address_type == AddressType.GLOBAL:
+            idc.set_cmt(ds.address, "FLOSS: " + ds.string, True)
+        else:
+            idc.set_cmt(ds.decoded_at, "FLOSS: " + ds.string, False)
+
+    # apply stack strings
+    for ss in result_document.strings.stack_strings:
+        if ss.string:
+            stack = idc.get_func_attr(ss.function, idc.FUNCATTR_FRAME)
+            if stack:
+                lvar_offset = (
+                    idc.get_func_attr(ss.function, idc.FUNCATTR_FRSIZE)
+                    - ss.frame_offset
+                )
+                if lvar_offset and lvar_offset > 0:
+                    idc.set_member_cmt(
+                        stack, lvar_offset, "FLOSS stackstring: " + ss.string, False
+                    )
+                    continue
+            # fallback to program counter if stack variable comment fails
+            idc.set_cmt(ss.program_counter, "FLOSS stackstring: " + ss.string, False)
+
+    # apply tight strings
+    for ts in result_document.strings.tight_strings:
+        if ts.string:
+            stack = idc.get_func_attr(ts.function, idc.FUNCATTR_FRAME)
+            if stack:
+                lvar_offset = (
+                    idc.get_func_attr(ts.function, idc.FUNCATTR_FRSIZE)
+                    - ts.frame_offset
+                )
+                if lvar_offset and lvar_offset > 0:
+                    idc.set_member_cmt(
+                        stack, lvar_offset, "FLOSS tightstring: " + ts.string, False
+                    )
+                    continue
+            # fallback to program counter if stack variable comment fails
+            idc.set_cmt(ts.program_counter, "FLOSS tightstring: " + ts.string, False)
+
+    ida_kernwin.refresh_idaview_anyway()
+    logger.info("successfully applied FLOSS annotations from %s", json_path)
+
+
 def main():
-    parser = argparse.ArgumentParser(description="Generate an IDA Python script to apply FLOSS results.")
-    parser.add_argument("/path/to/report.json", help="path to JSON document from `floss --json`")
+    parser = argparse.ArgumentParser(
+        description="Generate an IDA Python script to apply FLOSS results."
+    )
+    parser.add_argument(
+        "/path/to/report.json", help="path to JSON document from `floss --json`"
+    )
 
     logging_group = parser.add_argument_group("logging arguments")
 
-    logging_group.add_argument("-d", "--debug", action="store_true", help="enable debugging output on STDERR")
     logging_group.add_argument(
-        "-q", "--quiet", action="store_true", help="disable all status output except fatal errors"
+        "-d", "--debug", action="store_true", help="enable debugging output on STDERR"
+    )
+    logging_group.add_argument(
+        "-q",
+        "--quiet",
+        action="store_true",
+        help="disable all status output except fatal errors",
     )
 
     args = parser.parse_args()
@@ -163,4 +251,7 @@ def main():
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    if IDA_ENV:
+        run_in_ida()
+    else:
+        sys.exit(main())
