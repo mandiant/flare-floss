@@ -26,6 +26,7 @@ Usage:
   # open `database.json` in x64dbg
 """
 
+import os
 import sys
 import json
 import logging
@@ -34,6 +35,10 @@ import dataclasses
 from typing import Dict, List
 from pathlib import Path
 from dataclasses import field
+
+# add the project root to the path so we can find the floss module
+# regardless of how this script is invoked.
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from pydantic.dataclasses import dataclass
 

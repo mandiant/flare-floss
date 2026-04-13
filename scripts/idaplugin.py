@@ -23,10 +23,15 @@ email: willi.ballenthin@gmail.com
 """
 
 import os
+import sys
 import time
 import logging
 from typing import List, Union
 from pathlib import Path
+
+# add the project root to the path so we can find the floss module
+# regardless of how this script is invoked.
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import idc
 import viv_utils
