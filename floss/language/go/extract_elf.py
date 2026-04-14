@@ -1,3 +1,18 @@
+# Copyright 2026 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
 import struct
 import logging
 from bisect import bisect_left
@@ -13,15 +28,6 @@ logger = logging.getLogger(__name__)
 MAX_STRING_LEN = 1024 * 1024
 MAX_RUNS_TO_TRY = 8
 MAX_ANCHOR_ATTEMPTS_PER_RUN = 64
-
-"""
-What this file does:
-- Scans ELF memory segments for Go string headers (structs with pointer and length fields)
-- Validates candidates: Ensures pointers are readable, lengths are sane, and string data is valid UTF-8
-- Finds the Go string blob: Uses heuristics to locate the contiguous region containing Go strings, based on monotonic runs of struct headers
-- Extracts strings: Reads each string using its pointer and length, dedupes, and yields only valid UTF-8 strings
-- Handles edge cases: Avoids extracting from non-file-backed memory, skips invalid or noisy candidates, and logs warnings if extraction fails
-"""
 
 
 def find_longest_monotonically_increasing_run(values: List[int]) -> Tuple[int, int]:
@@ -73,6 +79,7 @@ def get_struct_string_candidates_elf(view: ELF, min_length: int = 1) -> Iterable
     """
     for segment in view.iter_readonly_segments():
         data = view.data[segment.file_off : segment.file_end]
+        # check segment data len (8 bytes for pointer,8 for len)
         if len(data) < 16:
             continue
 
@@ -106,8 +113,8 @@ def read_struct_string_elf(view: ELF, ptr: int, instance: StructString) -> str:
 
     try:
         s = instance_data.decode("utf-8")
-    except UnicodeDecodeError as exc:
-        raise ValueError("struct string instance does not contain valid UTF-8") from exc
+    except UnicodeDecodeError:
+        raise ValueError("struct string instance does not contain valid UTF-8")
 
     if s.encode("utf-8") != instance_data:
         raise ValueError("struct string length incorrect")
@@ -140,6 +147,7 @@ def _get_monotonic_runs(values: List[int]) -> List[Tuple[int, int]]:
         prior_value = value
 
     runs.append((run_start, len(values) - 1))
+    # longest runs are prioritized
     runs.sort(key=lambda run: run[1] - run[0] + 1, reverse=True)
     return runs
 
@@ -171,12 +179,10 @@ def _find_blob_range_from_anchor(view: ELF, ptr: int) -> Tuple[int, int]:
     instance_offset = ptr - segment.vaddr_start
 
     next_null = segment_data.find(b"\x00\x00\x00\x00", instance_offset)
-    if next_null == -1:
-        raise ValueError("failed to find end of string blob")
+    assert next_null != -1
 
     prev_null = segment_data.rfind(b"\x00\x00\x00\x00", 0, instance_offset)
-    if prev_null == -1:
-        raise ValueError("failed to find start of string blob")
+    assert prev_null != -1
 
     blob_start = segment.vaddr_start + prev_null
     blob_end = segment.vaddr_start + next_null
@@ -189,14 +195,21 @@ def find_string_blob_range_elf(
 ) -> Tuple[int, int]:
     """
     Find the range of the string blob, as loaded in memory.
+    This is an improvement from the PE version as ELF Go binaries are
+    less uniform across versions so one run/one midpoint is less reliable
+    This one:
+    - builds all monotic runs,sorts by length and tries several
+    - tries many anchor points around midpoint
+    - scores blobs
     """
     if not struct_strings:
         raise ValueError("no struct string candidates")
 
     struct_strings.sort(key=lambda s: s.address)
 
+    # no need to compute the single longest monotonic run
+    # here we compute all monotonic runs
     lengths = list(map(lambda s: s.length, struct_strings))
-    _ = find_longest_monotonically_increasing_run(lengths)
     runs = _get_monotonic_runs(lengths)
 
     if not runs:
@@ -205,16 +218,20 @@ def find_string_blob_range_elf(
     sorted_ptrs = sorted(ptrs_by_struct_va.values())
 
     def score_blob_range(blob_start: int, blob_end: int) -> Tuple[int, int]:
+        # a good candidate range contains many pointers and has reasonable size
         if blob_end <= blob_start:
             return (0, 0)
 
+        # num of pointers in the blob range
         count = bisect_left(sorted_ptrs, blob_end) - bisect_left(sorted_ptrs, blob_start)
         return count, blob_end - blob_start
 
+    # if no valid range is found , this is raised
     first_error: ValueError | None = None
     best_blob_range: Tuple[int, int] | None = None
     best_score = (0, 0)
 
+    # iterate over monotonic runs
     for run_start, run_end in runs[:MAX_RUNS_TO_TRY]:
         readonly_anchor_indices: List[int] = []
         readable_anchor_indices: List[int] = []
@@ -231,6 +248,7 @@ def find_string_blob_range_elf(
                 readable_anchor_indices.append(i)
 
         attempts = 0
+        # iterate over anchor points
         for i in readonly_anchor_indices + readable_anchor_indices:
             if attempts >= MAX_ANCHOR_ATTEMPTS_PER_RUN:
                 break
@@ -242,10 +260,12 @@ def find_string_blob_range_elf(
                 continue
 
             try:
+                # validate and score anchors
                 s = read_struct_string_elf(view, ptr, instance)
                 logger.debug("string blob: struct string instance: 0x%x: %s...", instance.address, s[:16])
                 blob_start, blob_end = _find_blob_range_from_anchor(view, ptr)
                 score = score_blob_range(blob_start, blob_end)
+                # track the best blob range
                 if score > best_score:
                     best_score = score
                     best_blob_range = (blob_start, blob_end)
@@ -275,7 +295,7 @@ def get_string_blob_strings_elf(view: ELF, min_length: int) -> Iterable[StaticSt
     find the string blob and then extract strings from it.
     """
 
-    with floss.utils.timing("find struct string candidates (elf)"):
+    with floss.utils.timing("find struct string candidates"):
         deduped_candidates: Dict[int, Tuple[StructString, int]] = {}
         for struct_string, ptr in get_struct_string_candidates_elf(view):
             deduped_candidates.setdefault(struct_string.address, (struct_string, ptr))
@@ -290,7 +310,7 @@ def get_string_blob_strings_elf(view: ELF, min_length: int) -> Iterable[StaticSt
             )
             return
 
-    with floss.utils.timing("find string blob (elf)"):
+    with floss.utils.timing("find string blob"):
         try:
             string_blob_start, string_blob_end = find_string_blob_range_elf(view, struct_strings, ptrs_by_struct_va)
         except ValueError:
@@ -299,7 +319,7 @@ def get_string_blob_strings_elf(view: ELF, min_length: int) -> Iterable[StaticSt
             )
             return
 
-    with floss.utils.timing("collect string blob strings (elf)"):
+    with floss.utils.timing("collect string blob strings"):
         string_blob_size = string_blob_end - string_blob_start
         string_blob_buf = view.read_va(string_blob_start, string_blob_size)
 
@@ -321,10 +341,8 @@ def get_string_blob_strings_elf(view: ELF, min_length: int) -> Iterable[StaticSt
         last_size = 0
         string_blob_pointers = list(sorted(set(string_blob_pointers)))
         for start, end in zip(string_blob_pointers, string_blob_pointers[1:]):
-            if not (string_blob_start <= start < string_blob_end):
-                continue
-            if not (string_blob_start <= end < string_blob_end):
-                continue
+            assert string_blob_start <= start < string_blob_end
+            assert string_blob_start <= end < string_blob_end
 
             size = end - start
             string_blob_offset = start - string_blob_start

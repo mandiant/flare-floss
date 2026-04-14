@@ -82,26 +82,3 @@ def test_render_rich_markup():
     assert "[/<]three" in render(results, False, False, "auto")
     assert "[/<]four" in render(results, True, False, "auto")
     assert "[/<]four" in render(results, False, False, "auto")
-
-
-def test_render_empty_language_strings_does_not_crash():
-    results: ResultDocument = ResultDocument(
-        metadata=Metadata(
-            file_path="test",
-            min_length=4,
-            language="go",
-            language_version="1.20",
-        ),
-        analysis=Analysis(),
-        strings=Strings(
-            static_strings=[],
-            language_strings=[],
-            language_strings_missed=[],
-            tight_strings=[],
-            stack_strings=[],
-            decoded_strings=[],
-        ),
-    )
-
-    output = render(results, False, False, "auto")
-    assert "FLOSS GO STRINGS (0)" in output

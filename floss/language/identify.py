@@ -21,8 +21,8 @@ from pathlib import Path
 import pefile
 
 import floss.logging_
+from floss.const import SUPPORTED_FILE_MAGIC_PE, SUPPORTED_FILE_MAGIC_ELF
 from floss.results import StaticString
-from floss.const import SUPPORTED_FILE_MAGIC_ELF, SUPPORTED_FILE_MAGIC_PE
 from floss.language.elf import ELF
 from floss.language.utils import get_rdata_section
 from floss.language.rust.rust_version_database import rust_commit_hash

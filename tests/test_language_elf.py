@@ -69,5 +69,5 @@ def test_read_va_rejects_non_file_backed_gap():
         Segment(vaddr_start=0x1008, vaddr_end=0x100C, file_off=4, file_end=8, flags=PF_R),
     ]
 
-    with pytest.raises(ValueError, match="not fully file-backed"):
+    with pytest.raises(ValueError, match="not fully file backed"):
         elf.read_va(0x1002, 6)
