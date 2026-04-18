@@ -172,10 +172,11 @@ class CallsTo(Feature):
 class Loop(Feature):
     weight = MEDIUM
 
-    def __init__(self, comp):
+    def __init__(self, comp, bb_ranges=None):
         super(Loop, self).__init__(len(comp))
 
         self.comp = comp
+        self.bb_ranges = bb_ranges or []
 
     def score(self):
         return 1.0
