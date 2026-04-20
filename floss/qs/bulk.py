@@ -73,8 +73,7 @@ def main():
                 "-m",
                 "floss.qs.main",
                 str(file_path),
-                "--json-out",
-                str(json_output_path),
+                "--json",
                 "-n",
                 str(args.min_length),
             ]
@@ -86,10 +85,34 @@ def main():
             try:
                 result = subprocess.run(cmd, check=False, capture_output=True, text=True, encoding="utf-8")
                 if result.returncode == 0:
+                    with json_output_path.open("w", encoding="utf-8") as f:
+                        f.write(result.stdout)
+                    logger.info("Wrote JSON output to %s", json_output_path)
+
                     if should_render:
-                        with rendered_output_path.open("w", encoding="utf-8") as f:
-                            f.write(result.stdout)
-                        logger.info("Wrote rendered output to %s", rendered_output_path)
+                        # main.py defaults to rendered output if --json is not present
+                        cmd_render = [
+                            sys.executable,
+                            "-m",
+                            "floss.qs.main",
+                            str(file_path),
+                            "-n",
+                            str(args.min_length),
+                        ]
+                        if args.quiet:
+                            cmd_render.append("--quiet")
+                        if args.debug:
+                            cmd_render.append("--debug")
+
+                        result_render = subprocess.run(
+                            cmd_render, check=False, capture_output=True, text=True, encoding="utf-8"
+                        )
+                        if result_render.returncode == 0:
+                            with rendered_output_path.open("w", encoding="utf-8") as f:
+                                f.write(result_render.stdout)
+                            logger.info("Wrote rendered output to %s", rendered_output_path)
+                        else:
+                            logger.error("Failed to render file %s", file_path)
                 else:
                     logger.error("Failed to analyze file %s, exited with code %d", file_path, result.returncode)
                     if result.stdout:
@@ -105,8 +128,8 @@ def main():
                 sys.executable,
                 "-m",
                 "floss.qs.main",
-                "--json-in",
                 str(json_output_path),
+                "--load",
             ]
             if args.quiet:
                 cmd.append("--quiet")

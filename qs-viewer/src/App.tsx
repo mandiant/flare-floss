@@ -14,7 +14,7 @@ const StringItem: React.FC<{ str: ResultString; displayOptions: DisplayOptions }
   const getStyleClass = () => {
     const { tags } = str;
     if (tags.includes('#capa')) return 'highlight';
-    if (tags.includes('#common') || tags.includes('#duplicate')) return 'mute';
+    if (tags.includes('#common') || tags.includes('#duplicate') || tags.includes('#code-junk') || tags.some(t => t.startsWith('#'))) return 'mute';
     return '';
   };
 
@@ -218,7 +218,7 @@ const App: React.FC = () => {
   };
 
   const handleFocusView = () => {
-    const noisyTags = ['#code', '#code-junk', '#duplicate', '#reloc'];
+    const noisyTags = ['#code', '#code-junk', '#duplicate', '#reloc', '#common'];
     const focusedTags = tagInfo.availableTags.filter(
       tag => !noisyTags.includes(tag)
     );

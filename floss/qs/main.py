@@ -63,7 +63,8 @@ class Range(BaseModel):
 
     def slice(self, offset, size) -> "Range":
         "create a new range thats a sub-range of this one, using relative offsets"
-        assert offset < self.length
+        assert 0 <= offset <= self.length
+        assert 0 <= size
         assert offset + size <= self.length
         return Range(offset=self.offset + offset, length=size)
 
@@ -102,10 +103,12 @@ class Slice(BaseModel):
         checks if this slice's buffer contains the given range,
         where offset is relative to the start of this slice's buffer.
         """
-        if not (0 <= offset < self.range.length):
+        if not (0 <= offset <= self.range.length):
             return False
 
-        # size can be 0, so we don't check for size > 0
+        if size < 0:
+            return False
+
         if (offset + size) > self.range.length:
             return False
 
@@ -579,7 +582,12 @@ def get_reloc_offsets(slice: Slice, pe: pefile.PE) -> Set[int]:
         return ret
 
     rva = dir_entry.VirtualAddress
-    offset = pe.get_offset_from_rva(rva)
+    try:
+        offset = pe.get_offset_from_rva(rva)
+    except pefile.PEFormatError as e:
+        logger.warning("failed to get offset for relocation directory RVA 0x%x: %s", rva, e)
+        return ret
+
     size = dir_entry.Size
 
     if not slice.contains_range(offset, size):
@@ -804,7 +812,11 @@ def collect_pe_structures(slice: Slice, pe: pefile.PE) -> Sequence[Structure]:
 
             rva = dll.struct.Name
             size = len(dll_name)
-            offset = pe.get_offset_from_rva(rva)
+            try:
+                offset = pe.get_offset_from_rva(rva)
+            except pefile.PEFormatError as e:
+                logger.warning("failed to get offset for import DLL name RVA 0x%x: %s", rva, e)
+                continue
 
             structures.append(
                 Structure(
@@ -1341,7 +1353,12 @@ def compute_pe_layout(slice: Slice, xor_key: int | None) -> Layout:
 
                 else:
                     rva = entry.data.struct.OffsetToData
-                    offset = pe.get_offset_from_rva(rva)
+                    try:
+                        offset = pe.get_offset_from_rva(rva)
+                    except pefile.PEFormatError as e:
+                        logger.warning("failed to get offset for resource RVA 0x%x: %s", rva, e)
+                        continue
+
                     size = entry.data.struct.Size
 
                     if not slice.contains_range(offset, size):
