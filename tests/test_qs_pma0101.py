@@ -21,7 +21,7 @@ def pma0101_layout():
     binary_path = Path("tests") / Path("data") / Path("pma") / Path("Practical Malware Analysis Lab 01-01.dll_")
     slice_buf = binary_path.read_bytes()
     file_slice = Slice.from_bytes(slice_buf)
-    layout = compute_layout(file_slice)
+    layout = compute_layout(file_slice, path=binary_path)
     extract_layout_strings(layout, 6)
     taggers = load_databases()
     layout.tag_strings(taggers)
@@ -89,4 +89,6 @@ def test_strings(pma0101_layout):
 
     # assert count of expected strings not tagged as #code or #reloc
     filtered_strings = [s for s in all_strings if not s.tags.intersection({"#code", "#reloc"})]
+
+    # if there are 18, then an expected #code string is not getting filtered out
     assert len(filtered_strings) == 17

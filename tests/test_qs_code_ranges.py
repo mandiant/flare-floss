@@ -2,7 +2,7 @@ from unittest.mock import Mock, MagicMock
 
 import pefile
 import pytest
-import lancelot
+from ida_domain import database, flowchart
 
 from floss.qs.main import (
     Range,
@@ -66,39 +66,44 @@ def mock_pe():
     return pe
 
 
-@pytest.fixture
-def mock_ws():
-    """Fixture for a mocked lancelot.Workspace object."""
-    ws = MagicMock(spec=lancelot.Workspace)
-    ws.base_address = 0x400000
+@pytest.fixture()
+def mock_db(monkeypatch):
+    """Fixture for a mocked ida_domain.database.Database object."""
+    db = MagicMock(spec=database.Database)
+    db.metadata.base_address = 0x400000
 
     # Mock functions and basic blocks
     func1 = Mock()
+    func1.start_ea = 0x401000
     func2 = Mock()
-    ws.get_functions.return_value = [func1, func2]
+    func2.start_ea = 0x402000
+    db.functions = [func1, func2]
 
-    bb1 = Mock(address=0x401000, length=0x10)  # rva: 0x1000, offset: 0x2000
-    bb2 = Mock(address=0x401020, length=0x15)  # rva: 0x1020, offset: 0x2020
-    bb3 = Mock(address=0x402000, length=0x20)  # rva: 0x2000, offset: 0x3000
+    bb1 = Mock(start_ea=0x401000, end_ea=0x401010)  # rva: 0x1000, offset: 0x2000, size 0x10
+    bb2 = Mock(start_ea=0x401020, end_ea=0x401035)  # rva: 0x1020, offset: 0x2020, size 0x15
+    bb3 = Mock(start_ea=0x402000, end_ea=0x402020)  # rva: 0x2000, offset: 0x3000, size 0x20
 
-    # Setup cfg for each function
-    cfg1 = Mock(basic_blocks={bb1.address: bb1, bb2.address: bb2})
-    cfg2 = Mock(basic_blocks={bb3.address: bb3})
-
-    def build_cfg(func):
+    # Setup FlowChart mock
+    def mock_flowchart_init(self, database, func, **kwargs):
         if func == func1:
-            return cfg1
-        return cfg2
+            self._blocks = [bb1, bb2]
+        else:
+            self._blocks = [bb3]
 
-    ws.build_cfg.side_effect = build_cfg
-    return ws
+    def mock_flowchart_iter(self):
+        return iter(self._blocks)
+
+    monkeypatch.setattr(flowchart.FlowChart, "__init__", mock_flowchart_init)
+    monkeypatch.setattr(flowchart.FlowChart, "__iter__", mock_flowchart_iter)
+
+    return db
 
 
-def test_get_code_ranges_basic(mock_ws, mock_pe):
+def test_get_code_ranges_basic(mock_db, mock_pe):
     """Test basic extraction of code ranges."""
     # Slice covers the entire mock file
     slice_ = Slice(buf=b"", range=Range(offset=0, length=0x5000))
-    ranges = _get_code_ranges(mock_ws, mock_pe, slice_)
+    ranges = _get_code_ranges(mock_db, mock_pe, slice_)
 
     assert ranges == [
         (0x2000, 0x200F),  # bb1: offset 0x2000, size 0x10
@@ -107,17 +112,17 @@ def test_get_code_ranges_basic(mock_ws, mock_pe):
     ]
 
 
-def test_get_code_ranges_skips_invalid_offset(mock_ws, mock_pe):
+def test_get_code_ranges_skips_invalid_offset(mock_db, mock_pe):
     """Test that it skips basic blocks that fall outside the slice."""
     # Slice is small and only covers the first basic block
     slice_ = Slice(buf=b"", range=Range(offset=0, length=0x2010))
-    ranges = _get_code_ranges(mock_ws, mock_pe, slice_)
+    ranges = _get_code_ranges(mock_db, mock_pe, slice_)
 
     # Only bb1 should be included
     assert ranges == [(0x2000, 0x200F)]
 
 
-def test_get_code_ranges_handles_pe_error(mock_ws, mock_pe):
+def test_get_code_ranges_handles_pe_error(mock_db, mock_pe):
     """Test that it handles PEFormatError when getting an offset."""
 
     # Make one of the RVA lookups fail
@@ -129,7 +134,7 @@ def test_get_code_ranges_handles_pe_error(mock_ws, mock_pe):
     mock_pe.get_offset_from_rva.side_effect = get_offset_from_rva_with_error
 
     slice_ = Slice(buf=b"", range=Range(offset=0, length=0x5000))
-    ranges = _get_code_ranges(mock_ws, mock_pe, slice_)
+    ranges = _get_code_ranges(mock_db, mock_pe, slice_)
 
     # bb2 should be skipped
     assert ranges == [
