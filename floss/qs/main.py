@@ -90,6 +90,10 @@ class Slice(BaseModel):
     range: Range
 
     @property
+    def offset(self) -> int:
+        return self.range.offset
+
+    @property
     def data(self) -> bytes:
         "get the bytes in this slice, copying the data out"
         return self.buf[self.range.offset : self.range.end]
@@ -1828,7 +1832,10 @@ def compute_layout(slice: Slice) -> Layout:
     # If XOR key is found, apply XOR decoding
     if xor_key is not None:
         decoded_data = xor_static(slice.data, xor_key)
-        decoded_slice = Slice(buf=decoded_data, range=Range(offset=0, length=len(decoded_data)))
+        # Pad the decoded data to match the absolute offset, 
+        # so that Slice/Range logic based on absolute offsets still works.
+        decoded_buf = (b"\x00" * slice.offset) + decoded_data
+        decoded_slice = Slice(buf=decoded_buf, range=Range(offset=slice.offset, length=len(decoded_data)))
 
     # Try to parse as PE file
     if decoded_slice.data.startswith(b"MZ"):

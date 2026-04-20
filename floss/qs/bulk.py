@@ -90,14 +90,12 @@ def main():
                     logger.info("Wrote JSON output to %s", json_output_path)
 
                     if should_render:
-                        # main.py defaults to rendered output if --json is not present
                         cmd_render = [
                             sys.executable,
                             "-m",
                             "floss.qs.main",
-                            str(file_path),
-                            "-n",
-                            str(args.min_length),
+                            str(json_output_path),
+                            "--load",
                         ]
                         if args.quiet:
                             cmd_render.append("--quiet")
@@ -112,7 +110,7 @@ def main():
                                 f.write(result_render.stdout)
                             logger.info("Wrote rendered output to %s", rendered_output_path)
                         else:
-                            logger.error("Failed to render file %s", file_path)
+                            logger.error("Failed to render file %s from JSON", file_path)
                 else:
                     logger.error("Failed to analyze file %s, exited with code %d", file_path, result.returncode)
                     if result.stdout:

@@ -14,7 +14,10 @@ const StringItem: React.FC<{ str: ResultString; displayOptions: DisplayOptions }
   const getStyleClass = () => {
     const { tags } = str;
     if (tags.includes('#capa')) return 'highlight';
-    if (tags.includes('#common') || tags.includes('#duplicate') || tags.includes('#code-junk') || tags.some(t => t.startsWith('#'))) return 'mute';
+
+    const noisyTags = ['#common', '#duplicate', '#code', '#reloc', '#code-junk'];
+    if (tags.some(t => noisyTags.includes(t))) return 'mute';
+
     return '';
   };
 
