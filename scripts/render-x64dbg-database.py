@@ -25,6 +25,7 @@ Usage:
   $ python render-x64dbg-database.py floss-results.json > database.json
   # open `database.json` in x64dbg
 """
+
 import sys
 import json
 import logging

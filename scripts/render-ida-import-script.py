@@ -33,6 +33,7 @@ Usage:
   $ python render-ida-import-script.py floss-results.json > apply_floss.py
   # now run `apply_floss.py` in IDA
 """
+
 import sys
 import base64
 import logging

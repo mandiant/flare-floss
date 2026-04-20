@@ -126,24 +126,24 @@ qs = [
     "python-lancelot==0.8.10",
 ]
 dev = [
-    "pre-commit==4.2.0",
+    "pre-commit==4.5.1",
     "pyyaml==6.0.1",
-    "pytest==8.4.1",
-    "pytest-sugar==1.0.0",
+    "pytest==9.0.3",
+    "pytest-sugar==1.1.1",
     "pytest-instafail==0.5.0",
     "pytest-cov==6.2.1",
     "pycodestyle==2.14.0",
-    "black==25.11.0",
-    "isort==6.0.1",
-    "mypy==1.18.2",
+    "black==26.3.1",
+    "isort==8.0.1",
+    "mypy==1.20.0",
     # type stubs for mypy
     "types-PyYAML==6.0.10",
-    "types-tabulate==0.9.0.20240106",
+    "types-tabulate==0.10.0.20260408",
 ]
 build = [
     "pyinstaller==6.14.2",
-    "setuptools==80.9.0",
-    "build==1.3.0"
+    "setuptools==82.0.1",
+    "build==1.4.0"
 ]
 
 

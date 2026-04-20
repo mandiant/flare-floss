@@ -130,7 +130,7 @@ def remove_stack_memory(emu: Emulator):
     # TODO this is a hack while vivisect's initStackMemory() has a bug
     memory_snap = emu.getMemorySnap()
     for i in range((len(memory_snap) - 1), -1, -1):
-        (_, _, info, _) = memory_snap[i]
+        _, _, info, _ = memory_snap[i]
         if info[3] == STACK_MEM_NAME:
             del memory_snap[i]
             emu.setMemorySnap(memory_snap)
@@ -607,13 +607,12 @@ def get_static_strings(sample: Path, min_length: int) -> list:
         logger.warning("File is empty")
         return []
 
-    with sample.open("r") as f:
+    with sample.open("rb") as f:
         if hasattr(mmap, "MAP_PRIVATE"):
             # unix
-            kwargs = {"flags": mmap.MAP_PRIVATE, "prot": mmap.PROT_READ}
+            with mmap.mmap(f.fileno(), 0, flags=mmap.MAP_PRIVATE, prot=mmap.PROT_READ) as buf:
+                return list(extract_ascii_unicode_strings(buf, min_length))
         else:
             # windows
-            kwargs = {"access": mmap.ACCESS_READ}
-
-        with contextlib.closing(mmap.mmap(f.fileno(), 0, **kwargs)) as buf:
-            return list(extract_ascii_unicode_strings(buf, min_length))
+            with mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ) as buf:
+                return list(extract_ascii_unicode_strings(buf, min_length))

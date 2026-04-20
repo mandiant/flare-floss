@@ -99,8 +99,8 @@ def render_meta(results: ResultDocument, console, verbose):
 def render_string_type_rows(results: ResultDocument) -> List[Tuple[str, str]]:
     len_ss = len(results.strings.static_strings)
     len_ls = len(results.strings.language_strings)
-    len_chars_ss = sum([len(s.string) for s in results.strings.static_strings])
-    len_chars_ls = sum([len(s.string) for s in results.strings.language_strings])
+    len_chars_ss = sum(len(s.string) for s in results.strings.static_strings)
+    len_chars_ls = sum(len(s.string) for s in results.strings.language_strings)
     return [
         (
             " static strings",
@@ -174,6 +174,10 @@ def strtime(seconds):
 def render_language_strings(language, language_strings, language_strings_missed, console, verbose, disable_headers):
     strings = sorted(language_strings + language_strings_missed, key=lambda s: s.offset)
     render_heading(f"FLOSS {language.upper()} STRINGS ({len(strings)})", console, verbose, disable_headers)
+    if not strings:
+        logger.info("no %s strings found", language)
+        return
+
     offset_len = len(f"{strings[-1].offset}")
     for s in strings:
         if verbose == Verbosity.DEFAULT:
