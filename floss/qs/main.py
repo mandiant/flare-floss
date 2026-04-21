@@ -63,7 +63,8 @@ class Range(BaseModel):
 
     def slice(self, offset, size) -> "Range":
         "create a new range thats a sub-range of this one, using relative offsets"
-        assert offset < self.length
+        assert 0 <= offset <= self.length
+        assert 0 <= size
         assert offset + size <= self.length
         return Range(offset=self.offset + offset, length=size)
 
@@ -87,25 +88,32 @@ class Slice(BaseModel):
 
     buf: bytes
     range: Range
+    base_offset: int = 0
+
+    @property
+    def offset(self) -> int:
+        return self.range.offset
 
     @property
     def data(self) -> bytes:
         "get the bytes in this slice, copying the data out"
-        return self.buf[self.range.offset : self.range.end]
+        return self.buf[self.range.offset - self.base_offset : self.range.end - self.base_offset]
 
     def slice(self, offset, size) -> "Slice":
         "create a new slice thats a sub-slice of this one, using relative offsets"
-        return Slice(buf=self.buf, range=self.range.slice(offset, size))
+        return Slice(buf=self.buf, range=self.range.slice(offset, size), base_offset=self.base_offset)
 
     def contains_range(self, offset: int, size: int) -> bool:
         """
         checks if this slice's buffer contains the given range,
         where offset is relative to the start of this slice's buffer.
         """
-        if not (0 <= offset < self.range.length):
+        if not (0 <= offset <= self.range.length):
             return False
 
-        # size can be 0, so we don't check for size > 0
+        if size < 0:
+            return False
+
         if (offset + size) > self.range.length:
             return False
 
@@ -579,7 +587,12 @@ def get_reloc_offsets(slice: Slice, pe: pefile.PE) -> Set[int]:
         return ret
 
     rva = dir_entry.VirtualAddress
-    offset = pe.get_offset_from_rva(rva)
+    try:
+        offset = pe.get_offset_from_rva(rva)
+    except pefile.PEFormatError as e:
+        logger.warning("failed to get offset for relocation directory RVA 0x%x: %s", rva, e)
+        return ret
+
     size = dir_entry.Size
 
     if not slice.contains_range(offset, size):
@@ -804,7 +817,11 @@ def collect_pe_structures(slice: Slice, pe: pefile.PE) -> Sequence[Structure]:
 
             rva = dll.struct.Name
             size = len(dll_name)
-            offset = pe.get_offset_from_rva(rva)
+            try:
+                offset = pe.get_offset_from_rva(rva)
+            except pefile.PEFormatError as e:
+                logger.warning("failed to get offset for import DLL name RVA 0x%x: %s", rva, e)
+                continue
 
             structures.append(
                 Structure(
@@ -1192,7 +1209,7 @@ def _get_code_ranges(ws: lancelot.Workspace, pe: pefile.PE, slice_: Slice) -> Li
                 logger.warning("lancelot identified code at an invalid location, skipping basic block at 0x%x", rva)
                 continue
 
-            code_ranges.append((offset, offset + size - 1))
+            code_ranges.append((slice_.offset + offset, slice_.offset + offset + size - 1))
     return code_ranges
 
 
@@ -1341,7 +1358,12 @@ def compute_pe_layout(slice: Slice, xor_key: int | None) -> Layout:
 
                 else:
                     rva = entry.data.struct.OffsetToData
-                    offset = pe.get_offset_from_rva(rva)
+                    try:
+                        offset = pe.get_offset_from_rva(rva)
+                    except pefile.PEFormatError as e:
+                        logger.warning("failed to get offset for resource RVA 0x%x: %s", rva, e)
+                        continue
+
                     size = entry.data.struct.Size
 
                     if not slice.contains_range(offset, size):
@@ -1811,7 +1833,14 @@ def compute_layout(slice: Slice) -> Layout:
     # If XOR key is found, apply XOR decoding
     if xor_key is not None:
         decoded_data = xor_static(slice.data, xor_key)
-        decoded_slice = Slice(buf=decoded_data, range=Range(offset=0, length=len(decoded_data)))
+        # Use base_offset to match the absolute offset,
+        # so that Slice/Range logic based on absolute offsets still works
+        # without requiring a large NULL-padded buffer.
+        decoded_slice = Slice(
+            buf=decoded_data,
+            range=Range(offset=slice.offset, length=len(decoded_data)),
+            base_offset=slice.offset,
+        )
 
     # Try to parse as PE file
     if decoded_slice.data.startswith(b"MZ"):

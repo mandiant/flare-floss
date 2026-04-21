@@ -4,6 +4,8 @@ import './App.css';
 import { type ResultDocument, type ResultLayout, type ResultString } from './types';
 import previewData from './pma0303_qs.json';
 
+const NOISY_TAGS = ['#common', '#duplicate', '#code', '#reloc', '#code-junk'];
+
 interface DisplayOptions {
   showTags: boolean;
   showEncoding: boolean;
@@ -14,7 +16,9 @@ const StringItem: React.FC<{ str: ResultString; displayOptions: DisplayOptions }
   const getStyleClass = () => {
     const { tags } = str;
     if (tags.includes('#capa')) return 'highlight';
-    if (tags.includes('#common') || tags.includes('#duplicate')) return 'mute';
+
+    if (tags.some(t => NOISY_TAGS.includes(t))) return 'mute';
+
     return '';
   };
 
@@ -218,9 +222,8 @@ const App: React.FC = () => {
   };
 
   const handleFocusView = () => {
-    const noisyTags = ['#code', '#code-junk', '#duplicate', '#reloc'];
     const focusedTags = tagInfo.availableTags.filter(
-      tag => !noisyTags.includes(tag)
+      tag => !NOISY_TAGS.includes(tag)
     );
     setSelectedTags(focusedTags);
     setShowUntagged(true);
