@@ -1,0 +1,4174 @@
+{
+"meta": {
+"version": "0.1.0",
+"timestamp": "2026-04-21T11:19:30.557112",
+"sample": {
+"md5": "e2bf42217a67e46433da8b6f4507219e",
+"sha1": "daf263702f11dc0430d30f9bf443e7885cf91fcb",
+"sha256": "ae8a1c7eb64c42ea2a04f97523ebf0844c27029eb040d910048b680f884b9dce",
+"path": "/usr/local/google/home/moritzraabe/code/flare-floss/tests/data/pma/Practical Malware Analysis Lab 03-03.exe_"
+},
+"min_str_len": 4
+},
+"layout": {
+"name": "pe",
+"offset": 0,
+"length": 53248,
+"strings": [],
+"children": [
+{
+"name": "header",
+"offset": 0,
+"length": 4096,
+"strings": [
+{
+"string": "!This program cannot be run in DOS mode.",
+"offset": 77,
+"size": 40,
+"encoding": "ascii",
+"tags": [
+"#common"
+],
+"structure": ""
+},
+{
+"string": "Rich",
+"offset": 192,
+"size": 4,
+"encoding": "ascii",
+"tags": [],
+"structure": "rich header"
+},
+{
+"string": ".text",
+"offset": 472,
+"size": 5,
+"encoding": "ascii",
+"tags": [],
+"structure": "section header"
+},
+{
+"string": "`.rdata",
+"offset": 511,
+"size": 7,
+"encoding": "ascii",
+"tags": [
+"#common"
+],
+"structure": "section header"
+},
+{
+"string": "@.data",
+"offset": 551,
+"size": 6,
+"encoding": "ascii",
+"tags": [
+"#common"
+],
+"structure": "section header"
+},
+{
+"string": ".rsrc",
+"offset": 592,
+"size": 5,
+"encoding": "ascii",
+"tags": [],
+"structure": "section header"
+}
+],
+"children": []
+},
+{
+"name": ".text",
+"offset": 4096,
+"length": 12288,
+"strings": [
+{
+"string": "jjjj",
+"offset": 4435,
+"size": 8,
+"encoding": "unicode",
+"tags": [
+"#code",
+"#code-junk"
+],
+"structure": ""
+},
+{
+"string": "h@P@",
+"offset": 4567,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code"
+],
+"structure": ""
+},
+{
+"string": "hXP@",
+"offset": 4572,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code"
+],
+"structure": ""
+},
+{
+"string": "hdP@",
+"offset": 4962,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code"
+],
+"structure": ""
+},
+{
+"string": "hlP@",
+"offset": 4967,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code"
+],
+"structure": ""
+},
+{
+"string": "Ph0P@",
+"offset": 5395,
+"size": 5,
+"encoding": "ascii",
+"tags": [
+"#code"
+],
+"structure": ""
+},
+{
+"string": "GIt#",
+"offset": 6585,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code"
+],
+"structure": ""
+},
+{
+"string": "YYh P@",
+"offset": 7361,
+"size": 6,
+"encoding": "ascii",
+"tags": [
+"#code"
+],
+"structure": ""
+},
+{
+"string": "t9UW",
+"offset": 7909,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code"
+],
+"structure": ""
+},
+{
+"string": "?=t\"U",
+"offset": 7923,
+"size": 5,
+"encoding": "ascii",
+"tags": [
+"#code"
+],
+"structure": ""
+},
+{
+"string": "QQS3",
+"offset": 8005,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#code-junk"
+],
+"structure": ""
+},
+{
+"string": "PSSW",
+"offset": 8069,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#code-junk"
+],
+"structure": ""
+},
+{
+"string": "8\"uD",
+"offset": 8198,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code"
+],
+"structure": ""
+},
+{
+"string": "8\"uF@",
+"offset": 8263,
+"size": 5,
+"encoding": "ascii",
+"tags": [
+"#code"
+],
+"structure": ""
+},
+{
+"string": "8\"u,",
+"offset": 8410,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code"
+],
+"structure": ""
+},
+{
+"string": "@@f9",
+"offset": 8701,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code"
+],
+"structure": ""
+},
+{
+"string": "@@f9",
+"offset": 8708,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#duplicate"
+],
+"structure": ""
+},
+{
+"string": "=|@@",
+"offset": 8718,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code"
+],
+"structure": ""
+},
+{
+"string": "SS@SSPVSS",
+"offset": 8725,
+"size": 9,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#common"
+],
+"structure": ""
+},
+{
+"string": "t#SSUP",
+"offset": 8759,
+"size": 6,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#common"
+],
+"structure": ""
+},
+{
+"string": "t$$VSS",
+"offset": 8766,
+"size": 6,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#common"
+],
+"structure": ""
+},
+{
+"string": "_^][YY",
+"offset": 8890,
+"size": 6,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#code-junk",
+"#common"
+],
+"structure": ""
+},
+{
+"string": "DSUVWh",
+"offset": 8899,
+"size": 6,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#common"
+],
+"structure": ""
+},
+{
+"string": "_^][",
+"offset": 9316,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#code-junk"
+],
+"structure": ""
+},
+{
+"string": "SVWUj",
+"offset": 9387,
+"size": 5,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#code-junk"
+],
+"structure": ""
+},
+{
+"string": "]_^[",
+"offset": 9408,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#code-junk"
+],
+"structure": ""
+},
+{
+"string": "t.;t$$t(",
+"offset": 9492,
+"size": 8,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#common"
+],
+"structure": ""
+},
+{
+"string": "VC20XC00U",
+"offset": 9624,
+"size": 9,
+"encoding": "ascii",
+"tags": [
+"#common"
+],
+"structure": ""
+},
+{
+"string": "SVWU",
+"offset": 9638,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code-junk"
+],
+"structure": ""
+},
+{
+"string": "tEVU",
+"offset": 9696,
+"size": 4,
+"encoding": "ascii",
+"tags": [],
+"structure": ""
+},
+{
+"string": "t3x<",
+"offset": 9714,
+"size": 4,
+"encoding": "ascii",
+"tags": [],
+"structure": ""
+},
+{
+"string": "]_^[",
+"offset": 9813,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code-junk",
+"#duplicate"
+],
+"structure": ""
+},
+{
+"string": "hxC@",
+"offset": 10186,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code"
+],
+"structure": ""
+},
+{
+"string": "58T@",
+"offset": 10545,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code"
+],
+"structure": ""
+},
+{
+"string": "90tr",
+"offset": 10712,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code"
+],
+"structure": ""
+},
+{
+"string": "%(T@",
+"offset": 11074,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code"
+],
+"structure": ""
+},
+{
+"string": "Wj@Y3",
+"offset": 11194,
+"size": 5,
+"encoding": "ascii",
+"tags": [
+"#code"
+],
+"structure": ""
+},
+{
+"string": "t7SW",
+"offset": 11301,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code"
+],
+"structure": ""
+},
+{
+"string": "    ",
+"offset": 11329,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#code-junk",
+"#msvc"
+],
+"structure": ""
+},
+{
+"string": "@AA;",
+"offset": 11539,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code"
+],
+"structure": ""
+},
+{
+"string": "%tT@",
+"offset": 11682,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code"
+],
+"structure": ""
+},
+{
+"string": "%xT@",
+"offset": 11689,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code"
+],
+"structure": ""
+},
+{
+"string": "j?I_",
+"offset": 11831,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code"
+],
+"structure": ""
+},
+{
+"string": "u\t9}",
+"offset": 12148,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#code-junk"
+],
+"structure": ""
+},
+{
+"string": "ulSj",
+"offset": 12439,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code"
+],
+"structure": ""
+},
+{
+"string": "5lT@",
+"offset": 12558,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code"
+],
+"structure": ""
+},
+{
+"string": "uY;]",
+"offset": 12722,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code"
+],
+"structure": ""
+},
+{
+"string": "pD#U",
+"offset": 12859,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code"
+],
+"structure": ""
+},
+{
+"string": "j #M",
+"offset": 12942,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code"
+],
+"structure": ""
+},
+{
+"string": "j?^;",
+"offset": 12983,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code"
+],
+"structure": ""
+},
+{
+"string": "%tT@",
+"offset": 13326,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#duplicate"
+],
+"structure": ""
+},
+{
+"string": "5|T@",
+"offset": 13373,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code"
+],
+"structure": ""
+},
+{
+"string": "VWuBh",
+"offset": 13782,
+"size": 5,
+"encoding": "ascii",
+"tags": [
+"#code"
+],
+"structure": ""
+},
+{
+"string": "5(@@",
+"offset": 13804,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code"
+],
+"structure": ""
+},
+{
+"string": "tzVS",
+"offset": 13927,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code"
+],
+"structure": ""
+},
+{
+"string": "GIt%",
+"offset": 13961,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code"
+],
+"structure": ""
+},
+{
+"string": "t/Ku",
+"offset": 13997,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code"
+],
+"structure": ""
+},
+{
+"string": "h D@",
+"offset": 14206,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code"
+],
+"structure": ""
+},
+{
+"string": "9=`T@",
+"offset": 14241,
+"size": 5,
+"encoding": "ascii",
+"tags": [
+"#code"
+],
+"structure": ""
+},
+{
+"string": "uFWWj",
+"offset": 14247,
+"size": 5,
+"encoding": "ascii",
+"tags": [
+"#code"
+],
+"structure": ""
+},
+{
+"string": "\"WWSh",
+"offset": 14284,
+"size": 5,
+"encoding": "ascii",
+"tags": [
+"#code"
+],
+"structure": ""
+},
+{
+"string": "9} u",
+"offset": 14388,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#code-junk"
+],
+"structure": ""
+},
+{
+"string": "E WW",
+"offset": 14399,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code"
+],
+"structure": ""
+},
+{
+"string": "tMWWS",
+"offset": 14520,
+"size": 5,
+"encoding": "ascii",
+"tags": [
+"#code"
+],
+"structure": ""
+},
+{
+"string": "t@9}",
+"offset": 14553,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code"
+],
+"structure": ""
+},
+{
+"string": "VSh ",
+"offset": 14716,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code"
+],
+"structure": ""
+},
+{
+"string": "h8D@",
+"offset": 14797,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code"
+],
+"structure": ""
+}
+],
+"children": []
+},
+{
+"name": ".rdata",
+"offset": 16384,
+"length": 4096,
+"strings": [
+{
+"string": "runtime error ",
+"offset": 16620,
+"size": 14,
+"encoding": "ascii",
+"tags": [
+"#common"
+],
+"structure": ""
+},
+{
+"string": "TLOSS error",
+"offset": 16640,
+"size": 11,
+"encoding": "ascii",
+"tags": [
+"#common"
+],
+"structure": ""
+},
+{
+"string": "SING error",
+"offset": 16656,
+"size": 10,
+"encoding": "ascii",
+"tags": [
+"#common"
+],
+"structure": ""
+},
+{
+"string": "DOMAIN error",
+"offset": 16672,
+"size": 12,
+"encoding": "ascii",
+"tags": [
+"#common"
+],
+"structure": ""
+},
+{
+"string": "R6028",
+"offset": 16688,
+"size": 5,
+"encoding": "ascii",
+"tags": [],
+"structure": ""
+},
+{
+"string": "- unable to initialize heap",
+"offset": 16695,
+"size": 27,
+"encoding": "ascii",
+"tags": [
+"#common"
+],
+"structure": ""
+},
+{
+"string": "R6027",
+"offset": 16728,
+"size": 5,
+"encoding": "ascii",
+"tags": [],
+"structure": ""
+},
+{
+"string": "- not enough space for lowio initialization",
+"offset": 16735,
+"size": 43,
+"encoding": "ascii",
+"tags": [
+"#common"
+],
+"structure": ""
+},
+{
+"string": "R6026",
+"offset": 16784,
+"size": 5,
+"encoding": "ascii",
+"tags": [],
+"structure": ""
+},
+{
+"string": "- not enough space for stdio initialization",
+"offset": 16791,
+"size": 43,
+"encoding": "ascii",
+"tags": [
+"#common"
+],
+"structure": ""
+},
+{
+"string": "R6025",
+"offset": 16840,
+"size": 5,
+"encoding": "ascii",
+"tags": [],
+"structure": ""
+},
+{
+"string": "- pure virtual function call",
+"offset": 16847,
+"size": 28,
+"encoding": "ascii",
+"tags": [
+"#common"
+],
+"structure": ""
+},
+{
+"string": "R6024",
+"offset": 16880,
+"size": 5,
+"encoding": "ascii",
+"tags": [],
+"structure": ""
+},
+{
+"string": "- not enough space for _onexit/atexit table",
+"offset": 16887,
+"size": 43,
+"encoding": "ascii",
+"tags": [
+"#common"
+],
+"structure": ""
+},
+{
+"string": "R6019",
+"offset": 16936,
+"size": 5,
+"encoding": "ascii",
+"tags": [],
+"structure": ""
+},
+{
+"string": "- unable to open console device",
+"offset": 16943,
+"size": 31,
+"encoding": "ascii",
+"tags": [
+"#common"
+],
+"structure": ""
+},
+{
+"string": "R6018",
+"offset": 16980,
+"size": 5,
+"encoding": "ascii",
+"tags": [],
+"structure": ""
+},
+{
+"string": "- unexpected heap error",
+"offset": 16987,
+"size": 23,
+"encoding": "ascii",
+"tags": [
+"#common"
+],
+"structure": ""
+},
+{
+"string": "R6017",
+"offset": 17016,
+"size": 5,
+"encoding": "ascii",
+"tags": [],
+"structure": ""
+},
+{
+"string": "- unexpected multithread lock error",
+"offset": 17023,
+"size": 35,
+"encoding": "ascii",
+"tags": [
+"#common"
+],
+"structure": ""
+},
+{
+"string": "R6016",
+"offset": 17064,
+"size": 5,
+"encoding": "ascii",
+"tags": [],
+"structure": ""
+},
+{
+"string": "- not enough space for thread data",
+"offset": 17071,
+"size": 34,
+"encoding": "ascii",
+"tags": [
+"#common"
+],
+"structure": ""
+},
+{
+"string": "abnormal program termination",
+"offset": 17110,
+"size": 28,
+"encoding": "ascii",
+"tags": [
+"#common"
+],
+"structure": ""
+},
+{
+"string": "R6009",
+"offset": 17144,
+"size": 5,
+"encoding": "ascii",
+"tags": [],
+"structure": ""
+},
+{
+"string": "- not enough space for environment",
+"offset": 17151,
+"size": 34,
+"encoding": "ascii",
+"tags": [
+"#common"
+],
+"structure": ""
+},
+{
+"string": "R6008",
+"offset": 17188,
+"size": 5,
+"encoding": "ascii",
+"tags": [],
+"structure": ""
+},
+{
+"string": "- not enough space for arguments",
+"offset": 17195,
+"size": 32,
+"encoding": "ascii",
+"tags": [
+"#common"
+],
+"structure": ""
+},
+{
+"string": "R6002",
+"offset": 17232,
+"size": 5,
+"encoding": "ascii",
+"tags": [],
+"structure": ""
+},
+{
+"string": "- floating point not loaded",
+"offset": 17239,
+"size": 27,
+"encoding": "ascii",
+"tags": [
+"#common"
+],
+"structure": ""
+},
+{
+"string": "Microsoft Visual C++ Runtime Library",
+"offset": 17272,
+"size": 36,
+"encoding": "ascii",
+"tags": [
+"#common"
+],
+"structure": ""
+},
+{
+"string": "Runtime Error!",
+"offset": 17316,
+"size": 14,
+"encoding": "ascii",
+"tags": [
+"#common"
+],
+"structure": ""
+},
+{
+"string": "Program: ",
+"offset": 17332,
+"size": 9,
+"encoding": "ascii",
+"tags": [
+"#common"
+],
+"structure": ""
+},
+{
+"string": "<program name unknown>",
+"offset": 17348,
+"size": 22,
+"encoding": "ascii",
+"tags": [
+"#common"
+],
+"structure": ""
+},
+{
+"string": "GetLastActivePopup",
+"offset": 17372,
+"size": 18,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#winapi"
+],
+"structure": ""
+},
+{
+"string": "GetActiveWindow",
+"offset": 17392,
+"size": 15,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#winapi"
+],
+"structure": ""
+},
+{
+"string": "MessageBoxA",
+"offset": 17408,
+"size": 11,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#winapi"
+],
+"structure": ""
+},
+{
+"string": "user32.dll",
+"offset": 17420,
+"size": 10,
+"encoding": "ascii",
+"tags": [
+"#capa",
+"#common",
+"#winapi"
+],
+"structure": ""
+},
+{
+"string": "CloseHandle",
+"offset": 17738,
+"size": 11,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "VirtualFree",
+"offset": 17752,
+"size": 11,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "ReadFile",
+"offset": 17766,
+"size": 8,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "VirtualAlloc",
+"offset": 17778,
+"size": 12,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "GetFileSize",
+"offset": 17794,
+"size": 11,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "CreateFileA",
+"offset": 17808,
+"size": 11,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "ResumeThread",
+"offset": 17822,
+"size": 12,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "SetThreadContext",
+"offset": 17838,
+"size": 16,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "WriteProcessMemory",
+"offset": 17858,
+"size": 18,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "VirtualAllocEx",
+"offset": 17880,
+"size": 14,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "GetProcAddress",
+"offset": 17898,
+"size": 14,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "GetModuleHandleA",
+"offset": 17916,
+"size": 16,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "ReadProcessMemory",
+"offset": 17936,
+"size": 17,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "GetThreadContext",
+"offset": 17956,
+"size": 16,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "CreateProcessA",
+"offset": 17976,
+"size": 14,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "FreeResource",
+"offset": 17994,
+"size": 12,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "SizeofResource",
+"offset": 18010,
+"size": 14,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "LockResource",
+"offset": 18028,
+"size": 12,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "LoadResource",
+"offset": 18044,
+"size": 12,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "FindResourceA",
+"offset": 18060,
+"size": 13,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "GetSystemDirectoryA",
+"offset": 18076,
+"size": 19,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "Sleep",
+"offset": 18098,
+"size": 5,
+"encoding": "ascii",
+"tags": [
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "KERNEL32.dll",
+"offset": 18104,
+"size": 12,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "GetCommandLineA",
+"offset": 18120,
+"size": 15,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "GetVersion",
+"offset": 18138,
+"size": 10,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "ExitProcess",
+"offset": 18152,
+"size": 11,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "TerminateProcess",
+"offset": 18166,
+"size": 16,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "GetCurrentProcess",
+"offset": 18186,
+"size": 17,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "UnhandledExceptionFilter",
+"offset": 18206,
+"size": 24,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "GetModuleFileNameA",
+"offset": 18234,
+"size": 18,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "FreeEnvironmentStringsA",
+"offset": 18256,
+"size": 23,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "FreeEnvironmentStringsW",
+"offset": 18282,
+"size": 23,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "WideCharToMultiByte",
+"offset": 18308,
+"size": 19,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "GetEnvironmentStrings",
+"offset": 18330,
+"size": 21,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "GetEnvironmentStringsW",
+"offset": 18354,
+"size": 22,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "SetHandleCount",
+"offset": 18380,
+"size": 14,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "GetStdHandle",
+"offset": 18398,
+"size": 12,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "GetFileType",
+"offset": 18414,
+"size": 11,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "GetStartupInfoA",
+"offset": 18428,
+"size": 15,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "HeapDestroy",
+"offset": 18446,
+"size": 11,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "HeapCreate",
+"offset": 18460,
+"size": 10,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "HeapFree",
+"offset": 18474,
+"size": 8,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "RtlUnwind",
+"offset": 18486,
+"size": 9,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "WriteFile",
+"offset": 18498,
+"size": 9,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "HeapAlloc",
+"offset": 18510,
+"size": 9,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "GetCPInfo",
+"offset": 18522,
+"size": 9,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "GetACP",
+"offset": 18534,
+"size": 6,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "GetOEMCP",
+"offset": 18544,
+"size": 8,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "HeapReAlloc",
+"offset": 18556,
+"size": 11,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "LoadLibraryA",
+"offset": 18570,
+"size": 12,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "MultiByteToWideChar",
+"offset": 18586,
+"size": 19,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "LCMapStringA",
+"offset": 18608,
+"size": 12,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "LCMapStringW",
+"offset": 18624,
+"size": 12,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "GetStringTypeA",
+"offset": 18640,
+"size": 14,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "GetStringTypeW",
+"offset": 18658,
+"size": 14,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#winapi"
+],
+"structure": "import table"
+}
+],
+"children": []
+},
+{
+"name": ".data",
+"offset": 20480,
+"length": 4096,
+"strings": [
+{
+"string": "\\svchost.exe",
+"offset": 20528,
+"size": 12,
+"encoding": "ascii",
+"tags": [
+"#common"
+],
+"structure": ""
+},
+{
+"string": "NtUnmapViewOfSection",
+"offset": 20544,
+"size": 20,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#winapi"
+],
+"structure": ""
+},
+{
+"string": "ntdll.dll",
+"offset": 20568,
+"size": 9,
+"encoding": "ascii",
+"tags": [
+"#capa",
+"#common",
+"#winapi"
+],
+"structure": ""
+},
+{
+"string": "UNICODE",
+"offset": 20580,
+"size": 7,
+"encoding": "ascii",
+"tags": [
+"#common"
+],
+"structure": ""
+},
+{
+"string": "LOCALIZATION",
+"offset": 20588,
+"size": 12,
+"encoding": "ascii",
+"tags": [],
+"structure": ""
+}
+],
+"children": []
+},
+{
+"name": ".rsrc",
+"offset": 24576,
+"length": 28672,
+"strings": [
+{
+"string": "UNICODE",
+"offset": 24666,
+"size": 14,
+"encoding": "unicode",
+"tags": [
+"#common"
+],
+"structure": ""
+},
+{
+"string": "LOCALIZATION",
+"offset": 24682,
+"size": 24,
+"encoding": "unicode",
+"tags": [],
+"structure": ""
+}
+],
+"children": [
+{
+"name": "rsrc: UNICODE/LOCALIZATION/0",
+"offset": 24708,
+"length": 24576,
+"strings": [],
+"children": [
+{
+"name": "pe (XOR decoded with key: 0x41)",
+"offset": 24708,
+"length": 24576,
+"strings": [],
+"children": [
+{
+"name": "header",
+"offset": 24708,
+"length": 4096,
+"strings": [
+{
+"string": "!This program cannot be run in DOS mode.",
+"offset": 24785,
+"size": 40,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "RichS",
+"offset": 24900,
+"size": 5,
+"encoding": "ascii",
+"tags": [
+"#decoded"
+],
+"structure": "rich header"
+},
+{
+"string": ".text",
+"offset": 25180,
+"size": 5,
+"encoding": "ascii",
+"tags": [
+"#decoded"
+],
+"structure": "section header"
+},
+{
+"string": "`.rdata",
+"offset": 25219,
+"size": 7,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded"
+],
+"structure": "section header"
+},
+{
+"string": "@.data",
+"offset": 25259,
+"size": 6,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded"
+],
+"structure": "section header"
+}
+],
+"children": []
+},
+{
+"name": ".text",
+"offset": 28804,
+"length": 12288,
+"strings": [
+{
+"string": "h@P@",
+"offset": 28825,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "hPS@",
+"offset": 28864,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "jjjj",
+"offset": 28904,
+"size": 8,
+"encoding": "unicode",
+"tags": [
+"#code",
+"#code-junk",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "@hTP@",
+"offset": 29033,
+"size": 5,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "hPW@",
+"offset": 29080,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "hPW@",
+"offset": 29098,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded",
+"#duplicate"
+],
+"structure": ""
+},
+{
+"string": "hPS@",
+"offset": 29103,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded",
+"#duplicate"
+],
+"structure": ""
+},
+{
+"string": "h0P@",
+"offset": 29128,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "PhPW@",
+"offset": 29148,
+"size": 5,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "PhPW@",
+"offset": 29162,
+"size": 5,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded",
+"#duplicate"
+],
+"structure": ""
+},
+{
+"string": "h<P@",
+"offset": 29186,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "hPW@",
+"offset": 29206,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded",
+"#duplicate"
+],
+"structure": ""
+},
+{
+"string": "hPS@",
+"offset": 29211,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded",
+"#duplicate"
+],
+"structure": ""
+},
+{
+"string": "htP@",
+"offset": 29369,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "hxP@",
+"offset": 29397,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "tzVS",
+"offset": 30171,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "GIt%",
+"offset": 30205,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "t/Ku",
+"offset": 30241,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "t&:a",
+"offset": 30572,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "5|[@",
+"offset": 30844,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "5x[@",
+"offset": 30850,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "=X[@",
+"offset": 30904,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "=X[@",
+"offset": 30941,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded",
+"#duplicate"
+],
+"structure": ""
+},
+{
+"string": ";5p`@",
+"offset": 31142,
+"size": 5,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "YYh P@",
+"offset": 31166,
+"size": 6,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "5P[@",
+"offset": 31641,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "=P[@",
+"offset": 31707,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "t9UW",
+"offset": 31714,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "?=t\"U",
+"offset": 31728,
+"size": 5,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "5P[@",
+"offset": 31774,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded",
+"#duplicate"
+],
+"structure": ""
+},
+{
+"string": "QQS3",
+"offset": 31810,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#code-junk",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "PSSW",
+"offset": 31874,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#code-junk",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "5|[@",
+"offset": 31945,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded",
+"#duplicate"
+],
+"structure": ""
+},
+{
+"string": "8\"uD",
+"offset": 32003,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "8\"uF@",
+"offset": 32068,
+"size": 5,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "8\"u,",
+"offset": 32215,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "-d@@",
+"offset": 32406,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "@@f9",
+"offset": 32506,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "@@f9",
+"offset": 32513,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded",
+"#duplicate"
+],
+"structure": ""
+},
+{
+"string": "=\\@@",
+"offset": 32523,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "SS@SSPVSS",
+"offset": 32530,
+"size": 9,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#common",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "t#SSUP",
+"offset": 32564,
+"size": 6,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#common",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "t$$VSS",
+"offset": 32571,
+"size": 6,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#common",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "_^][YY",
+"offset": 32695,
+"size": 6,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#code-junk",
+"#common",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "DSUVWh",
+"offset": 32704,
+"size": 6,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#common",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "5`_@",
+"offset": 32735,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "95``@",
+"offset": 32840,
+"size": 5,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "95``@",
+"offset": 32914,
+"size": 5,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded",
+"#duplicate"
+],
+"structure": ""
+},
+{
+"string": "5``@",
+"offset": 32925,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "5``@",
+"offset": 33110,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded",
+"#duplicate"
+],
+"structure": ""
+},
+{
+"string": "_^][",
+"offset": 33121,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#code-junk",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "5H_@",
+"offset": 33171,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "SVWUj",
+"offset": 33195,
+"size": 5,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#code-junk",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "h<!@",
+"offset": 33203,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "]_^[",
+"offset": 33216,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#code-junk",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "hD!@",
+"offset": 33268,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "t.;t$$t(",
+"offset": 33300,
+"size": 8,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#common",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "VC20XC00U",
+"offset": 33432,
+"size": 9,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "SVWU",
+"offset": 33446,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code-junk",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "tEVU",
+"offset": 33504,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "t3x<",
+"offset": 33522,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "]_^[",
+"offset": 33621,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code-junk",
+"#decoded",
+"#duplicate"
+],
+"structure": ""
+},
+{
+"string": "A=@R@",
+"offset": 33739,
+"size": 5,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "h`C@",
+"offset": 33994,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "5H_@",
+"offset": 34086,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded",
+"#duplicate"
+],
+"structure": ""
+},
+{
+"string": ";5@S@",
+"offset": 34407,
+"size": 5,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "5H_@",
+"offset": 34443,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded",
+"#duplicate"
+],
+"structure": ""
+},
+{
+"string": "90tr",
+"offset": 34508,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "0B=8S@",
+"offset": 34514,
+"size": 6,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "Wj@Y3",
+"offset": 34990,
+"size": 5,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "t7SW",
+"offset": 35097,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "    ",
+"offset": 35125,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#code-junk",
+"#decoded",
+"#msvc"
+],
+"structure": ""
+},
+{
+"string": "5D_@",
+"offset": 35163,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "5D_@",
+"offset": 35216,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded",
+"#duplicate"
+],
+"structure": ""
+},
+{
+"string": "5D_@",
+"offset": 35256,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded",
+"#duplicate"
+],
+"structure": ""
+},
+{
+"string": "@AA;",
+"offset": 35335,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "=h`@",
+"offset": 35421,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "5H_@",
+"offset": 36289,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded",
+"#duplicate"
+],
+"structure": ""
+},
+{
+"string": "j?I_",
+"offset": 36460,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "u\t9}",
+"offset": 36777,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#code-junk",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "ulSj",
+"offset": 37068,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "5H_@",
+"offset": 37089,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded",
+"#duplicate"
+],
+"structure": ""
+},
+{
+"string": "uY;]",
+"offset": 37351,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "pD#U",
+"offset": 37488,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "j #M",
+"offset": 37571,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "j?^;",
+"offset": 37612,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "5H_@",
+"offset": 38009,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded",
+"#duplicate"
+],
+"structure": ""
+},
+{
+"string": "5H_@",
+"offset": 38058,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded",
+"#duplicate"
+],
+"structure": ""
+},
+{
+"string": "5H_@",
+"offset": 38110,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded",
+"#duplicate"
+],
+"structure": ""
+},
+{
+"string": "VWuBh",
+"offset": 38411,
+"size": 5,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "5,@@",
+"offset": 38433,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "uFWWj",
+"offset": 38612,
+"size": 5,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "\"WWSh",
+"offset": 38649,
+"size": 5,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "9} u",
+"offset": 38753,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#code-junk",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "E WW",
+"offset": 38764,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "tMWWS",
+"offset": 38885,
+"size": 5,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "t@9}",
+"offset": 38918,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "VSh ",
+"offset": 39081,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "h D@",
+"offset": 39162,
+"size": 4,
+"encoding": "ascii",
+"tags": [
+"#code",
+"#decoded"
+],
+"structure": ""
+}
+],
+"children": []
+},
+{
+"name": ".rdata",
+"offset": 41092,
+"length": 4096,
+"strings": [
+{
+"string": "runtime error ",
+"offset": 41304,
+"size": 14,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "TLOSS error",
+"offset": 41324,
+"size": 11,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "SING error",
+"offset": 41340,
+"size": 10,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "DOMAIN error",
+"offset": 41356,
+"size": 12,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "R6028",
+"offset": 41372,
+"size": 5,
+"encoding": "ascii",
+"tags": [
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "- unable to initialize heap",
+"offset": 41379,
+"size": 27,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "R6027",
+"offset": 41412,
+"size": 5,
+"encoding": "ascii",
+"tags": [
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "- not enough space for lowio initialization",
+"offset": 41419,
+"size": 43,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "R6026",
+"offset": 41468,
+"size": 5,
+"encoding": "ascii",
+"tags": [
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "- not enough space for stdio initialization",
+"offset": 41475,
+"size": 43,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "R6025",
+"offset": 41524,
+"size": 5,
+"encoding": "ascii",
+"tags": [
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "- pure virtual function call",
+"offset": 41531,
+"size": 28,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "R6024",
+"offset": 41564,
+"size": 5,
+"encoding": "ascii",
+"tags": [
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "- not enough space for _onexit/atexit table",
+"offset": 41571,
+"size": 43,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "R6019",
+"offset": 41620,
+"size": 5,
+"encoding": "ascii",
+"tags": [
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "- unable to open console device",
+"offset": 41627,
+"size": 31,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "R6018",
+"offset": 41664,
+"size": 5,
+"encoding": "ascii",
+"tags": [
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "- unexpected heap error",
+"offset": 41671,
+"size": 23,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "R6017",
+"offset": 41700,
+"size": 5,
+"encoding": "ascii",
+"tags": [
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "- unexpected multithread lock error",
+"offset": 41707,
+"size": 35,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "R6016",
+"offset": 41748,
+"size": 5,
+"encoding": "ascii",
+"tags": [
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "- not enough space for thread data",
+"offset": 41755,
+"size": 34,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "abnormal program termination",
+"offset": 41794,
+"size": 28,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "R6009",
+"offset": 41828,
+"size": 5,
+"encoding": "ascii",
+"tags": [
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "- not enough space for environment",
+"offset": 41835,
+"size": 34,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "R6008",
+"offset": 41872,
+"size": 5,
+"encoding": "ascii",
+"tags": [
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "- not enough space for arguments",
+"offset": 41879,
+"size": 32,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "R6002",
+"offset": 41916,
+"size": 5,
+"encoding": "ascii",
+"tags": [
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "- floating point not loaded",
+"offset": 41923,
+"size": 27,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "Microsoft Visual C++ Runtime Library",
+"offset": 41956,
+"size": 36,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "Runtime Error!",
+"offset": 42000,
+"size": 14,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "Program: ",
+"offset": 42016,
+"size": 9,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "<program name unknown>",
+"offset": 42032,
+"size": 22,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "GetLastActivePopup",
+"offset": 42056,
+"size": 18,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded",
+"#winapi"
+],
+"structure": ""
+},
+{
+"string": "GetActiveWindow",
+"offset": 42076,
+"size": 15,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded",
+"#winapi"
+],
+"structure": ""
+},
+{
+"string": "MessageBoxA",
+"offset": 42092,
+"size": 11,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded",
+"#winapi"
+],
+"structure": ""
+},
+{
+"string": "user32.dll",
+"offset": 42104,
+"size": 10,
+"encoding": "ascii",
+"tags": [
+"#capa",
+"#common",
+"#decoded",
+"#winapi"
+],
+"structure": ""
+},
+{
+"string": "GetModuleHandleA",
+"offset": 42422,
+"size": 16,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "AllocConsole",
+"offset": 42442,
+"size": 12,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "CloseHandle",
+"offset": 42458,
+"size": 11,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "WriteFile",
+"offset": 42472,
+"size": 9,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "SetFilePointer",
+"offset": 42484,
+"size": 14,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "CreateFileA",
+"offset": 42502,
+"size": 11,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "KERNEL32.dll",
+"offset": 42514,
+"size": 12,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "UnhookWindowsHookEx",
+"offset": 42530,
+"size": 19,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "GetMessageA",
+"offset": 42552,
+"size": 11,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "SetWindowsHookExA",
+"offset": 42566,
+"size": 17,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "ShowWindow",
+"offset": 42586,
+"size": 10,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "FindWindowA",
+"offset": 42600,
+"size": 11,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "CallNextHookEx",
+"offset": 42614,
+"size": 14,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "GetWindowTextA",
+"offset": 42632,
+"size": 14,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "GetForegroundWindow",
+"offset": 42650,
+"size": 19,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "USER32.dll",
+"offset": 42670,
+"size": 10,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "GetCommandLineA",
+"offset": 42684,
+"size": 15,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "GetVersion",
+"offset": 42702,
+"size": 10,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "ExitProcess",
+"offset": 42716,
+"size": 11,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "TerminateProcess",
+"offset": 42730,
+"size": 16,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "GetCurrentProcess",
+"offset": 42750,
+"size": 17,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "UnhandledExceptionFilter",
+"offset": 42770,
+"size": 24,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "GetModuleFileNameA",
+"offset": 42798,
+"size": 18,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "FreeEnvironmentStringsA",
+"offset": 42820,
+"size": 23,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "FreeEnvironmentStringsW",
+"offset": 42846,
+"size": 23,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "WideCharToMultiByte",
+"offset": 42872,
+"size": 19,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "GetEnvironmentStrings",
+"offset": 42894,
+"size": 21,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "GetEnvironmentStringsW",
+"offset": 42918,
+"size": 22,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "SetHandleCount",
+"offset": 42944,
+"size": 14,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "GetStdHandle",
+"offset": 42962,
+"size": 12,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "GetFileType",
+"offset": 42978,
+"size": 11,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "GetStartupInfoA",
+"offset": 42992,
+"size": 15,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "HeapDestroy",
+"offset": 43010,
+"size": 11,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "HeapCreate",
+"offset": 43024,
+"size": 10,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "VirtualFree",
+"offset": 43038,
+"size": 11,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "HeapFree",
+"offset": 43052,
+"size": 8,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "RtlUnwind",
+"offset": 43064,
+"size": 9,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "HeapAlloc",
+"offset": 43076,
+"size": 9,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "GetCPInfo",
+"offset": 43088,
+"size": 9,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "GetACP",
+"offset": 43100,
+"size": 6,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "GetOEMCP",
+"offset": 43110,
+"size": 8,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "VirtualAlloc",
+"offset": 43122,
+"size": 12,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "HeapReAlloc",
+"offset": 43138,
+"size": 11,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "GetProcAddress",
+"offset": 43152,
+"size": 14,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "LoadLibraryA",
+"offset": 43170,
+"size": 12,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "MultiByteToWideChar",
+"offset": 43186,
+"size": 19,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "LCMapStringA",
+"offset": 43208,
+"size": 12,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "LCMapStringW",
+"offset": 43224,
+"size": 12,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "GetStringTypeA",
+"offset": 43240,
+"size": 14,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded",
+"#winapi"
+],
+"structure": "import table"
+},
+{
+"string": "GetStringTypeW",
+"offset": 43258,
+"size": 14,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded",
+"#winapi"
+],
+"structure": "import table"
+}
+],
+"children": []
+},
+{
+"name": ".data",
+"offset": 45188,
+"length": 4096,
+"strings": [
+{
+"string": "[Window: ",
+"offset": 45238,
+"size": 9,
+"encoding": "ascii",
+"tags": [
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "ConsoleWindowClass",
+"offset": 45252,
+"size": 18,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "practicalmalwareanalysis.log",
+"offset": 45272,
+"size": 28,
+"encoding": "ascii",
+"tags": [
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "[SHIFT]",
+"offset": 45308,
+"size": 7,
+"encoding": "ascii",
+"tags": [
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "[ENTER]",
+"offset": 45317,
+"size": 7,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "[BACKSPACE]",
+"offset": 45328,
+"size": 11,
+"encoding": "ascii",
+"tags": [
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "BACKSPACE",
+"offset": 45340,
+"size": 9,
+"encoding": "ascii",
+"tags": [
+"#common",
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "[TAB]",
+"offset": 45352,
+"size": 5,
+"encoding": "ascii",
+"tags": [
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "[CTRL]",
+"offset": 45360,
+"size": 6,
+"encoding": "ascii",
+"tags": [
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "[DEL]",
+"offset": 45368,
+"size": 5,
+"encoding": "ascii",
+"tags": [
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "[CAPS LOCK]",
+"offset": 45416,
+"size": 11,
+"encoding": "ascii",
+"tags": [
+"#decoded"
+],
+"structure": ""
+},
+{
+"string": "[CAPS LOCK]",
+"offset": 45428,
+"size": 11,
+"encoding": "ascii",
+"tags": [
+"#decoded",
+"#duplicate"
+],
+"structure": ""
+}
+],
+"children": []
+}
+]
+}
+]
+}
+]
+}
+]
+}
+}
