@@ -40,7 +40,7 @@ from floss.qs.db.winapi import WindowsApiStringDatabase
 logger = logging.getLogger("quantumstrand")
 
 
-QS_VERSION = "0.1.0"
+QS_VERSION = "0.3.0"
 
 
 @contextlib.contextmanager
