@@ -8,7 +8,7 @@ coverage==7.13.1
 cxxfilt==0.3.0
 distlib==0.4.0
 dncil==1.0.2
-filelock==3.28.0
+filelock==3.29.0
 funcy==2.0
 halo==0.0.31
 identify==2.6.1
