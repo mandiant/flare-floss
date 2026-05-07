@@ -291,6 +291,7 @@ def extract_function_loop(f):
     parse if a function has a loop
     """
     edges = []
+    bb_by_va = {bb.va: bb for bb in f.basic_blocks}
 
     for bb in f.basic_blocks:
         if len(bb.instructions) > 0:
@@ -313,8 +314,15 @@ def extract_function_loop(f):
     comps = strongly_connected_components(g)
     for comp in comps:
         if len(comp) >= 2:
-            # TODO get list of bb start/end eas
-            yield Loop(comp)
+            loop_bb_ranges = []
+            for bb_va in sorted(comp):
+                bb = bb_by_va.get(bb_va)
+                if bb is None:
+                    continue
+
+                loop_bb_ranges.append((bb.va, bb.va + bb.size))
+
+            yield Loop(comp, bb_ranges=loop_bb_ranges)
 
 
 FUNCTION_HANDLERS = (
