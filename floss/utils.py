@@ -368,7 +368,7 @@ def redirecting_print_to_tqdm():
         # If tqdm.tqdm.write raises error, use builtin print
         try:
             tqdm.tqdm.write(*args, **kwargs)
-        except:
+        except Exception:
             old_print(*args, **kwargs)
 
     try:
