@@ -205,7 +205,7 @@ def verify_pclntab(section, pclntab_va: int) -> bool:
     try:
         pc_quanum = section.get_data(pclntab_va + 6, 1)[0]
         pointer_size = section.get_data(pclntab_va + 7, 1)[0]
-    except:
+    except Exception:
         logger.error("Error parsing pclntab header")
         return False
     return True if pc_quanum in {1, 2, 4} and pointer_size in {4, 8} else False
