@@ -24,7 +24,7 @@ FLOSS performs static analysis combined with selective emulation. The pipeline i
 2. **Static string extraction**: regex scans for ASCII (≥4 chars) and UTF-16LE sequences via `binary2strings`.
 3. **Feature extraction** (`floss/identify.py`, `floss/features/`): each function is scored on instruction features: MOV counts, XOR (non-zeroing), shifts/rotates, tight loops, call counts. This produces a ranked list of decoder candidates.
 4. **Stack string extraction** (`floss/stackstrings.py`): emulates functions with ≥5 MOV-to-stack instructions; monitors stack memory as strings are assembled. A context monitor captures strings passed to callees.
-5. **Tight string extraction** (`floss/tightstrings.py`): specialized emulation for tight single-block loops (≤`TS_MAX_INSN_COUNT`=10 000 instructions).
+5. **Tight string extraction** (`floss/tightstrings.py`): specialized emulation for tight single-block loops (≤`TS_MAX_INSN_COUNT`=10000 instructions).
 6. **Decoded string extraction** (`floss/string_decoder.py`): emulates top-ranked decoder functions; takes memory snapshots before and after; diffs them with a binary-search algorithm (`memdiff_search`) to find newly appeared strings.
 7. **Language-specific extraction** (`floss/language/`): detects Go via `pclntab` and Rust via `.rodata` patterns; parses runtime string tables directly without emulation.
 8. **Rendering** (`floss/render/`): outputs formatted tables (Rich), JSON, or script stubs for IDA/Ghidra/Binary Ninja/Radare2/x64dbg.
@@ -84,9 +84,9 @@ mypy floss/
 - **Black** with line length 120. Do not exceed this limit.
 - **isort** with `profile = black` and `length_sort = true`.
 - **Type hints are required** on all functions. mypy enforces this with `--check-untyped-defs`.
-- Use `floss.logging_.getLogger(__name__)`: not `logging.getLogger`.
+- Use `floss.logging_.getLogger(__name__)` instead of `logging.getLogger`.
 - Data structures use **Pydantic** dataclasses (not stdlib `dataclasses`).
-- Categorical values use `enum.Enum` (see `StringType`, `Language`, `StringEncoding` in `results.py`).
+- Categorical values use `enum.Enum` (see `StringType`, `Language`, `StringEncoding` in `floss/results.py`).
 - Copyright headers: `Copyright (C) <YEAR> Mandiant, Inc. All Rights Reserved.`
 
 ### Comments
@@ -101,7 +101,7 @@ Keep behavior predictable under load and during failures (session restarts, reco
 
 If a tradeoff is required, choose correctness and robustness over short-term convenience.
 
-This applies concretely to emulation code: emulation limits (`const.py`) exist to bound resource usage: do not remove or raise them without a measured justification. API hooks (`api_hooks.py`) exist to prevent emulation from stalling on OS calls: extend them rather than bypassing them.
+This applies concretely to emulation code: emulation limits (`floss/const.py`) exist to bound resource usage: do not remove or raise them without a measured justification. API hooks (`floss/api_hooks.py`) exist to prevent emulation from stalling on OS calls: extend them rather than bypassing them.
 
 ## Maintainability
 
@@ -110,6 +110,6 @@ Long-term maintainability is a core priority. If you add new functionality, firs
 Concretely:
 - Shared emulator setup lives in `floss/utils.py`: add helpers there, not inline.
 - Feature extraction logic belongs in `floss/features/`, not scattered across analysis modules.
-- New string types should follow the existing pattern: a dedicated module (`stackstrings.py`, `tightstrings.py`), a Pydantic result class in `results.py`, and renderer support in `floss/render/`.
+- New string types should follow the existing pattern: a dedicated module (`floss/stackstrings.py`, `floss/tightstrings.py`), a Pydantic result class in `floss/results.py`, and renderer support in `floss/render/`.
 - If a new analysis phase needs constants (instruction counts, thresholds), add them to `floss/const.py`.
 
