@@ -126,8 +126,7 @@ def make_parser(argv):
         " 1. Go:   strings from binaries written in Go\n"
         " 2. Rust: strings from binaries written in Rust\n"
     )
-    epilog = textwrap.dedent(
-        """
+    epilog = textwrap.dedent("""
         only displaying core arguments, run `floss -H` to see all supported options
 
         examples:
@@ -139,10 +138,8 @@ def make_parser(argv):
 
           only extract stack and tight strings
             floss --only stack tight -- suspicious.exe
-        """
-    )
-    epilog_advanced = textwrap.dedent(
-        """
+        """)
+    epilog_advanced = textwrap.dedent("""
         examples:
           extract all strings from 32-bit shellcode
             floss -f sc32 shellcode.bin
@@ -152,8 +149,7 @@ def make_parser(argv):
         
           extract strings from a binary written in Go (if automatic language identification fails)
             floss --language go program.exe
-        """
-    )
+        """)
 
     show_all_options = "-H" in argv
 
@@ -649,7 +645,14 @@ def main(argv=None) -> int:
         if args.enabled_types == [] and args.disabled_types == []:
             # when stdout is redirected, such as in 'floss foo.exe | less' use default prompt values
             if sys.stdout.isatty():
-                prompt = input("Do you want to enable string deobfuscation? (this could take a long time) [y/N] ")
+                try:
+                    prompt = input("Do you want to enable string deobfuscation? (this could take a long time) [y/N] ")
+                except KeyboardInterrupt:
+                    logger.info("aborted by user")
+                    return 130
+                except EOFError:
+                    logger.info("aborted by user")
+                    return 1
             else:
                 prompt = "n"
 

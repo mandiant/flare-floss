@@ -31,7 +31,14 @@ from floss.features.extract import (
     extract_function_features,
     extract_basic_block_features,
 )
-from floss.features.features import Arguments, BlockCount, TightFunction, InstructionCount
+from floss.features.features import (
+    Arguments,
+    TightLoop,
+    BlockCount,
+    TightFunction,
+    KindaTightLoop,
+    InstructionCount,
+)
 
 logger = floss.logging_.getLogger(__name__)
 
@@ -66,12 +73,12 @@ def get_max_calls_to(vw, skip_thunks=True, skip_libs=True):
         if skip_thunks and is_thunk_function(vw, fva):
             continue
 
-        # TODO skip_libs and is_library_function
-        #     continue
+        if skip_libs and viv_utils.flirt.is_library_function(vw, fva):
+            continue
 
         calls_to.add(len(vw.getXrefsTo(fva)))
 
-    return max(calls_to)
+    return max(calls_to, default=0)
 
 
 def get_function_score_weighted(features):
@@ -103,9 +110,7 @@ def get_function_fvas(functions) -> List[int]:
 
 
 def get_functions_with_tightloops(functions):
-    return get_functions_with_features(
-        functions, (floss.features.features.TightLoop, floss.features.features.KindaTightLoop)
-    )
+    return get_functions_with_features(functions, (TightLoop, KindaTightLoop))
 
 
 def get_functions_without_tightloops(functions):
