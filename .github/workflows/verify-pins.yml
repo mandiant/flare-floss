@@ -1,4 +1,4 @@
-name: Verify Action Pins
+name: Verify GitHub Action Pins
 
 on:
   pull_request:
