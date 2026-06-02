@@ -1,8 +1,7 @@
-from unittest.mock import Mock, MagicMock
+from unittest.mock import Mock, MagicMock, patch
 
 import pefile
 import pytest
-import lancelot
 
 from floss.qs.main import (
     Range,
@@ -66,39 +65,63 @@ def mock_pe():
     return pe
 
 
-@pytest.fixture
-def mock_ws():
-    """Fixture for a mocked lancelot.Workspace object."""
-    ws = MagicMock(spec=lancelot.Workspace)
-    ws.base_address = 0x400000
-
-    # Mock functions and basic blocks
-    func1 = Mock()
-    func2 = Mock()
-    ws.get_functions.return_value = [func1, func2]
-
-    bb1 = Mock(address=0x401000, length=0x10)  # rva: 0x1000, offset: 0x2000
-    bb2 = Mock(address=0x401020, length=0x15)  # rva: 0x1020, offset: 0x2020
-    bb3 = Mock(address=0x402000, length=0x20)  # rva: 0x2000, offset: 0x3000
-
-    # Setup cfg for each function
-    cfg1 = Mock(basic_blocks={bb1.address: bb1, bb2.address: bb2})
-    cfg2 = Mock(basic_blocks={bb3.address: bb3})
-
-    def build_cfg(func):
-        if func == func1:
-            return cfg1
-        return cfg2
-
-    ws.build_cfg.side_effect = build_cfg
-    return ws
+def _make_instr(size: int) -> Mock:
+    instr = Mock()
+    instr.raw_bytes = b"\x90" * size
+    return instr
 
 
-def test_get_code_ranges_basic(mock_ws, mock_pe):
+def _make_be2_mocks(base_address: int, bb_instructions: list):
+    """
+    Build mock be2 and idx objects.
+
+    bb_instructions: list of lists of (va, size) tuples, one sub-list per basic block.
+    """
+    be2 = MagicMock()
+    idx = MagicMock()
+
+    basic_blocks = {}
+    instr_map = {}
+    for bb_i, instrs in enumerate(bb_instructions):
+        bb = Mock()
+        basic_blocks[bb_i] = bb
+        instr_map[id(bb)] = [(i, _make_instr(sz), va) for i, (va, sz) in enumerate(instrs)]
+
+    fg = Mock()
+    fg.basic_block_index = list(range(len(basic_blocks)))
+    be2.flow_graph = [fg]
+    be2.basic_block = basic_blocks
+
+    def _bb_instructions(bb):
+        return iter(instr_map.get(id(bb), []))
+
+    idx.basic_block_instructions.side_effect = _bb_instructions
+
+    return be2, idx
+
+
+def test_get_code_ranges_basic(mock_pe):
     """Test basic extraction of code ranges."""
-    # Slice covers the entire mock file
+    # base_address = 0x400000, rva = va - base
+    # bb1: va 0x401000, size 0x10 -> rva 0x1000, offset 0x2000 -> range (0x2000, 0x200F)
+    # bb2: va 0x401020, size 0x15 -> rva 0x1020, offset 0x2020 -> range (0x2020, 0x2034)
+    # bb3: va 0x402000, size 0x20 -> rva 0x2000, offset 0x3000 -> range (0x3000, 0x301F)
+    be2, idx = _make_be2_mocks(
+        0x400000,
+        [
+            [(0x401000, 0x10)],
+            [(0x401020, 0x15)],
+            [(0x402000, 0x20)],
+        ],
+    )
+
     slice_ = Slice(buf=b"", range=Range(offset=0, length=0x5000))
-    ranges = _get_code_ranges(mock_ws, mock_pe, slice_)
+
+    with patch("floss.qs.main.lancelot") as mock_lancelot:
+        mock_lancelot.be2utils.find_be2_base_address.return_value = 0x400000
+        mock_lancelot.be2utils.BinExport2Index.return_value = idx
+
+        ranges = _get_code_ranges(be2, mock_pe, slice_)
 
     assert ranges == [
         (0x2000, 0x200F),  # bb1: offset 0x2000, size 0x10
@@ -107,20 +130,33 @@ def test_get_code_ranges_basic(mock_ws, mock_pe):
     ]
 
 
-def test_get_code_ranges_skips_invalid_offset(mock_ws, mock_pe):
-    """Test that it skips basic blocks that fall outside the slice."""
-    # Slice is small and only covers the first basic block
+def test_get_code_ranges_skips_invalid_offset(mock_pe):
+    """Test that it skips instructions that fall outside the slice."""
+    be2, idx = _make_be2_mocks(
+        0x400000,
+        [
+            [(0x401000, 0x10)],  # offset 0x2000, fits in slice
+            [(0x401020, 0x15)],  # offset 0x2020, outside slice
+            [(0x402000, 0x20)],  # offset 0x3000, outside slice
+        ],
+    )
+
+    # Slice only covers through offset 0x2010
     slice_ = Slice(buf=b"", range=Range(offset=0, length=0x2010))
-    ranges = _get_code_ranges(mock_ws, mock_pe, slice_)
+
+    with patch("floss.qs.main.lancelot") as mock_lancelot:
+        mock_lancelot.be2utils.find_be2_base_address.return_value = 0x400000
+        mock_lancelot.be2utils.BinExport2Index.return_value = idx
+
+        ranges = _get_code_ranges(be2, mock_pe, slice_)
 
     # Only bb1 should be included
     assert ranges == [(0x2000, 0x200F)]
 
 
-def test_get_code_ranges_handles_pe_error(mock_ws, mock_pe):
+def test_get_code_ranges_handles_pe_error(mock_pe):
     """Test that it handles PEFormatError when getting an offset."""
 
-    # Make one of the RVA lookups fail
     def get_offset_from_rva_with_error(rva):
         if rva == 0x1020:  # Corresponds to bb2
             raise pefile.PEFormatError("Test Error")
@@ -128,10 +164,24 @@ def test_get_code_ranges_handles_pe_error(mock_ws, mock_pe):
 
     mock_pe.get_offset_from_rva.side_effect = get_offset_from_rva_with_error
 
-    slice_ = Slice(buf=b"", range=Range(offset=0, length=0x5000))
-    ranges = _get_code_ranges(mock_ws, mock_pe, slice_)
+    be2, idx = _make_be2_mocks(
+        0x400000,
+        [
+            [(0x401000, 0x10)],
+            [(0x401020, 0x15)],
+            [(0x402000, 0x20)],
+        ],
+    )
 
-    # bb2 should be skipped
+    slice_ = Slice(buf=b"", range=Range(offset=0, length=0x5000))
+
+    with patch("floss.qs.main.lancelot") as mock_lancelot:
+        mock_lancelot.be2utils.find_be2_base_address.return_value = 0x400000
+        mock_lancelot.be2utils.BinExport2Index.return_value = idx
+
+        ranges = _get_code_ranges(be2, mock_pe, slice_)
+
+    # bb2 should be skipped due to PEFormatError
     assert ranges == [
         (0x2000, 0x200F),
         (0x3000, 0x301F),
