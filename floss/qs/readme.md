@@ -7,6 +7,8 @@ If the experiment proves successful, we'll merge the best features directly into
 You can get prerelease builds of QUANTUMSTRAND from the [releases page](https://github.com/mandiant/flare-floss/releases).
 Of course, this is an experiment, so there are no guarantees and many things yet to polish.
 
+Note: the QUANTUMSTRAND database and signature files are tracked using Git LFS; contributors cloning the repo may need Git LFS installed to fetch those files.
+
 ## Features
 
   - extract ASCII and UTF-16LE strings
@@ -21,4 +23,3 @@ Of course, this is an experiment, so there are no guarantees and many things yet
 
 ![screenshot 1](https://github.com/mandiant/flare-floss/assets/156560/f2d471a3-2624-498c-aaa9-928e2909c338)
 ![screenshot 2](https://github.com/mandiant/flare-floss/assets/156560/23bd20a1-7dff-46b5-be65-12582cb90d64)
-

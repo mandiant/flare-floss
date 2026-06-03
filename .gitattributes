@@ -1,0 +1,4 @@
+floss/qs/db/data/**/*.bin filter=lfs diff=lfs merge=lfs -text
+floss/qs/db/data/**/*.gz filter=lfs diff=lfs merge=lfs -text
+floss/qs/db/data/**/*.jsonl filter=lfs diff=lfs merge=lfs -text
+floss/sigs/*.sig filter=lfs diff=lfs merge=lfs -text
