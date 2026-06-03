@@ -46,3 +46,4 @@ def configure_logging(args: argparse.Namespace):
     else:
         logging.basicConfig(level=logging.INFO)
         logging.getLogger().setLevel(logging.INFO)
+
