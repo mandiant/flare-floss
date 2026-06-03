@@ -607,8 +607,8 @@ def get_reloc_offsets(slice: Slice, pe: pefile.PE) -> Set[int]:
     return ret
 
 
-def get_relocations_elf(slice: Slice, elf: ELFFile) -> Set[int]:
-    ret: Set[int] = set()
+def get_relocations_elf(slice: Slice, elf: ELFFile) -> List[Tuple[int, int]]:
+    ranges: List[Tuple[int, int]] = []
 
     for section in elf.iter_sections():
         if isinstance(section, RelocationSection):
@@ -619,9 +619,8 @@ def get_relocations_elf(slice: Slice, elf: ELFFile) -> Set[int]:
                 logger.warning("relocation directory points to an invalid location, skipping")
                 continue
 
-            for fo in slice.range.slice(offset, size):
-                ret.add(fo)
-    return ret
+            ranges.append((slice.offset + offset, slice.offset + offset + size - 1))
+    return _merge_overlapping_ranges(ranges)
 
 
 def check_is_xor(xor_key: int | None):
@@ -814,7 +813,7 @@ class Structure(BaseModel):
 
 
 def collect_elf_structures(slice: Slice, elf: ELFFile) -> Sequence[Structure]:
-    structures = []
+    structures: List[Structure] = []
 
     shstrtab = elf.get_section_by_name(".shstrtab")
     if shstrtab and slice.contains_range(shstrtab["sh_offset"], shstrtab["sh_size"]):
@@ -1193,10 +1192,10 @@ class ELFLayout(Layout):
 
         super().tag_strings(taggers)
 
-    def mark_structures(self, structures=(), **kwargs):
+    def mark_structures(self, structures: Optional[Tuple[Dict[int, Structure], ...]] = (), **kwargs):
         for child in self.children:
             if isinstance(child, (SectionLayout, SegmentLayout)):
-                child.mark_structures(structures=structures + (self.structures_by_address,), **kwargs)
+                child.mark_structures(structures=(structures or ()) + (self.structures_by_address,), **kwargs)
             else:
                 child.mark_structures(structures=structures, **kwargs)
 
@@ -1228,9 +1227,9 @@ def compute_elf_layout(slice: Slice, xor_key: int | None) -> Layout:
     elf = ELFFile(io.BytesIO(data))
 
     structures = collect_elf_structures(slice, elf)
-    relocation_offsets = OffsetRanges.from_offsets(get_relocations_elf(slice, elf))
+    relocation_offsets = OffsetRanges.from_merged_ranges(get_relocations_elf(slice, elf))
 
-    structures_by_address = {}
+    structures_by_address: Dict[int, Structure] = {}
     for structure in structures:
         for offset in structure.slice.range:
             structures_by_address[offset] = structure
@@ -1278,15 +1277,12 @@ def compute_elf_layout(slice: Slice, xor_key: int | None) -> Layout:
     except Exception as e:
         logger.warning("failed to parse ELF sections: %s", e)
 
-    # Sort by offset, then skip any section that overlaps the previous one.
-    # cursor tracks the end of the furthest seen section (including skipped ones)
-    # so that sub-sections of a skipped wider section are also excluded.
+    # Sort by offset, then skip any section that overlaps a previously added section.
     file_sections.sort(key=lambda t: t[0])
     cursor = 0
     for offset, size, name in file_sections:
         if offset < cursor:
             logger.debug("section %s overlaps previous section, skipping", name)
-            cursor = max(cursor, offset + size)
             continue
         layout.add_child(SectionLayout(slice=slice.slice(offset, size), name=name))
         cursor = offset + size
@@ -1321,7 +1317,7 @@ def _merge_overlapping_ranges(ranges: List[Tuple[int, int]]) -> List[Tuple[int, 
     return merged_ranges
 
 
-def _get_code_ranges(be2, pe: pefile.PE, slice_: Slice) -> List[Tuple[int, int]]:
+def _get_code_ranges(be2: "lancelot.BinExport2", pe: pefile.PE, slice_: Slice) -> List[Tuple[int, int]]:
     """
     Extract and return the raw, unmerged code ranges from a PE file.
     """
@@ -1345,11 +1341,16 @@ def _get_code_ranges(be2, pe: pefile.PE, slice_: Slice) -> List[Tuple[int, int]]
             except IndexError:
                 logger.warning("lancelot basic block index %d out of range, skipping", basic_block_index)
                 continue
+
+            current_range: Optional[Tuple[int, int]] = None
             for _instruction_index, instruction, instruction_address in idx.basic_block_instructions(basic_block):
                 va = instruction_address
                 rva = va - base_address
                 offset = get_offset_from_rva_cached(rva)
                 if offset is None:
+                    if current_range is not None:
+                        code_ranges.append(current_range)
+                        current_range = None
                     continue
 
                 size = len(instruction.raw_bytes)
@@ -1358,9 +1359,22 @@ def _get_code_ranges(be2, pe: pefile.PE, slice_: Slice) -> List[Tuple[int, int]]
 
                 if not slice_.contains_range(offset, size):
                     logger.warning("lancelot identified code at an invalid location, skipping instruction at 0x%x", rva)
+                    if current_range is not None:
+                        code_ranges.append(current_range)
+                        current_range = None
                     continue
 
-                code_ranges.append((slice_.offset + offset, slice_.offset + offset + size - 1))
+                start = slice_.offset + offset
+                end = slice_.offset + offset + size - 1
+                if current_range is None:
+                    current_range = (start, end)
+                elif start == current_range[1] + 1:
+                    current_range = (current_range[0], end)
+                else:
+                    code_ranges.append(current_range)
+                    current_range = (start, end)
+            if current_range is not None:
+                code_ranges.append(current_range)
     return code_ranges
 
 
@@ -1380,7 +1394,7 @@ def compute_pe_layout(slice: Slice, xor_key: int | None) -> Layout:
         for offset in structure.slice.range:
             structures_by_address[offset] = structure
 
-    be2 = None
+    be2: Optional[lancelot.BinExport2] = None
     with timing("lancelot: load workspace"):
         try:
             be2 = lancelot.get_binexport2_from_bytes(data)
