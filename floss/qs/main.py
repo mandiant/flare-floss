@@ -2013,21 +2013,19 @@ def compute_layout(slice: Slice) -> Layout:
             return compute_pe_layout(decoded_slice, xor_key)
         except ValueError as e:
             logger.debug("failed to parse as PE file: %s", e)
-            # Fall back to using the default binary layout
-            pass
-
-    if _is_macho_magic(_get_u32_be(slice.data, 0)):
+    elif _is_macho_magic(_get_u32_be(slice.data, 0)):
         try:
             return compute_macho_layout(slice)
         except Exception as e:
             # TODO: narrow exception handling once machofile error types are clearer.
             logger.debug("failed to parse as Mach-O file: %s", e)
-
-    if decoded_slice.data.startswith(b"\x7fELF"):
+    elif decoded_slice.data.startswith(b"\x7fELF"):
         try:
             return compute_elf_layout(decoded_slice, xor_key)
         except Exception as e:
             logger.debug("failed to parse as ELF file: %s", e)
+    else:
+        logger.debug("unrecognized file format, falling back to binary layout")
 
     return SegmentLayout(
         slice=slice,
