@@ -28,6 +28,7 @@ from rich.style import Style
 from rich.console import Console
 from elftools.elf.elffile import ELFFile
 from elftools.elf.relocation import RelocationSection
+from elftools.elf.constants import SH_FLAGS
 
 import floss.main
 import floss.qs.db.gp
@@ -1261,7 +1262,43 @@ def compute_elf_layout(slice: Slice, xor_key: int | None) -> Layout:
         for offset in structure.slice.range:
             structures_by_address[offset] = structure
 
-    code_offsets = OffsetRanges()
+    # Collect valid file-backed sections, sorted by offset, deduplicating overlaps.
+    # SHT_NOBITS sections (.bss, .noptrbss) have no file content; skip them.
+    # Also track executable sections (SHF_EXECINSTR) for #code tagging.
+    file_sections: List[Tuple[int, int, str, bool]] = []  # (offset, size, name, is_exec)
+    try:
+        for section in elf.iter_sections():
+            if section["sh_size"] == 0:
+                continue
+            if section["sh_type"] == "SHT_NOBITS":
+                continue
+
+            name = section.name
+            offset = section["sh_offset"]
+            size = section["sh_size"]
+            is_exec = bool(section["sh_flags"] & SH_FLAGS.SHF_EXECINSTR)
+
+            if offset >= slice.range.length:
+                logger.warning("section %s out of range", name)
+                continue
+
+            if offset + size > slice.range.length:
+                size_orig = size
+                size = slice.range.length - offset
+                logger.warning(
+                    "section size %s out of range, truncating from 0x%x to 0x%x bytes", name, size_orig, size
+                )
+
+            file_sections.append((offset, size, name, is_exec))
+    except Exception as e:
+        logger.warning("failed to parse ELF sections: %s", e)
+
+    # Build code_offsets from executable sections before constructing the layout.
+    file_sections.sort(key=lambda t: t[0])
+    exec_ranges: List[Tuple[int, int]] = [
+        (offset, offset + size) for offset, size, _name, is_exec in file_sections if is_exec
+    ]
+    code_offsets = OffsetRanges.from_merged_ranges(_merge_overlapping_ranges(exec_ranges))
 
     layout = ELFLayout(
         slice=slice,
@@ -1275,39 +1312,9 @@ def compute_elf_layout(slice: Slice, xor_key: int | None) -> Layout:
     if xor_key:
         layout.name += f" (XOR decoded with key: 0x{xor_key:x})"
 
-    # Collect valid file-backed sections, sorted by offset, deduplicating overlaps.
-    # SHT_NOBITS sections (.bss, .noptrbss) have no file content; skip them.
-    file_sections: List[Tuple[int, int, str]] = []  # (offset, size, name)
-    try:
-        for section in elf.iter_sections():
-            if section["sh_size"] == 0:
-                continue
-            if section["sh_type"] == "SHT_NOBITS":
-                continue
-
-            name = section.name
-            offset = section["sh_offset"]
-            size = section["sh_size"]
-
-            if offset >= slice.range.length:
-                logger.warning("section %s out of range", name)
-                continue
-
-            if offset + size > slice.range.length:
-                size_orig = size
-                size = slice.range.length - offset
-                logger.warning(
-                    "section size %s out of range, truncating from 0x%x to 0x%x bytes", name, size_orig, size
-                )
-
-            file_sections.append((offset, size, name))
-    except Exception as e:
-        logger.warning("failed to parse ELF sections: %s", e)
-
     # Sort by offset, then skip any section that overlaps a previously added section.
-    file_sections.sort(key=lambda t: t[0])
     cursor = 0
-    for offset, size, name in file_sections:
+    for offset, size, name, _is_exec in file_sections:
         if offset < cursor:
             logger.debug("section %s overlaps previous section, skipping", name)
             continue
