@@ -815,14 +815,46 @@ class Structure(BaseModel):
 def collect_elf_structures(slice: Slice, elf: ELFFile) -> Sequence[Structure]:
     structures: List[Structure] = []
 
-    shstrtab = elf.get_section_by_name(".shstrtab")
-    if shstrtab and slice.contains_range(shstrtab["sh_offset"], shstrtab["sh_size"]):
-        structures.append(
-            Structure(
-                slice=slice.slice(shstrtab["sh_offset"], shstrtab["sh_size"]),
-                name="section header",
-            )
-        )
+    # ELF file header: 52 bytes (32-bit) or 64 bytes (64-bit)
+    header_size = 52 if elf.elfclass == 32 else 64
+    if slice.contains_range(0, header_size):
+        structures.append(Structure(slice=slice.slice(0, header_size), name="elf header"))
+
+    # Program header table
+    phoff = elf.header["e_phoff"]
+    phentsize = elf.header["e_phentsize"]
+    phnum = elf.header["e_phnum"]
+    if phnum > 0 and phentsize > 0:
+        ph_total = phentsize * phnum
+        if slice.contains_range(phoff, ph_total):
+            structures.append(Structure(slice=slice.slice(phoff, ph_total), name="program header"))
+
+    # Section header table
+    shoff = elf.header["e_shoff"]
+    shentsize = elf.header["e_shentsize"]
+    shnum = elf.header["e_shnum"]
+    if shnum > 0 and shentsize > 0:
+        sh_total = shentsize * shnum
+        if slice.contains_range(shoff, sh_total):
+            structures.append(Structure(slice=slice.slice(shoff, sh_total), name="section header"))
+
+    # String tables (.shstrtab, .strtab, .dynstr) and symbol tables (.symtab, .dynsym)
+    for section in elf.iter_sections():
+        if section["sh_size"] == 0:
+            continue
+        if section["sh_type"] == "SHT_NOBITS":
+            continue
+
+        offset = section["sh_offset"]
+        size = section["sh_size"]
+
+        if not slice.contains_range(offset, size):
+            continue
+
+        if section["sh_type"] == "SHT_STRTAB":
+            structures.append(Structure(slice=slice.slice(offset, size), name="string table"))
+        elif section["sh_type"] in {"SHT_SYMTAB", "SHT_DYNSYM"}:
+            structures.append(Structure(slice=slice.slice(offset, size), name="symbol table"))
 
     return structures
 
@@ -940,24 +972,19 @@ def collect_pe_structures(slice: Slice, pe: pefile.PE) -> Sequence[Structure]:
                         )
                     )
 
-    if hasattr(pe, 'RICH_HEADER') and pe.RICH_HEADER:
+    if hasattr(pe, "RICH_HEADER") and pe.RICH_HEADER:
         key_bytes = pe.RICH_HEADER.key
 
-        rich_sig_offset = pe.__data__.find(b'Rich', 0x40, pe.DOS_HEADER.e_lfanew)
+        rich_sig_offset = pe.__data__.find(b"Rich", 0x40, pe.DOS_HEADER.e_lfanew)
         # The structure end is 'Rich' (4) + key (4) = 8 bytes
         rich_end = rich_sig_offset + 8
 
         # Find the start of rich header by looking for 'DanS' XORed with the key
-        xor_dans = bytes(a ^ b for a, b in zip(b'DanS', key_bytes))
+        xor_dans = bytes(a ^ b for a, b in zip(b"DanS", key_bytes))
         rich_start = pe.__data__.rfind(xor_dans, 0x40, rich_sig_offset)
 
         if rich_sig_offset != -1 and rich_start != -1:
-            structures.append(
-                Structure(
-                    slice=slice.slice(rich_start, rich_end - rich_start),
-                    name="rich header"
-                )
-            )
+            structures.append(Structure(slice=slice.slice(rich_start, rich_end - rich_start), name="rich header"))
 
     return structures
 
@@ -1620,9 +1647,7 @@ def _parse_fat_arches(data: bytes) -> List[Tuple[str, int, int]]:
         else:
             if offset + 20 > len(data):
                 break
-            cputype, cpusubtype, arch_offset, size, _align = struct.unpack(
-                endian + "IIIII", data[offset : offset + 20]
-            )
+            cputype, cpusubtype, arch_offset, size, _align = struct.unpack(endian + "IIIII", data[offset : offset + 20])
             offset += 20
 
         arch_name = _format_macho_arch(cputype, cpusubtype)
@@ -1755,9 +1780,7 @@ def _attach_nested_layout(parent: Layout, child: Layout):
         parent.add_child(child)
 
 
-def _parse_superblob_blobs(
-    slice_: Slice, cs_offset: int, cs_size: int
-) -> Sequence[Tuple[int, int, int]]:
+def _parse_superblob_blobs(slice_: Slice, cs_offset: int, cs_size: int) -> Sequence[Tuple[int, int, int]]:
     blobs: List[Tuple[int, int, int]] = []
     if cs_size <= 0:
         return blobs
@@ -2258,8 +2281,11 @@ def render_strings(
                         is_group_start = True
 
             line = render_string(
-                console.width, string, tag_rules,
-                prev_tags=prev_tags, prev_tags_width=prev_tags_width,
+                console.width,
+                string,
+                tag_rules,
+                prev_tags=prev_tags,
+                prev_tags_width=prev_tags_width,
                 is_group_end=is_group_end,
                 is_group_start=is_group_start,
             )
