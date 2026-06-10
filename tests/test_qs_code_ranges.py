@@ -1,4 +1,4 @@
-from unittest.mock import Mock, MagicMock, patch
+from unittest.mock import Mock, MagicMock
 
 import pefile
 import pytest
@@ -116,11 +116,7 @@ def test_get_code_ranges_basic(mock_pe):
 
     slice_ = Slice(buf=b"", range=Range(offset=0, length=0x5000))
 
-    with patch("floss.qs.main.lancelot") as mock_lancelot:
-        mock_lancelot.be2utils.find_be2_base_address.return_value = 0x400000
-        mock_lancelot.be2utils.BinExport2Index.return_value = idx
-
-        ranges = _get_code_ranges(be2, mock_pe, slice_)
+    ranges = _get_code_ranges(be2, idx, 0x400000, mock_pe, slice_)
 
     assert ranges == [
         (0x2000, 0x200F),  # bb1: offset 0x2000, size 0x10
@@ -142,11 +138,7 @@ def test_get_code_ranges_skips_invalid_offset(mock_pe):
     # Slice only covers through offset 0x2010
     slice_ = Slice(buf=b"", range=Range(offset=0, length=0x2010))
 
-    with patch("floss.qs.main.lancelot") as mock_lancelot:
-        mock_lancelot.be2utils.find_be2_base_address.return_value = 0x400000
-        mock_lancelot.be2utils.BinExport2Index.return_value = idx
-
-        ranges = _get_code_ranges(be2, mock_pe, slice_)
+    ranges = _get_code_ranges(be2, idx, 0x400000, mock_pe, slice_)
 
     # Only bb1 should be included
     assert ranges == [(0x2000, 0x200F)]
@@ -172,11 +164,7 @@ def test_get_code_ranges_handles_pe_error(mock_pe):
 
     slice_ = Slice(buf=b"", range=Range(offset=0, length=0x5000))
 
-    with patch("floss.qs.main.lancelot") as mock_lancelot:
-        mock_lancelot.be2utils.find_be2_base_address.return_value = 0x400000
-        mock_lancelot.be2utils.BinExport2Index.return_value = idx
-
-        ranges = _get_code_ranges(be2, mock_pe, slice_)
+    ranges = _get_code_ranges(be2, idx, 0x400000, mock_pe, slice_)
 
     # bb2 should be skipped due to PEFormatError
     assert ranges == [

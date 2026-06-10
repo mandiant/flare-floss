@@ -1285,9 +1285,7 @@ def compute_elf_layout(slice_: Slice, xor_key: int | None) -> Layout:
         if offset + size > slice_.range.length:
             size_orig = size
             size = slice_.range.length - offset
-            logger.warning(
-                "section size %s out of range, truncating from 0x%x to 0x%x bytes", name, size_orig, size
-            )
+            logger.warning("section size %s out of range, truncating from 0x%x to 0x%x bytes", name, size_orig, size)
 
         file_sections.append((offset, size, name, is_exec))
 
@@ -1349,13 +1347,16 @@ def _merge_overlapping_ranges(ranges: List[Tuple[int, int]]) -> List[Tuple[int, 
     return merged_ranges
 
 
-def _get_code_ranges(be2: "lancelot.BinExport2", pe: pefile.PE, slice_: Slice) -> List[Tuple[int, int]]:
+def _get_code_ranges(
+    be2: "lancelot.BinExport2",
+    idx: "lancelot.be2utils.BinExport2Index",
+    base_address: int,
+    pe: pefile.PE,
+    slice_: Slice,
+) -> List[Tuple[int, int]]:
     """
     Extract and return the raw, unmerged code ranges from a PE file.
     """
-    base_address = lancelot.be2utils.find_be2_base_address(be2)
-    idx = lancelot.be2utils.BinExport2Index(be2)
-
     # cache because getting the offset is slow
     @functools.lru_cache(maxsize=None)
     def get_offset_from_rva_cached(rva):
@@ -1437,7 +1438,9 @@ def compute_pe_layout(slice: Slice, xor_key: int | None) -> Layout:
     code_offsets = OffsetRanges()
     if be2:
         with timing("lancelot: find code"):
-            code_ranges = _get_code_ranges(be2, pe, slice)
+            base_address = lancelot.be2utils.find_be2_base_address(be2)
+            idx = lancelot.be2utils.BinExport2Index(be2)
+            code_ranges = _get_code_ranges(be2, idx, base_address, pe, slice)
             merged_code_ranges = _merge_overlapping_ranges(code_ranges)
             code_offsets = OffsetRanges.from_merged_ranges(merged_code_ranges)
 
