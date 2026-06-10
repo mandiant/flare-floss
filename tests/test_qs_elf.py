@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from floss.qs.main import ELFLayout, Slice, compute_layout
+from floss.qs.main import Slice, ELFLayout, compute_layout
 
 CD = Path(__file__).resolve().parent
 ELF_DIR = CD / "data" / "elf"
@@ -24,6 +24,10 @@ def test_elf_layout():
     assert isinstance(layout, ELFLayout)
     assert layout.name == "elf"
     assert layout.children
+    text_sections = [c for c in layout.children if c.name == ".text"]
+    assert len(text_sections) == 1
+    assert text_sections[0].offset == 0x10A0
+    assert text_sections[0].slice.range.length == 0x1C5
 
 
 def test_elf_section_names():
@@ -37,13 +41,17 @@ def test_elf_section_names():
 
 def test_elf_structures_present():
     layout = _load_layout(X86_64_PIE)
-    assert layout.structures_by_address
+    assert layout.structures_by_address[0x0].name == "elf header"
+    assert layout.structures_by_address[0x40].name == "program header"
+    assert layout.structures_by_address[0x39D0].name == "section header"
+    assert layout.structures_by_address[0x3C8].name == "symbol table"  # .dynsym
+    assert layout.structures_by_address[0x4A0].name == "string table"  # .dynstr
 
 
 def test_elf_code_and_reloc_offsets():
     layout = _load_layout(X86_64_PIE)
-    assert layout.code_offsets.ranges
-    assert layout.relocation_offsets.ranges
+    assert (0x10A0, 0x1265) in layout.code_offsets.ranges          # .text exec range
+    assert (0x568, 0x66F) in layout.relocation_offsets.ranges      # .rela.dyn + .rela.plt merged
 
 
 def test_arm64_so_android_note_section():

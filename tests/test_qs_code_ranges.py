@@ -71,7 +71,7 @@ def _make_instr(size: int) -> Mock:
     return instr
 
 
-def _make_be2_mocks(base_address: int, bb_instructions: list):
+def _make_be2_mocks(bb_instructions: list):
     """
     Build mock be2 and idx objects.
 
@@ -107,12 +107,11 @@ def test_get_code_ranges_basic(mock_pe):
     # bb2: va 0x401020, size 0x15 -> rva 0x1020, offset 0x2020 -> range (0x2020, 0x2034)
     # bb3: va 0x402000, size 0x20 -> rva 0x2000, offset 0x3000 -> range (0x3000, 0x301F)
     be2, idx = _make_be2_mocks(
-        0x400000,
         [
             [(0x401000, 0x10)],
             [(0x401020, 0x15)],
             [(0x402000, 0x20)],
-        ],
+        ]
     )
 
     slice_ = Slice(buf=b"", range=Range(offset=0, length=0x5000))
@@ -133,12 +132,11 @@ def test_get_code_ranges_basic(mock_pe):
 def test_get_code_ranges_skips_invalid_offset(mock_pe):
     """Test that it skips instructions that fall outside the slice."""
     be2, idx = _make_be2_mocks(
-        0x400000,
         [
             [(0x401000, 0x10)],  # offset 0x2000, fits in slice
             [(0x401020, 0x15)],  # offset 0x2020, outside slice
             [(0x402000, 0x20)],  # offset 0x3000, outside slice
-        ],
+        ]
     )
 
     # Slice only covers through offset 0x2010
@@ -165,12 +163,11 @@ def test_get_code_ranges_handles_pe_error(mock_pe):
     mock_pe.get_offset_from_rva.side_effect = get_offset_from_rva_with_error
 
     be2, idx = _make_be2_mocks(
-        0x400000,
         [
             [(0x401000, 0x10)],
             [(0x401020, 0x15)],
             [(0x402000, 0x20)],
-        ],
+        ]
     )
 
     slice_ = Slice(buf=b"", range=Range(offset=0, length=0x5000))
