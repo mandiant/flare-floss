@@ -1267,32 +1267,29 @@ def compute_elf_layout(slice_: Slice, xor_key: int | None) -> Layout:
     # SHT_NOBITS sections (.bss, .noptrbss) have no file content; skip them.
     # Also track executable sections (SHF_EXECINSTR) for #code tagging.
     file_sections: List[Tuple[int, int, str, bool]] = []  # (offset, size, name, is_exec)
-    try:
-        for section in elf.iter_sections():
-            if section["sh_size"] == 0:
-                continue
-            if section["sh_type"] == "SHT_NOBITS":
-                continue
+    for section in elf.iter_sections():
+        if section["sh_size"] == 0:
+            continue
+        if section["sh_type"] == "SHT_NOBITS":
+            continue
 
-            name = section.name
-            offset = section["sh_offset"]
-            size = section["sh_size"]
-            is_exec = bool(section["sh_flags"] & SH_FLAGS.SHF_EXECINSTR)
+        name = section.name
+        offset = section["sh_offset"]
+        size = section["sh_size"]
+        is_exec = bool(section["sh_flags"] & SH_FLAGS.SHF_EXECINSTR)
 
-            if offset >= slice_.range.length:
-                logger.warning("section %s out of range", name)
-                continue
+        if offset >= slice_.range.length:
+            logger.warning("section %s out of range", name)
+            continue
 
-            if offset + size > slice_.range.length:
-                size_orig = size
-                size = slice_.range.length - offset
-                logger.warning(
-                    "section size %s out of range, truncating from 0x%x to 0x%x bytes", name, size_orig, size
-                )
+        if offset + size > slice_.range.length:
+            size_orig = size
+            size = slice_.range.length - offset
+            logger.warning(
+                "section size %s out of range, truncating from 0x%x to 0x%x bytes", name, size_orig, size
+            )
 
-            file_sections.append((offset, size, name, is_exec))
-    except ELFError as e:
-        logger.warning("failed to parse ELF sections: %s", e)
+        file_sections.append((offset, size, name, is_exec))
 
     # Build code_offsets from executable sections before constructing the layout.
     file_sections.sort(key=lambda t: t[0])
