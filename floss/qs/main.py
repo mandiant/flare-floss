@@ -27,8 +27,9 @@ from rich.text import Text
 from rich.style import Style
 from rich.console import Console
 from elftools.elf.elffile import ELFFile
-from elftools.elf.relocation import RelocationSection
 from elftools.elf.constants import SH_FLAGS
+from elftools.elf.relocation import RelocationSection
+from elftools.common.exceptions import ELFError
 
 import floss.main
 import floss.qs.db.gp
@@ -108,8 +109,8 @@ class Slice(BaseModel):
 
     def contains_range(self, offset: int, size: int) -> bool:
         """
-        checks if this slice's buffer contains the given range,
-        where offset is relative to the start of this slice's buffer.
+        checks if this slice contains the given range,
+        where offset is relative to the start of this slice.
         """
         if not (0 <= offset <= self.range.length):
             return False
@@ -608,7 +609,7 @@ def get_reloc_offsets(slice: Slice, pe: pefile.PE) -> Set[int]:
     return ret
 
 
-def get_relocations_elf(slice: Slice, elf: ELFFile) -> List[Tuple[int, int]]:
+def get_relocations_elf(slice_: Slice, elf: ELFFile) -> List[Tuple[int, int]]:
     ranges: List[Tuple[int, int]] = []
 
     for section in elf.iter_sections():
@@ -616,11 +617,11 @@ def get_relocations_elf(slice: Slice, elf: ELFFile) -> List[Tuple[int, int]]:
             offset = section["sh_offset"]
             size = section["sh_size"]
 
-            if not slice.contains_range(offset, size):
+            if not slice_.contains_range(offset, size):
                 logger.warning("relocation directory points to an invalid location, skipping")
                 continue
 
-            ranges.append((slice.offset + offset, slice.offset + offset + size - 1))
+            ranges.append((slice_.offset + offset, slice_.offset + offset + size - 1))
     return _merge_overlapping_ranges(ranges)
 
 
@@ -813,13 +814,13 @@ class Structure(BaseModel):
     name: str
 
 
-def collect_elf_structures(slice: Slice, elf: ELFFile) -> Sequence[Structure]:
+def collect_elf_structures(slice_: Slice, elf: ELFFile) -> Sequence[Structure]:
     structures: List[Structure] = []
 
     # ELF file header: 52 bytes (32-bit) or 64 bytes (64-bit)
     header_size = 52 if elf.elfclass == 32 else 64
-    if slice.contains_range(0, header_size):
-        structures.append(Structure(slice=slice.slice(0, header_size), name="elf header"))
+    if slice_.contains_range(0, header_size):
+        structures.append(Structure(slice=slice_.slice(0, header_size), name="elf header"))
 
     # Program header table
     phoff = elf.header["e_phoff"]
@@ -827,8 +828,8 @@ def collect_elf_structures(slice: Slice, elf: ELFFile) -> Sequence[Structure]:
     phnum = elf.header["e_phnum"]
     if phnum > 0 and phentsize > 0:
         ph_total = phentsize * phnum
-        if slice.contains_range(phoff, ph_total):
-            structures.append(Structure(slice=slice.slice(phoff, ph_total), name="program header"))
+        if slice_.contains_range(phoff, ph_total):
+            structures.append(Structure(slice=slice_.slice(phoff, ph_total), name="program header"))
 
     # Section header table
     shoff = elf.header["e_shoff"]
@@ -836,8 +837,8 @@ def collect_elf_structures(slice: Slice, elf: ELFFile) -> Sequence[Structure]:
     shnum = elf.header["e_shnum"]
     if shnum > 0 and shentsize > 0:
         sh_total = shentsize * shnum
-        if slice.contains_range(shoff, sh_total):
-            structures.append(Structure(slice=slice.slice(shoff, sh_total), name="section header"))
+        if slice_.contains_range(shoff, sh_total):
+            structures.append(Structure(slice=slice_.slice(shoff, sh_total), name="section header"))
 
     # String tables (.shstrtab, .strtab, .dynstr) and symbol tables (.symtab, .dynsym)
     for section in elf.iter_sections():
@@ -849,13 +850,13 @@ def collect_elf_structures(slice: Slice, elf: ELFFile) -> Sequence[Structure]:
         offset = section["sh_offset"]
         size = section["sh_size"]
 
-        if not slice.contains_range(offset, size):
+        if not slice_.contains_range(offset, size):
             continue
 
         if section["sh_type"] == "SHT_STRTAB":
-            structures.append(Structure(slice=slice.slice(offset, size), name="string table"))
+            structures.append(Structure(slice=slice_.slice(offset, size), name="string table"))
         elif section["sh_type"] in {"SHT_SYMTAB", "SHT_DYNSYM"}:
-            structures.append(Structure(slice=slice.slice(offset, size), name="symbol table"))
+            structures.append(Structure(slice=slice_.slice(offset, size), name="symbol table"))
 
     return structures
 
@@ -1249,13 +1250,13 @@ class MachOFatLayout(Layout):
     pass
 
 
-def compute_elf_layout(slice: Slice, xor_key: int | None) -> Layout:
-    data = slice.data
+def compute_elf_layout(slice_: Slice, xor_key: int | None) -> Layout:
+    data = slice_.data
 
     elf = ELFFile(io.BytesIO(data))
 
-    structures = collect_elf_structures(slice, elf)
-    relocation_offsets = OffsetRanges.from_merged_ranges(get_relocations_elf(slice, elf))
+    structures = collect_elf_structures(slice_, elf)
+    relocation_offsets = OffsetRanges.from_merged_ranges(get_relocations_elf(slice_, elf))
 
     structures_by_address: Dict[int, Structure] = {}
     for structure in structures:
@@ -1278,19 +1279,19 @@ def compute_elf_layout(slice: Slice, xor_key: int | None) -> Layout:
             size = section["sh_size"]
             is_exec = bool(section["sh_flags"] & SH_FLAGS.SHF_EXECINSTR)
 
-            if offset >= slice.range.length:
+            if offset >= slice_.range.length:
                 logger.warning("section %s out of range", name)
                 continue
 
-            if offset + size > slice.range.length:
+            if offset + size > slice_.range.length:
                 size_orig = size
-                size = slice.range.length - offset
+                size = slice_.range.length - offset
                 logger.warning(
                     "section size %s out of range, truncating from 0x%x to 0x%x bytes", name, size_orig, size
                 )
 
             file_sections.append((offset, size, name, is_exec))
-    except Exception as e:
+    except ELFError as e:
         logger.warning("failed to parse ELF sections: %s", e)
 
     # Build code_offsets from executable sections before constructing the layout.
@@ -1301,7 +1302,7 @@ def compute_elf_layout(slice: Slice, xor_key: int | None) -> Layout:
     code_offsets = OffsetRanges.from_merged_ranges(_merge_overlapping_ranges(exec_ranges))
 
     layout = ELFLayout(
-        slice=slice,
+        slice=slice_,
         name="elf",
         xor_key=xor_key,
         relocation_offsets=relocation_offsets,
@@ -1318,7 +1319,7 @@ def compute_elf_layout(slice: Slice, xor_key: int | None) -> Layout:
         if offset < cursor:
             logger.debug("section %s overlaps previous section, skipping", name)
             continue
-        layout.add_child(SectionLayout(slice=slice.slice(offset, size), name=name))
+        layout.add_child(SectionLayout(slice=slice_.slice(offset, size), name=name))
         cursor = offset + size
 
     return layout
@@ -2052,7 +2053,7 @@ def compute_layout(slice: Slice) -> Layout:
     elif decoded_slice.data.startswith(b"\x7fELF"):
         try:
             return compute_elf_layout(decoded_slice, xor_key)
-        except Exception as e:
+        except ELFError as e:
             logger.debug("failed to parse as ELF file: %s", e)
     else:
         logger.debug("unrecognized file format, falling back to binary layout")
