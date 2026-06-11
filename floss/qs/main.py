@@ -1,11 +1,11 @@
 import io
-import struct
 import re
 import abc
 import sys
 import json
 import time
 import bisect
+import struct
 import hashlib
 import logging
 import pathlib
@@ -18,14 +18,18 @@ from typing import Set, Dict, List, Tuple, Literal, Callable, Iterable, Optional
 from collections import defaultdict
 
 import pefile
-import machofile
 import colorama
 import lancelot
+import machofile
 import rich.traceback
 from pydantic import Field, BaseModel, ConfigDict
 from rich.text import Text
 from rich.style import Style
 from rich.console import Console
+from elftools.elf.elffile import ELFFile
+from elftools.elf.constants import SH_FLAGS
+from elftools.elf.relocation import RelocationSection
+from elftools.common.exceptions import ELFError
 
 import floss.main
 import floss.qs.db.gp
@@ -105,8 +109,8 @@ class Slice(BaseModel):
 
     def contains_range(self, offset: int, size: int) -> bool:
         """
-        checks if this slice's buffer contains the given range,
-        where offset is relative to the start of this slice's buffer.
+        checks if this slice contains the given range,
+        where offset is relative to the start of this slice.
         """
         if not (0 <= offset <= self.range.length):
             return False
@@ -605,6 +609,22 @@ def get_reloc_offsets(slice: Slice, pe: pefile.PE) -> Set[int]:
     return ret
 
 
+def get_relocations_elf(slice_: Slice, elf: ELFFile) -> List[Tuple[int, int]]:
+    ranges: List[Tuple[int, int]] = []
+
+    for section in elf.iter_sections():
+        if isinstance(section, RelocationSection):
+            offset = section["sh_offset"]
+            size = section["sh_size"]
+
+            if not slice_.contains_range(offset, size):
+                logger.warning("relocation directory points to an invalid location, skipping")
+                continue
+
+            ranges.append((slice_.offset + offset, slice_.offset + offset + size - 1))
+    return _merge_overlapping_ranges(ranges)
+
+
 def check_is_xor(xor_key: int | None):
     if isinstance(xor_key, int):
         return ("#decoded",)
@@ -794,6 +814,53 @@ class Structure(BaseModel):
     name: str
 
 
+def collect_elf_structures(slice_: Slice, elf: ELFFile) -> Sequence[Structure]:
+    structures: List[Structure] = []
+
+    # ELF file header: 52 bytes (32-bit) or 64 bytes (64-bit)
+    header_size = 52 if elf.elfclass == 32 else 64
+    if slice_.contains_range(0, header_size):
+        structures.append(Structure(slice=slice_.slice(0, header_size), name="elf header"))
+
+    # Program header table
+    phoff = elf.header["e_phoff"]
+    phentsize = elf.header["e_phentsize"]
+    phnum = elf.header["e_phnum"]
+    if phnum > 0 and phentsize > 0:
+        ph_total = phentsize * phnum
+        if slice_.contains_range(phoff, ph_total):
+            structures.append(Structure(slice=slice_.slice(phoff, ph_total), name="program header"))
+
+    # Section header table
+    shoff = elf.header["e_shoff"]
+    shentsize = elf.header["e_shentsize"]
+    shnum = elf.header["e_shnum"]
+    if shnum > 0 and shentsize > 0:
+        sh_total = shentsize * shnum
+        if slice_.contains_range(shoff, sh_total):
+            structures.append(Structure(slice=slice_.slice(shoff, sh_total), name="section header"))
+
+    # String tables (.shstrtab, .strtab, .dynstr) and symbol tables (.symtab, .dynsym)
+    for section in elf.iter_sections():
+        if section["sh_size"] == 0:
+            continue
+        if section["sh_type"] == "SHT_NOBITS":
+            continue
+
+        offset = section["sh_offset"]
+        size = section["sh_size"]
+
+        if not slice_.contains_range(offset, size):
+            continue
+
+        if section["sh_type"] == "SHT_STRTAB":
+            structures.append(Structure(slice=slice_.slice(offset, size), name="string table"))
+        elif section["sh_type"] in {"SHT_SYMTAB", "SHT_DYNSYM"}:
+            structures.append(Structure(slice=slice_.slice(offset, size), name="symbol table"))
+
+    return structures
+
+
 def collect_pe_structures(slice: Slice, pe: pefile.PE) -> Sequence[Structure]:
     structures = []
 
@@ -907,24 +974,19 @@ def collect_pe_structures(slice: Slice, pe: pefile.PE) -> Sequence[Structure]:
                         )
                     )
 
-    if hasattr(pe, 'RICH_HEADER') and pe.RICH_HEADER:
+    if hasattr(pe, "RICH_HEADER") and pe.RICH_HEADER:
         key_bytes = pe.RICH_HEADER.key
 
-        rich_sig_offset = pe.__data__.find(b'Rich', 0x40, pe.DOS_HEADER.e_lfanew)
+        rich_sig_offset = pe.__data__.find(b"Rich", 0x40, pe.DOS_HEADER.e_lfanew)
         # The structure end is 'Rich' (4) + key (4) = 8 bytes
         rich_end = rich_sig_offset + 8
 
         # Find the start of rich header by looking for 'DanS' XORed with the key
-        xor_dans = bytes(a ^ b for a, b in zip(b'DanS', key_bytes))
+        xor_dans = bytes(a ^ b for a, b in zip(b"DanS", key_bytes))
         rich_start = pe.__data__.rfind(xor_dans, 0x40, rich_sig_offset)
 
         if rich_sig_offset != -1 and rich_start != -1:
-            structures.append(
-                Structure(
-                    slice=slice.slice(rich_start, rich_end - rich_start),
-                    name="rich header"
-                )
-            )
+            structures.append(Structure(slice=slice.slice(rich_start, rich_end - rich_start), name="rich header"))
 
     return structures
 
@@ -1077,7 +1139,7 @@ class Layout(BaseModel, abc.ABC):
 class SectionLayout(Layout):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    section: pefile.SectionStructure
+    section: Optional[pefile.SectionStructure] = None
 
 
 class SegmentLayout(Layout):
@@ -1130,6 +1192,43 @@ class PELayout(Layout):
                 child.mark_structures(structures=structures, **kwargs)
 
 
+class ELFLayout(Layout):
+    xor_key: Optional[int]
+
+    # file offsets of bytes that are part of relocation sections
+    relocation_offsets: OffsetRanges
+
+    # file offsets of bytes that are recognized as code
+    code_offsets: OffsetRanges
+
+    structures_by_address: Dict[int, Structure]
+
+    def tag_strings(self, taggers: Sequence[Tagger]):
+        def check_is_xor_tagger(s: ExtractedString) -> Sequence[Tag]:
+            return check_is_xor(self.xor_key)
+
+        def check_is_reloc_tagger(s: ExtractedString) -> Sequence[Tag]:
+            return check_is_reloc(self.relocation_offsets, s)
+
+        def check_is_code_tagger(s: ExtractedString) -> Sequence[Tag]:
+            return check_is_code(self.code_offsets, s)
+
+        taggers = tuple(taggers) + (
+            check_is_xor_tagger,
+            check_is_reloc_tagger,
+            check_is_code_tagger,
+        )
+
+        super().tag_strings(taggers)
+
+    def mark_structures(self, structures: Optional[Tuple[Dict[int, Structure], ...]] = (), **kwargs):
+        for child in self.children:
+            if isinstance(child, (SectionLayout, SegmentLayout)):
+                child.mark_structures(structures=(structures or ()) + (self.structures_by_address,), **kwargs)
+            else:
+                child.mark_structures(structures=structures, **kwargs)
+
+
 class ResourceLayout(Layout):
     pass
 
@@ -1149,6 +1248,76 @@ class MachOLayout(Layout):
 
 class MachOFatLayout(Layout):
     pass
+
+
+def compute_elf_layout(slice_: Slice, xor_key: int | None) -> Layout:
+    data = slice_.data
+
+    elf = ELFFile(io.BytesIO(data))
+
+    structures = collect_elf_structures(slice_, elf)
+    relocation_offsets = OffsetRanges.from_merged_ranges(get_relocations_elf(slice_, elf))
+
+    structures_by_address: Dict[int, Structure] = {}
+    for structure in structures:
+        for offset in structure.slice.range:
+            structures_by_address[offset] = structure
+
+    # Collect valid file-backed sections, sorted by offset, deduplicating overlaps.
+    # SHT_NOBITS sections (.bss, .noptrbss) have no file content; skip them.
+    # Also track executable sections (SHF_EXECINSTR) for #code tagging.
+    file_sections: List[Tuple[int, int, str, bool]] = []  # (offset, size, name, is_exec)
+    for section in elf.iter_sections():
+        if section["sh_size"] == 0:
+            continue
+        if section["sh_type"] == "SHT_NOBITS":
+            continue
+
+        name = section.name
+        offset = section["sh_offset"]
+        size = section["sh_size"]
+        is_exec = bool(section["sh_flags"] & SH_FLAGS.SHF_EXECINSTR)
+
+        if offset >= slice_.range.length:
+            logger.warning("section %s out of range", name)
+            continue
+
+        if offset + size > slice_.range.length:
+            size_orig = size
+            size = slice_.range.length - offset
+            logger.warning("section size %s out of range, truncating from 0x%x to 0x%x bytes", name, size_orig, size)
+
+        file_sections.append((offset, size, name, is_exec))
+
+    # Build code_offsets from executable sections before constructing the layout.
+    file_sections.sort(key=lambda t: t[0])
+    exec_ranges: List[Tuple[int, int]] = [
+        (offset, offset + size) for offset, size, _name, is_exec in file_sections if is_exec
+    ]
+    code_offsets = OffsetRanges.from_merged_ranges(_merge_overlapping_ranges(exec_ranges))
+
+    layout = ELFLayout(
+        slice=slice_,
+        name="elf",
+        xor_key=xor_key,
+        relocation_offsets=relocation_offsets,
+        code_offsets=code_offsets,
+        structures_by_address=structures_by_address,
+    )
+
+    if xor_key:
+        layout.name += f" (XOR decoded with key: 0x{xor_key:x})"
+
+    # Sort by offset, then skip any section that overlaps a previously added section.
+    cursor = 0
+    for offset, size, name, _is_exec in file_sections:
+        if offset < cursor:
+            logger.debug("section %s overlaps previous section, skipping", name)
+            continue
+        layout.add_child(SectionLayout(slice=slice_.slice(offset, size), name=name))
+        cursor = offset + size
+
+    return layout
 
 
 def _merge_overlapping_ranges(ranges: List[Tuple[int, int]]) -> List[Tuple[int, int]]:
@@ -1178,12 +1347,16 @@ def _merge_overlapping_ranges(ranges: List[Tuple[int, int]]) -> List[Tuple[int, 
     return merged_ranges
 
 
-def _get_code_ranges(ws: lancelot.Workspace, pe: pefile.PE, slice_: Slice) -> List[Tuple[int, int]]:
+def _get_code_ranges(
+    be2: "lancelot.BinExport2",
+    idx: "lancelot.be2utils.BinExport2Index",
+    base_address: int,
+    pe: pefile.PE,
+    slice_: Slice,
+) -> List[Tuple[int, int]]:
     """
     Extract and return the raw, unmerged code ranges from a PE file.
     """
-    base_address = ws.base_address
-
     # cache because getting the offset is slow
     @functools.lru_cache(maxsize=None)
     def get_offset_from_rva_cached(rva):
@@ -1194,22 +1367,47 @@ def _get_code_ranges(ws: lancelot.Workspace, pe: pefile.PE, slice_: Slice) -> Li
             return None
 
     code_ranges: List[Tuple[int, int]] = []
-    for function in ws.get_functions():
-        cfg = ws.build_cfg(function)
-        for bb in cfg.basic_blocks.values():
-            va = bb.address
-            rva = va - base_address
-            offset = get_offset_from_rva_cached(rva)
-            if offset is None:
+    for flow_graph in be2.flow_graph:
+        for basic_block_index in flow_graph.basic_block_index:
+            try:
+                basic_block = be2.basic_block[basic_block_index]
+            except IndexError:
+                logger.warning("lancelot basic block index %d out of range, skipping", basic_block_index)
                 continue
 
-            size = bb.length
+            current_range: Optional[Tuple[int, int]] = None
+            for _instruction_index, instruction, instruction_address in idx.basic_block_instructions(basic_block):
+                va = instruction_address
+                rva = va - base_address
+                offset = get_offset_from_rva_cached(rva)
+                if offset is None:
+                    if current_range is not None:
+                        code_ranges.append(current_range)
+                        current_range = None
+                    continue
 
-            if not slice_.contains_range(offset, size):
-                logger.warning("lancelot identified code at an invalid location, skipping basic block at 0x%x", rva)
-                continue
+                size = len(instruction.raw_bytes)
+                if size == 0:
+                    continue
 
-            code_ranges.append((slice_.offset + offset, slice_.offset + offset + size - 1))
+                if not slice_.contains_range(offset, size):
+                    logger.warning("lancelot identified code at an invalid location, skipping instruction at 0x%x", rva)
+                    if current_range is not None:
+                        code_ranges.append(current_range)
+                        current_range = None
+                    continue
+
+                start = slice_.offset + offset
+                end = slice_.offset + offset + size - 1
+                if current_range is None:
+                    current_range = (start, end)
+                elif start == current_range[1] + 1:
+                    current_range = (current_range[0], end)
+                else:
+                    code_ranges.append(current_range)
+                    current_range = (start, end)
+            if current_range is not None:
+                code_ranges.append(current_range)
     return code_ranges
 
 
@@ -1229,19 +1427,20 @@ def compute_pe_layout(slice: Slice, xor_key: int | None) -> Layout:
         for offset in structure.slice.range:
             structures_by_address[offset] = structure
 
-    # lancelot only accepts bytes, not mmap
-    ws = None
+    be2: Optional[lancelot.BinExport2] = None
     with timing("lancelot: load workspace"):
         try:
-            ws = lancelot.from_bytes(data)
+            be2 = lancelot.get_binexport2_from_bytes(data)
         except ValueError as e:
             logger.warning("lancelot failed to load workspace: %s", e)
 
     # contains the file offsets of bytes that are part of recognized instructions.
     code_offsets = OffsetRanges()
-    if ws:
+    if be2:
         with timing("lancelot: find code"):
-            code_ranges = _get_code_ranges(ws, pe, slice)
+            base_address = lancelot.be2utils.find_be2_base_address(be2)
+            idx = lancelot.be2utils.BinExport2Index(be2)
+            code_ranges = _get_code_ranges(be2, idx, base_address, pe, slice)
             merged_code_ranges = _merge_overlapping_ranges(code_ranges)
             code_offsets = OffsetRanges.from_merged_ranges(merged_code_ranges)
 
@@ -1456,9 +1655,7 @@ def _parse_fat_arches(data: bytes) -> List[Tuple[str, int, int]]:
         else:
             if offset + 20 > len(data):
                 break
-            cputype, cpusubtype, arch_offset, size, _align = struct.unpack(
-                endian + "IIIII", data[offset : offset + 20]
-            )
+            cputype, cpusubtype, arch_offset, size, _align = struct.unpack(endian + "IIIII", data[offset : offset + 20])
             offset += 20
 
         arch_name = _format_macho_arch(cputype, cpusubtype)
@@ -1591,9 +1788,7 @@ def _attach_nested_layout(parent: Layout, child: Layout):
         parent.add_child(child)
 
 
-def _parse_superblob_blobs(
-    slice_: Slice, cs_offset: int, cs_size: int
-) -> Sequence[Tuple[int, int, int]]:
+def _parse_superblob_blobs(slice_: Slice, cs_offset: int, cs_size: int) -> Sequence[Tuple[int, int, int]]:
     blobs: List[Tuple[int, int, int]] = []
     if cs_size <= 0:
         return blobs
@@ -1849,15 +2044,19 @@ def compute_layout(slice: Slice) -> Layout:
             return compute_pe_layout(decoded_slice, xor_key)
         except ValueError as e:
             logger.debug("failed to parse as PE file: %s", e)
-            # Fall back to using the default binary layout
-            pass
-
-    if _is_macho_magic(_get_u32_be(slice.data, 0)):
+    elif _is_macho_magic(_get_u32_be(slice.data, 0)):
         try:
             return compute_macho_layout(slice)
         except Exception as e:
             # TODO: narrow exception handling once machofile error types are clearer.
             logger.debug("failed to parse as Mach-O file: %s", e)
+    elif decoded_slice.data.startswith(b"\x7fELF"):
+        try:
+            return compute_elf_layout(decoded_slice, xor_key)
+        except ELFError as e:
+            logger.debug("failed to parse as ELF file: %s", e)
+    else:
+        logger.debug("unrecognized file format, falling back to binary layout")
 
     return SegmentLayout(
         slice=slice,
@@ -2090,8 +2289,11 @@ def render_strings(
                         is_group_start = True
 
             line = render_string(
-                console.width, string, tag_rules,
-                prev_tags=prev_tags, prev_tags_width=prev_tags_width,
+                console.width,
+                string,
+                tag_rules,
+                prev_tags=prev_tags,
+                prev_tags_width=prev_tags_width,
                 is_group_end=is_group_end,
                 is_group_start=is_group_start,
             )
