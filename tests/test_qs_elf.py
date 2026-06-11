@@ -5,7 +5,7 @@ from floss.qs.main import Slice, ELFLayout, compute_layout
 CD = Path(__file__).resolve().parent
 ELF_DIR = CD / "data" / "elf"
 
-# x86-64 PIE, dynamically linked, not stripped
+# x86-64 Position Independent Executable (PIE), dynamically linked, not stripped
 X86_64_PIE = "055da8e6ccfe5a9380231ea04b850e18.elf"
 # ARM64 shared object, dynamically linked, stripped, Android linker
 ARM64_SO = "687e79cde5b0ced75ac229465835054931f9ec438816f2827a8be5f3bd474929.elf"
