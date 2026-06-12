@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from floss.qs.main import Slice, ELFLayout, compute_layout
+from floss.qs.main import Slice, ELFLayout, SegmentLayout, compute_layout
 
 CD = Path(__file__).resolve().parent
 ELF_DIR = CD / "data" / "elf"
@@ -53,7 +53,7 @@ def test_elf_code_and_reloc_offsets():
     # .text (offset 0x10a0, size 0x1c5) is fully covered by code ranges;
     # it merges with adjacent exec sections (.plt etc.) so we check coverage, not exact range
     assert layout.code_offsets.overlaps(0x10A0, 0x10A0 + 0x1C5 - 1)
-    assert (0x568, 0x66F) in layout.relocation_offsets.ranges      # .rela.dyn + .rela.plt merged
+    assert (0x568, 0x66F) in layout.relocation_offsets.ranges  # .rela.dyn + .rela.plt merged
 
 
 def test_arm64_so_android_note_section():
@@ -68,3 +68,23 @@ def test_arm64_ls_stripped():
     layout = _load_layout(ARM64_LS)
     names = {child.name for child in layout.children}
     assert ".symtab" not in names
+
+
+def test_elf_segment_fallback():
+    # Test fallback to segments when section headers are missing/corrupted
+    path = ELF_DIR / X86_64_PIE
+    data = bytearray(path.read_bytes())
+
+    # Verify ELFCLASS64
+    assert data[4] == 2
+    # Corrupt e_shoff (set 8 bytes at offset 40 to 0)
+    data[40:48] = b"\x00" * 8
+    # Corrupt e_shnum (set 2 bytes at offset 60 to 0)
+    data[60:62] = b"\x00\x00"
+
+    layout = compute_layout(Slice.from_bytes(bytes(data)))
+    assert isinstance(layout, ELFLayout)
+    assert layout.children
+    for child in layout.children:
+        assert isinstance(child, SegmentLayout)
+        assert child.name.startswith("segment_")
