@@ -650,7 +650,13 @@ def elf_has_valid_segments(elf: ELFFile, limit: int) -> bool:
 
 
 def iter_sections_robust(elf: ELFFile) -> Iterable[Any]:
-    for i in range(elf.num_sections()):
+    try:
+        num_sections = elf.num_sections()
+    except Exception as e:
+        logger.warning("failed to get number of sections: %s", e)
+        return
+
+    for i in range(num_sections):
         try:
             yield elf.get_section(i)
         except Exception as e:
@@ -1324,13 +1330,18 @@ def compute_elf_layout(slice_: Slice, xor_key: int | None) -> Layout:
 
     use_sections = elf_has_valid_sections(elf, slice_.range.length)
     if use_sections:
-        for section in iter_sections_robust(elf):
+        for idx, section in enumerate(iter_sections_robust(elf)):
             if section["sh_size"] == 0:
                 continue
             if section["sh_type"] == "SHT_NOBITS":
                 continue
 
-            name = section.name
+            try:
+                name = section.name
+            except (ELFError, IndexError, UnicodeDecodeError) as e:
+                name = f"unnamed_section_{idx}"
+                logger.warning("failed to get section name for section %d: %s", idx, e)
+
             offset = section["sh_offset"]
             size = section["sh_size"]
             is_exec = bool(section["sh_flags"] & SH_FLAGS.SHF_EXECINSTR)
@@ -1356,33 +1367,33 @@ def compute_elf_layout(slice_: Slice, xor_key: int | None) -> Layout:
         for i in range(num_segments):
             try:
                 segment_header = elf.get_segment(i).header
+
+                if segment_header["p_type"] not in ("PT_LOAD", 1):
+                    continue
+
+                if segment_header["p_filesz"] == 0:
+                    continue
+
+                offset = segment_header["p_offset"]
+                size = segment_header["p_filesz"]
+                is_exec = bool(segment_header["p_flags"] & P_FLAGS.PF_X)
+                name = f"segment_{i}_{segment_header['p_type']}"
+
+                if offset >= slice_.range.length:
+                    logger.warning("segment %s out of range", name)
+                    continue
+
+                if offset + size > slice_.range.length:
+                    size_orig = size
+                    size = slice_.range.length - offset
+                    logger.warning(
+                        "segment size %s out of range, truncating from 0x%x to 0x%x bytes", name, size_orig, size
+                    )
+
+                layout_elements.append((offset, size, name, is_exec))
             except Exception as e:
-                logger.warning("failed to parse segment header %d: %s", i, e)
+                logger.warning("failed to parse segment %d: %s", i, e)
                 continue
-
-            if segment_header["p_type"] not in ("PT_LOAD", 1):
-                continue
-
-            if segment_header["p_filesz"] == 0:
-                continue
-
-            offset = segment_header["p_offset"]
-            size = segment_header["p_filesz"]
-            is_exec = bool(segment_header["p_flags"] & P_FLAGS.PF_X)
-            name = f"segment_{i}_{segment_header['p_type']}"
-
-            if offset >= slice_.range.length:
-                logger.warning("segment %s out of range", name)
-                continue
-
-            if offset + size > slice_.range.length:
-                size_orig = size
-                size = slice_.range.length - offset
-                logger.warning(
-                    "segment size %s out of range, truncating from 0x%x to 0x%x bytes", name, size_orig, size
-                )
-
-            layout_elements.append((offset, size, name, is_exec))
 
     # Build code_offsets from executable parts before constructing the layout.
     layout_elements.sort(key=lambda t: t[0])
