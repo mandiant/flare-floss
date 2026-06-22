@@ -124,6 +124,9 @@ class StringHashDatabase:
             string_hashes=string_hashes,
         )
 
+    def to_file(self, path: pathlib.Path):
+        path.write_bytes(b"".join(sorted(self.string_hashes)))
+
 
 DEFAULT_PATHS = (
     pathlib.Path(floss.qs.db.__file__).parent / "data" / "gp" / "gp.jsonl.gz",
