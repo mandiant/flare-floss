@@ -126,7 +126,8 @@ def make_parser(argv):
         " 1. Go:   strings from binaries written in Go\n"
         " 2. Rust: strings from binaries written in Rust\n"
     )
-    epilog = textwrap.dedent("""
+    epilog = textwrap.dedent(
+        """
         only displaying core arguments, run `floss -H` to see all supported options
 
         examples:
@@ -138,8 +139,10 @@ def make_parser(argv):
 
           only extract stack and tight strings
             floss --only stack tight -- suspicious.exe
-        """)
-    epilog_advanced = textwrap.dedent("""
+        """
+    )
+    epilog_advanced = textwrap.dedent(
+        """
         examples:
           extract all strings from 32-bit shellcode
             floss -f sc32 shellcode.bin
@@ -149,7 +152,8 @@ def make_parser(argv):
         
           extract strings from a binary written in Go (if automatic language identification fails)
             floss --language go program.exe
-        """)
+        """
+    )
 
     show_all_options = "-H" in argv
 
