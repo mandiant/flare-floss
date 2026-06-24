@@ -3,8 +3,7 @@ import textwrap
 import floss.main
 
 # floss --no static -j tests/data/src/decode-in-place/bin/test-decode-in-place.exe
-RESULTS = textwrap.dedent(
-    """
+RESULTS = textwrap.dedent("""
 {
     "analysis": {
         "enable_decoded_strings": true,
@@ -84,8 +83,7 @@ RESULTS = textwrap.dedent(
         "tight_strings": []
     }
 }
-"""
-)
+""")
 
 
 def test_load(tmp_path):

@@ -30,6 +30,7 @@ Usage:
   $ python render-ghidra-import-script.py floss-results.json > apply_floss.py
   # now run `apply_floss.py` in Ghidra Script Manager
 """
+
 import sys
 import base64
 import logging

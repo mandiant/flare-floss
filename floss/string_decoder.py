@@ -263,7 +263,7 @@ def extract_delta_bytes(delta: Delta, decoded_at_va: int, source_fva: int = 0x0)
     # iterate memory from after the decoding, since if somethings been allocated,
     # we want to know. don't care if things have been deallocated.
     for section_after_start, section_after in mem_after.items():
-        (_, _, (_, after_len, _, _), bytes_after) = section_after
+        _, _, (_, after_len, _, _), bytes_after = section_after
         if section_after_start not in mem_before:
             location_type = AddressType.HEAP
             if not is_all_zeros(bytes_after):
@@ -273,7 +273,7 @@ def extract_delta_bytes(delta: Delta, decoded_at_va: int, source_fva: int = 0x0)
             continue
 
         section_before = mem_before[section_after_start]
-        (_, _, (_, before_len, _, _), bytes_before) = section_before
+        _, _, (_, before_len, _, _), bytes_before = section_before
 
         if after_len < before_len:
             bytes_before = bytes_before[:after_len]

@@ -21,6 +21,7 @@ currently loaded module in IDA Pro.
 author: Willi Ballenthin
 email: willi.ballenthin@gmail.com
 """
+
 import os
 import time
 import logging
