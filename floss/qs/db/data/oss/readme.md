@@ -94,3 +94,19 @@ These files are then gzip'd:
 ```console
 $  gzip -c zlib.jsonl > zlib.jsonl.gz
 ```
+
+The `build_oss_db.py` script automates the steps above and additionally
+removes strings that appear in two or more libraries from every database.
+A shared string is not a unique identifier for any specific library, so
+attributing it would produce false-positive library matches at query time.
+
+The script also merges into any `.jsonl.gz` already present in the output
+directory rather than replacing them. For each library being rebuilt, the
+newly-extracted entries are combined with the existing entries (new entries
+win on string collisions, which is the right behavior when the library
+version changes). Libraries that are not in the current `--libraries` list
+are also re-checked against the cross-library dedup and rewritten if the
+shared-string set changes. This makes it safe to incrementally add a new
+library (e.g. `python build_oss_db.py --libraries newlib`) without losing
+the other databases, and safe to bump one library's version while leaving
+its previously-committed entries around.
