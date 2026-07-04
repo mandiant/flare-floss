@@ -64,22 +64,6 @@ logging.basicConfig(
 logger = logging.getLogger("build_oss_db")
 
 
-# Fallback library list when neither --libraries nor libraries.json is
-# provided. The actual production list lives in libraries.json.
-DEFAULT_LIBRARIES: List[str] = [
-    "openssl",
-    "sqlite3",
-    "curl",
-    "mbedtls",
-    "jemalloc",
-]
-
-# Matches the values documented in readme.md.
-DEFAULT_TRIPLET = "x64-windows-static"
-DEFAULT_COMPILER = "msvc143"
-DEFAULT_PROFILE = "release"
-
-
 class BuildError(Exception):
     """Raised when a single library cannot be built; the caller decides whether to abort or continue."""
 
@@ -729,12 +713,11 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     # Defaults are taken from (lowest to highest precedence):
     #   built-in constants < config file < environment variables < CLI args
     defaults = {
-        "triplet": config.get("triplet", os.environ.get("TRIPLET", DEFAULT_TRIPLET)),
-        "compiler": config.get("compiler", os.environ.get("COMPILER", DEFAULT_COMPILER)),
-        "profile": config.get("profile", os.environ.get("PROFILE", DEFAULT_PROFILE)),
+        "triplet": config.get("triplet"),
+        "compiler": config.get("compiler"),
+        "profile": config.get("profile"),
         "libraries": config.get(
             "libraries",
-            os.environ.get("LIBRARIES", ",".join(DEFAULT_LIBRARIES)).split(","),
         ),
     }
 
