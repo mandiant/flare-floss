@@ -241,7 +241,9 @@ class Vcpkg:
         """Return static-library files (.lib/.a) owned by the given package."""
         # vcpkg records installed files in <root>/installed/vcpkg/info/<package>_<version>_<triplet>.list
         pattern = re.compile(re.escape(library) + r"_.*?_" + re.escape(triplet) + r"\.list$")
-        list_files = [p for p in self.info_dir.iterdir() if pattern.match(p.name)]
+        list_files = []
+        if self.info_dir.exists():
+            list_files = [p for p in self.info_dir.iterdir() if pattern.match(p.name)]
 
         if not list_files:
             # Fallback: scan the whole lib directory. This is less precise but works
@@ -887,7 +889,11 @@ def main(argv: Optional[List[str]] = None) -> int:
         )
 
     # Write rebuilt libraries and update their metrics.
+    # Write rebuilt libraries and update their metrics.
     for metric in metrics:
+        if metric.error:
+            logger.warning("%s: skipping database write due to build error", metric.library)
+            continue
         entries = merged.get(metric.library, [])
         if shared_strings and entries:
             before = len(entries)
@@ -896,7 +902,6 @@ def main(argv: Optional[List[str]] = None) -> int:
         else:
             metric.num_shared_removed = 0
         write_library_database(metric, entries, config.output_dir, converter)
-
     # Rewrite preserved libraries only if the cross-lib dedup actually removed
     # something from them. (If we just rebuilt them, write_library_database
     # already handled it above.)
