@@ -66,7 +66,7 @@ jobs:
           path: |
             C:\vcpkg\installed
             C:\vcpkg\downloads
-          key: ${{ runner.os }}-vcpkg-oss-db-${{ hashFiles('flare-floss/floss/qs/db/data/oss/build_oss_db.py') }}
+          key: ${{ runner.os }}-vcpkg-oss-db-${{ hashFiles('flare-floss/scripts/build_oss_db.py') }}
           restore-keys: |
             ${{ runner.os }}-vcpkg-oss-db-
 
@@ -77,7 +77,7 @@ jobs:
 
       - name: Build OSS databases
         run: |
-          python floss/qs/db/data/oss/build_oss_db.py `
+          python scripts/build_oss_db.py `
             --config floss\qs\db\data\oss\libraries.json `
             --jh-path ..\lancelot\target\release\jh.exe `
             --output-dir floss\qs\db\data\oss `
