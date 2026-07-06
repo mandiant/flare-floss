@@ -49,29 +49,6 @@ jobs:
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
 
-      - name: Cache Cargo
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            lancelot/target/
-          key: ${{ runner.os }}-cargo-jh-${{ hashFiles('lancelot/**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-jh-
-
-      - name: Cache vcpkg
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-        with:
-          path: |
-            C:\vcpkg\installed
-            C:\vcpkg\downloads
-          key: ${{ runner.os }}-vcpkg-oss-db-${{ hashFiles('flare-floss/scripts/build_oss_db.py') }}
-          restore-keys: |
-            ${{ runner.os }}-vcpkg-oss-db-
-
       - name: Build jh
         run: |
           cargo build --release -p lancelot-bin
