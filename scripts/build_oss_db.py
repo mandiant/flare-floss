@@ -1,4 +1,18 @@
 #!/usr/bin/env python3
+# Copyright 2026 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """
 Build OSS string databases from vcpkg static libraries.
 
@@ -15,31 +29,6 @@ After every library is parsed, strings that appear in two or more libraries
 are removed from *all* of those libraries. A shared string does not uniquely
 identify a library, so attributing it to any specific one would be a false
 positive at query time.
-
-By default, the script merges newly-extracted entries with any pre-existing
-``.jsonl.gz`` in the output directory rather than replacing them. This makes
-it safe to incrementally add a library (e.g. ``--libraries newlib``) without
-losing the others, and safe to bump one library's version while leaving its
-previously-committed entries around. Libraries that were not rebuilt still
-participate in the cross-library dedup pass and are rewritten if the shared
-string set changes.
-
-Example usage:
-
-  # Default: build the top 5 largest databases using x64-windows-static.
-  python build_oss_db.py --lancelot-dir ~/Projects/Mandiant/lancelot
-
-  # Build a specific library with a different triplet.
-  python build_oss_db.py --triplet x64-mingw-static --libraries openssl
-
-  # Inside a container where vcpkg/jh are already on PATH.
-  python build_oss_db.py --triplet x64-linux
-
-Environment variables (used as defaults when CLI flags are omitted):
-
-  VCPKG_ROOT          root directory of a vcpkg installation
-  LANCELOT_DIR        directory containing the lancelot source (for building jh)
-  JH_PATH             path to an existing jh binary
 """
 
 from __future__ import annotations
