@@ -20,7 +20,6 @@
     "curl",
     "poco",
     "nng",
-    "clblas",
     "libsrt",
     "sail",
     "mbedtls",
