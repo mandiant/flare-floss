@@ -15,6 +15,11 @@ class OpenSourceString(msgspec.Struct):
     file_path: str | None = None
     function_name: str | None = None
     line_number: int | None = None
+    # Number of distinct libraries the string was observed in across the full
+    # OSS database set. count=1 means the string is unique to this library;
+    # higher counts indicate strings shared across multiple libraries (e.g.
+    # vendored dependencies or common runtime strings).
+    count: int = 1
 
 
 @dataclass
