@@ -25,10 +25,12 @@ This script automates the "vcpkg & jh" technique described in readme.md:
 It is intentionally modular so the underlying extractor (jh today) can be
 swapped for a more minimal tool later without rewriting the orchestration.
 
-After every library is parsed, strings that appear in two or more libraries
-are removed from *all* of those libraries. A shared string does not uniquely
-identify a library, so attributing it to any specific one would be a false
-positive at query time.
+Strings are NOT deduped across libraries: a string observed in both zlib
+and curl (e.g. when zlib is vendored into curl) stays in both databases.
+The query tagger already emits one ``#<library>`` tag per matching
+database, so the consumer can see the overlap directly. Within a single
+library, the same string still collapses to one entry (when
+``--no-deduplicate`` is not passed).
 """
 
 from __future__ import annotations
@@ -86,7 +88,6 @@ class LibraryMetrics:
     num_string_entries: int = 0
     num_function_name_entries: int = 0
     num_raw_entries: int = 0
-    num_shared_removed: int = 0
     total_entries: int = 0
     duration_seconds: float = 0.0
     error: Optional[str] = None
@@ -101,7 +102,6 @@ class LibraryMetrics:
             "num_string_entries": self.num_string_entries,
             "num_function_name_entries": self.num_function_name_entries,
             "num_raw_entries": self.num_raw_entries,
-            "num_shared_removed": self.num_shared_removed,
             "total_entries": self.total_entries,
             "duration_seconds": round(self.duration_seconds, 2),
             "error": self.error,
@@ -554,24 +554,6 @@ def build_library(
     return metrics, entries
 
 
-def find_shared_strings(per_library_entries: Dict[str, List[dict]]) -> Set[str]:
-    """Return the set of strings that appear in two or more libraries.
-
-    A shared string cannot uniquely identify a library, so it is removed from
-    every library's database to avoid false-positive library attributions.
-    """
-    seen_in: Dict[str, str] = {}
-    shared: Set[str] = set()
-    for library, entries in per_library_entries.items():
-        for entry in entries:
-            string = entry["string"]
-            if string in seen_in and seen_in[string] != library:
-                shared.add(string)
-            else:
-                seen_in[string] = library
-    return shared
-
-
 def load_existing_entries(path: pathlib.Path) -> List[dict]:
     """Load entries from an existing OSS database .jsonl.gz.
 
@@ -661,7 +643,6 @@ def write_library_database(
         logger.info("%s: removed empty database %s", metrics.library, output_path)
         metrics.num_string_entries = 0
         metrics.num_function_name_entries = 0
-        metrics.num_shared_removed = 0
         metrics.total_entries = 0
         return metrics
 
@@ -670,11 +651,10 @@ def write_library_database(
     metrics.num_function_name_entries = counts["num_function_name_entries"]
     metrics.total_entries = counts["total_entries"]
     logger.info(
-        "%s: wrote %s (%d entries, %d removed as shared with other libraries)",
+        "%s: wrote %s (%d entries)",
         metrics.library,
         output_path,
         metrics.total_entries,
-        metrics.num_shared_removed,
     )
     return metrics
 
@@ -816,8 +796,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     for library in config.libraries:
         metric, entries = build_library(library, config, vcpkg, jh, converter)
         metrics.append(metric)
-        # Even on error, preserve any partial entries so cross-library dedup
-        # still sees them (and so partial results aren't lost).
+        # Even on error, preserve any partial entries so they aren't lost.
         per_library_new[library] = entries
         if metric.error:
             failed = True
@@ -826,8 +805,11 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     # Discover all existing .jsonl.gz databases in the output directory. These
     # include libraries we are rebuilding (whose fresh entries will be merged
-    # in) and libraries we are leaving alone (which still participate in
-    # cross-library dedup and may need to be rewritten if shared strings change).
+    # in) and libraries we are leaving alone. Strings are NOT deduped across
+    # libraries: a string that appears in both zlib and curl (e.g. when zlib
+    # is vendored into curl) stays in both databases. The query tagger already
+    # emits one #library tag per matching database, so the consumer can see
+    # the overlap directly.
     existing_files = sorted(config.output_dir.glob("*.jsonl.gz"))
     metric_by_lib: Dict[str, LibraryMetrics] = {m.library: m for m in metrics}
 
@@ -852,85 +834,21 @@ def main(argv: Optional[List[str]] = None) -> int:
         if lib not in merged:
             merged[lib] = list(new_entries)
 
-    # Cross-library dedup across the full set: rebuilt + preserved.
-    shared_strings = find_shared_strings({lib: entries for lib, entries in merged.items() if entries})
-    if shared_strings:
-        logger.info(
-            "removing %d string(s) shared across 2+ libraries from every database",
-            len(shared_strings),
-        )
-
-    # Write rebuilt libraries and update their metrics.
     # Write rebuilt libraries and update their metrics.
     for metric in metrics:
         if metric.error:
             logger.warning("%s: skipping database write due to build error", metric.library)
             continue
         entries = merged.get(metric.library, [])
-        if shared_strings and entries:
-            before = len(entries)
-            entries = [e for e in entries if e["string"] not in shared_strings]
-            metric.num_shared_removed = before - len(entries)
-        else:
-            metric.num_shared_removed = 0
         write_library_database(metric, entries, config.output_dir, converter)
-    # Rewrite preserved libraries only if the cross-lib dedup actually removed
-    # something from them. (If we just rebuilt them, write_library_database
-    # already handled it above.)
-    rebuilt_libs = set(metric_by_lib.keys())
-    preserved_metrics: List[dict] = []
-    for lib in sorted(merged.keys()):
-        if lib in rebuilt_libs:
-            continue
-        entries = merged[lib]
-        filtered = [e for e in entries if e["string"] not in shared_strings] if shared_strings else list(entries)
-        if {e["string"] for e in filtered} == {e["string"] for e in entries}:
-            logger.debug("%s: unchanged, leaving %s alone", lib, f"{lib}.jsonl.gz")
-            continue
-        output_path = config.output_dir / f"{lib}.jsonl.gz"
-        if not filtered:
-            output_path.unlink(missing_ok=True)
-            logger.info("%s: removed empty database %s", lib, output_path)
-        else:
-            write_entries(filtered, output_path)
-            logger.info(
-                "%s: rewrote %s (%d entries after cross-lib dedup)",
-                lib,
-                output_path,
-                len(filtered),
-            )
-        preserved_metrics.append(
-            {
-                "library": lib,
-                "version": filtered[0]["library_version"] if filtered else None,
-                "triplet": config.triplet,
-                "num_string_entries": sum(
-                    1
-                    for e in filtered
-                    if e.get("function_name") is not None and e.get("function_name") != e.get("string")
-                ),
-                "num_function_name_entries": sum(
-                    1
-                    for e in filtered
-                    if e.get("function_name") is not None and e.get("function_name") == e.get("string")
-                ),
-                "num_raw_entries": len(entries),
-                "num_shared_removed": len(entries) - len(filtered),
-                "total_entries": len(filtered),
-                "duration_seconds": 0.0,
-                "error": None,
-            }
-        )
 
     summary = {
         "triplet": config.triplet,
         "compiler": config.compiler,
         "profile": config.profile,
         "libraries": [m.as_dict() for m in metrics],
-        "preserved_libraries": preserved_metrics,
         "successful": sum(1 for m in metrics if not m.error),
         "failed": sum(1 for m in metrics if m.error),
-        "num_shared_strings_removed": len(shared_strings),
     }
 
     metrics_path = config.output_dir / "build_metrics.json"
