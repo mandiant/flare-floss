@@ -55,12 +55,12 @@ PS > C:\vcpkg\vcpkg.exe install --triplet x64-windows-static zlib
 
 [jh](https://github.com/williballenthin/lancelot/blob/master/bin/src/bin/jh.rs)
 is a lancelot-based utility that parses AR archives containing COFF object files,
-reconstructs their control flow, finds functions, and extracts features. 
+reconstructs their control flow, finds functions, and extracts features.
 jh extracts numbers, API calls, and strings; we are only interested in the string features.
 
-For each feature, jh emits a CSV line with the fields 
+For each feature, jh emits a CSV line with the fields
   - target triplet
-  - compiler 
+  - compiler
   - library
   - version
   - build profile
@@ -95,18 +95,10 @@ These files are then gzip'd:
 $  gzip -c zlib.jsonl > zlib.jsonl.gz
 ```
 
-The `build_oss_db.py` script automates the steps above and additionally
-removes strings that appear in two or more libraries from every database.
-A shared string is not a unique identifier for any specific library, so
-attributing it would produce false-positive library matches at query time.
+The `build_oss_db.py` script automates the steps above and merges into
+any `.jsonl.gz` already present in the output directory rather than
+replacing them. For each library being rebuilt, the newly-extracted
+entries are combined with the existing entries (new entries win on
+string collisions, which is the right behavior when the library version
+changes).
 
-The script also merges into any `.jsonl.gz` already present in the output
-directory rather than replacing them. For each library being rebuilt, the
-newly-extracted entries are combined with the existing entries (new entries
-win on string collisions, which is the right behavior when the library
-version changes). Libraries that are not in the current `--libraries` list
-are also re-checked against the cross-library dedup and rewritten if the
-shared-string set changes. This makes it safe to incrementally add a new
-library (e.g. `python build_oss_db.py --libraries newlib`) without losing
-the other databases, and safe to bump one library's version while leaving
-its previously-committed entries around.

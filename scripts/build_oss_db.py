@@ -310,7 +310,7 @@ class JHExtractor:
         compiler: str,
         profile: str,
     ) -> str:
-        """Run jh on a single static library and return its CSV output."""
+        """Run jh on a single static library and return its JSONL output."""
         cmd = [
             str(self.jh_path),
             triplet,
@@ -745,7 +745,7 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     parser.add_argument(
         "--no-deduplicate",
         action="store_true",
-        help="emit one JSON object per CSV row instead of one per unique string",
+        help="emit one JSON object per JSONL row instead of one per unique string",
     )
     parser.add_argument(
         "--continue-on-error",
