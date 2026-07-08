@@ -78,6 +78,34 @@ class BuildConfig:
     continue_on_error: bool = False
 
 
+def make_db_entry(
+    string: str,
+    library_name: str,
+    library_version: str,
+    file_path: Optional[str],
+    function_name: Optional[str],
+    line_number: Optional[int] = None,
+) -> dict:
+    """Construct a database entry using the standard OSS schema."""
+    return {
+        "string": string,
+        "library_name": library_name,
+        "library_version": library_version,
+        "file_path": file_path,
+        "function_name": function_name,
+        "line_number": line_number,
+    }
+
+
+@dataclass
+class ParseResult:
+    """Result of parsing jh JSONL output for a single library."""
+
+    entries: List[dict]
+    num_objects: int
+    num_functions: int
+
+
 @dataclass
 class LibraryMetrics:
     library: str
@@ -346,9 +374,15 @@ class Converter:
         jh_text: str,
         library: str,
         version: str,
-    ) -> List[dict]:
-        """Parse jh JSONL into a list of entries (within-library dedup applied if enabled)."""
+    ) -> ParseResult:
+        """Parse jh JSONL into entries and tally object/function counts in one pass.
+
+        Within-library dedup is applied to entries if enabled. Object and
+        function counts reflect the raw (pre-dedup) input, matching the
+        behavior of the previous standalone counter.
+        """
         entries: List[dict] = []
+        objects: Set[str] = set()
         function_names: Set[str] = set()
         explicit_function_names: Set[str] = set()
 
@@ -370,30 +404,17 @@ class Converter:
             if not function_name:
                 continue
 
+            objects.add(file_path)
             function_names.add(function_name)
 
             if feat_type == "string":
                 entries.append(
-                    {
-                        "string": value,
-                        "library_name": library,
-                        "library_version": version,
-                        "file_path": file_path,
-                        "function_name": function_name,
-                        "line_number": None,
-                    }
+                    make_db_entry(value, library, version, file_path, function_name)
                 )
             elif feat_type == "function_name":
                 # Future-proof: a minimal extractor may emit function names explicitly.
                 entries.append(
-                    {
-                        "string": value,
-                        "library_name": library,
-                        "library_version": version,
-                        "file_path": file_path,
-                        "function_name": value,
-                        "line_number": None,
-                    }
+                    make_db_entry(value, library, version, file_path, value)
                 )
                 explicit_function_names.add(value)
 
@@ -403,14 +424,7 @@ class Converter:
         if self.emit_function_names:
             for fn in function_names - explicit_function_names:
                 entries.append(
-                    {
-                        "string": fn,
-                        "library_name": library,
-                        "library_version": version,
-                        "file_path": None,
-                        "function_name": fn,
-                        "line_number": None,
-                    }
+                    make_db_entry(fn, library, version, None, fn)
                 )
 
         if self.deduplicate:
@@ -422,7 +436,11 @@ class Converter:
                     seen[key] = entry
             entries = list(seen.values())
 
-        return entries
+        return ParseResult(
+            entries=entries,
+            num_objects=len(objects),
+            num_functions=len(function_names),
+        )
 
     def write(
         self,
@@ -447,37 +465,6 @@ class Converter:
             "num_function_name_entries": num_function_name_entries,
             "total_entries": len(entries),
         }
-
-    def convert(
-        self,
-        jh_text: str,
-        library: str,
-        version: str,
-        output_path: pathlib.Path,
-    ) -> dict:
-        """Convenience wrapper: parse jh JSONL and write JSONL.gz. Returns counts."""
-        entries = self.parse(jh_text, library, version)
-        return self.write(entries, output_path)
-
-
-def count_jsonl_rows(jh_text: str) -> dict:
-    """Count objects and unique functions referenced in jh JSONL output."""
-    objects: Set[str] = set()
-    functions: Set[str] = set()
-    for line in jh_text.splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            row = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        file_path = row.get("path")
-        function_name = row.get("function")
-        if function_name:
-            objects.add(file_path)
-            functions.add(function_name)
-    return {"num_objects": len(objects), "num_functions": len(functions)}
 
 
 def build_library(
@@ -537,11 +524,10 @@ def build_library(
             all_jh_parts.append(jh_text)
 
         combined_jh_text = "\n".join(all_jh_parts)
-        row_counts = count_jsonl_rows(combined_jh_text)
-        metrics.num_objects = row_counts["num_objects"]
-        metrics.num_functions = row_counts["num_functions"]
-
-        entries = converter.parse(combined_jh_text, library, version)
+        result = converter.parse(combined_jh_text, library, version)
+        metrics.num_objects = result.num_objects
+        metrics.num_functions = result.num_functions
+        entries = result.entries
         metrics.num_raw_entries = len(entries)
     except UnsupportedPlatformError as exc:
         logger.warning("%s: skipping unsupported library (%s)", library, exc)
@@ -581,24 +567,16 @@ def load_existing_entries(path: pathlib.Path) -> List[dict]:
         if not isinstance(row, dict) or "string" not in row:
             continue
         entries.append(
-            {
-                "string": row.get("string"),
-                "library_name": row.get("library_name"),
-                "library_version": row.get("library_version"),
-                "file_path": row.get("file_path"),
-                "function_name": row.get("function_name"),
-                "line_number": row.get("line_number"),
-            }
+            make_db_entry(
+                row.get("string"),
+                row.get("library_name"),
+                row.get("library_version"),
+                row.get("file_path"),
+                row.get("function_name"),
+                row.get("line_number"),
+            )
         )
     return entries
-
-
-def write_entries(entries: List[dict], output_path: pathlib.Path) -> None:
-    """Write entries to a gzip-compressed JSONL file."""
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    with gzip.open(output_path, "wt", encoding="utf-8") as f:
-        for entry in entries:
-            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
 
 def merge_entries(
