@@ -1,0 +1,88 @@
+name: Build OSS String Databases
+
+on:
+  # Rebuild the databases bi-weekly (1st and 15th of each month at 00:00 UTC).
+  schedule:
+    - cron: '0 0 1,15 * *'
+
+  # Allow manual runs from the Actions tab.
+  workflow_dispatch:
+
+# Cancel any in-progress run when a newer one starts.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  build-databases:
+    name: Build OSS string databases
+    runs-on: windows-latest
+
+    env:
+      # Workaround for zydis 3.1.3's CMakeLists.txt requiring an older
+      # cmake_minimum_required syntax. Remove once Lancelot updates zydis.
+      CMAKE_POLICY_VERSION_MINIMUM: '3.5'
+
+    steps:
+      - name: Checkout flare-floss
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          path: flare-floss
+          lfs: true
+
+      - name: Checkout lancelot
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          repository: williballenthin/lancelot
+          path: lancelot
+          lfs: true
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: '3.12'
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+
+      - name: Build jh
+        run: |
+          cargo build --release -p lancelot-bin
+        working-directory: lancelot
+
+      - name: Build OSS databases
+        run: |
+          python scripts/build_oss_db.py `
+            --config floss\qs\db\data\oss\libraries.json `
+            --jh-path ..\lancelot\target\release\jh.exe `
+            --output-dir floss\qs\db\data\oss `
+            --continue-on-error
+        working-directory: flare-floss
+
+      - name: Show metrics summary
+        if: success() || failure()
+        run: |
+          Get-Content floss\qs\db\data\oss\build_metrics.json
+        working-directory: flare-floss
+
+      - name: Create Pull Request if databases changed
+        uses: peter-evans/create-pull-request@c5a7806660adbe173f04e3e038b0ccdcd758773c # v6.1.0
+        with:
+          path: flare-floss
+          base: quantumstrand
+          commit-message: 'chore(oss-db): update string databases'
+          title: 'Update OSS string databases'
+          body: |
+            Automated bi-weekly rebuild of the OSS string databases.
+
+            - Triplet: `x64-windows-static`
+            - Compiler: `msvc143`
+            - Library list: see `floss/qs/db/data/oss/libraries.json`
+
+            Per-library entry counts and timing are in `floss/qs/db/data/oss/build_metrics.json`.
+          branch: update-oss-string-databases
+          delete-branch: true

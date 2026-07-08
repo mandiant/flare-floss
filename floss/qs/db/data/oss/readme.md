@@ -51,16 +51,22 @@ Use the triplet `x64-windows-static` to build static archives (.lib files that a
 PS > C:\vcpkg\vcpkg.exe install --triplet x64-windows-static zlib
 ```
 
+### Why these build parameters
+
+We use `triplet=x64-windows-static`, `compiler=msvc143`, `profile=release` to match FLOSS's primary target (PE binaries on Windows). MSVC v143 was the current Visual Studio toolchain at the time the databases were first generated; switching to a newer toolchain would be expected to shift extracted string counts only marginally, since most strings come from source-level literals and symbol names.
+
+A cross-platform check (macOS arm64 vs. MinGW x86_64) showed total counts stay similar but per-string overlap is low: most non-overlap is random printable byte runs in compiled code (which differ per ISA), section/segment names (`.rdata` vs. `__TEXT,__cstring`), and symbol conventions (Mach-O prefixes C symbols with `_`, COFF does not). We keep the databases Windows-only since FLOSS targets PE.
+
 ### Extract features via jh
 
 [jh](https://github.com/williballenthin/lancelot/blob/master/bin/src/bin/jh.rs)
 is a lancelot-based utility that parses AR archives containing COFF object files,
-reconstructs their control flow, finds functions, and extracts features. 
+reconstructs their control flow, finds functions, and extracts features.
 jh extracts numbers, API calls, and strings; we are only interested in the string features.
 
-For each feature, jh emits a CSV line with the fields 
+For each feature, jh emits a CSV line with the fields
   - target triplet
-  - compiler 
+  - compiler
   - library
   - version
   - build profile
@@ -94,3 +100,11 @@ These files are then gzip'd:
 ```console
 $  gzip -c zlib.jsonl > zlib.jsonl.gz
 ```
+
+The `build_oss_db.py` script automates the steps above and merges into
+any `.jsonl.gz` already present in the output directory rather than
+replacing them. For each library being rebuilt, the newly-extracted
+entries are combined with the existing entries (new entries win on
+string collisions, which is the right behavior when the library version
+changes).
+
