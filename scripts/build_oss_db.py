@@ -38,6 +38,7 @@ from __future__ import annotations
 import os
 import re
 import sys
+import time
 import gzip
 import json
 import shutil
@@ -45,8 +46,8 @@ import logging
 import pathlib
 import argparse
 import subprocess
-from typing import Set, Dict, List, Tuple, Iterable, Optional
-from dataclasses import field, dataclass
+from typing import Set, Dict, List, Tuple, Optional
+from dataclasses import dataclass
 
 logging.basicConfig(
     level=logging.INFO,
@@ -140,17 +141,12 @@ def run(
     cmd: List[str],
     cwd: Optional[pathlib.Path] = None,
     check: bool = True,
-    env: Optional[dict] = None,
 ) -> subprocess.CompletedProcess:
     """Run a subprocess and return its output."""
     logger.debug("running: %s", " ".join(cmd))
-    merged_env = os.environ.copy()
-    if env:
-        merged_env.update(env)
     result = subprocess.run(
         cmd,
         cwd=str(cwd) if cwd else None,
-        env=merged_env,
         text=True,
         capture_output=True,
     )
@@ -247,14 +243,24 @@ class Vcpkg:
             list_files = [p for p in self.info_dir.iterdir() if pattern.match(p.name)]
 
         if not list_files:
-            # Fallback: scan the whole lib directory. This is less precise but works
-            # when the .list file cannot be located.
-            logger.warning(
-                "could not find vcpkg info .list for %s:%s; falling back to lib-dir scan",
+            # The .list file is the only authoritative way to know which static
+            # libraries belong to this package. vcpkg installs every package's
+            # libs into the same shared <triplet>/lib/ directory, so a blind
+            # scan of that directory would attribute other packages'
+            # strings/functions to this library. Refuse to extract instead of
+            # silently polluting the database, and surface the files we would
+            # have wrongly included for diagnostics.
+            candidate_files = self._find_all_static_libs(triplet)
+            logger.error(
+                "could not find vcpkg info .list for %s:%s; "
+                "refusing to extract to avoid misattributing %d other-package "
+                "library file(s): %s",
                 library,
                 triplet,
+                len(candidate_files),
+                ", ".join(p.name for p in candidate_files),
             )
-            return self._find_all_static_libs(triplet)
+            return []
 
         lib_paths: List[pathlib.Path] = []
         for list_file in list_files:
@@ -479,8 +485,6 @@ def build_library(
     The returned entries are not yet written to disk; the caller is responsible
     for cross-library deduplication and final file emission.
     """
-    import time
-
     start = time.time()
     metrics = LibraryMetrics(
         library=library,
@@ -663,9 +667,7 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         "triplet": config.get("triplet"),
         "compiler": config.get("compiler"),
         "profile": config.get("profile"),
-        "libraries": config.get(
-            "libraries",
-        ),
+        "libraries": config.get("libraries"),
     }
 
     parser = argparse.ArgumentParser(
@@ -834,9 +836,26 @@ def main(argv: Optional[List[str]] = None) -> int:
     logger.info("wrote metrics to %s", metrics_path)
 
     if failed:
-        logger.error("one or more libraries failed to build")
-        if config.continue_on_error:
+        successful = sum(1 for m in metrics if not m.error)
+        if config.continue_on_error and successful > 0:
+            # Partial success: --continue-on-error let us build some libraries.
+            # The CI will pick up the updated databases and a follow-up run can
+            # retry the failed ones.
+            logger.warning(
+                "%d/%d libraries failed; exiting 0 because --continue-on-error is set",
+                failed,
+                len(metrics),
+            )
             return 0
+        # Either --continue-on-error was not set, or every library failed. In
+        # the latter case we cannot let the workflow step go green: nothing was
+        # produced, so a missing build (broken vcpkg, wrong jh path, etc.)
+        # would be silent.
+        logger.error(
+            "one or more libraries failed to build (failed=%d, total=%d)",
+            failed,
+            len(metrics),
+        )
         return 1
     return 0
 
