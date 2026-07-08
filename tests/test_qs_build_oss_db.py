@@ -458,12 +458,30 @@ def _stub_build_library(library, config, vcpkg, jh, converter):
     return metrics, [entry]
 
 
-def _invoke_main(monkeypatch, output_dir, libraries, *, continue_on_error=False, existing=None):
-    """Invoke main() with build_library stubbed to return one entry per library.
+def _make_config(output_dir, libraries, *, continue_on_error=False):
+    return build_oss_db.BuildConfig(
+        triplet="x64-windows-static",
+        compiler="msvc143",
+        profile="release",
+        libraries=list(libraries),
+        output_dir=output_dir,
+        vcpkg_root=None,
+        jh_path=None,
+        lancelot_dir=None,
+        emit_function_names=True,
+        deduplicate=True,
+        continue_on_error=continue_on_error,
+    )
+
+
+def _invoke_run_build(output_dir, libraries, *, continue_on_error=False, existing=None, build_library_fn=_stub_build_library):
+    """Invoke run_build() with build_library stubbed to return one entry per library.
 
     ``existing`` is a dict of {library_name: [entry, ...]} to write to the
     output dir as if they were previously built.
     """
+    config = _make_config(output_dir, libraries, continue_on_error=continue_on_error)
+
     if existing:
         for lib, entries in existing.items():
             path = output_dir / f"{lib}.jsonl.gz"
@@ -471,28 +489,13 @@ def _invoke_main(monkeypatch, output_dir, libraries, *, continue_on_error=False,
                 for e in entries:
                     f.write(json.dumps(e) + "\n")
 
-    # Replace heavy machinery with no-op fakes; stub build_library so it
-    # doesn't actually call vcpkg or jh.
-    monkeypatch.setattr(build_oss_db, "Vcpkg", _FakeVcpkg)
-    monkeypatch.setattr(build_oss_db, "JHExtractor", _FakeJH)
-    monkeypatch.setattr(build_oss_db, "build_library", _stub_build_library)
-
-    argv = [
-        "--triplet",
-        "x64-windows-static",
-        "--compiler",
-        "msvc143",
-        "--profile",
-        "release",
-        "--output-dir",
-        str(output_dir),
-        "--libraries",
-        *libraries,
-    ]
-    if continue_on_error:
-        argv.append("--continue-on-error")
-
-    return build_oss_db.main(argv)
+    return build_oss_db.run_build(
+        config,
+        _FakeVcpkg(),
+        _FakeJH(),
+        build_oss_db.Converter(),
+        build_library_fn=build_library_fn,
+    )
 
 
 def _read_gz_jsonl(path: pathlib.Path):
@@ -500,8 +503,8 @@ def _read_gz_jsonl(path: pathlib.Path):
         return [json.loads(line) for line in f if line.strip()]
 
 
-def test_main_writes_one_database_per_library(tmp_path, monkeypatch):
-    rc = _invoke_main(monkeypatch, tmp_path, ["zlib", "curl"])
+def test_main_writes_one_database_per_library(tmp_path):
+    rc = _invoke_run_build(tmp_path, ["zlib", "curl"])
     assert rc == 0
     for lib in ("zlib", "curl"):
         entries = _read_gz_jsonl(tmp_path / f"{lib}.jsonl.gz")
@@ -510,12 +513,11 @@ def test_main_writes_one_database_per_library(tmp_path, monkeypatch):
         assert entries[0]["library_name"] == lib
 
 
-def test_main_merges_existing_database_with_fresh_entries(tmp_path, monkeypatch):
+def test_main_merges_existing_database_with_fresh_entries(tmp_path):
     existing_entry = build_oss_db.make_db_entry(
         "old-string", "zlib", "0.9#1", "f.c", "old_fn"
     )
-    rc = _invoke_main(
-        monkeypatch,
+    rc = _invoke_run_build(
         tmp_path,
         ["zlib"],
         existing={"zlib": [existing_entry]},
@@ -527,11 +529,10 @@ def test_main_merges_existing_database_with_fresh_entries(tmp_path, monkeypatch)
     assert strings == {"old-string", "hello-from-zlib"}
 
 
-def test_main_preserves_existing_libraries_not_in_current_run(tmp_path, monkeypatch):
+def test_main_preserves_existing_libraries_not_in_current_run(tmp_path):
     # Pre-existing database for a library we are NOT rebuilding this run.
     preexisting = [build_oss_db.make_db_entry("preexisting", "other", "1.0", "f.c", "fn")]
-    rc = _invoke_main(
-        monkeypatch,
+    rc = _invoke_run_build(
         tmp_path,
         ["zlib"],
         existing={"other": preexisting},
@@ -545,7 +546,7 @@ def test_main_preserves_existing_libraries_not_in_current_run(tmp_path, monkeypa
     assert {e["string"] for e in zlib_entries} == {"hello-from-zlib"}
 
 
-def test_main_exits_zero_on_partial_success_with_continue_on_error(tmp_path, monkeypatch):
+def test_main_exits_zero_on_partial_success_with_continue_on_error(tmp_path):
     def stub_partial(library, config, vcpkg, jh, converter):
         if library == "broken":
             metrics = build_oss_db.LibraryMetrics(
@@ -557,25 +558,12 @@ def test_main_exits_zero_on_partial_success_with_continue_on_error(tmp_path, mon
             return metrics, []
         return _stub_build_library(library, config, vcpkg, jh, converter)
 
-    monkeypatch.setattr(build_oss_db, "Vcpkg", _FakeVcpkg)
-    monkeypatch.setattr(build_oss_db, "JHExtractor", _FakeJH)
-    monkeypatch.setattr(build_oss_db, "build_library", stub_partial)
-
-    argv = [
-        "--triplet",
-        "x64-windows-static",
-        "--compiler",
-        "msvc143",
-        "--profile",
-        "release",
-        "--output-dir",
-        str(tmp_path),
-        "--libraries",
-        "zlib",
-        "broken",
-        "--continue-on-error",
-    ]
-    rc = build_oss_db.main(argv)
+    rc = _invoke_run_build(
+        tmp_path,
+        ["zlib", "broken"],
+        continue_on_error=True,
+        build_library_fn=stub_partial,
+    )
     # At least one library succeeded, so the workflow should see a green step.
     assert rc == 0
     # The successful library's database was still written.
@@ -583,7 +571,7 @@ def test_main_exits_zero_on_partial_success_with_continue_on_error(tmp_path, mon
     assert {e["string"] for e in zlib_entries} == {"hello-from-zlib"}
 
 
-def test_main_exits_nonzero_when_all_libraries_fail_with_continue_on_error(tmp_path, monkeypatch):
+def test_main_exits_nonzero_when_all_libraries_fail_with_continue_on_error(tmp_path):
     def stub_all_fail(library, config, vcpkg, jh, converter):
         metrics = build_oss_db.LibraryMetrics(
             library=library,
@@ -593,31 +581,18 @@ def test_main_exits_nonzero_when_all_libraries_fail_with_continue_on_error(tmp_p
         )
         return metrics, []
 
-    monkeypatch.setattr(build_oss_db, "Vcpkg", _FakeVcpkg)
-    monkeypatch.setattr(build_oss_db, "JHExtractor", _FakeJH)
-    monkeypatch.setattr(build_oss_db, "build_library", stub_all_fail)
-
-    argv = [
-        "--triplet",
-        "x64-windows-static",
-        "--compiler",
-        "msvc143",
-        "--profile",
-        "release",
-        "--output-dir",
-        str(tmp_path),
-        "--libraries",
-        "broken1",
-        "broken2",
-        "--continue-on-error",
-    ]
-    rc = build_oss_db.main(argv)
+    rc = _invoke_run_build(
+        tmp_path,
+        ["broken1", "broken2"],
+        continue_on_error=True,
+        build_library_fn=stub_all_fail,
+    )
     # Everything failed, even with --continue-on-error: must exit non-zero so
     # the CI step doesn't silently go green on a total pipeline failure.
     assert rc == 1
 
 
-def test_main_exits_nonzero_on_any_failure_without_continue_on_error(tmp_path, monkeypatch):
+def test_main_exits_nonzero_on_any_failure_without_continue_on_error(tmp_path):
     def stub_one_fail(library, config, vcpkg, jh, converter):
         if library == "broken":
             metrics = build_oss_db.LibraryMetrics(
@@ -629,29 +604,16 @@ def test_main_exits_nonzero_on_any_failure_without_continue_on_error(tmp_path, m
             return metrics, []
         return _stub_build_library(library, config, vcpkg, jh, converter)
 
-    monkeypatch.setattr(build_oss_db, "Vcpkg", _FakeVcpkg)
-    monkeypatch.setattr(build_oss_db, "JHExtractor", _FakeJH)
-    monkeypatch.setattr(build_oss_db, "build_library", stub_one_fail)
-
-    argv = [
-        "--triplet",
-        "x64-windows-static",
-        "--compiler",
-        "msvc143",
-        "--profile",
-        "release",
-        "--output-dir",
-        str(tmp_path),
-        "--libraries",
-        "zlib",
-        "broken",
-    ]
-    rc = build_oss_db.main(argv)
+    rc = _invoke_run_build(
+        tmp_path,
+        ["zlib", "broken"],
+        build_library_fn=stub_one_fail,
+    )
     assert rc == 1
 
 
-def test_main_writes_build_metrics_summary(tmp_path, monkeypatch):
-    rc = _invoke_main(monkeypatch, tmp_path, ["zlib", "curl"])
+def test_main_writes_build_metrics_summary(tmp_path):
+    rc = _invoke_run_build(tmp_path, ["zlib", "curl"])
     assert rc == 0
     summary = json.loads((tmp_path / "build_metrics.json").read_text())
     assert summary["triplet"] == "x64-windows-static"

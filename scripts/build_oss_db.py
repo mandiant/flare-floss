@@ -46,7 +46,7 @@ import logging
 import pathlib
 import argparse
 import subprocess
-from typing import Set, Dict, List, Tuple, Optional
+from typing import Callable, Set, Dict, List, Tuple, Optional
 from dataclasses import dataclass
 
 logging.basicConfig(
@@ -641,6 +641,109 @@ def write_library_database(
     return metrics
 
 
+def run_build(
+    config: BuildConfig,
+    vcpkg: Vcpkg,
+    jh: JHExtractor,
+    converter: Converter,
+    build_library_fn: Callable[[str, BuildConfig, Vcpkg, JHExtractor, Converter], Tuple[LibraryMetrics, List[dict]]] = build_library,
+) -> int:
+    """Build and write databases for the configured libraries.
+
+    This is split out from `main()` so tests can inject fakes directly without
+    monkeypatching module globals.
+    """
+    config.output_dir.mkdir(parents=True, exist_ok=True)
+
+    metrics: List[LibraryMetrics] = []
+    per_library_new: Dict[str, List[dict]] = {}
+    failed = False
+    for library in config.libraries:
+        metric, entries = build_library_fn(library, config, vcpkg, jh, converter)
+        metrics.append(metric)
+        # Even on error, preserve any partial entries so they aren't lost.
+        per_library_new[library] = entries
+        if metric.error:
+            failed = True
+            if not config.continue_on_error:
+                break
+
+    # Discover all existing .jsonl.gz databases in the output directory. These
+    # include libraries we are rebuilding (whose fresh entries will be merged
+    # in) and libraries we are leaving alone. Strings are NOT deduped across
+    # libraries: a string that appears in both zlib and curl (e.g. when zlib
+    # is vendored into curl) stays in both databases. The query tagger already
+    # emits one #library tag per matching database, so the consumer can see
+    # the overlap directly.
+    existing_files = sorted(config.output_dir.glob("*.jsonl.gz"))
+
+    def _lib_name_from_path(p: pathlib.Path) -> str:
+        # p.name looks like "<lib>.jsonl.gz"; Path.stem would only strip ".gz".
+        suffix = ".jsonl.gz"
+        if p.name.endswith(suffix):
+            return p.name[: -len(suffix)]
+        return p.stem
+
+    merged: Dict[str, List[dict]] = {}
+    for path in existing_files:
+        lib = _lib_name_from_path(path)
+        existing = load_existing_entries(path)
+        if lib in per_library_new:
+            merged[lib] = merge_entries(per_library_new[lib], existing, config.deduplicate)
+        elif existing:
+            merged[lib] = existing
+
+    # Libraries being built for the first time (no pre-existing file).
+    for lib, new_entries in per_library_new.items():
+        if lib not in merged:
+            merged[lib] = list(new_entries)
+
+    # Write rebuilt libraries and update their metrics.
+    for metric in metrics:
+        if metric.error:
+            logger.warning("%s: skipping database write due to build error", metric.library)
+            continue
+        entries = merged.get(metric.library, [])
+        write_library_database(metric, entries, config.output_dir, converter)
+
+    summary = {
+        "triplet": config.triplet,
+        "compiler": config.compiler,
+        "profile": config.profile,
+        "libraries": [m.as_dict() for m in metrics],
+        "successful": sum(1 for m in metrics if not m.error),
+        "failed": sum(1 for m in metrics if m.error),
+    }
+
+    metrics_path = config.output_dir / "build_metrics.json"
+    metrics_path.write_text(json.dumps(summary, indent=2))
+    logger.info("wrote metrics to %s", metrics_path)
+
+    if failed:
+        successful = sum(1 for m in metrics if not m.error)
+        if config.continue_on_error and successful > 0:
+            # Partial success: --continue-on-error let us build some libraries.
+            # The CI will pick up the updated databases and a follow-up run can
+            # retry the failed ones.
+            logger.warning(
+                "%d/%d libraries failed; exiting 0 because --continue-on-error is set",
+                failed,
+                len(metrics),
+            )
+            return 0
+        # Either --continue-on-error was not set, or every library failed. In
+        # the latter case we cannot let the workflow step go green: nothing was
+        # produced, so a missing build (broken vcpkg, wrong jh path, etc.)
+        # would be silent.
+        logger.error(
+            "one or more libraries failed to build (failed=%d, total=%d)",
+            failed,
+            len(metrics),
+        )
+        return 1
+    return 0
+
+
 def load_config(path: pathlib.Path) -> dict:
     """Load build configuration from a JSON file."""
     data = json.loads(path.read_text())
@@ -768,96 +871,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         deduplicate=config.deduplicate,
     )
 
-    config.output_dir.mkdir(parents=True, exist_ok=True)
-
-    metrics: List[LibraryMetrics] = []
-    per_library_new: Dict[str, List[dict]] = {}
-    failed = False
-    for library in config.libraries:
-        metric, entries = build_library(library, config, vcpkg, jh, converter)
-        metrics.append(metric)
-        # Even on error, preserve any partial entries so they aren't lost.
-        per_library_new[library] = entries
-        if metric.error:
-            failed = True
-            if not config.continue_on_error:
-                break
-
-    # Discover all existing .jsonl.gz databases in the output directory. These
-    # include libraries we are rebuilding (whose fresh entries will be merged
-    # in) and libraries we are leaving alone. Strings are NOT deduped across
-    # libraries: a string that appears in both zlib and curl (e.g. when zlib
-    # is vendored into curl) stays in both databases. The query tagger already
-    # emits one #library tag per matching database, so the consumer can see
-    # the overlap directly.
-    existing_files = sorted(config.output_dir.glob("*.jsonl.gz"))
-    metric_by_lib: Dict[str, LibraryMetrics] = {m.library: m for m in metrics}
-
-    def _lib_name_from_path(p: pathlib.Path) -> str:
-        # p.name looks like "<lib>.jsonl.gz"; Path.stem would only strip ".gz".
-        suffix = ".jsonl.gz"
-        if p.name.endswith(suffix):
-            return p.name[: -len(suffix)]
-        return p.stem
-
-    merged: Dict[str, List[dict]] = {}
-    for path in existing_files:
-        lib = _lib_name_from_path(path)
-        existing = load_existing_entries(path)
-        if lib in per_library_new:
-            merged[lib] = merge_entries(per_library_new[lib], existing, config.deduplicate)
-        elif existing:
-            merged[lib] = existing
-
-    # Libraries being built for the first time (no pre-existing file).
-    for lib, new_entries in per_library_new.items():
-        if lib not in merged:
-            merged[lib] = list(new_entries)
-
-    # Write rebuilt libraries and update their metrics.
-    for metric in metrics:
-        if metric.error:
-            logger.warning("%s: skipping database write due to build error", metric.library)
-            continue
-        entries = merged.get(metric.library, [])
-        write_library_database(metric, entries, config.output_dir, converter)
-
-    summary = {
-        "triplet": config.triplet,
-        "compiler": config.compiler,
-        "profile": config.profile,
-        "libraries": [m.as_dict() for m in metrics],
-        "successful": sum(1 for m in metrics if not m.error),
-        "failed": sum(1 for m in metrics if m.error),
-    }
-
-    metrics_path = config.output_dir / "build_metrics.json"
-    metrics_path.write_text(json.dumps(summary, indent=2))
-    logger.info("wrote metrics to %s", metrics_path)
-
-    if failed:
-        successful = sum(1 for m in metrics if not m.error)
-        if config.continue_on_error and successful > 0:
-            # Partial success: --continue-on-error let us build some libraries.
-            # The CI will pick up the updated databases and a follow-up run can
-            # retry the failed ones.
-            logger.warning(
-                "%d/%d libraries failed; exiting 0 because --continue-on-error is set",
-                failed,
-                len(metrics),
-            )
-            return 0
-        # Either --continue-on-error was not set, or every library failed. In
-        # the latter case we cannot let the workflow step go green: nothing was
-        # produced, so a missing build (broken vcpkg, wrong jh path, etc.)
-        # would be silent.
-        logger.error(
-            "one or more libraries failed to build (failed=%d, total=%d)",
-            failed,
-            len(metrics),
-        )
-        return 1
-    return 0
+    return run_build(config, vcpkg, jh, converter)
 
 
 if __name__ == "__main__":
