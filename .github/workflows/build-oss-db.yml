@@ -121,4 +121,6 @@ jobs:
           # Relative to $GITHUB_WORKSPACE (not the path: checkout).
           body-path: pr-body.md
           branch: update-oss-string-databases
+          # Always open a fresh PR (e.g. update-oss-string-databases-6qj97jr).
+          branch-suffix: random
           delete-branch: true
