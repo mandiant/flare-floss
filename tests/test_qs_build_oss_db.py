@@ -24,7 +24,6 @@ if str(SCRIPTS_DIR) not in sys.path:
 
 import build_oss_db  # noqa: E402
 
-
 SAMPLE_DB_PATH = pathlib.Path(__file__).resolve().parent.parent / "floss" / "qs" / "db" / "data" / "oss"
 
 
@@ -474,7 +473,9 @@ def _make_config(output_dir, libraries, *, continue_on_error=False):
     )
 
 
-def _invoke_run_build(output_dir, libraries, *, continue_on_error=False, existing=None, build_library_fn=_stub_build_library):
+def _invoke_run_build(
+    output_dir, libraries, *, continue_on_error=False, existing=None, build_library_fn=_stub_build_library
+):
     """Invoke run_build() with build_library stubbed to return one entry per library.
 
     ``existing`` is a dict of {library_name: [entry, ...]} to write to the
@@ -514,9 +515,7 @@ def test_main_writes_one_database_per_library(tmp_path):
 
 
 def test_main_merges_existing_database_with_fresh_entries(tmp_path):
-    existing_entry = build_oss_db.make_db_entry(
-        "old-string", "zlib", "0.9#1", "f.c", "old_fn"
-    )
+    existing_entry = build_oss_db.make_db_entry("old-string", "zlib", "0.9#1", "f.c", "old_fn")
     rc = _invoke_run_build(
         tmp_path,
         ["zlib"],
@@ -623,3 +622,109 @@ def test_main_writes_build_metrics_summary(tmp_path):
     assert summary["failed"] == 0
     names = {m["library"] for m in summary["libraries"]}
     assert names == {"zlib", "curl"}
+
+
+def test_diff_library_entries_added_removed_and_changed():
+    old = [
+        build_oss_db.make_db_entry("keep", "zlib", "1.0", "a.c", "fn_a"),
+        build_oss_db.make_db_entry("gone", "zlib", "1.0", "b.c", "fn_b"),
+        build_oss_db.make_db_entry("meta", "zlib", "1.0", "c.c", "old_fn"),
+    ]
+    new = [
+        build_oss_db.make_db_entry("keep", "zlib", "1.0", "a.c", "fn_a"),
+        build_oss_db.make_db_entry("fresh", "zlib", "2.0", "d.c", "fn_d"),
+        build_oss_db.make_db_entry("meta", "zlib", "2.0", "c.c", "new_fn"),
+    ]
+    diff = build_oss_db.diff_library_entries("zlib", old, new)
+    assert diff.library == "zlib"
+    assert diff.old_count == 3
+    assert diff.new_count == 3
+    assert {e["string"] for e in diff.added} == {"fresh"}
+    assert {e["string"] for e in diff.removed} == {"gone"}
+    assert len(diff.changed) == 1
+    assert diff.changed[0][0]["string"] == "meta"
+    assert diff.changed[0][1]["function_name"] == "new_fn"
+    assert diff.has_changes
+
+
+def test_diff_library_entries_no_changes():
+    entries = [build_oss_db.make_db_entry("s", "zlib", "1.0", "f.c", "fn")]
+    diff = build_oss_db.diff_library_entries("zlib", entries, list(entries))
+    assert not diff.has_changes
+    assert diff.added == []
+    assert diff.removed == []
+    assert diff.changed == []
+
+
+def test_format_build_diff_truncates_to_max_lines():
+    added = [build_oss_db.make_db_entry(f"s{i}", "zlib", "1.0", "f.c", "fn") for i in range(50)]
+    diff = build_oss_db.LibraryDiff(
+        library="zlib",
+        old_count=0,
+        new_count=50,
+        added=added,
+        removed=[],
+        changed=[],
+    )
+    text = build_oss_db.format_build_diff([diff], max_lines=10)
+    lines = text.splitlines()
+    assert len(lines) == 10
+    assert lines[-1].startswith("... truncated")
+    assert "more line(s) omitted" in lines[-1]
+
+
+def test_format_build_diff_empty_and_no_changes():
+    assert "No libraries were rebuilt" in build_oss_db.format_build_diff([])
+    unchanged = build_oss_db.LibraryDiff(
+        library="zlib",
+        old_count=1,
+        new_count=1,
+        added=[],
+        removed=[],
+        changed=[],
+    )
+    assert "No entry-level changes" in build_oss_db.format_build_diff([unchanged])
+
+
+def test_format_build_diff_escapes_newlines_and_long_strings():
+    entry = build_oss_db.make_db_entry("hello\nworld" + ("x" * 200), "zlib", "1.0", "f.c", "fn")
+    diff = build_oss_db.diff_library_entries("zlib", [], [entry])
+    text = build_oss_db.format_build_diff([diff])
+    assert "\\n" in text
+    # Long strings are truncated with ellipsis; each +/-/~ line stays single-line.
+    assert "..." in text
+    for line in text.splitlines():
+        if line.startswith(("+ ", "- ", "~ ")):
+            assert "\n" not in line[2:]
+            assert len(line) < 200
+
+
+def test_main_writes_build_diff_for_new_and_merged_libraries(tmp_path):
+    existing_entry = build_oss_db.make_db_entry("old-string", "zlib", "0.9#1", "f.c", "old_fn")
+    rc = _invoke_run_build(
+        tmp_path,
+        ["zlib", "curl"],
+        existing={"zlib": [existing_entry]},
+    )
+    assert rc == 0
+    diff_path = tmp_path / "build_diff.txt"
+    assert diff_path.exists()
+    text = diff_path.read_text(encoding="utf-8")
+    # New library entries and the newly-added zlib string should appear.
+    assert "## zlib" in text
+    assert "## curl" in text
+    assert "+ hello-from-zlib" in text
+    assert "+ hello-from-curl" in text
+    # Pre-existing zlib string is preserved by merge, not listed as removed.
+    assert "- old-string" not in text
+
+
+def test_main_build_diff_reports_no_changes_when_entries_identical(tmp_path):
+    # Rebuild with the same entry the stub always produces: after merge, the
+    # only string is still hello-from-zlib with identical metadata... but the
+    # stub always emits version 1.0#1, so seed with that exact entry.
+    existing = [build_oss_db.make_db_entry("hello-from-zlib", "zlib", "1.0#1", "f.c", "fn_zlib")]
+    rc = _invoke_run_build(tmp_path, ["zlib"], existing={"zlib": existing})
+    assert rc == 0
+    text = (tmp_path / "build_diff.txt").read_text(encoding="utf-8")
+    assert "No entry-level changes detected" in text

@@ -1,2 +1,5 @@
 *.csv
 *.jsonl
+# Ephemeral CI outputs (surfaced in the workflow PR body / logs, not committed).
+build_metrics.json
+build_diff.txt

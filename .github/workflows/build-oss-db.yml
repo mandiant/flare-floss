@@ -70,6 +70,47 @@ jobs:
           Get-Content floss\qs\db\data\oss\build_metrics.json
         working-directory: flare-floss
 
+      - name: Show entry-level diff
+        if: success() || failure()
+        run: |
+          if (Test-Path floss\qs\db\data\oss\build_diff.txt) {
+            Get-Content floss\qs\db\data\oss\build_diff.txt
+          } else {
+            Write-Host "build_diff.txt not produced"
+          }
+        working-directory: flare-floss
+
+      - name: Prepare PR body
+        if: success() || failure()
+        shell: pwsh
+        run: |
+          $diffPath = "flare-floss/floss/qs/db/data/oss/build_diff.txt"
+          $diff = if (Test-Path $diffPath) {
+            Get-Content $diffPath -Raw
+          } else {
+            "(no entry-level diff produced)"
+          }
+          # Backticks are PowerShell escape chars; build the markdown fence explicitly.
+          $fence = [string]::new('`', 3)
+          $body = @(
+            "Automated bi-weekly rebuild of the OSS string databases.",
+            "",
+            "- Triplet: ``x64-windows-static``",
+            "- Compiler: ``msvc143``",
+            "- Library list: see ``floss/qs/db/data/oss/libraries.json``",
+            "",
+            "Per-library entry counts and timing are printed in the workflow logs (``build_metrics.json``).",
+            "",
+            "## Entry-level diff (truncated)",
+            "",
+            $fence,
+            $diff.TrimEnd(),
+            $fence,
+            ""
+          ) -join "`n"
+          # Write outside the flare-floss checkout so create-pull-request does not commit it.
+          Set-Content -Path pr-body.md -Value $body -Encoding utf8
+
       - name: Create Pull Request if databases changed
         uses: peter-evans/create-pull-request@c5a7806660adbe173f04e3e038b0ccdcd758773c # v6.1.0
         with:
@@ -77,13 +118,7 @@ jobs:
           base: quantumstrand
           commit-message: 'chore(oss-db): update string databases'
           title: 'Update OSS string databases'
-          body: |
-            Automated bi-weekly rebuild of the OSS string databases.
-
-            - Triplet: `x64-windows-static`
-            - Compiler: `msvc143`
-            - Library list: see `floss/qs/db/data/oss/libraries.json`
-
-            Per-library entry counts and timing are in `floss/qs/db/data/oss/build_metrics.json`.
+          # Relative to $GITHUB_WORKSPACE (not the path: checkout).
+          body-path: pr-body.md
           branch: update-oss-string-databases
           delete-branch: true
