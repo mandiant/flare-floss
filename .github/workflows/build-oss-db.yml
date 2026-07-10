@@ -5,6 +5,10 @@ on:
   schedule:
     - cron: '0 0 1,15 * *'
 
+  pull_request:
+    branches:
+      - quantumstrand
+
   # Allow manual runs from the Actions tab.
   workflow_dispatch:
 
