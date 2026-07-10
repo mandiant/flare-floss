@@ -1,11 +1,13 @@
-name: build
+name: build quantumstrand
 
 on:
   pull_request:
-    branches: [ master ]
+    branches: [ quantumstrand ]
+  push:
+    branches: [ quantumstrand ]
   release:
     types: [edited, published]
-    branches: [ master ]
+    branches: [ quantumstrand ]
 
 jobs:
   build:
@@ -16,31 +18,32 @@ jobs:
         include:
           # use old linux so that the shared library versioning is more portable
           - os: ubuntu-22.04
-            artifact_name: floss
+            artifact_name: quantumstrand
             asset_name: linux
           - os: windows-2022
-            artifact_name: floss.exe
+            artifact_name: quantumstrand.exe
             asset_name: windows
           - os: macos-14
-            artifact_name: floss
+            artifact_name: quantumstrand
             asset_name: macos
     # Pin action version by commit hash to maximize trust, ref: https://securitylab.github.com/research/github-actions-building-blocks/
     steps:
       - name: Checkout floss
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           submodules: false
-      - name: Set up Python 3.10
-        uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c # v5.0.0
+          lfs: true
+      - name: Set up Python 3.11
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
-          python-version: '3.10'
-      - name: Install floss [build]
-        run: |
-          pip install -r requirements.txt
-          pip install -e .[build]
+          python-version: '3.11'
+      - name: Install floss[build]
+        run: pip install -e .[build]
+      - name: Install floss[qs]
+        run: pip install -e .[qs]
       - name: Build standalone executable
-        run: pyinstaller .github/pyinstaller/floss.spec
-      - uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
+        run: pyinstaller .github/pyinstaller/qs.spec
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: ${{ matrix.asset_name }}
           path: dist/${{ matrix.artifact_name }}
@@ -53,36 +56,30 @@ jobs:
       matrix:
         include:
           - os: ubuntu-22.04
-            artifact_name: floss
-            asset_name: linux
-          - os: ubuntu-22.04
-            artifact_name: floss
+            artifact_name: quantumstrand
             asset_name: linux
           - os: windows-2022
-            artifact_name: floss.exe
-            asset_name: windows
-          - os: windows-2022
-            artifact_name: floss.exe
+            artifact_name: quantumstrand.exe
             asset_name: windows
           - os: macos-14
-            artifact_name: floss
+            artifact_name: quantumstrand
             asset_name: macos
     steps:
       - name: Download ${{ matrix.asset_name }}
-        uses: actions/download-artifact@c850b930e6ba138125429b7e5c93fc707a7f8427 # v4.1.4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: ${{ matrix.asset_name }}
       - name: Checkout testfiles
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           repository: mandiant/flare-floss-testfiles
           path: tests/data
       - name: Set executable flag
         if: startsWith(matrix.os, 'windows') != true
         run: chmod +x ${{ matrix.artifact_name }}
-      - name: Run floss -h
+      - name: Run quantumstrand -h
         run: ./${{ matrix.artifact_name }} -h
-      - name: Run floss
+      - name: Run quantumstrand
         run: ./${{ matrix.artifact_name }} tests/data/test-decode-to-stack.exe
 
   zip_and_upload:
@@ -97,24 +94,24 @@ jobs:
       matrix:
         include:
           - asset_name: linux
-            artifact_name: floss
+            artifact_name: quantumstrand
           - asset_name: windows
-            artifact_name: floss.exe
+            artifact_name: quantumstrand.exe
           - asset_name: macos
-            artifact_name: floss
+            artifact_name: quantumstrand
     steps:
       - name: Download ${{ matrix.asset_name }}
-        uses: actions/download-artifact@c850b930e6ba138125429b7e5c93fc707a7f8427 # v4.1.4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: ${{ matrix.asset_name }}
       - name: Set executable flag
         run: chmod +x ${{ matrix.artifact_name }}
       - name: Set zip name
-        run: echo "zip_name=floss-${GITHUB_REF#refs/tags/}-${{ matrix.asset_name }}.zip" >> $GITHUB_ENV
+        run: echo "zip_name=quantumstrand-${GITHUB_REF#refs/tags/}-${{ matrix.asset_name }}.zip" >> $GITHUB_ENV
       - name: Zip ${{ matrix.artifact_name }} into ${{ env.zip_name }}
         run: zip ${{ env.zip_name }} ${{ matrix.artifact_name }}
       - name: Upload ${{ env.zip_name }} to GH Release
-        uses: svenstaro/upload-release-action@29e53e917877a24fad85510ded594ab3c9ca12de # 2.11.5
+        uses: svenstaro/upload-release-action@81c65b7cd4de9b2570615ce3aad67a41de5b1a13 # 2.11.2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: ${{ env.zip_name }}
