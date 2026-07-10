@@ -656,7 +656,7 @@ def test_diff_library_entries_no_changes():
     assert diff.changed == []
 
 
-def test_format_build_diff_truncates_to_max_lines():
+def test_format_build_diff_truncates_per_library():
     added = [build_oss_db.make_db_entry(f"s{i}", "zlib", "1.0", "f.c", "fn") for i in range(50)]
     diff = build_oss_db.LibraryDiff(
         library="zlib",
@@ -666,11 +666,37 @@ def test_format_build_diff_truncates_to_max_lines():
         removed=[],
         changed=[],
     )
-    text = build_oss_db.format_build_diff([diff], max_lines=10)
+    text = build_oss_db.format_build_diff([diff], max_lines_per_library=10)
     lines = text.splitlines()
-    assert len(lines) == 10
-    assert lines[-1].startswith("... truncated")
-    assert "more line(s) omitted" in lines[-1]
+    # Header for the library + 10 body lines + truncation notice.
+    assert any(line.startswith("## zlib") for line in lines)
+    body_lines = [line for line in lines if line.startswith(("+ ", "- ", "~ "))]
+    assert len(body_lines) == 10
+    assert any("truncated" in line and "zlib" in line for line in lines)
+    assert "more line(s) omitted" in text
+
+
+def test_format_build_diff_truncates_each_library_independently():
+    def _lib_diff(name: str, n: int) -> build_oss_db.LibraryDiff:
+        added = [build_oss_db.make_db_entry(f"{name}-{i}", name, "1.0", "f.c", "fn") for i in range(n)]
+        return build_oss_db.LibraryDiff(
+            library=name,
+            old_count=0,
+            new_count=n,
+            added=added,
+            removed=[],
+            changed=[],
+        )
+
+    text = build_oss_db.format_build_diff(
+        [_lib_diff("zlib", 30), _lib_diff("curl", 30)],
+        max_lines_per_library=5,
+    )
+    for lib in ("zlib", "curl"):
+        body = [line for line in text.splitlines() if line.startswith("+ ") and lib in line]
+        # Body lines are "+ zlib-0" etc.; count lines for that library.
+        assert len(body) == 5
+        assert f"omitted for {lib}" in text
 
 
 def test_format_build_diff_empty_and_no_changes():
@@ -707,16 +733,17 @@ def test_main_writes_build_diff_for_new_and_merged_libraries(tmp_path):
         existing={"zlib": [existing_entry]},
     )
     assert rc == 0
-    diff_path = tmp_path / "build_diff.txt"
-    assert diff_path.exists()
-    text = diff_path.read_text(encoding="utf-8")
-    # New library entries and the newly-added zlib string should appear.
-    assert "## zlib" in text
-    assert "## curl" in text
-    assert "+ hello-from-zlib" in text
-    assert "+ hello-from-curl" in text
-    # Pre-existing zlib string is preserved by merge, not listed as removed.
-    assert "- old-string" not in text
+    for name in ("build_diff.txt", "build_diff_pr.txt"):
+        diff_path = tmp_path / name
+        assert diff_path.exists()
+        text = diff_path.read_text(encoding="utf-8")
+        # New library entries and the newly-added zlib string should appear.
+        assert "## zlib" in text
+        assert "## curl" in text
+        assert "+ hello-from-zlib" in text
+        assert "+ hello-from-curl" in text
+        # Pre-existing zlib string is preserved by merge, not listed as removed.
+        assert "- old-string" not in text
 
 
 def test_main_build_diff_reports_no_changes_when_entries_identical(tmp_path):

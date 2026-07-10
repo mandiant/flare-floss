@@ -84,14 +84,19 @@ jobs:
         if: success() || failure()
         shell: pwsh
         run: |
-          $diffPath = "flare-floss/floss/qs/db/data/oss/build_diff.txt"
+          # Prefer the PR-sized report (20 lines/lib); fall back to the full one.
+          $diffPath = "flare-floss/floss/qs/db/data/oss/build_diff_pr.txt"
+          if (-not (Test-Path $diffPath)) {
+            $diffPath = "flare-floss/floss/qs/db/data/oss/build_diff.txt"
+          }
           $diff = if (Test-Path $diffPath) {
             Get-Content $diffPath -Raw
           } else {
             "(no entry-level diff produced)"
           }
           # Backticks are PowerShell escape chars; build the markdown fence explicitly.
-          $fence = [string]::new('`', 3)
+          $fenceOpen = [string]::new('`', 3) + 'diff'
+          $fenceClose = [string]::new('`', 3)
           $body = @(
             "Automated bi-weekly rebuild of the OSS string databases.",
             "",
@@ -101,11 +106,11 @@ jobs:
             "",
             "Per-library entry counts and timing are printed in the workflow logs (``build_metrics.json``).",
             "",
-            "## Entry-level diff (truncated)",
+            "## Entry-level diff (up to 20 lines per library)",
             "",
-            $fence,
+            $fenceOpen,
             $diff.TrimEnd(),
-            $fence,
+            $fenceClose,
             ""
           ) -join "`n"
           # Write outside the flare-floss checkout so create-pull-request does not commit it.

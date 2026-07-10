@@ -604,8 +604,10 @@ def merge_entries(
     return list(seen.values())
 
 
-# Max lines written to build_diff.txt (and intended for PR description bodies).
-DIFF_MAX_LINES = 100
+# Max +/-/~ lines per library in build_diff.txt (full report for CI logs).
+DIFF_MAX_LINES_PER_LIBRARY = 100
+# Shorter per-library cap for the PR description body.
+DIFF_PR_MAX_LINES_PER_LIBRARY = 20
 # Cap individual string values so one long entry does not dominate the diff.
 DIFF_STRING_MAX_LEN = 120
 # Fields compared when deciding whether an existing string's metadata changed.
@@ -715,14 +717,16 @@ def diff_library_entries(library: str, old_entries: List[dict], new_entries: Lis
 
 def format_build_diff(
     library_diffs: List[LibraryDiff],
-    max_lines: int = DIFF_MAX_LINES,
+    max_lines_per_library: int = DIFF_MAX_LINES_PER_LIBRARY,
 ) -> str:
-    """Render library diffs as a truncated plain-text report for PR bodies.
+    """Render library diffs as a plain-text report, truncated per library.
 
-    The report is capped at ``max_lines`` so it stays readable when pasted into
-    a GitHub PR description. A trailing note is added when content is cut off.
+    Each library section keeps its header plus at most ``max_lines_per_library``
+    change lines (``+``/``-``/``~``). A trailing note is added when a library's
+    body is cut off. Use a lower cap (e.g. ``DIFF_PR_MAX_LINES_PER_LIBRARY``)
+    for PR description bodies.
     """
-    if max_lines < 1:
+    if max_lines_per_library < 1:
         return ""
 
     if not library_diffs:
@@ -732,29 +736,27 @@ def format_build_diff(
     if not changed:
         return "No entry-level changes detected.\n"
 
-    # Build the full report first, then truncate.
-    full_lines: List[str] = [
+    lines: List[str] = [
         "OSS string database entry-level diff",
         f"(libraries with changes: {len(changed)}/{len(library_diffs)})",
         "",
     ]
     for diff in changed:
-        full_lines.append(diff.header_line())
-        full_lines.extend(diff.body_lines())
-        full_lines.append("")
+        lines.append(diff.header_line())
+        body = diff.body_lines()
+        if len(body) <= max_lines_per_library:
+            lines.extend(body)
+        else:
+            lines.extend(body[:max_lines_per_library])
+            omitted = len(body) - max_lines_per_library
+            lines.append(f"... truncated ({omitted} more line(s) omitted for {diff.library})")
+        lines.append("")
 
-    # Drop trailing blank line for cleaner truncation math.
-    while full_lines and full_lines[-1] == "":
-        full_lines.pop()
+    # Drop trailing blank line.
+    while lines and lines[-1] == "":
+        lines.pop()
 
-    if len(full_lines) <= max_lines:
-        return "\n".join(full_lines) + "\n"
-
-    # Reserve one line for the truncation notice.
-    kept = full_lines[: max_lines - 1]
-    omitted = len(full_lines) - len(kept)
-    kept.append(f"... truncated ({omitted} more line(s) omitted)")
-    return "\n".join(kept) + "\n"
+    return "\n".join(lines) + "\n"
 
 
 def write_library_database(
@@ -875,15 +877,23 @@ def run_build(
     metrics_path.write_text(json.dumps(summary, indent=2))
     logger.info("wrote metrics to %s", metrics_path)
 
-    diff_text = format_build_diff(library_diffs)
+    # Full report for CI logs (up to 100 change lines per library).
+    diff_text = format_build_diff(library_diffs, max_lines_per_library=DIFF_MAX_LINES_PER_LIBRARY)
     diff_path = config.output_dir / "build_diff.txt"
     diff_path.write_text(diff_text, encoding="utf-8")
     logger.info("wrote entry-level diff to %s", diff_path)
+
+    # Shorter report for the GitHub PR description (20 change lines per library).
+    pr_diff_text = format_build_diff(library_diffs, max_lines_per_library=DIFF_PR_MAX_LINES_PER_LIBRARY)
+    pr_diff_path = config.output_dir / "build_diff_pr.txt"
+    pr_diff_path.write_text(pr_diff_text, encoding="utf-8")
+    logger.info("wrote PR entry-level diff to %s", pr_diff_path)
+
     # Log a short preview so local/CI logs also surface the change.
-    for line in diff_text.splitlines()[:20]:
+    for line in pr_diff_text.splitlines()[:30]:
         logger.info("diff: %s", line)
-    if diff_text.count("\n") > 20:
-        logger.info("diff: ... (see %s for full truncated report)", diff_path)
+    if pr_diff_text.count("\n") > 30:
+        logger.info("diff: ... (see %s / %s for full reports)", diff_path, pr_diff_path)
 
     if failed:
         successful = sum(1 for m in metrics if not m.error)
