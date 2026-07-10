@@ -127,24 +127,24 @@ qs = [
     "pyelftools==0.31",
 ]
 dev = [
-    "pre-commit==4.5.1",
+    "pre-commit==4.6.0",
     "pyyaml==6.0.1",
-    "pytest==9.0.3",
+    "pytest==9.1.0",
     "pytest-sugar==1.1.1",
     "pytest-instafail==0.5.0",
-    "pytest-cov==6.2.1",
+    "pytest-cov==7.1.0",
     "pycodestyle==2.14.0",
-    "black==26.3.1",
+    "black==26.5.1",
     "isort==8.0.1",
-    "mypy==1.20.0",
+    "mypy==2.1.0",
     # type stubs for mypy
     "types-PyYAML==6.0.10",
     "types-tabulate==0.10.0.20260408",
 ]
 build = [
-    "pyinstaller==6.14.2",
+    "pyinstaller==6.21.0",
     "setuptools==82.0.1",
-    "build==1.4.0"
+    "build==1.5.0"
 ]
 
 

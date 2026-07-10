@@ -392,7 +392,11 @@ def get_runtime_diff(time0):
 
 
 def is_all_zeros(buffer: bytes):
-    return all([b == 0 for b in buffer])
+    if not buffer:
+        return True
+    if buffer[0] != 0:
+        return False
+    return buffer == bytes(len(buffer))
 
 
 def get_progress_bar(functions, disable_progress, desc="", unit=""):
