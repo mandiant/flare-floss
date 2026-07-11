@@ -21,7 +21,7 @@ is planned for iteration 2.
 
 from __future__ import annotations
 
-from floss.document import ResultDocument
 from floss.quantum import analyze_path
+from floss.document import ResultDocument
 
 __all__ = ["analyze_path", "ResultDocument"]
