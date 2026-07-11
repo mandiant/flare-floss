@@ -4,15 +4,16 @@
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Literal, Sequence
+import json
+from typing import Dict, List, Literal, Optional, Sequence
 
 from rich.text import Text
 from rich.style import Style
 from rich.console import Console
 
-from floss.layout.types import Tag
-from floss.document import ResultString, ResultLayout
+from floss.document import ResultLayout, ResultString
 from floss.tags.rules import TagRules, should_hide_string
+from floss.layout.types import Tag
 
 MUTED_STYLE = Style(color="gray50")
 DEFAULT_STYLE = Style()
@@ -391,4 +392,3 @@ def render_strings(
         footer.append_text(Span("│" * depth, style=BORDER_STYLE))
 
         console.print(footer)
-

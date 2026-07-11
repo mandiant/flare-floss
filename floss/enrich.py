@@ -9,7 +9,7 @@ is planned for iteration 2.
 
 from __future__ import annotations
 
-from floss.analyze_static import analyze_path
 from floss.document import ResultDocument
+from floss.analyze_static import analyze_path
 
 __all__ = ["analyze_path", "ResultDocument"]

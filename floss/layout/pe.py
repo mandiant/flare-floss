@@ -4,10 +4,9 @@
 
 from __future__ import annotations
 
-import functools
 import struct
-
 import logging
+import functools
 from typing import Any, Set, Dict, List, Tuple, Optional, Sequence
 
 import pefile
@@ -15,15 +14,15 @@ import lancelot
 
 from floss.ranges import Range, Slice, OffsetRanges, timing
 from floss.layout.base import (
-    Structure,
     Layout,
+    PELayout,
+    Structure,
     SectionLayout,
     SegmentLayout,
     ResourceLayout,
-    PELayout,
 )
-from floss.layout.types import Tag, ExtractedString
 from floss.layout.util import _merge_overlapping_ranges
+from floss.layout.types import Tag, ExtractedString
 
 logger = logging.getLogger("floss.layout.pe")
 
@@ -460,6 +459,7 @@ def compute_pe_layout(slice_: Slice, xor_key: int | None) -> Layout:
         for resource in resources:
             # parse content of resources, such as embedded PE files
             from floss.layout import compute_layout
+
             resource.add_child(compute_layout(resource.slice))
 
         for resource in resources:
@@ -470,4 +470,3 @@ def compute_pe_layout(slice_: Slice, xor_key: int | None) -> Layout:
             container.add_child(resource)
 
     return layout
-

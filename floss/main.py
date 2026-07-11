@@ -83,14 +83,15 @@ logger = floss.logging_.getLogger("floss")
 
 
 from floss.cli import (
+    SIGNATURES_PATH_DEFAULT_STRING,
     StringType,
-    ArgumentValueError,
     ArgumentParser,
+    ArgumentValueError,
     WorkspaceLoadError,
     make_parser,
     set_log_config,
-    SIGNATURES_PATH_DEFAULT_STRING,
 )
+
 
 def select_functions(vw, asked_functions: Optional[List[int]]) -> Set[int]:
     """

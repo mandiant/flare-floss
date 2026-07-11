@@ -12,18 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import sys
 import gzip
 import json
 import logging
 import pathlib
-import sys
 
 SCRIPTS_DIR = pathlib.Path(__file__).resolve().parent.parent / "scripts"
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 import build_oss_db  # noqa: E402
-
 
 SAMPLE_DB_PATH = pathlib.Path(__file__).resolve().parent.parent / "floss" / "qs" / "db" / "data" / "oss"
 
@@ -474,7 +473,9 @@ def _make_config(output_dir, libraries, *, continue_on_error=False):
     )
 
 
-def _invoke_run_build(output_dir, libraries, *, continue_on_error=False, existing=None, build_library_fn=_stub_build_library):
+def _invoke_run_build(
+    output_dir, libraries, *, continue_on_error=False, existing=None, build_library_fn=_stub_build_library
+):
     """Invoke run_build() with build_library stubbed to return one entry per library.
 
     ``existing`` is a dict of {library_name: [entry, ...]} to write to the
@@ -491,8 +492,8 @@ def _invoke_run_build(output_dir, libraries, *, continue_on_error=False, existin
 
     return build_oss_db.run_build(
         config,
-        _FakeVcpkg(),
-        _FakeJH(),
+        _FakeVcpkg(),  # type: ignore[arg-type]
+        _FakeJH(),  # type: ignore[arg-type]
         build_oss_db.Converter(),
         build_library_fn=build_library_fn,
     )
@@ -514,9 +515,7 @@ def test_main_writes_one_database_per_library(tmp_path):
 
 
 def test_main_merges_existing_database_with_fresh_entries(tmp_path):
-    existing_entry = build_oss_db.make_db_entry(
-        "old-string", "zlib", "0.9#1", "f.c", "old_fn"
-    )
+    existing_entry = build_oss_db.make_db_entry("old-string", "zlib", "0.9#1", "f.c", "old_fn")
     rc = _invoke_run_build(
         tmp_path,
         ["zlib"],

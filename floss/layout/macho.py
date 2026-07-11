@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Tuple, Optional, Sequence
 import machofile  # type: ignore[import-untyped]
 
 from floss.ranges import Range, Slice
-from floss.layout.base import Structure, Layout, SegmentLayout, MachOLayout, MachOFatLayout
+from floss.layout.base import Layout, Structure, MachOLayout, SegmentLayout, MachOFatLayout
 from floss.layout.types import Tag
 
 logger = logging.getLogger("floss.layout.macho")
@@ -483,4 +483,3 @@ def compute_macho_layout(slice_: Slice) -> Layout:
     _populate_thin_macho_layout(thin_layout, slice_)
 
     return thin_layout
-

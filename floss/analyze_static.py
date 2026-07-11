@@ -17,9 +17,9 @@ import rich.traceback
 from rich.console import Console
 
 import floss.main
+from floss.tags import TagRules, load_databases, hide_strings_by_rules, remove_false_positive_lib_strings
+from floss.layout import MIN_STR_LEN, compute_layout, extract_layout_strings
 from floss.ranges import Slice
-from floss.layout import compute_layout, extract_layout_strings, MIN_STR_LEN
-from floss.tags import load_databases, remove_false_positive_lib_strings, hide_strings_by_rules, TagRules
 from floss.document import Sample, Metadata, ResultDocument
 from floss.render.layout_text import render_strings
 
@@ -79,9 +79,7 @@ def main(argv=None) -> int:
         help="minimum string length",
     )
     parser.add_argument("-j", "--json", action="store_true", help="emit JSON instead of text")
-    parser.add_argument(
-        "-l", "--load", action="store_true", help="load from existing results document"
-    )
+    parser.add_argument("-l", "--load", action="store_true", help="load from existing results document")
     logging_group = parser.add_argument_group("logging arguments")
     logging_group.add_argument("-d", "--debug", action="store_true", help="enable debugging output on STDERR")
     logging_group.add_argument(

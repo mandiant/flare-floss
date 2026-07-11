@@ -12,12 +12,12 @@ import floss.tags.gp
 import floss.tags.oss
 import floss.tags.expert
 import floss.tags.winapi
+from floss.ranges import OffsetRanges
 from floss.tags.gp import StringHashDatabase, StringGlobalPrevalenceDatabase
 from floss.tags.oss import OpenSourceStringDatabase
 from floss.tags.expert import ExpertStringDatabase
 from floss.tags.winapi import WindowsApiStringDatabase
 from floss.layout.types import Tag, ExtractedString
-from floss.ranges import OffsetRanges
 
 Tagger = Callable[[ExtractedString], Sequence[Tag]]
 
@@ -86,8 +86,6 @@ def query_winapi_name_database(db: WindowsApiStringDatabase, string: str) -> Seq
     return ()
 
 
-
-
 def load_databases() -> Sequence[Tagger]:
     ret = []
 
@@ -121,4 +119,3 @@ def load_databases() -> Sequence[Tagger]:
     ret.append(make_tagger(junk_db, query_code_string_database))
 
     return ret
-

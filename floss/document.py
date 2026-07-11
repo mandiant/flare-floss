@@ -87,4 +87,3 @@ class ResultDocument(BaseModel):
     def from_qs(cls, meta: Metadata, layout: "Layout") -> "ResultDocument":
         results = ResultLayout.from_layout(layout)
         return ResultDocument(meta=meta, layout=results)
-

@@ -14,7 +14,6 @@ def _data_root() -> pathlib.Path:
     return pathlib.Path(__file__).resolve().parents[1] / "qs" / "db" / "data"
 
 
-
 Encoding = Literal["ascii"] | Literal["utf-16le"] | Literal["unknown"]
 # header | gap | overlay
 # or section name

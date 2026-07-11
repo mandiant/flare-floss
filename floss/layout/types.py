@@ -6,22 +6,19 @@ from __future__ import annotations
 
 import re
 import itertools
-from typing import Set, List, Literal, Iterable
+from typing import Set, List, Literal, Iterable, TypeAlias
 
 from pydantic import BaseModel
 
 from floss.ranges import Slice
 
-Tag = str
+Tag: TypeAlias = str
 
 
 class ExtractedString(BaseModel):
     string: str
     slice: Slice
     encoding: Literal["ascii", "unicode"]
-
-
-Tag = str
 
 
 class TaggedString(BaseModel):
@@ -158,4 +155,3 @@ def extract_strings(slice: Slice, n: int = MIN_STR_LEN) -> Iterable[ExtractedStr
             key=lambda s: s.slice.range.offset,
         )
     )
-

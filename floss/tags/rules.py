@@ -6,11 +6,11 @@ from __future__ import annotations
 
 from typing import Dict, Literal
 
-from floss.layout.base import Layout
-from floss.layout.extract import collect_strings
-from floss.layout.types import Tag
 from floss.document import ResultLayout, ResultString
 from floss.tags.oss import DEFAULT_FILENAMES
+from floss.layout.base import Layout
+from floss.layout.types import Tag
+from floss.layout.extract import collect_strings
 
 TagRules = Dict[Tag, Literal["mute"] | Literal["highlight"] | Literal["default"] | Literal["hide"]]
 

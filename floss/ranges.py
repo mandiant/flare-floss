@@ -5,10 +5,10 @@
 from __future__ import annotations
 
 import time
+import bisect
 import logging
 import contextlib
-import bisect
-from typing import Set, List, Tuple, Optional, Iterable
+from typing import Set, List, Tuple, Iterable, Optional
 
 from pydantic import Field, BaseModel
 
@@ -183,4 +183,3 @@ class OffsetRanges(BaseModel):
                 return True
 
         return False
-

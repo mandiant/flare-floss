@@ -8,7 +8,7 @@ from typing import List
 
 from floss.ranges import Range, Slice
 from floss.layout.base import Layout
-from floss.layout.types import extract_strings, TaggedString
+from floss.layout.types import TaggedString, extract_strings
 
 
 def extract_layout_strings(layout: Layout, min_len: int):
@@ -84,4 +84,3 @@ def collect_strings(layout: Layout) -> List[TaggedString]:
         ret.extend(collect_strings(child))
 
     return ret
-

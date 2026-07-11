@@ -9,12 +9,21 @@ import logging
 from elftools.common.exceptions import ELFError
 
 from floss.ranges import Range, Slice
-from floss.layout.base import Layout, SectionLayout, SegmentLayout, PELayout, ELFLayout, MachOLayout, MachOFatLayout, Structure
-from floss.layout.types import ExtractedString, TaggedString, Tag, extract_strings, MIN_STR_LEN
-from floss.layout.extract import extract_layout_strings, collect_strings
 from floss.layout.pe import compute_pe_layout
 from floss.layout.elf import compute_elf_layout
-from floss.layout.macho import compute_macho_layout, _get_u32_be, _is_macho_magic
+from floss.layout.base import (
+    Layout,
+    PELayout,
+    ELFLayout,
+    Structure,
+    MachOLayout,
+    SectionLayout,
+    SegmentLayout,
+    MachOFatLayout,
+)
+from floss.layout.macho import _get_u32_be, _is_macho_magic, compute_macho_layout
+from floss.layout.types import MIN_STR_LEN, Tag, TaggedString, ExtractedString, extract_strings
+from floss.layout.extract import collect_strings, extract_layout_strings
 
 logger = logging.getLogger("floss.layout")
 
@@ -81,6 +90,7 @@ def compute_layout(slice_: Slice) -> Layout:
         slice=slice_,
         name="binary",
     )
+
 
 __all__ = [
     "Layout",

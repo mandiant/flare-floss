@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 import io
-
 import logging
 from typing import Any, Dict, List, Tuple, Iterable, Optional, Sequence
 
@@ -15,9 +14,9 @@ from elftools.elf.relocation import RelocationSection
 from elftools.common.exceptions import ELFError
 
 from floss.ranges import Range, Slice, OffsetRanges
-from floss.layout.base import Structure, Layout, SectionLayout, SegmentLayout, ELFLayout
-from floss.layout.types import Tag, ExtractedString
+from floss.layout.base import Layout, ELFLayout, Structure, SectionLayout, SegmentLayout
 from floss.layout.util import _merge_overlapping_ranges
+from floss.layout.types import Tag, ExtractedString
 
 logger = logging.getLogger("floss.layout.elf")
 
@@ -262,4 +261,3 @@ def compute_elf_layout(slice_: Slice, xor_key: int | None) -> Layout:
         cursor = offset + size
 
     return layout
-

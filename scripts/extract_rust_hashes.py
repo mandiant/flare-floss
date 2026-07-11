@@ -48,8 +48,12 @@ while True:
 
     # for each table, get the hash and version
     for table in tables:
-        hash = str(table.find("a", attrs={"class": "Link Link--muted mb-2"})["href"]).split("/")[-1]
-        version = table.find("span").text.strip()
+        link = table.find("a", attrs={"class": "Link Link--muted mb-2"})
+        span = table.find("span")
+        if link is None or span is None or not link.get("href"):
+            continue
+        hash = str(link["href"]).split("/")[-1]
+        version = span.text.strip()
         rust_hashes[hash] = version
 
     page_number += 1

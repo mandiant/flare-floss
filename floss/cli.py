@@ -18,11 +18,11 @@ from floss.const import (
     MAX_FILE_SIZE,
     MIN_STRING_LENGTH,
 )
-from floss.version import __version__
+from floss.utils import set_vivisect_log_level
 from floss.render import Verbosity
+from floss.version import __version__
 from floss.logging_ import TRACE, DebugLevel
 from floss.language.identify import Language
-from floss.utils import set_vivisect_log_level
 
 logger = floss.logging_.getLogger("floss")
 
@@ -270,6 +270,7 @@ def make_parser(argv):
 
     return parser
 
+
 def set_log_config(debug, quiet):
     if quiet:
         log_level = logging.WARNING
@@ -307,4 +308,3 @@ def set_log_config(debug, quiet):
     #
     # calling this code from outside script main may do something unexpected.
     logging.getLogger().handlers[0].setFormatter(floss.logging_.ColorFormatter())
-

@@ -110,7 +110,11 @@ def main():
                                 f.write(result_render.stdout)
                             logger.info("Wrote rendered output to %s", rendered_output_path)
                         else:
-                            logger.error("Failed to render file %s from JSON, exited with code %d", file_path, result_render.returncode)
+                            logger.error(
+                                "Failed to render file %s from JSON, exited with code %d",
+                                file_path,
+                                result_render.returncode,
+                            )
                             if result_render.stdout:
                                 logger.error("stdout:\n%s", result_render.stdout)
                             if result_render.stderr:

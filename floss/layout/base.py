@@ -13,8 +13,8 @@ import pefile
 from pydantic import Field, BaseModel, ConfigDict
 
 from floss.ranges import Range, Slice, OffsetRanges
-from floss.layout.types import Tag, ExtractedString, TaggedString
-from floss.layout.checks import check_is_xor, check_is_reloc, check_is_code
+from floss.layout.types import Tag, TaggedString, ExtractedString
+from floss.layout.checks import check_is_xor, check_is_code, check_is_reloc
 
 Tagger = Callable[[ExtractedString], Sequence[Tag]]
 
@@ -281,4 +281,3 @@ class MachOLayout(Layout):
 
 class MachOFatLayout(Layout):
     pass
-

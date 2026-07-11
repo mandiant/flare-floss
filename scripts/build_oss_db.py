@@ -38,15 +38,15 @@ from __future__ import annotations
 import os
 import re
 import sys
-import time
 import gzip
 import json
+import time
 import shutil
 import logging
 import pathlib
 import argparse
 import subprocess
-from typing import Callable, Set, Dict, List, Tuple, Optional
+from typing import Set, Dict, List, Tuple, Callable, Optional
 from dataclasses import dataclass
 
 logging.basicConfig(
@@ -81,8 +81,8 @@ class BuildConfig:
 
 def make_db_entry(
     string: str,
-    library_name: str,
-    library_version: str,
+    library_name: Optional[str],
+    library_version: Optional[str],
     file_path: Optional[str],
     function_name: Optional[str],
     line_number: Optional[int] = None,
@@ -414,14 +414,10 @@ class Converter:
             function_names.add(function_name)
 
             if feat_type == "string":
-                entries.append(
-                    make_db_entry(value, library, version, file_path, function_name)
-                )
+                entries.append(make_db_entry(value, library, version, file_path, function_name))
             elif feat_type == "function_name":
                 # Future-proof: a minimal extractor may emit function names explicitly.
-                entries.append(
-                    make_db_entry(value, library, version, file_path, value)
-                )
+                entries.append(make_db_entry(value, library, version, file_path, value))
                 explicit_function_names.add(value)
 
         # Stock jh does not emit function_name rows, so derive them from the
@@ -429,9 +425,7 @@ class Converter:
         # will be missed unless the extractor is patched to emit them.
         if self.emit_function_names:
             for fn in function_names - explicit_function_names:
-                entries.append(
-                    make_db_entry(fn, library, version, None, fn)
-                )
+                entries.append(make_db_entry(fn, library, version, None, fn))
 
         if self.deduplicate:
             # Match loader semantics: one metadata object per unique string.
@@ -570,14 +564,22 @@ def load_existing_entries(path: pathlib.Path) -> List[dict]:
             continue
         if not isinstance(row, dict) or "string" not in row:
             continue
+        string = row.get("string")
+        if not isinstance(string, str):
+            continue
+        library_name = row.get("library_name")
+        library_version = row.get("library_version")
+        file_path = row.get("file_path")
+        function_name = row.get("function_name")
+        line_number = row.get("line_number")
         entries.append(
             make_db_entry(
-                row.get("string"),
-                row.get("library_name"),
-                row.get("library_version"),
-                row.get("file_path"),
-                row.get("function_name"),
-                row.get("line_number"),
+                string,
+                library_name if isinstance(library_name, str) else None,
+                library_version if isinstance(library_version, str) else None,
+                file_path if isinstance(file_path, str) else None,
+                function_name if isinstance(function_name, str) else None,
+                line_number if isinstance(line_number, int) else None,
             )
         )
     return entries
@@ -646,7 +648,9 @@ def run_build(
     vcpkg: Vcpkg,
     jh: JHExtractor,
     converter: Converter,
-    build_library_fn: Callable[[str, BuildConfig, Vcpkg, JHExtractor, Converter], Tuple[LibraryMetrics, List[dict]]] = build_library,
+    build_library_fn: Callable[
+        [str, BuildConfig, Vcpkg, JHExtractor, Converter], Tuple[LibraryMetrics, List[dict]]
+    ] = build_library,
 ) -> int:
     """Build and write databases for the configured libraries.
 

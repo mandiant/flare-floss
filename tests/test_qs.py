@@ -5,9 +5,9 @@ from pathlib import Path
 
 import pytest
 
-from floss.ranges import Slice
-from floss.layout import compute_layout, collect_strings, extract_layout_strings
 from floss.tags import load_databases
+from floss.layout import compute_layout, collect_strings, extract_layout_strings
+from floss.ranges import Slice
 from floss.document import Sample, Metadata, ResultDocument
 
 CD = Path(__file__).resolve().parent

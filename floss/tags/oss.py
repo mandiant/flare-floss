@@ -11,8 +11,6 @@ def _data_root() -> pathlib.Path:
     return pathlib.Path(__file__).resolve().parents[1] / "qs" / "db" / "data"
 
 
-
-
 class OpenSourceString(msgspec.Struct):
     string: str
     library_name: str
@@ -62,9 +60,9 @@ DEFAULT_FILENAMES = (
     "zlib.jsonl.gz",
 )
 
-DEFAULT_PATHS = tuple(
-    _data_root() / "oss" / filename for filename in DEFAULT_FILENAMES
-) + (_data_root() / "crt" / "msvc_v143.jsonl.gz",)
+DEFAULT_PATHS = tuple(_data_root() / "oss" / filename for filename in DEFAULT_FILENAMES) + (
+    _data_root() / "crt" / "msvc_v143.jsonl.gz",
+)
 
 
 def get_default_databases() -> Sequence[OpenSourceStringDatabase]:
