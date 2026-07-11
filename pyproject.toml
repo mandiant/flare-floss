@@ -155,3 +155,4 @@ Signatures = "https://github.com/mandiant/flare-floss/tree/master/floss/sigs"
 
 [project.scripts]
 floss = "floss.main:main"
+quantum = "floss.quantum:main"

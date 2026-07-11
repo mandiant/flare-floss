@@ -19,7 +19,7 @@ import argparse
 import subprocess
 
 import floss.main
-import floss.analyze_static
+import floss.quantum
 
 logger = logging.getLogger("floss.bulk")
 
@@ -33,7 +33,7 @@ def main():
         "--minimum-length",
         dest="min_length",
         type=int,
-        default=floss.analyze_static.MIN_STR_LEN,
+        default=floss.quantum.MIN_STR_LEN,
         help="Minimum string length.",
     )
     parser.add_argument(
@@ -85,7 +85,7 @@ def main():
             cmd = [
                 sys.executable,
                 "-m",
-                "floss.analyze_static",
+                "floss.quantum",
                 str(file_path),
                 "--json",
                 "-n",
@@ -107,7 +107,7 @@ def main():
                         cmd_render = [
                             sys.executable,
                             "-m",
-                            "floss.analyze_static",
+                            "floss.quantum",
                             str(json_output_path),
                             "--load",
                         ]
@@ -147,7 +147,7 @@ def main():
             cmd = [
                 sys.executable,
                 "-m",
-                "floss.analyze_static",
+                "floss.quantum",
                 str(json_output_path),
                 "--load",
             ]

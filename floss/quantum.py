@@ -12,7 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Layout-aware static string analysis entrypoints."""
+"""QUANTUMSTRAND-style layout-aware static string analysis.
+
+Run as::
+
+    python -m floss.quantum sample.exe
+    quantum sample.exe -j
+"""
 
 from __future__ import annotations
 
@@ -35,7 +41,7 @@ from floss.ranges import Slice
 from floss.document import Sample, Metadata, ResultDocument
 from floss.render.layout_text import render_strings
 
-logger = logging.getLogger("floss.analyze_static")
+logger = logging.getLogger("floss.quantum")
 
 VERSION = "0.3.0"
 
