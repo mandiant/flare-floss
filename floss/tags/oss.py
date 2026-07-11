@@ -5,7 +5,12 @@ from dataclasses import dataclass
 
 import msgspec
 
-import floss.qs.db
+
+def _data_root() -> pathlib.Path:
+    """Legacy DB location: floss/qs/db/data."""
+    return pathlib.Path(__file__).resolve().parents[1] / "qs" / "db" / "data"
+
+
 
 
 class OpenSourceString(msgspec.Struct):
@@ -58,8 +63,8 @@ DEFAULT_FILENAMES = (
 )
 
 DEFAULT_PATHS = tuple(
-    pathlib.Path(floss.qs.db.__file__).parent / "data" / "oss" / filename for filename in DEFAULT_FILENAMES
-) + (pathlib.Path(floss.qs.db.__file__).parent / "data" / "crt" / "msvc_v143.jsonl.gz",)
+    _data_root() / "oss" / filename for filename in DEFAULT_FILENAMES
+) + (_data_root() / "crt" / "msvc_v143.jsonl.gz",)
 
 
 def get_default_databases() -> Sequence[OpenSourceStringDatabase]:

@@ -1,6 +1,6 @@
 
 import pytest
-from floss.qs.main import Range, Slice
+from floss.ranges import Range, Slice
 
 def test_range_slice():
     r = Range(offset=10, length=20)

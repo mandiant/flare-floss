@@ -3,7 +3,12 @@ import pathlib
 from typing import Set, Sequence
 from dataclasses import dataclass
 
-import floss.qs.db
+
+def _data_root() -> pathlib.Path:
+    """Legacy DB location: floss/qs/db/data."""
+    return pathlib.Path(__file__).resolve().parents[1] / "qs" / "db" / "data"
+
+
 
 
 @dataclass
@@ -32,7 +37,7 @@ class WindowsApiStringDatabase:
         return cls(dll_names=dll_names, api_names=api_names)
 
 
-DEFAULT_PATHS = (pathlib.Path(floss.qs.db.__file__).parent / "data" / "winapi",)
+DEFAULT_PATHS = (_data_root() / "winapi",)
 
 
 def get_default_databases() -> Sequence[WindowsApiStringDatabase]:

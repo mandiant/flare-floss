@@ -5,13 +5,13 @@ import argparse
 import subprocess
 
 import floss.main
-import floss.qs.main
+import floss.analyze_static
 
-logger = logging.getLogger("floss.qs.bulk")
+logger = logging.getLogger("floss.bulk")
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Bulk analyze a directory of binaries with floss-qs.")
+    parser = argparse.ArgumentParser(description="Bulk analyze a directory of binaries with floss.")
     parser.add_argument("input_directory", type=pathlib.Path, help="Directory containing binaries to analyze.")
     parser.add_argument("output_directory", type=pathlib.Path, help="Directory to write JSON results to.")
     parser.add_argument(
@@ -19,7 +19,7 @@ def main():
         "--minimum-length",
         dest="min_length",
         type=int,
-        default=floss.qs.main.MIN_STR_LEN,
+        default=floss.analyze_static.MIN_STR_LEN,
         help="Minimum string length.",
     )
     parser.add_argument(
@@ -71,7 +71,7 @@ def main():
             cmd = [
                 sys.executable,
                 "-m",
-                "floss.qs.main",
+                "floss.analyze_static",
                 str(file_path),
                 "--json",
                 "-n",
@@ -93,7 +93,7 @@ def main():
                         cmd_render = [
                             sys.executable,
                             "-m",
-                            "floss.qs.main",
+                            "floss.analyze_static",
                             str(json_output_path),
                             "--load",
                         ]
@@ -129,7 +129,7 @@ def main():
             cmd = [
                 sys.executable,
                 "-m",
-                "floss.qs.main",
+                "floss.analyze_static",
                 str(json_output_path),
                 "--load",
             ]

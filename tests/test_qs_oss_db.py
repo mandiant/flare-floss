@@ -1,17 +1,17 @@
 import pathlib
 
-import floss.qs.db.oss
+import floss.tags.oss
 
 
 def test_load_db():
-    path = pathlib.Path(floss.qs.db.oss.__file__).parent / "data" / "oss" / "zlib.jsonl.gz"
-    db = floss.qs.db.oss.OpenSourceStringDatabase.from_file(path)
+    path = pathlib.Path(floss.tags.oss.__file__).resolve().parents[1] / "qs" / "db" / "data" / "oss" / "zlib.jsonl.gz"
+    db = floss.tags.oss.OpenSourceStringDatabase.from_file(path)
     assert len(db) > 0  # 21 entries at time of writing
 
 
 def test_query_db():
-    path = pathlib.Path(floss.qs.db.oss.__file__).parent / "data" / "oss" / "zlib.jsonl.gz"
-    db = floss.qs.db.oss.OpenSourceStringDatabase.from_file(path)
+    path = pathlib.Path(floss.tags.oss.__file__).resolve().parents[1] / "qs" / "db" / "data" / "oss" / "zlib.jsonl.gz"
+    db = floss.tags.oss.OpenSourceStringDatabase.from_file(path)
 
     s = db.metadata_by_string["invalid distance code"]
 

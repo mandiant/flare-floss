@@ -2,13 +2,9 @@ from pathlib import Path
 
 import pytest
 
-from floss.qs.main import (
-    Slice,
-    compute_layout,
-    load_databases,
-    collect_strings,
-    extract_layout_strings,
-)
+from floss.ranges import Slice
+from floss.layout import compute_layout, collect_strings, extract_layout_strings
+from floss.tags import load_databases
 
 
 @pytest.fixture(scope="module")

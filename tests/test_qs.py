@@ -5,16 +5,10 @@ from pathlib import Path
 
 import pytest
 
-from floss.qs.main import (
-    Slice,
-    Sample,
-    Metadata,
-    ResultDocument,
-    compute_layout,
-    load_databases,
-    collect_strings,
-    extract_layout_strings,
-)
+from floss.ranges import Slice
+from floss.layout import compute_layout, collect_strings, extract_layout_strings
+from floss.tags import load_databases
+from floss.document import Sample, Metadata, ResultDocument
 
 CD = Path(__file__).resolve().parent
 MIN_STR_LEN = 6

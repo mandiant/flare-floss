@@ -5,7 +5,7 @@ import logging
 import pathlib
 import argparse
 
-from floss.qs.db.gp import StringGlobalPrevalence, StringGlobalPrevalenceDatabase
+from floss.tags.gp import StringGlobalPrevalence, StringGlobalPrevalenceDatabase
 
 logger = logging.getLogger(__name__)
 

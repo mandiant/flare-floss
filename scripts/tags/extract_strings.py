@@ -19,7 +19,7 @@ import dnfile
 import pefile
 
 import floss.strings
-from floss.qs.db.gp import Encoding, Location
+from floss.tags.gp import Encoding, Location
 
 MIN_LEN = 6
 MAX_LEN_PES = 100

@@ -17,8 +17,8 @@ import argparse
 import collections
 from typing import Dict, Tuple
 
-from floss.qs.db.gp import Encoding, Location, StringGlobalPrevalence, StringGlobalPrevalenceDatabase
-from floss.qs.scripts.extract_strings import PeStrings
+from floss.tags.gp import Encoding, Location, StringGlobalPrevalence, StringGlobalPrevalenceDatabase
+from scripts.tags.extract_strings import PeStrings
 
 MIN_COUNT = 500
 

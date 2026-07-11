@@ -1,6 +1,6 @@
 import pytest
 
-from floss.qs.main import OffsetRanges
+from floss.ranges import OffsetRanges
 
 
 def test_offset_ranges_init_empty():

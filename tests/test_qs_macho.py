@@ -1,6 +1,7 @@
 from pathlib import Path
 
-from floss.qs.main import Slice, compute_layout
+from floss.ranges import Slice
+from floss.layout import compute_layout
 
 
 CD = Path(__file__).resolve().parent

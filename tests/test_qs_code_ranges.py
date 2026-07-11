@@ -3,12 +3,9 @@ from unittest.mock import Mock, MagicMock
 import pefile
 import pytest
 
-from floss.qs.main import (
-    Range,
-    Slice,
-    _get_code_ranges,
-    _merge_overlapping_ranges,
-)
+from floss.ranges import Range, Slice
+from floss.layout.pe import _get_code_ranges
+from floss.layout.util import _merge_overlapping_ranges
 
 
 # Tests for _merge_overlapping_ranges
