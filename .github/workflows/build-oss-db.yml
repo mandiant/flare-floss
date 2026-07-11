@@ -105,9 +105,16 @@ jobs:
             $diff.TrimEnd(),
             ""
           ) -join "`n"
+          # GitHub rejects PR bodies over 65536 characters ("Body is too long").
+          # The Python script already caps the diff; this is a final safety net.
+          $maxBodyChars = 65000
+          if ($body.Length -gt $maxBodyChars) {
+            $notice = "`n`n... truncated to stay under GitHub's 65536-character PR body limit."
+            $keep = [Math]::Max(0, $maxBodyChars - $notice.Length)
+            $body = $body.Substring(0, $keep) + $notice
+          }
           # Write outside the flare-floss checkout so create-pull-request does not commit it.
           Set-Content -Path pr-body.md -Value $body -Encoding utf8
-
       - name: Create Pull Request if databases changed
         uses: peter-evans/create-pull-request@c5a7806660adbe173f04e3e038b0ccdcd758773c # v6.1.0
         with:

@@ -610,6 +610,9 @@ DIFF_MAX_LINES_PER_LIBRARY = 100
 DIFF_PR_MAX_LINES_PER_LIBRARY = 20
 # Cap individual string values so one long entry does not dominate the diff.
 DIFF_STRING_MAX_LEN = 120
+# GitHub rejects PR bodies over 65536 codepoints ("Body is too long"). Leave
+# headroom for the workflow's static header and a truncation footer.
+DIFF_PR_MAX_CHARS = 60_000
 # Fields compared when deciding whether an existing string's metadata changed.
 _DIFF_META_FIELDS = ("library_version", "file_path", "function_name", "line_number")
 
@@ -760,16 +763,48 @@ def format_build_diff(
     return "\n".join(lines) + "\n"
 
 
+def _omission_footer(omitted: List[str]) -> str:
+    """Short note listing libraries dropped to stay under the PR body size cap."""
+    if not omitted:
+        return ""
+    if len(omitted) <= 10:
+        names = ", ".join(omitted)
+    else:
+        names = ", ".join(omitted[:8]) + f", ... (+{len(omitted) - 8} more)"
+    return (
+        f"\n... omitted {len(omitted)} more libraries with changes ({names}).\n"
+        "See `build_diff.txt` in the workflow logs for the full report.\n"
+    )
+
+
+def _clip_to_max_chars(text: str, max_chars: int) -> str:
+    """Hard-cap ``text`` at ``max_chars``, appending a short notice if clipped."""
+    if max_chars < 1:
+        return ""
+    if len(text) <= max_chars:
+        return text
+    notice = "\n... truncated to stay under GitHub's PR body length limit.\n"
+    if len(notice) >= max_chars:
+        return notice[:max_chars]
+    return text[: max_chars - len(notice)].rstrip() + notice
+
+
 def format_build_diff_markdown(
     library_diffs: List[LibraryDiff],
     max_lines_per_library: int = DIFF_PR_MAX_LINES_PER_LIBRARY,
+    max_chars: int = DIFF_PR_MAX_CHARS,
 ) -> str:
     """Render library diffs as markdown for a GitHub PR description.
 
     Each library gets a ``##`` heading outside its own fenced diff code block
     that contains only the ``+``/``-``/``~`` change lines (truncated per library).
+
+    The whole report is also capped at ``max_chars`` so the PR body stays under
+    GitHub's 65536-character limit (with headroom for the workflow header).
+    Libraries that do not fit are summarized in a trailing note; the full
+    report remains in ``build_diff.txt`` / workflow logs.
     """
-    if max_lines_per_library < 1:
+    if max_lines_per_library < 1 or max_chars < 1:
         return ""
 
     if not library_diffs:
@@ -779,8 +814,15 @@ def format_build_diff_markdown(
     if not changed:
         return "No entry-level changes detected.\n"
 
+    # Worst-case omission footer length (fixed shape, capped name list).
+    footer_reserve = len(_omission_footer([f"lib{i:03d}" for i in range(100)]))
+    budget = max(1, max_chars - footer_reserve)
+
     sections: List[str] = []
-    for diff in changed:
+    total = 0
+    omitted: List[str] = []
+
+    for i, diff in enumerate(changed):
         body = _truncated_body_lines(diff.body_lines(), max_lines_per_library, diff.library)
         # Heading outside the fence; only +/-/~ (and optional truncation note) inside.
         section = "\n".join(
@@ -796,9 +838,24 @@ def format_build_diff_markdown(
                 "",
             ]
         )
+        # +1 for the newline join between sections (except the first).
+        extra = len(section) + (1 if sections else 0)
+        if sections and total + extra > budget:
+            omitted = [d.library for d in changed[i:]]
+            break
+        # First section alone may still exceed budget (huge strings); hard-cut it.
+        if not sections and len(section) > budget:
+            cut = _clip_to_max_chars(section, budget)
+            sections.append(cut if cut.endswith("\n") else cut + "\n")
+            omitted = [d.library for d in changed[i + 1 :]]
+            break
         sections.append(section)
+        total += extra
 
-    return "\n".join(sections).rstrip() + "\n"
+    text = "\n".join(sections).rstrip() + "\n"
+    if omitted:
+        text += _omission_footer(omitted)
+    return _clip_to_max_chars(text, max_chars)
 
 
 def write_library_database(

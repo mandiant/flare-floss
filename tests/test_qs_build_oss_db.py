@@ -699,18 +699,19 @@ def test_format_build_diff_truncates_each_library_independently():
         assert f"omitted for {lib}" in text
 
 
-def test_format_build_diff_markdown_heads_outside_fences():
-    def _lib_diff(name: str, n: int) -> build_oss_db.LibraryDiff:
-        added = [build_oss_db.make_db_entry(f"{name}-{i}", name, "1.0", "f.c", "fn") for i in range(n)]
-        return build_oss_db.LibraryDiff(
-            library=name,
-            old_count=0,
-            new_count=n,
-            added=added,
-            removed=[],
-            changed=[],
-        )
+def _lib_diff(name: str, n: int) -> build_oss_db.LibraryDiff:
+    added = [build_oss_db.make_db_entry(f"{name}-{i}", name, "1.0", "f.c", "fn") for i in range(n)]
+    return build_oss_db.LibraryDiff(
+        library=name,
+        old_count=0,
+        new_count=n,
+        added=added,
+        removed=[],
+        changed=[],
+    )
 
+
+def test_format_build_diff_markdown_heads_outside_fences():
     text = build_oss_db.format_build_diff_markdown(
         [_lib_diff("zlib", 25), _lib_diff("curl", 25)],
         max_lines_per_library=5,
@@ -722,13 +723,31 @@ def test_format_build_diff_markdown_heads_outside_fences():
     assert text.count("```") == 4  # open + close per library
 
     # Each ```diff ... ``` block should not contain a ## heading.
-    parts = text.split("```")
-    # parts: [before, 'diff\n+...', '', '\n## curl\n...', 'diff\n+...', '', after]
-    for i, part in enumerate(parts):
+    for part in text.split("```"):
         if part.startswith("diff"):
             assert "## " not in part
             body_lines = [line for line in part.splitlines() if line.startswith(("+ ", "- ", "~ "))]
             assert len(body_lines) == 5
+
+
+def test_format_build_diff_markdown_never_exceeds_github_limit_constant():
+    # Stress: 80 libraries x 20 long lines — must still stay under DIFF_PR_MAX_CHARS.
+    long = "x" * 200
+    diffs = []
+    for i in range(80):
+        added = [build_oss_db.make_db_entry(f"{long}-{j}", f"lib{i}", "1.0", "f.c", "fn") for j in range(30)]
+        diffs.append(
+            build_oss_db.LibraryDiff(
+                library=f"lib{i}",
+                old_count=0,
+                new_count=30,
+                added=added,
+                removed=[],
+                changed=[],
+            )
+        )
+    text = build_oss_db.format_build_diff_markdown(diffs)
+    assert len(text) <= build_oss_db.DIFF_PR_MAX_CHARS
 
 
 def test_format_build_diff_empty_and_no_changes():
