@@ -621,7 +621,7 @@ def _escape_diff_string(value: Optional[str]) -> str:
     """Make a string safe/readable for a single-line text diff."""
     if value is None:
         return ""
-    text = value.replace("\\", "\\\\").replace("\n", "\\n").replace("\r", "\\r")
+    text = value.replace("\\", "\\\\").replace("\n", "\\n").replace("\r", "\\r").replace(chr(96) * 3, chr(96) + " " + chr(96) + " " + chr(96))
     if len(text) > DIFF_STRING_MAX_LEN:
         return text[: DIFF_STRING_MAX_LEN - 3] + "..."
     return text
