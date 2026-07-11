@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ master ]
+    branches: [ master, quantumstrand ]
   pull_request:
-    branches: [ master ]
+    branches: [ master, quantumstrand ]
 
 # save workspaces to speed up testing
 env:
@@ -17,6 +17,9 @@ jobs:
     steps:
     - name: Checkout FLOSS
       uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      with:
+        # tag DBs and FLIRT sigs are LFS; mypy does not need them but keep checkout consistent
+        lfs: true
     - name: Set up Python 3.10
       uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c # v5.0.0
       with:
@@ -51,6 +54,8 @@ jobs:
       uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
       with:
         submodules: true
+        # layout/tag DBs and FLIRT signatures are stored in Git LFS
+        lfs: true
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c # v5.0.0
       with:
