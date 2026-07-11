@@ -699,6 +699,38 @@ def test_format_build_diff_truncates_each_library_independently():
         assert f"omitted for {lib}" in text
 
 
+def test_format_build_diff_markdown_heads_outside_fences():
+    def _lib_diff(name: str, n: int) -> build_oss_db.LibraryDiff:
+        added = [build_oss_db.make_db_entry(f"{name}-{i}", name, "1.0", "f.c", "fn") for i in range(n)]
+        return build_oss_db.LibraryDiff(
+            library=name,
+            old_count=0,
+            new_count=n,
+            added=added,
+            removed=[],
+            changed=[],
+        )
+
+    text = build_oss_db.format_build_diff_markdown(
+        [_lib_diff("zlib", 25), _lib_diff("curl", 25)],
+        max_lines_per_library=5,
+    )
+    # Headings are markdown, not inside the fenced blocks.
+    assert "## zlib" in text
+    assert "## curl" in text
+    assert text.count("```diff") == 2
+    assert text.count("```") == 4  # open + close per library
+
+    # Each ```diff ... ``` block should not contain a ## heading.
+    parts = text.split("```")
+    # parts: [before, 'diff\n+...', '', '\n## curl\n...', 'diff\n+...', '', after]
+    for i, part in enumerate(parts):
+        if part.startswith("diff"):
+            assert "## " not in part
+            body_lines = [line for line in part.splitlines() if line.startswith(("+ ", "- ", "~ "))]
+            assert len(body_lines) == 5
+
+
 def test_format_build_diff_empty_and_no_changes():
     assert "No libraries were rebuilt" in build_oss_db.format_build_diff([])
     unchanged = build_oss_db.LibraryDiff(
@@ -710,6 +742,7 @@ def test_format_build_diff_empty_and_no_changes():
         changed=[],
     )
     assert "No entry-level changes" in build_oss_db.format_build_diff([unchanged])
+    assert "No entry-level changes" in build_oss_db.format_build_diff_markdown([unchanged])
 
 
 def test_format_build_diff_escapes_newlines_and_long_strings():
@@ -733,17 +766,25 @@ def test_main_writes_build_diff_for_new_and_merged_libraries(tmp_path):
         existing={"zlib": [existing_entry]},
     )
     assert rc == 0
-    for name in ("build_diff.txt", "build_diff_pr.txt"):
-        diff_path = tmp_path / name
-        assert diff_path.exists()
-        text = diff_path.read_text(encoding="utf-8")
-        # New library entries and the newly-added zlib string should appear.
-        assert "## zlib" in text
-        assert "## curl" in text
-        assert "+ hello-from-zlib" in text
-        assert "+ hello-from-curl" in text
-        # Pre-existing zlib string is preserved by merge, not listed as removed.
-        assert "- old-string" not in text
+    # Plain-text log report.
+    log_text = (tmp_path / "build_diff.txt").read_text(encoding="utf-8")
+    assert "## zlib" in log_text
+    assert "## curl" in log_text
+    assert "+ hello-from-zlib" in log_text
+    assert "+ hello-from-curl" in log_text
+    assert "- old-string" not in log_text
+
+    # PR markdown: headings outside per-library ```diff fences.
+    pr_text = (tmp_path / "build_diff_pr.txt").read_text(encoding="utf-8")
+    assert "## zlib" in pr_text
+    assert "## curl" in pr_text
+    assert "```diff" in pr_text
+    assert "+ hello-from-zlib" in pr_text
+    assert "+ hello-from-curl" in pr_text
+    assert "- old-string" not in pr_text
+    for part in pr_text.split("```"):
+        if part.startswith("diff"):
+            assert "## " not in part
 
 
 def test_main_build_diff_reports_no_changes_when_entries_identical(tmp_path):

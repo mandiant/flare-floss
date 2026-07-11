@@ -715,6 +715,14 @@ def diff_library_entries(library: str, old_entries: List[dict], new_entries: Lis
     )
 
 
+def _truncated_body_lines(body: List[str], max_lines: int, library: str) -> List[str]:
+    """Keep at most ``max_lines`` change lines; append a truncation note if needed."""
+    if len(body) <= max_lines:
+        return body
+    omitted = len(body) - max_lines
+    return body[:max_lines] + [f"... truncated ({omitted} more line(s) omitted for {library})"]
+
+
 def format_build_diff(
     library_diffs: List[LibraryDiff],
     max_lines_per_library: int = DIFF_MAX_LINES_PER_LIBRARY,
@@ -723,8 +731,7 @@ def format_build_diff(
 
     Each library section keeps its header plus at most ``max_lines_per_library``
     change lines (``+``/``-``/``~``). A trailing note is added when a library's
-    body is cut off. Use a lower cap (e.g. ``DIFF_PR_MAX_LINES_PER_LIBRARY``)
-    for PR description bodies.
+    body is cut off. Intended for CI logs (``build_diff.txt``).
     """
     if max_lines_per_library < 1:
         return ""
@@ -743,13 +750,7 @@ def format_build_diff(
     ]
     for diff in changed:
         lines.append(diff.header_line())
-        body = diff.body_lines()
-        if len(body) <= max_lines_per_library:
-            lines.extend(body)
-        else:
-            lines.extend(body[:max_lines_per_library])
-            omitted = len(body) - max_lines_per_library
-            lines.append(f"... truncated ({omitted} more line(s) omitted for {diff.library})")
+        lines.extend(_truncated_body_lines(diff.body_lines(), max_lines_per_library, diff.library))
         lines.append("")
 
     # Drop trailing blank line.
@@ -757,6 +758,47 @@ def format_build_diff(
         lines.pop()
 
     return "\n".join(lines) + "\n"
+
+
+def format_build_diff_markdown(
+    library_diffs: List[LibraryDiff],
+    max_lines_per_library: int = DIFF_PR_MAX_LINES_PER_LIBRARY,
+) -> str:
+    """Render library diffs as markdown for a GitHub PR description.
+
+    Each library gets a ``##`` heading outside its own fenced diff code block
+    that contains only the ``+``/``-``/``~`` change lines (truncated per library).
+    """
+    if max_lines_per_library < 1:
+        return ""
+
+    if not library_diffs:
+        return "No libraries were rebuilt.\n"
+
+    changed = [d for d in library_diffs if d.has_changes]
+    if not changed:
+        return "No entry-level changes detected.\n"
+
+    sections: List[str] = []
+    for diff in changed:
+        body = _truncated_body_lines(diff.body_lines(), max_lines_per_library, diff.library)
+        # Heading outside the fence; only +/-/~ (and optional truncation note) inside.
+        section = "\n".join(
+            [
+                f"## {diff.library}",
+                "",
+                f"entries: {diff.old_count} -> {diff.new_count}; "
+                f"+{len(diff.added)} -{len(diff.removed)} ~{len(diff.changed)}",
+                "",
+                "```diff",
+                *body,
+                "```",
+                "",
+            ]
+        )
+        sections.append(section)
+
+    return "\n".join(sections).rstrip() + "\n"
 
 
 def write_library_database(
@@ -883,8 +925,9 @@ def run_build(
     diff_path.write_text(diff_text, encoding="utf-8")
     logger.info("wrote entry-level diff to %s", diff_path)
 
-    # Shorter report for the GitHub PR description (20 change lines per library).
-    pr_diff_text = format_build_diff(library_diffs, max_lines_per_library=DIFF_PR_MAX_LINES_PER_LIBRARY)
+    # Markdown report for the GitHub PR description: ## heading per library,
+    # each with its own ```diff fence (20 change lines per library).
+    pr_diff_text = format_build_diff_markdown(library_diffs, max_lines_per_library=DIFF_PR_MAX_LINES_PER_LIBRARY)
     pr_diff_path = config.output_dir / "build_diff_pr.txt"
     pr_diff_path.write_text(pr_diff_text, encoding="utf-8")
     logger.info("wrote PR entry-level diff to %s", pr_diff_path)
