@@ -71,7 +71,7 @@ from floss.identify import (
     get_functions_without_tightloops,
 )
 from floss.logging_ import TRACE, DebugLevel
-from floss.stackstrings import extract_stackstrings
+from floss.stackstrings import extract_stack_and_global_strings
 from floss.tightstrings import extract_tightstrings
 from floss.string_decoder import decode_strings
 from floss.language.identify import Language, identify_language_and_version
@@ -769,13 +769,14 @@ def main(argv=None) -> int:
                 # and should be caught by the tightstrings extraction below
                 selected_functions = get_functions_without_tightloops(decoding_function_features)
 
-            results.strings.stack_strings = extract_stackstrings(
+            results.strings.stack_strings, written_global_strings = extract_stack_and_global_strings(
                 vw,
                 selected_functions,
                 args.min_length,
                 verbosity=args.verbose,
                 disable_progress=args.quiet or args.disable_progress,
             )
+            results.strings.decoded_strings.extend(written_global_strings)
             results.analysis.functions.analyzed_stack_strings = len(selected_functions)
             results.metadata.runtime.stack_strings = get_runtime_diff(interim)
             interim = time()
@@ -814,13 +815,36 @@ def main(argv=None) -> int:
                     logger.debug("  - 0x%x: score: %.3f, xrefs to: %d", fva, score, xrefs_to)
 
             # TODO filter out strings decoded in library function or function only called by library function(s)
-            results.strings.decoded_strings = decode_strings(
+            decoded_strings = decode_strings(
                 vw,
                 fvas_to_emulate,
                 args.min_length,
                 verbosity=args.verbose,
                 disable_progress=args.quiet or args.disable_progress,
             )
+
+            seen_decoded_strings = {
+                (
+                    decoded_string.address,
+                    decoded_string.address_type,
+                    decoded_string.string,
+                    decoded_string.encoding,
+                )
+                for decoded_string in results.strings.decoded_strings
+            }
+
+            for decoded_string in decoded_strings:
+                key = (
+                    decoded_string.address,
+                    decoded_string.address_type,
+                    decoded_string.string,
+                    decoded_string.encoding,
+                )
+                if key in seen_decoded_strings:
+                    continue
+
+                seen_decoded_strings.add(key)
+                results.strings.decoded_strings.append(decoded_string)
             results.analysis.functions.analyzed_decoded_strings = len(fvas_to_emulate)
             results.metadata.runtime.decoded_strings = get_runtime_diff(interim)
 
