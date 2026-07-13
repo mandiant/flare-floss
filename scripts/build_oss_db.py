@@ -604,7 +604,7 @@ def merge_entries(
     return list(seen.values())
 
 
-# Max +/-/~ lines per library in build_diff.txt (full report for CI logs).
+# Max +/-/~ lines per library in the CI log summary (build_diff.txt).
 DIFF_MAX_LINES_PER_LIBRARY = 100
 # Shorter per-library cap for the PR description body.
 DIFF_PR_MAX_LINES_PER_LIBRARY = 20
@@ -744,7 +744,7 @@ def format_build_diff(
 
     Each library section keeps its header plus at most ``max_lines_per_library``
     change lines (``+``/``-``/``~``). A trailing note is added when a library's
-    body is cut off. Intended for CI logs (``build_diff.txt``).
+    body is cut off. Intended for the capped CI log summary (``build_diff.txt``).
     """
     if max_lines_per_library < 1:
         return ""
@@ -783,7 +783,7 @@ def _omission_footer(omitted: List[str]) -> str:
         names = ", ".join(omitted[:8]) + f", ... (+{len(omitted) - 8} more)"
     return (
         f"\n... omitted {len(omitted)} more libraries with changes ({names}).\n"
-        "See `build_diff.txt` in the workflow logs for the full report.\n"
+        "See `build_diff.txt` in the workflow logs for the capped CI summary.\n"
     )
 
 
@@ -822,8 +822,8 @@ def format_build_diff_markdown(
 
     The whole report is also capped at ``max_chars`` so the PR body stays under
     GitHub's 65536-character limit (with headroom for the workflow header).
-    Libraries that do not fit are summarized in a trailing note; the full
-    report remains in ``build_diff.txt`` / workflow logs.
+    Libraries that do not fit are summarized in a trailing note; the capped CI
+    log summary remains in ``build_diff.txt`` / workflow logs.
     """
     if max_lines_per_library < 1 or max_chars < 1:
         return ""
@@ -997,7 +997,7 @@ def run_build(
     metrics_path.write_text(json.dumps(summary, indent=2))
     logger.info("wrote metrics to %s", metrics_path)
 
-    # Full report for CI logs (up to 100 change lines per library).
+    # Capped CI log summary (up to 100 change lines per library).
     diff_text = format_build_diff(library_diffs, max_lines_per_library=DIFF_MAX_LINES_PER_LIBRARY)
     diff_path = config.output_dir / "build_diff.txt"
     diff_path.write_text(diff_text, encoding="utf-8")
