@@ -19,7 +19,7 @@ log-symbols==0.0.14
 markdown-it-py==4.2.0
 mdurl==0.1.2
 msgpack==1.2.1
-mypy==2.1.0
+mypy==2.2.0
 networkx==3.4.2
 nodeenv==1.10.0
 packaging==26.2
