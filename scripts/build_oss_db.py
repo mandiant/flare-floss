@@ -835,12 +835,7 @@ def format_build_diff_markdown(
     if not changed:
         return "No entry-level changes detected.\n"
 
-    # Worst-case omission footer length (fixed shape, capped name list).
-    footer_reserve = len(_omission_footer([f"lib{i:03d}" for i in range(100)]))
-    budget = max(1, max_chars - footer_reserve)
-
     sections: List[str] = []
-    total = 0
     omitted: List[str] = []
 
     for i, diff in enumerate(changed):
@@ -859,19 +854,20 @@ def format_build_diff_markdown(
                 "",
             ]
         )
-        # +1 for the newline join between sections (except the first).
-        extra = len(section) + (1 if sections else 0)
-        if sections and total + extra > budget:
-            omitted = [d.library for d in changed[i:]]
-            break
-        # First section alone may still exceed budget (huge strings); hard-cut it.
-        if not sections and len(section) > budget:
-            cut = _clip_to_max_chars(section, budget)
+        remaining = [d.library for d in changed[i + 1 :]]
+        footer = _omission_footer(remaining)
+        candidate_text = "\n".join([*sections, section]).rstrip() + "\n" + footer
+        if len(candidate_text) > max_chars:
+            if sections:
+                omitted = [d.library for d in changed[i:]]
+                break
+            # First section alone may still exceed the cap; hard-cut it.
+            section_budget = max_chars - len(footer) if footer else max_chars
+            cut = _clip_to_max_chars(section, max(1, section_budget))
             sections.append(cut if cut.endswith("\n") else cut + "\n")
-            omitted = [d.library for d in changed[i + 1 :]]
+            omitted = [d.library for d in remaining]
             break
         sections.append(section)
-        total += extra
 
     text = "\n".join(sections).rstrip() + "\n"
     if omitted:

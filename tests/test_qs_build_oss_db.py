@@ -677,17 +677,6 @@ def test_format_build_diff_truncates_per_library():
 
 
 def test_format_build_diff_truncates_each_library_independently():
-    def _lib_diff(name: str, n: int) -> build_oss_db.LibraryDiff:
-        added = [build_oss_db.make_db_entry(f"{name}-{i}", name, "1.0", "f.c", "fn") for i in range(n)]
-        return build_oss_db.LibraryDiff(
-            library=name,
-            old_count=0,
-            new_count=n,
-            added=added,
-            removed=[],
-            changed=[],
-        )
-
     text = build_oss_db.format_build_diff(
         [_lib_diff("zlib", 30), _lib_diff("curl", 30)],
         max_lines_per_library=5,
@@ -697,6 +686,39 @@ def test_format_build_diff_truncates_each_library_independently():
         # Body lines are "+ zlib-0" etc.; count lines for that library.
         assert len(body) == 5
         assert f"omitted for {lib}" in text
+
+
+def test_format_build_diff_markdown_reserves_actual_omission_footer_size():
+    keep = build_oss_db.LibraryDiff(
+        library="keep",
+        old_count=0,
+        new_count=1,
+        added=[build_oss_db.make_db_entry("keep-string", "keep", "1.0", "f.c", "fn")],
+        removed=[],
+        changed=[],
+    )
+    omitted_name = "lib-" + ("x" * 180)
+    omitted = build_oss_db.LibraryDiff(
+        library=omitted_name,
+        old_count=0,
+        new_count=1,
+        added=[build_oss_db.make_db_entry("omit-string", omitted_name, "1.0", "f.c", "fn")],
+        removed=[],
+        changed=[],
+    )
+    keep_text = build_oss_db.format_build_diff_markdown([keep], max_lines_per_library=5, max_chars=10_000)
+    footer = build_oss_db._omission_footer([omitted_name])
+    text = build_oss_db.format_build_diff_markdown(
+        [keep, omitted],
+        max_lines_per_library=5,
+        max_chars=len(keep_text) + len(footer),
+    )
+
+    assert len(text) <= len(keep_text) + len(footer)
+    assert "## keep" in text
+    assert omitted_name in text
+    assert "```diff" in text
+    assert text.count("```") % 2 == 0
 
 
 def _lib_diff(name: str, n: int) -> build_oss_db.LibraryDiff:
