@@ -12,6 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Global-prevalence tag source: strings common across many binaries (#common, #code-junk).
+
+Tag sources load on-disk databases and answer whether a string should receive a tag.
+See ``floss.tags.engine`` for wiring into the analysis pipeline.
+"""
+
 import gzip
 import hashlib
 import pathlib

@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# examples:
+# $ extract_strings.py -d --pes C:\Windows cwinpes
+
 import os
 import sys
 import json

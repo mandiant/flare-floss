@@ -12,6 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# examples:
+# $ generate_gp_db.py cwinpes cwindb-native.jsonl.gz --type native
+# scanned 24,212 files with 43,918,395 strings
+# final db contains 3,631 strings (more than 500 occurrences)
+#
+# $ generate_gp_db.py cwinpes cwindb-dotnet.jsonl.gz --type dotnet
+# scanned 24,212 files with 24,767,670 strings
+# final db contains 1,683 strings (more than 500 occurrences)
+
 import os
 import sys
 import json

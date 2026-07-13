@@ -54,7 +54,7 @@ def test_round_trip(analyzed_layout, pma_binary_path):
         path=str(pma_binary_path.resolve()),
     )
     meta = Metadata(version="1", sample=sample, min_str_len=MIN_STR_LEN, timestamp=datetime.datetime.now())
-    result = ResultDocument.from_qs(meta=meta, layout=analyzed_layout)
+    result = ResultDocument.from_layout(meta=meta, layout=analyzed_layout)
     one = result
 
     doc = one.model_dump_json(exclude_none=True)

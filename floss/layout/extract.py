@@ -16,11 +16,74 @@
 
 from __future__ import annotations
 
-from typing import List
+import re
+import itertools
+from typing import List, Iterable
 
-from floss.ranges import Range, Slice
+from floss.ranges import Slice
 from floss.layout.base import Layout
-from floss.layout.types import TaggedString, extract_strings
+from floss.layout.types import TaggedString, ExtractedString
+
+MIN_STR_LEN = 4
+# we don't include \r and \n to make output easier to understand by humans and to simplify rendering
+ASCII_BYTE = rb" !\"#\$%&\'\(\)\*\+,-\./0123456789:;<=>\?@ABCDEFGHIJKLMNOPQRSTUVWXYZ\[\]\^_`abcdefghijklmnopqrstuvwxyz\{\|\}\\\~\t"
+ASCII_RE_MIN = re.compile(b"([%s]{%d,})" % (ASCII_BYTE, MIN_STR_LEN))
+UNICODE_RE_MIN = re.compile(b"((?:[%s]\x00){%d,})" % (ASCII_BYTE, MIN_STR_LEN))
+
+
+def extract_ascii_strings(slice: Slice, n: int = MIN_STR_LEN) -> Iterable[ExtractedString]:
+    "enumerate ASCII strings in the given binary data"
+
+    if not slice.range.length:
+        return
+
+    r: re.Pattern
+    if n == MIN_STR_LEN:
+        r = ASCII_RE_MIN
+    else:
+        reg = b"([%s]{%d,})" % (ASCII_BYTE, n)
+        r = re.compile(reg)
+
+    for match in r.finditer(slice.data):
+        offset = match.start()
+        length = match.end() - match.start()
+        string = match.group().decode("ascii")
+        yield ExtractedString(string=string, slice=slice.slice(offset, length), encoding="ascii")
+
+
+def extract_unicode_strings(slice: Slice, n: int = MIN_STR_LEN) -> Iterable[ExtractedString]:
+    "enumerate naive UTF-16 strings in the given binary data"
+
+    if not slice.range.length:
+        return
+
+    r: re.Pattern
+    if n == MIN_STR_LEN:
+        r = UNICODE_RE_MIN
+    else:
+        reg = b"((?:[%s]\x00){%d,})" % (ASCII_BYTE, n)
+        r = re.compile(reg)
+
+    for match in r.finditer(slice.data):
+        offset = match.start()
+        length = match.end() - match.start()
+
+        try:
+            string = match.group().decode("utf-16")
+        except UnicodeDecodeError:
+            continue
+
+        yield ExtractedString(string=string, slice=slice.slice(offset, length), encoding="unicode")
+
+
+def extract_strings(slice: Slice, n: int = MIN_STR_LEN) -> Iterable[ExtractedString]:
+    "enumerate ASCII and naive UTF-16 strings in the given binary data"
+    return list(
+        sorted(
+            itertools.chain(extract_ascii_strings(slice, n), extract_unicode_strings(slice, n)),
+            key=lambda s: s.slice.range.offset,
+        )
+    )
 
 
 def extract_layout_strings(layout: Layout, min_len: int):

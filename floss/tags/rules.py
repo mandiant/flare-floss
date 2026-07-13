@@ -16,18 +16,21 @@
 
 from __future__ import annotations
 
-from typing import Dict, Literal
+from typing import TYPE_CHECKING, Dict, Literal
 
 from floss.document import ResultLayout, ResultString
 from floss.tags.oss import DEFAULT_FILENAMES
-from floss.layout.base import Layout
 from floss.layout.types import Tag
-from floss.layout.extract import collect_strings
+
+if TYPE_CHECKING:
+    from floss.layout.base import Layout
 
 TagRules = Dict[Tag, Literal["mute"] | Literal["highlight"] | Literal["default"] | Literal["hide"]]
 
 
-def remove_false_positive_lib_strings(layout: Layout):
+def remove_false_positive_lib_strings(layout: "Layout"):
+    from floss.layout.extract import collect_strings
+
     # list of references to all the tagged strings across the layout.
     # we can (carefully) manipulate the tags here.
     tagged_strings = collect_strings(layout)

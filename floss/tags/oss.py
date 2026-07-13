@@ -12,6 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Open-source library tag source: strings from rebuilt OSS libs (#openssl, #zlib, …).
+
+Tag sources load on-disk databases and answer whether a string should receive a tag.
+See ``floss.tags.engine`` for wiring into the analysis pipeline.
+"""
+
 import gzip
 import pathlib
 from typing import Dict, Sequence

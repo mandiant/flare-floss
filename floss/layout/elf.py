@@ -25,9 +25,8 @@ from elftools.elf.constants import P_FLAGS, SH_FLAGS
 from elftools.elf.relocation import RelocationSection
 from elftools.common.exceptions import ELFError
 
-from floss.ranges import Range, Slice, OffsetRanges
+from floss.ranges import Range, Slice, OffsetRanges, merge_overlapping_ranges
 from floss.layout.base import Layout, ELFLayout, Structure, SectionLayout, SegmentLayout
-from floss.layout.util import _merge_overlapping_ranges
 from floss.layout.types import Tag, ExtractedString
 
 logger = logging.getLogger("floss.layout.elf")
@@ -104,7 +103,7 @@ def get_relocations_elf(slice_: Slice, elf: ELFFile) -> List[Tuple[int, int]]:
                 continue
 
             ranges.append((slice_.offset + offset, slice_.offset + offset + size - 1))
-    return _merge_overlapping_ranges(ranges)
+    return merge_overlapping_ranges(ranges)
 
 
 def collect_elf_structures(slice_: Slice, elf: ELFFile) -> Sequence[Structure]:
@@ -246,7 +245,7 @@ def compute_elf_layout(slice_: Slice, xor_key: int | None) -> Layout:
     exec_ranges: List[Tuple[int, int]] = [
         (offset, offset + size) for offset, size, _name, is_exec in layout_elements if is_exec
     ]
-    code_offsets = OffsetRanges.from_merged_ranges(_merge_overlapping_ranges(exec_ranges))
+    code_offsets = OffsetRanges.from_merged_ranges(merge_overlapping_ranges(exec_ranges))
 
     layout = ELFLayout(
         slice=slice_,

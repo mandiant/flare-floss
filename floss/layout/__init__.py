@@ -34,8 +34,8 @@ from floss.layout.base import (
     MachOFatLayout,
 )
 from floss.layout.macho import _get_u32_be, _is_macho_magic, compute_macho_layout
-from floss.layout.types import MIN_STR_LEN, Tag, TaggedString, ExtractedString, extract_strings
-from floss.layout.extract import collect_strings, extract_layout_strings
+from floss.layout.types import Tag, TaggedString, ExtractedString
+from floss.layout.extract import MIN_STR_LEN, collect_strings, extract_strings, extract_layout_strings
 
 logger = logging.getLogger("floss.layout")
 

@@ -12,6 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Windows API tag source: known DLL and API name strings (#winapi).
+
+Tag sources load on-disk databases and answer whether a string should receive a tag.
+See ``floss.tags.engine`` for wiring into the analysis pipeline.
+"""
+
 import gzip
 import pathlib
 from typing import Set, Sequence

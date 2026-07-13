@@ -74,7 +74,7 @@ def analyze_path(path: pathlib.Path, min_length: int = MIN_STR_LEN) -> ResultDoc
         sample=sample,
         min_str_len=min_length,
     )
-    return ResultDocument.from_qs(meta, layout)
+    return ResultDocument.from_layout(meta, layout)
 
 
 def main(argv=None) -> int:

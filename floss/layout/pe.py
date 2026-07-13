@@ -24,7 +24,7 @@ from typing import Any, Set, Dict, List, Tuple, Optional, Sequence
 import pefile
 import lancelot
 
-from floss.ranges import Range, Slice, OffsetRanges, timing
+from floss.ranges import Range, Slice, OffsetRanges, timing, merge_overlapping_ranges
 from floss.layout.base import (
     Layout,
     PELayout,
@@ -33,7 +33,6 @@ from floss.layout.base import (
     SegmentLayout,
     ResourceLayout,
 )
-from floss.layout.util import _merge_overlapping_ranges
 from floss.layout.types import Tag, ExtractedString
 
 logger = logging.getLogger("floss.layout.pe")
@@ -327,7 +326,7 @@ def compute_pe_layout(slice_: Slice, xor_key: int | None) -> Layout:
             base_address = lancelot.be2utils.find_be2_base_address(be2)
             idx = lancelot.be2utils.BinExport2Index(be2)
             code_ranges = _get_code_ranges(be2, idx, base_address, pe, slice_)
-            merged_code_ranges = _merge_overlapping_ranges(code_ranges)
+            merged_code_ranges = merge_overlapping_ranges(code_ranges)
             code_offsets = OffsetRanges.from_merged_ranges(merged_code_ranges)
 
     layout = PELayout(

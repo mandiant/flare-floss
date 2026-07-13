@@ -12,6 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Expert-curated tag source: rules authored by analysts (CAPA-derived, etc.).
+
+The ``floss/tags`` package is named for the user-visible outcome (tags on strings),
+not for the on-disk JSONL databases. Each module here is a *tag source*: it loads
+serialized classification data and exposes a query interface. ``floss.tags.engine``
+wraps those queries into ``Tagger`` callables applied during analysis.
+"""
+
 import re
 import pathlib
 from typing import Set, Dict, List, Tuple, Literal, Sequence

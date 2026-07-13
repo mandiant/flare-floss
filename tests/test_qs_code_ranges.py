@@ -17,39 +17,38 @@ from unittest.mock import Mock, MagicMock
 import pefile
 import pytest
 
-from floss.ranges import Range, Slice
+from floss.ranges import Range, Slice, merge_overlapping_ranges
 from floss.layout.pe import _get_code_ranges
-from floss.layout.util import _merge_overlapping_ranges
 
 
-# Tests for _merge_overlapping_ranges
+# Tests for merge_overlapping_ranges
 def test_merge_empty_list():
     """Test merging an empty list of ranges."""
-    assert _merge_overlapping_ranges([]) == []
+    assert merge_overlapping_ranges([]) == []
 
 
 def test_merge_no_overlap():
     """Test merging ranges that do not overlap."""
     ranges = [(10, 20), (30, 40), (50, 60)]
-    assert _merge_overlapping_ranges(ranges) == [(10, 20), (30, 40), (50, 60)]
+    assert merge_overlapping_ranges(ranges) == [(10, 20), (30, 40), (50, 60)]
 
 
 def test_merge_with_overlap():
     """Test merging ranges that partially overlap."""
     ranges = [(10, 20), (15, 25), (30, 40)]
-    assert _merge_overlapping_ranges(ranges) == [(10, 25), (30, 40)]
+    assert merge_overlapping_ranges(ranges) == [(10, 25), (30, 40)]
 
 
 def test_merge_adjacent():
     """Test merging ranges that are right next to each other."""
     ranges = [(10, 20), (21, 30), (31, 40)]
-    assert _merge_overlapping_ranges(ranges) == [(10, 40)]
+    assert merge_overlapping_ranges(ranges) == [(10, 40)]
 
 
 def test_merge_fully_contained():
     """Test merging ranges where some are fully contained within others."""
     ranges = [(10, 40), (15, 25), (20, 30)]
-    assert _merge_overlapping_ranges(ranges) == [(10, 40)]
+    assert merge_overlapping_ranges(ranges) == [(10, 40)]
 
 
 def test_merge_complex_mix():
@@ -59,7 +58,7 @@ def test_merge_complex_mix():
     # (10, 20) and (18, 30) -> (10, 30)
     # (35, 40) and (39, 55) -> (35, 55)
     # (35, 55) and (50, 60) -> (35, 60)
-    assert _merge_overlapping_ranges(ranges) == [(10, 30), (35, 60)]
+    assert merge_overlapping_ranges(ranges) == [(10, 30), (35, 60)]
 
 
 # Tests for _get_code_ranges

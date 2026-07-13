@@ -12,17 +12,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Serializable analysis document for layout-aware string extraction."""
+"""Interim layout-aware result document for static string analysis.
+
+This module holds the layout-tree JSON schema produced by ``floss.quantum``.
+It will be merged into ``floss.results`` in iteration 2 so deobfuscated strings,
+layout, tags, and section context share one ``ResultDocument``.
+"""
 
 from __future__ import annotations
 
 import datetime
-from typing import List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 from pydantic import BaseModel
 
-from floss.layout.base import Layout
 from floss.layout.types import TaggedString
+
+if TYPE_CHECKING:
+    from floss.layout.base import Layout
 
 
 class ResultString(BaseModel):
@@ -96,6 +103,6 @@ class ResultDocument(BaseModel):
     layout: ResultLayout
 
     @classmethod
-    def from_qs(cls, meta: Metadata, layout: "Layout") -> "ResultDocument":
+    def from_layout(cls, meta: Metadata, layout: "Layout") -> "ResultDocument":
         results = ResultLayout.from_layout(layout)
         return ResultDocument(meta=meta, layout=results)

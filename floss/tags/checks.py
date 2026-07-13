@@ -16,7 +16,7 @@
 
 from __future__ import annotations
 
-from typing import Optional, Sequence
+from typing import Sequence
 
 from floss.ranges import OffsetRanges
 from floss.layout.types import Tag, ExtractedString

@@ -12,16 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Apply layout mapping and tags to FLOSS result documents.
+"""Full FLOSS analysis orchestration.
 
-Iteration-1 stub: layout-aware static analysis currently lives in
-``floss.quantum``. Full unification with deobfuscation results
-is planned for iteration 2.
+Iteration 2 will implement the unified pipeline here: deobfuscation (stack/tight/decoded
+strings) plus layout mapping and tag enrichment into a single ``ResultDocument``.
+``floss.enrich`` was removed as an unused stub; enrichment logic will land in this module.
 """
-
-from __future__ import annotations
-
-from floss.quantum import analyze_path
-from floss.document import ResultDocument
-
-__all__ = ["analyze_path", "ResultDocument"]
