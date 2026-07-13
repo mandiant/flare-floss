@@ -13,25 +13,76 @@
 # limitations under the License.
 
 
-from typing import Set, List, Optional
+from typing import Set, List, Tuple, Optional
 from dataclasses import dataclass
 
 import tqdm
 import viv_utils
 import envi.archs.i386
 import envi.archs.amd64
+import visgraph.pathcore as vg_path  # type: ignore[import-untyped]
 import viv_utils.emulator_drivers
 
 import floss.utils
 import floss.strings
 from floss.utils import getPointerSize, extract_strings
 from floss.render import Verbosity
-from floss.results import StackString
+from floss.results import AddressType, StackString, DecodedString
 
 logger = floss.logging_.getLogger(__name__)
 MAX_STACK_SIZE = 0x10000
 
 MIN_NUMBER_OF_MOVS = 5
+
+
+def get_written_global_memory(emu, initial_sp: int) -> List[Tuple[int, bytes]]:
+    """
+    Return contiguous non-stack memory ranges written during emulation.
+
+    Only addresses belonging to the input workspace are included. This
+    excludes the emulated stack and temporary heap allocations.
+    """
+    stack_start = 0
+    stack_end = 0
+
+    for mapva, mapsize, _permissions, _name in emu.getMemoryMaps():
+        if mapva <= initial_sp < mapva + mapsize:
+            stack_start = mapva
+            stack_end = mapva + mapsize
+            break
+
+    written_addresses: Set[int] = set()
+
+    for path_node in vg_path.getAllPaths(emu.path):
+        for _parent, _children, node_data in path_node:
+            for _opva, refva, written_data in node_data.get("writelog", []) or []:
+                for address in range(refva, refva + len(written_data)):
+                    if stack_start <= address < stack_end:
+                        continue
+
+                    if emu.vw.isValidPointer(address):
+                        written_addresses.add(address)
+
+    if not written_addresses:
+        return []
+
+    regions: List[Tuple[int, bytes]] = []
+    sorted_addresses = sorted(written_addresses)
+    region_start = sorted_addresses[0]
+    previous = sorted_addresses[0]
+
+    for address in sorted_addresses[1:]:
+        if address != previous + 1:
+            size = previous - region_start + 1
+            regions.append((region_start, emu.readMemory(region_start, size)))
+            region_start = address
+
+        previous = address
+
+    size = previous - region_start + 1
+    regions.append((region_start, emu.readMemory(region_start, size)))
+
+    return regions
 
 
 @dataclass(frozen=True)
@@ -44,6 +95,7 @@ class CallContext:
         sp: the current stack counter
         init_sp: the initial stack counter at start of function
         stack_memory: the active stack frame contents
+        global_memory: non-stack memory written before this context
         pre_ctx_strings: strings identified before this context
     """
 
@@ -51,7 +103,34 @@ class CallContext:
     sp: int
     init_sp: int
     stack_memory: bytes
+    global_memory: List[Tuple[int, bytes]]
     pre_ctx_strings: Optional[Set[str]]
+
+
+def extract_global_strings_from_context(
+    ctx: CallContext,
+    function_va: int,
+    min_length: int,
+    seen: Set[str],
+) -> List[DecodedString]:
+    """Extract strings from global memory written before a checkpoint."""
+    global_strings: List[DecodedString] = []
+
+    for region_address, region_data in ctx.global_memory:
+        for extracted_string in extract_strings(region_data, min_length, seen):
+            decoded_string = DecodedString(
+                address=region_address + extracted_string.offset,
+                address_type=AddressType.GLOBAL,
+                string=extracted_string.string,
+                encoding=extracted_string.encoding,
+                decoded_at=ctx.pc,
+                decoding_routine=function_va,
+            )
+
+            seen.add(decoded_string.string)
+            global_strings.append(decoded_string)
+
+    return global_strings
 
 
 class StackstringContextMonitor(viv_utils.emulator_drivers.Monitor):
@@ -97,7 +176,15 @@ class StackstringContextMonitor(viv_utils.emulator_drivers.Monitor):
         stack_buf = emu.readMemory(stack_top, stack_size)
         # would probably be an optimization here to strip garbage bytes, however, then we cannot easily track
         # the correct frame offset
-        ctx = CallContext(va, stack_top, stack_bottom, stack_buf, pre_ctx_strings)
+        global_memory = get_written_global_memory(emu, self._init_sp)
+        ctx = CallContext(
+            va,
+            stack_top,
+            stack_bottom,
+            stack_buf,
+            global_memory,
+            pre_ctx_strings,
+        )
         return ctx
 
     # overrides emulator_drivers.Monitor
@@ -160,9 +247,13 @@ def get_basic_block_ends(vw):
     return index
 
 
-def extract_stackstrings(
-    vw, selected_functions, min_length, verbosity=Verbosity.DEFAULT, disable_progress=False
-) -> List[StackString]:
+def extract_stack_and_global_strings(
+    vw,
+    selected_functions,
+    min_length,
+    verbosity=Verbosity.DEFAULT,
+    disable_progress=False,
+) -> Tuple[List[StackString], List[DecodedString]]:
     """
     Extracts the stackstrings from functions in the given workspace.
 
@@ -174,21 +265,39 @@ def extract_stackstrings(
     """
     logger.info("extracting stackstrings from %d functions", len(selected_functions))
 
-    stack_strings = list()
+    stack_strings: List[StackString] = []
+    global_strings: List[DecodedString] = []
     bb_ends = get_basic_block_ends(vw)
 
     pb = floss.utils.get_progress_bar(
-        selected_functions, disable_progress, desc="extracting stackstrings", unit=" functions"
+        selected_functions,
+        disable_progress,
+        desc="extracting stackstrings",
+        unit=" functions",
     )
-    with tqdm.contrib.logging.logging_redirect_tqdm(), floss.utils.redirecting_print_to_tqdm():
+    with (
+        tqdm.contrib.logging.logging_redirect_tqdm(),
+        floss.utils.redirecting_print_to_tqdm(),
+    ):
         for fva in pb:
             seen: Set[str] = floss.utils.get_referenced_strings(vw, fva)
             logger.debug("extracting stackstrings from function 0x%x", fva)
             ctxs = extract_call_contexts(vw, fva, bb_ends)
             for n, ctx in enumerate(ctxs, 1):
                 logger.trace(
-                    "extracting stackstrings at checkpoint: 0x%x stacksize: 0x%x", ctx.pc, ctx.init_sp - ctx.sp
+                    "extracting stackstrings at checkpoint: 0x%x stacksize: 0x%x",
+                    ctx.pc,
+                    ctx.init_sp - ctx.sp,
                 )
+                for decoded_string in extract_global_strings_from_context(
+                    ctx,
+                    fva,
+                    min_length,
+                    seen,
+                ):
+                    floss.results.log_result(decoded_string, verbosity)
+                    global_strings.append(decoded_string)
+
                 for s in extract_strings(ctx.stack_memory, min_length, seen):
                     frame_offset = (ctx.init_sp - ctx.sp) - s.offset - getPointerSize(vw)
                     ss = StackString(
@@ -204,4 +313,22 @@ def extract_stackstrings(
                     floss.results.log_result(ss, verbosity)
                     seen.add(s.string)
                     stack_strings.append(ss)
+    return stack_strings, global_strings
+
+
+def extract_stackstrings(
+    vw,
+    selected_functions,
+    min_length,
+    verbosity=Verbosity.DEFAULT,
+    disable_progress=False,
+) -> List[StackString]:
+    """Extract stack strings while preserving the existing public API."""
+    stack_strings, _global_strings = extract_stack_and_global_strings(
+        vw,
+        selected_functions,
+        min_length,
+        verbosity=verbosity,
+        disable_progress=disable_progress,
+    )
     return stack_strings
