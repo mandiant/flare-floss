@@ -624,13 +624,12 @@ def _escape_diff_string(value: Optional[str]) -> str:
     """
     if value is None:
         return ""
-    backtick = chr(96)  # ASCII backtick character.
     text = (
         value.replace("\\", "\\\\")
         .replace("\n", "\\n")
         .replace("\r", "\\r")
         .replace("\t", "\\t")
-        .replace(backtick * 3, f"{backtick} {backtick} {backtick}")
+        .replace("```", "` ` `")
     )
     if len(text) > DIFF_STRING_MAX_LEN:
         return text[: DIFF_STRING_MAX_LEN - 3] + "..."
@@ -799,7 +798,7 @@ def _clip_to_max_chars(text: str, max_chars: int) -> str:
 
     limit = max_chars - len(notice)
     truncated = text[:limit]
-    fence = chr(96) * 3  # Markdown fenced code-block delimiter.
+    fence = "```"  # Markdown fenced code-block delimiter.
     if truncated.count(fence) % 2:
         closing_fence = "\n" + fence
         if limit >= len(closing_fence):
