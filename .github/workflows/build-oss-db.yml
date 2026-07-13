@@ -22,11 +22,6 @@ jobs:
     name: Build OSS string databases
     runs-on: windows-latest
 
-    env:
-      # Workaround for zydis 3.1.3's CMakeLists.txt requiring an older
-      # cmake_minimum_required syntax. Remove once Lancelot updates zydis.
-      CMAKE_POLICY_VERSION_MINIMUM: '3.5'
-
     steps:
       - name: Checkout flare-floss
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -48,6 +43,8 @@ jobs:
 
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
+        with:
+          toolchain: stable
 
       - name: Build jh
         run: |
@@ -69,6 +66,52 @@ jobs:
           Get-Content floss\qs\db\data\oss\build_metrics.json
         working-directory: flare-floss
 
+      - name: Show entry-level diff
+        if: success() || failure()
+        run: |
+          if (Test-Path floss\qs\db\data\oss\build_diff.txt) {
+            Get-Content floss\qs\db\data\oss\build_diff.txt
+          } else {
+            Write-Host "build_diff.txt not produced"
+          }
+        working-directory: flare-floss
+
+      - name: Prepare PR body
+        if: success() || failure()
+        shell: pwsh
+        run: |
+          # Markdown already has per-library ## headings and ```diff fences.
+          $diffPath = "flare-floss/floss/qs/db/data/oss/build_diff_pr.txt"
+          $diff = if (Test-Path $diffPath) {
+            Get-Content $diffPath -Raw
+          } else {
+            "(no entry-level diff produced)"
+          }
+          $librariesConfig = Get-Content "flare-floss/floss/qs/db/data/oss/libraries.json" -Raw | ConvertFrom-Json
+          $body = @(
+            "Automated bi-weekly rebuild of the OSS string databases.",
+            "",
+            "- Triplet: ``$($librariesConfig.triplet)``",
+            "- Compiler: ``$($librariesConfig.compiler)``",
+            "- Library list: see ``floss/qs/db/data/oss/libraries.json``",
+            "",
+            "Per-library entry counts and timing are printed in the workflow logs (``build_metrics.json``).",
+            "",
+            "Entry-level diff (up to 20 lines per library):",
+            "",
+            $diff.TrimEnd(),
+            ""
+          ) -join "`n"
+          # GitHub rejects PR bodies over 65536 characters ("Body is too long").
+          # The Python script already caps the diff; this is a final safety net.
+          $maxBodyChars = 65000
+          if ($body.Length -gt $maxBodyChars) {
+            $notice = "`n`n... truncated to stay under GitHub's 65536-character PR body limit."
+            $keep = [Math]::Max(0, $maxBodyChars - $notice.Length)
+            $body = $body.Substring(0, $keep) + $notice
+          }
+          # Write outside the flare-floss checkout so create-pull-request does not commit it.
+          Set-Content -Path pr-body.md -Value $body -Encoding utf8
       - name: Create Pull Request if databases changed
         uses: peter-evans/create-pull-request@c5a7806660adbe173f04e3e038b0ccdcd758773c # v6.1.0
         with:
@@ -76,13 +119,9 @@ jobs:
           base: quantumstrand
           commit-message: 'chore(oss-db): update string databases'
           title: 'Update OSS string databases'
-          body: |
-            Automated bi-weekly rebuild of the OSS string databases.
-
-            - Triplet: `x64-windows-static`
-            - Compiler: `msvc143`
-            - Library list: see `floss/qs/db/data/oss/libraries.json`
-
-            Per-library entry counts and timing are in `floss/qs/db/data/oss/build_metrics.json`.
+          # Relative to $GITHUB_WORKSPACE (not the path: checkout).
+          body-path: pr-body.md
           branch: update-oss-string-databases
+          # Always open a fresh PR (e.g. update-oss-string-databases-6qj97jr).
+          branch-suffix: random
           delete-branch: true
