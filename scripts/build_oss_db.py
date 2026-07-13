@@ -618,10 +618,20 @@ _DIFF_META_FIELDS = ("library_version", "file_path", "function_name", "line_numb
 
 
 def _escape_diff_string(value: Optional[str]) -> str:
-    """Make a string safe/readable for a single-line text diff."""
+    """Make a string safe/readable for a single-line text diff.
+
+    Backticks are separated so string values cannot close markdown code fences.
+    """
     if value is None:
         return ""
-    text = value.replace("\\", "\\\\").replace("\n", "\\n").replace("\r", "\\r").replace(chr(96) * 3, chr(96) + " " + chr(96) + " " + chr(96))
+    backtick = chr(96)  # ASCII backtick character.
+    text = (
+        value.replace("\\", "\\\\")
+        .replace("\n", "\\n")
+        .replace("\r", "\\r")
+        .replace("\t", "\\t")
+        .replace(backtick * 3, f"{backtick} {backtick} {backtick}")
+    )
     if len(text) > DIFF_STRING_MAX_LEN:
         return text[: DIFF_STRING_MAX_LEN - 3] + "..."
     return text
@@ -786,7 +796,18 @@ def _clip_to_max_chars(text: str, max_chars: int) -> str:
     notice = "\n... truncated to stay under GitHub's PR body length limit.\n"
     if len(notice) >= max_chars:
         return notice[:max_chars]
-    return text[: max_chars - len(notice)].rstrip() + notice
+
+    limit = max_chars - len(notice)
+    truncated = text[:limit]
+    fence = chr(96) * 3  # Markdown fenced code-block delimiter.
+    if truncated.count(fence) % 2:
+        closing_fence = "\n" + fence
+        if limit >= len(closing_fence):
+            truncated = text[: limit - len(closing_fence)].rstrip() + closing_fence
+        else:
+            # A closing fence does not fit; omit the unmatched opening fence.
+            truncated = truncated[: truncated.rfind(fence)]
+    return truncated.rstrip() + notice
 
 
 def format_build_diff_markdown(

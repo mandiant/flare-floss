@@ -750,6 +750,23 @@ def test_format_build_diff_markdown_never_exceeds_github_limit_constant():
     assert len(text) <= build_oss_db.DIFF_PR_MAX_CHARS
 
 
+def test_clip_to_max_chars_closes_unclosed_code_fence():
+    text = "Before\n```diff\n+ " + ("x" * 100)
+    clipped = build_oss_db._clip_to_max_chars(text, 80)
+
+    assert len(clipped) <= 80
+    assert clipped.count("```") % 2 == 0
+    assert clipped.endswith("... truncated to stay under GitHub's PR body length limit.\n")
+
+
+def test_clip_to_max_chars_omits_fence_when_its_closing_fence_does_not_fit():
+    notice = "\n... truncated to stay under GitHub's PR body length limit.\n"
+    clipped = build_oss_db._clip_to_max_chars("```diff" + ("x" * 100), len(notice) + 3)
+
+    assert len(clipped) <= len(notice) + 3
+    assert clipped.count("```") % 2 == 0
+
+
 def test_format_build_diff_empty_and_no_changes():
     assert "No libraries were rebuilt" in build_oss_db.format_build_diff([])
     unchanged = build_oss_db.LibraryDiff(
@@ -764,11 +781,14 @@ def test_format_build_diff_empty_and_no_changes():
     assert "No entry-level changes" in build_oss_db.format_build_diff_markdown([unchanged])
 
 
-def test_format_build_diff_escapes_newlines_and_long_strings():
-    entry = build_oss_db.make_db_entry("hello\nworld" + ("x" * 200), "zlib", "1.0", "f.c", "fn")
+def test_format_build_diff_escapes_control_characters_backticks_and_long_strings():
+    entry = build_oss_db.make_db_entry("hello\nworld\rcolumn\tvalue```" + ("x" * 200), "zlib", "1.0", "f.c", "fn")
     diff = build_oss_db.diff_library_entries("zlib", [], [entry])
     text = build_oss_db.format_build_diff([diff])
     assert "\\n" in text
+    assert "\\r" in text
+    assert "\\t" in text
+    assert "` ` `" in text
     # Long strings are truncated with ellipsis; each +/-/~ line stays single-line.
     assert "..." in text
     for line in text.splitlines():

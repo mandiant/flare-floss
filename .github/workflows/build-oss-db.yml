@@ -87,11 +87,12 @@ jobs:
           } else {
             "(no entry-level diff produced)"
           }
+          $librariesConfig = Get-Content "flare-floss/floss/qs/db/data/oss/libraries.json" -Raw | ConvertFrom-Json
           $body = @(
             "Automated bi-weekly rebuild of the OSS string databases.",
             "",
-            "- Triplet: ``x64-windows-static``",
-            "- Compiler: ``msvc143``",
+            "- Triplet: ``$($librariesConfig.triplet)``",
+            "- Compiler: ``$($librariesConfig.compiler)``",
             "- Library list: see ``floss/qs/db/data/oss/libraries.json``",
             "",
             "Per-library entry counts and timing are printed in the workflow logs (``build_metrics.json``).",
