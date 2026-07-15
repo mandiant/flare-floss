@@ -131,6 +131,10 @@ DEFAULT_PATHS = (
     pathlib.Path(floss.qs.db.__file__).parent / "data" / "gp" / "cwindb-dotnet.jsonl.gz",
     pathlib.Path(floss.qs.db.__file__).parent / "data" / "gp" / "xaa-hashes.bin",
     pathlib.Path(floss.qs.db.__file__).parent / "data" / "gp" / "yaa-hashes.bin",
+    pathlib.Path(floss.qs.db.__file__).parent / "data" / "gp" / "gp-2026-hashes.bin",
+    pathlib.Path(floss.qs.db.__file__).parent / "data" / "gp" / "gp-go-specific.bin",
+    pathlib.Path(floss.qs.db.__file__).parent / "data" / "gp" / "gp-rust-specific.bin",
+    pathlib.Path(floss.qs.db.__file__).parent / "data" / "gp" / "gp-pyinstaller-specific.bin",
 )
 
 
