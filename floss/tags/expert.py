@@ -27,10 +27,7 @@ from dataclasses import dataclass
 
 import msgspec
 
-
-def _data_root() -> pathlib.Path:
-    """Legacy DB location: floss/qs/db/data."""
-    return pathlib.Path(__file__).resolve().parents[1] / "qs" / "db" / "data"
+from floss.tags import data_root
 
 
 class ExpertRule(msgspec.Struct):
@@ -107,7 +104,7 @@ class ExpertStringDatabase:
         )
 
 
-DEFAULT_PATHS = (_data_root() / "expert" / "capa.jsonl",)
+DEFAULT_PATHS = (data_root() / "expert" / "capa.jsonl",)
 
 
 def get_default_databases() -> Sequence[ExpertStringDatabase]:

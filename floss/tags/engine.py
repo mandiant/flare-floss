@@ -16,7 +16,6 @@
 
 from __future__ import annotations
 
-import pathlib
 import functools
 from typing import TYPE_CHECKING, Set, Dict, List, Tuple, Callable, Iterable, Optional, Sequence
 
@@ -24,6 +23,7 @@ import floss.tags.gp
 import floss.tags.oss
 import floss.tags.expert
 import floss.tags.winapi
+from floss.tags import data_root
 from floss.ranges import OffsetRanges
 from floss.tags.gp import StringHashDatabase, StringGlobalPrevalenceDatabase
 from floss.tags.oss import OpenSourceStringDatabase
@@ -125,9 +125,7 @@ def load_databases() -> Sequence[Tagger]:
             raise ValueError(f"unexpected database type: {type(db_gp)}")
 
     # supplement code analysis with a database of junk code strings
-    junk_db = StringGlobalPrevalenceDatabase.from_file(
-        pathlib.Path(__file__).resolve().parents[1] / "qs" / "db" / "data" / "gp" / "junk-code.jsonl.gz"
-    )
+    junk_db = StringGlobalPrevalenceDatabase.from_file(data_root() / "gp" / "junk-code.jsonl.gz")
     ret.append(make_tagger(junk_db, query_code_string_database))
 
     return ret

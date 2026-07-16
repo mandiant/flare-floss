@@ -28,11 +28,7 @@ from dataclasses import dataclass
 
 import msgspec
 
-
-def _data_root() -> pathlib.Path:
-    """Legacy DB location: floss/qs/db/data."""
-    return pathlib.Path(__file__).resolve().parents[1] / "qs" / "db" / "data"
-
+from floss.tags import data_root
 
 Encoding = Literal["ascii"] | Literal["utf-16le"] | Literal["unknown"]
 # header | gap | overlay
@@ -150,11 +146,11 @@ class StringHashDatabase:
 
 
 DEFAULT_PATHS = (
-    _data_root() / "gp" / "gp.jsonl.gz",
-    _data_root() / "gp" / "cwindb-native.jsonl.gz",
-    _data_root() / "gp" / "cwindb-dotnet.jsonl.gz",
-    _data_root() / "gp" / "xaa-hashes.bin",
-    _data_root() / "gp" / "yaa-hashes.bin",
+    data_root() / "gp" / "gp.jsonl.gz",
+    data_root() / "gp" / "cwindb-native.jsonl.gz",
+    data_root() / "gp" / "cwindb-dotnet.jsonl.gz",
+    data_root() / "gp" / "xaa-hashes.bin",
+    data_root() / "gp" / "yaa-hashes.bin",
 )
 
 

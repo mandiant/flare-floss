@@ -25,10 +25,7 @@ from dataclasses import dataclass
 
 import msgspec
 
-
-def _data_root() -> pathlib.Path:
-    """Legacy DB location: floss/qs/db/data."""
-    return pathlib.Path(__file__).resolve().parents[1] / "qs" / "db" / "data"
+from floss.tags import data_root
 
 
 class OpenSourceString(msgspec.Struct):
@@ -80,8 +77,8 @@ DEFAULT_FILENAMES = (
     "zlib.jsonl.gz",
 )
 
-DEFAULT_PATHS = tuple(_data_root() / "oss" / filename for filename in DEFAULT_FILENAMES) + (
-    _data_root() / "crt" / "msvc_v143.jsonl.gz",
+DEFAULT_PATHS = tuple(data_root() / "oss" / filename for filename in DEFAULT_FILENAMES) + (
+    data_root() / "crt" / "msvc_v143.jsonl.gz",
 )
 
 
