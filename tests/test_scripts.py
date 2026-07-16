@@ -30,7 +30,7 @@ CD = Path(__file__).resolve().parent
 
 
 def get_script_path(s) -> Path:
-    return CD / ".." / "scripts" / s
+    return CD / ".." / "scripts" / "disassemblers" / s
 
 
 def get_file_path() -> Path:

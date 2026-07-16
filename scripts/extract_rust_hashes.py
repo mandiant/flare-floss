@@ -21,7 +21,7 @@ Description: Generates a database of Rust hashes from the Rust repository. Repo:
 
 Usage:
 
-  $ python3 extract_rust_hashes.py
+  $ python3 scripts/extract_rust_hashes.py
 """
 
 import subprocess
@@ -91,8 +91,8 @@ header = """
 #
 # To regenerate or update this file, you can follow these steps:
 # 1. Navigate to the script directory.
-# 2. Execute the script 'extract_rust_hashes.py'.
-#    Example command: python extract_rust_hashes.py
+# 2. Execute scripts/extract_rust_hashes.py from the repository root.
+#    Example command: python scripts/extract_rust_hashes.py
 #############################################################################################
 
 

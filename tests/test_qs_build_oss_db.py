@@ -17,7 +17,7 @@ import json
 import logging
 import pathlib
 
-import scripts.build_oss_db as build_oss_db
+import scripts.tags.build_oss_db as build_oss_db
 
 SAMPLE_DB_PATH = pathlib.Path(__file__).resolve().parent.parent / "floss" / "qs" / "db" / "data" / "oss"
 
