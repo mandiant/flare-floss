@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 
 def load_db_gp():
-    gpfile = os.path.join(os.path.dirname(__file__), "..", "db", "data", "gp", "gp.jsonl.gz")
+    gpfile = os.path.join(os.path.dirname(__file__), "..", "..", "floss", "qs", "db", "data", "gp", "gp.jsonl.gz")
     compress = gpfile.endswith(".gz")
     return StringGlobalPrevalenceDatabase.from_file(pathlib.Path(gpfile), compress=compress)
 
