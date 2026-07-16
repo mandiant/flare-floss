@@ -24,6 +24,7 @@ import floss.tags.gp
 import floss.tags.oss
 import floss.tags.expert
 import floss.tags.winapi
+from floss.ranges import OffsetRanges
 from floss.tags.gp import StringHashDatabase, StringGlobalPrevalenceDatabase
 from floss.tags.oss import OpenSourceStringDatabase
 from floss.tags.expert import ExpertStringDatabase
@@ -31,6 +32,24 @@ from floss.tags.winapi import WindowsApiStringDatabase
 from floss.layout.types import Tag, ExtractedString
 
 Tagger = Callable[[ExtractedString], Sequence[Tag]]
+
+
+def check_is_xor(xor_key: int | None) -> Sequence[Tag]:
+    if isinstance(xor_key, int):
+        return ("#decoded",)
+    return ()
+
+
+def check_is_reloc(reloc_offsets: OffsetRanges, string: ExtractedString) -> Sequence[Tag]:
+    if reloc_offsets.overlaps(string.slice.range.offset, string.slice.range.end - 1):
+        return ("#reloc",)
+    return ()
+
+
+def check_is_code(code_offsets: OffsetRanges, string: ExtractedString) -> Sequence[Tag]:
+    if code_offsets.overlaps(string.slice.range.offset, string.slice.range.end - 1):
+        return ("#code",)
+    return ()
 
 
 def query_code_string_database(db: StringGlobalPrevalenceDatabase, string: str):

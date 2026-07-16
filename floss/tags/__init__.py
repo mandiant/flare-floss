@@ -16,7 +16,7 @@
 
 Modules like ``expert``, ``gp``, ``oss``, and ``winapi`` are *tag sources* — they
 load on-disk classification databases and expose query interfaces. ``engine`` wires
-those into ``Tagger`` callables; ``checks`` holds layout-derived tags (#code, etc.).
+those into ``Tagger`` callables, including layout-derived tags (#code, etc.).
 """
 
 from floss.tags.rules import (
