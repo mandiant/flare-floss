@@ -324,4 +324,6 @@ def set_log_config(debug, quiet):
     # handlers[0] is a StreamHandler to STDERR.
     #
     # calling this code from outside script main may do something unexpected.
-    logging.getLogger().handlers[0].setFormatter(floss.logging_.ColorFormatter())
+    root_handlers = logging.getLogger().handlers
+    if root_handlers:
+        root_handlers[0].setFormatter(floss.logging_.ColorFormatter())

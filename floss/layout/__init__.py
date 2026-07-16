@@ -59,9 +59,12 @@ def compute_layout(slice_: Slice) -> Layout:
     xor_key = None
     decoded_slice = slice_
 
-    # Try to find the XOR key
+    # Try to find the XOR key. Read only the first two bytes from buf; slice_.data
+    # copies the entire underlying buffer on each call.
+    rel_start = slice_.range.offset - slice_.base_offset
+    start_bytes = slice_.buf[rel_start : rel_start + 2]
     for mz, key in mz_xor:
-        if slice_.data.startswith(mz):
+        if start_bytes == mz:
             xor_key = key
             break
 
