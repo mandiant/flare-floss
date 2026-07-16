@@ -30,6 +30,7 @@ jobs:
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           submodules: false
+          lfs: true
       - name: Set up Python 3.10
         uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c # v5.0.0
         with:
@@ -40,6 +41,15 @@ jobs:
           pip install -e .[build]
       - name: Build standalone executable
         run: pyinstaller .github/pyinstaller/floss.spec
+      - name: Verify quantumstrand modules and tag DBs are bundled
+        run: |
+          python - <<'PY'
+          import pathlib
+          data = pathlib.Path("dist/${{ matrix.artifact_name }}").read_bytes()
+          for needle in (b"floss/qs/db/data", b"floss.layout", b"openssl.jsonl"):
+              if needle not in data:
+                  raise SystemExit(f"missing bundled quantumstrand asset: {needle!r}")
+          PY
       - uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
         with:
           name: ${{ matrix.asset_name }}

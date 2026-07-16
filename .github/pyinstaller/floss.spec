@@ -16,6 +16,26 @@
 
 import subprocess
 
+from PyInstaller.utils.hooks import collect_submodules
+
+# layout/tags/quantum modules are not imported by floss/main.py yet, but must be
+# bundled for the standalone binary (formerly built via qs.spec).
+quantum_hiddenimports = (
+    collect_submodules("floss.layout")
+    + collect_submodules("floss.tags")
+    + [
+        "floss.quantum",
+        "floss.document",
+        "floss.render.layout_text",
+        "floss.ranges",
+        "elftools",
+        "lancelot",
+        "machofile",
+        "dnfile",
+        "msgspec",
+    ]
+)
+
 # when invoking pyinstaller from the project root,
 # this gets run from the project root.
 with open("./floss/version.py", "wb") as f:
@@ -33,6 +53,54 @@ with open("./floss/version.py", "wb") as f:
     )
     f.write(("__version__ = '%s'" % version).encode("utf-8"))
 
+datas = [
+    # when invoking pyinstaller from the project root,
+    # this gets invoked from the directory of the spec file,
+    # i.e. ./.github/pyinstaller
+    ('../../floss/sigs', 'sigs'),
+    # tag databases (legacy path: floss/qs/db/data)
+    ('../../floss/qs/db/data/crt/*.jsonl.gz', 'floss/qs/db/data/crt'),
+    ('../../floss/qs/db/data/expert/*.jsonl', 'floss/qs/db/data/expert'),
+    ('../../floss/qs/db/data/gp/*.jsonl.gz', 'floss/qs/db/data/gp'),
+    ('../../floss/qs/db/data/gp/*.bin', 'floss/qs/db/data/gp'),
+    ('../../floss/qs/db/data/oss/*.jsonl.gz', 'floss/qs/db/data/oss'),
+    ('../../floss/qs/db/data/winapi/*.txt.gz', 'floss/qs/db/data/winapi'),
+]
+
+excludes = [
+    # ignore packages that would otherwise be bundled with the .exe.
+    # review: build/pyinstaller/xref-pyinstaller.html
+    # we don't do any GUI stuff, so ignore these modules
+    "tkinter",
+    "_tkinter",
+    "Tkinter",
+
+    # tqdm provides renderers for ipython,
+    # however, this drags in a lot of dependencies.
+    # since we don't spawn a notebook, we can safely remove these.
+    "IPython",
+    "ipywidgets",
+
+    # these are pulled in by networkx
+    # but we don't need to compute the strongly connected components.
+    "numpy",
+    "scipy",
+    "matplotlib",
+    "pandas",
+    "pytest",
+
+    # deps from viv that we don't use.
+    # this duplicates the entries in `hook-vivisect`,
+    # but works better this way.
+    "vqt",
+    "vdb.qt",
+    "envi.qt",
+    "PyQt5",
+    "qt5",
+    "pyqtwebengine",
+    "pyasn1",
+]
+
 a = Analysis(
     # when invoking pyinstaller from the project root,
     # this gets invoked from the directory of the spec file,
@@ -40,48 +108,11 @@ a = Analysis(
     ["../../floss/main.py"],
     pathex=["floss"],
     binaries=[],
-    datas=[
-        # when invoking pyinstaller from the project root,
-        # this gets invoked from the directory of the spec file,
-        # i.e. ./.github/pyinstaller
-        ('../../floss/sigs', 'sigs'),
-    ],
-    hiddenimports=[],
+    datas=datas,
+    hiddenimports=quantum_hiddenimports,
     hookspath=[".github/pyinstaller/hooks"],
     runtime_hooks=[],
-    excludes=[
-        # ignore packages that would otherwise be bundled with the .exe.
-        # review: build/pyinstaller/xref-pyinstaller.html
-        # we don't do any GUI stuff, so ignore these modules
-        "tkinter",
-        "_tkinter",
-        "Tkinter",
-
-        # tqdm provides renderers for ipython,
-        # however, this drags in a lot of dependencies.
-        # since we don't spawn a notebook, we can safely remove these.
-        "IPython",
-        "ipywidgets",
-
-        # these are pulled in by networkx
-        # but we don't need to compute the strongly connected components.
-        "numpy",
-        "scipy",
-        "matplotlib",
-        "pandas",
-        "pytest",
-
-        # deps from viv that we don't use.
-        # this duplicates the entries in `hook-vivisect`,
-        # but works better this way.
-        "vqt",
-        "vdb.qt",
-        "envi.qt",
-        "PyQt5",
-        "qt5",
-        "pyqtwebengine",
-        "pyasn1",
-    ],
+    excludes=excludes,
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
     noarchive=False,
