@@ -24,7 +24,7 @@ from rich.style import Style
 from rich.console import Console
 
 from floss.document import ResultLayout, ResultString
-from floss.tags.rules import TagRules, should_hide_string
+from floss.tags.filter import TagRules, should_hide_string
 from floss.layout.types import Tag
 
 MUTED_STYLE = Style(color="gray50")

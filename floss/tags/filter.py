@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Visibility rules and false-positive library tag cleanup."""
+"""Visibility filters and false-positive library tag cleanup."""
 
 from __future__ import annotations
 
@@ -20,11 +20,11 @@ from typing import TYPE_CHECKING, Dict, Literal
 
 from floss.document import ResultLayout, ResultString
 from floss.tags.oss import DEFAULT_FILENAMES
-from floss.layout.types import Tag
 
 if TYPE_CHECKING:
     from floss.layout.base import Layout
 
+Tag = str
 TagRules = Dict[Tag, Literal["mute"] | Literal["highlight"] | Literal["default"] | Literal["hide"]]
 
 

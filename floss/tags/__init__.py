@@ -12,19 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""String tagging: tag sources, layout-derived checks, and visibility rules.
+"""String tagging: tag sources, layout-derived checks, and visibility filters.
 
 Modules like ``expert``, ``gp``, ``oss``, and ``winapi`` are *tag sources* — they
 load on-disk classification databases and expose query interfaces. ``engine`` wires
 those into ``Tagger`` callables, including layout-derived tags (#code, etc.).
 """
 
-from floss.tags.rules import (
-    TagRules,
-    should_hide_string,
-    hide_strings_by_rules,
-    remove_false_positive_lib_strings,
-)
 from floss.tags.engine import (
     Tagger,
     load_databases,
@@ -34,6 +28,12 @@ from floss.tags.engine import (
     query_library_string_database,
     query_global_prevalence_database,
     query_global_prevalence_hash_database,
+)
+from floss.tags.filter import (
+    TagRules,
+    should_hide_string,
+    hide_strings_by_rules,
+    remove_false_positive_lib_strings,
 )
 
 load_taggers = load_databases

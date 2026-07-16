@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import pathlib
 import functools
-from typing import Set, Dict, List, Tuple, Callable, Iterable, Optional, Sequence
+from typing import TYPE_CHECKING, Set, Dict, List, Tuple, Callable, Iterable, Optional, Sequence
 
 import floss.tags.gp
 import floss.tags.oss
@@ -29,9 +29,12 @@ from floss.tags.gp import StringHashDatabase, StringGlobalPrevalenceDatabase
 from floss.tags.oss import OpenSourceStringDatabase
 from floss.tags.expert import ExpertStringDatabase
 from floss.tags.winapi import WindowsApiStringDatabase
-from floss.layout.types import Tag, ExtractedString
 
-Tagger = Callable[[ExtractedString], Sequence[Tag]]
+if TYPE_CHECKING:
+    from floss.layout.types import ExtractedString
+
+Tag = str
+Tagger = Callable[["ExtractedString"], Sequence[Tag]]
 
 
 def check_is_xor(xor_key: int | None) -> Sequence[Tag]:
