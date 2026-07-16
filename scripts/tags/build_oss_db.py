@@ -612,6 +612,276 @@ def merge_entries(
     return list(seen.values())
 
 
+# Max +/-/~ lines per library in the CI log summary (build_diff.txt).
+DIFF_MAX_LINES_PER_LIBRARY = 100
+# Shorter per-library cap for the PR description body.
+DIFF_PR_MAX_LINES_PER_LIBRARY = 20
+# Cap individual string values so one long entry does not dominate the diff.
+DIFF_STRING_MAX_LEN = 120
+# GitHub rejects PR bodies over 65536 codepoints ("Body is too long"). Leave
+# headroom for the workflow's static header and a truncation footer.
+DIFF_PR_MAX_CHARS = 60_000
+# Fields compared when deciding whether an existing string's metadata changed.
+_DIFF_META_FIELDS = ("library_version", "file_path", "function_name", "line_number")
+
+
+def _escape_diff_string(value: Optional[str]) -> str:
+    """Make a string safe/readable for a single-line text diff.
+
+    Backticks are separated so string values cannot close markdown code fences.
+    """
+    if value is None:
+        return ""
+    text = (
+        value.replace("\\", "\\\\")
+        .replace("\n", "\\n")
+        .replace("\r", "\\r")
+        .replace("\t", "\\t")
+        .replace("```", "` ` `")
+    )
+    if len(text) > DIFF_STRING_MAX_LEN:
+        return text[: DIFF_STRING_MAX_LEN - 3] + "..."
+    return text
+
+
+def _format_meta_value(value: object) -> str:
+    if value is None:
+        return ""
+    return _escape_diff_string(str(value))
+
+
+def _format_meta_delta(old: dict, new: dict) -> str:
+    """Return a short 'field: old -> new' summary for changed metadata fields."""
+    parts: List[str] = []
+    for field in _DIFF_META_FIELDS:
+        old_val, new_val = old.get(field), new.get(field)
+        if old_val != new_val:
+            parts.append(f"{field}: {_format_meta_value(old_val)} -> {_format_meta_value(new_val)}")
+    return "; ".join(parts)
+
+
+@dataclass
+class LibraryDiff:
+    """Text-diff summary for one library's database rewrite."""
+
+    library: str
+    old_count: int
+    new_count: int
+    added: List[dict]
+    removed: List[dict]
+    changed: List[Tuple[dict, dict]]  # (old_entry, new_entry)
+
+    @property
+    def has_changes(self) -> bool:
+        return bool(self.added or self.removed or self.changed)
+
+    def header_line(self) -> str:
+        return (
+            f"## {self.library}  "
+            f"(entries: {self.old_count} -> {self.new_count}; "
+            f"+{len(self.added)} -{len(self.removed)} ~{len(self.changed)})"
+        )
+
+    def body_lines(self) -> List[str]:
+        lines: List[str] = []
+        # Sort for stable, reviewable output.
+        for entry in sorted(self.added, key=lambda e: e.get("string") or ""):
+            lines.append(f"+ {_escape_diff_string(entry.get('string'))}")
+        for entry in sorted(self.removed, key=lambda e: e.get("string") or ""):
+            lines.append(f"- {_escape_diff_string(entry.get('string'))}")
+        for old, new in sorted(self.changed, key=lambda pair: pair[0].get("string") or ""):
+            delta = _format_meta_delta(old, new)
+            lines.append(f"~ {_escape_diff_string(old.get('string'))}  ({delta})")
+        return lines
+
+
+def diff_library_entries(library: str, old_entries: List[dict], new_entries: List[dict]) -> LibraryDiff:
+    """Compare two entry lists for one library and return a structured diff.
+
+    Entries are keyed by their ``string`` value (matching merge/dedup
+    semantics). Added/removed strings get ``+``/``-`` lines; same string with
+    different metadata gets a ``~`` line.
+    """
+    old_by_string: Dict[str, dict] = {}
+    for entry in old_entries:
+        key = entry.get("string")
+        if key is not None and key not in old_by_string:
+            old_by_string[key] = entry
+
+    new_by_string: Dict[str, dict] = {}
+    for entry in new_entries:
+        key = entry.get("string")
+        if key is not None and key not in new_by_string:
+            new_by_string[key] = entry
+
+    old_keys = set(old_by_string)
+    new_keys = set(new_by_string)
+
+    added = [new_by_string[k] for k in new_keys - old_keys]
+    removed = [old_by_string[k] for k in old_keys - new_keys]
+    changed: List[Tuple[dict, dict]] = []
+    for key in old_keys & new_keys:
+        old, new = old_by_string[key], new_by_string[key]
+        if any(old.get(field) != new.get(field) for field in _DIFF_META_FIELDS):
+            changed.append((old, new))
+
+    return LibraryDiff(
+        library=library,
+        old_count=len(old_entries),
+        new_count=len(new_entries),
+        added=added,
+        removed=removed,
+        changed=changed,
+    )
+
+
+def _truncated_body_lines(body: List[str], max_lines: int, library: str) -> List[str]:
+    """Keep at most ``max_lines`` change lines; append a truncation note if needed."""
+    if len(body) <= max_lines:
+        return body
+    omitted = len(body) - max_lines
+    return body[:max_lines] + [f"... truncated ({omitted} more line(s) omitted for {library})"]
+
+
+def format_build_diff(
+    library_diffs: List[LibraryDiff],
+    max_lines_per_library: int = DIFF_MAX_LINES_PER_LIBRARY,
+) -> str:
+    """Render library diffs as a plain-text report, truncated per library.
+
+    Each library section keeps its header plus at most ``max_lines_per_library``
+    change lines (``+``/``-``/``~``). A trailing note is added when a library's
+    body is cut off. Intended for the capped CI log summary (``build_diff.txt``).
+    """
+    if max_lines_per_library < 1:
+        return ""
+
+    if not library_diffs:
+        return "No libraries were rebuilt.\n"
+
+    changed = [d for d in library_diffs if d.has_changes]
+    if not changed:
+        return "No entry-level changes detected.\n"
+
+    lines: List[str] = [
+        "OSS string database entry-level diff",
+        f"(libraries with changes: {len(changed)}/{len(library_diffs)})",
+        "",
+    ]
+    for diff in changed:
+        lines.append(diff.header_line())
+        lines.extend(_truncated_body_lines(diff.body_lines(), max_lines_per_library, diff.library))
+        lines.append("")
+
+    # Drop trailing blank line.
+    while lines and lines[-1] == "":
+        lines.pop()
+
+    return "\n".join(lines) + "\n"
+
+
+def _omission_footer(omitted: List[str]) -> str:
+    """Short note listing libraries dropped to stay under the PR body size cap."""
+    if not omitted:
+        return ""
+    if len(omitted) <= 10:
+        names = ", ".join(omitted)
+    else:
+        names = ", ".join(omitted[:8]) + f", ... (+{len(omitted) - 8} more)"
+    return (
+        f"\n... omitted {len(omitted)} more libraries with changes ({names}).\n"
+        "See `build_diff.txt` in the workflow logs for the capped CI summary.\n"
+    )
+
+
+def _clip_to_max_chars(text: str, max_chars: int) -> str:
+    """Hard-cap ``text`` at ``max_chars``, appending a short notice if clipped."""
+    if max_chars < 1:
+        return ""
+    if len(text) <= max_chars:
+        return text
+    notice = "\n... truncated to stay under GitHub's PR body length limit.\n"
+    if len(notice) >= max_chars:
+        return notice[:max_chars]
+
+    limit = max_chars - len(notice)
+    truncated = text[:limit]
+    fence = "```"  # Markdown fenced code-block delimiter.
+    if truncated.count(fence) % 2:
+        closing_fence = "\n" + fence
+        if limit >= len(closing_fence):
+            truncated = text[: limit - len(closing_fence)].rstrip() + closing_fence
+        else:
+            # A closing fence does not fit; omit the unmatched opening fence.
+            truncated = truncated[: truncated.rfind(fence)]
+    return truncated.rstrip() + notice
+
+
+def format_build_diff_markdown(
+    library_diffs: List[LibraryDiff],
+    max_lines_per_library: int = DIFF_PR_MAX_LINES_PER_LIBRARY,
+    max_chars: int = DIFF_PR_MAX_CHARS,
+) -> str:
+    """Render library diffs as markdown for a GitHub PR description.
+
+    Each library gets a ``##`` heading outside its own fenced diff code block
+    that contains only the ``+``/``-``/``~`` change lines (truncated per library).
+
+    The whole report is also capped at ``max_chars`` so the PR body stays under
+    GitHub's 65536-character limit (with headroom for the workflow header).
+    Libraries that do not fit are summarized in a trailing note; the capped CI
+    log summary remains in ``build_diff.txt`` / workflow logs.
+    """
+    if max_lines_per_library < 1 or max_chars < 1:
+        return ""
+
+    if not library_diffs:
+        return "No libraries were rebuilt.\n"
+
+    changed = [d for d in library_diffs if d.has_changes]
+    if not changed:
+        return "No entry-level changes detected.\n"
+
+    sections: List[str] = []
+    omitted: List[str] = []
+
+    for i, diff in enumerate(changed):
+        body = _truncated_body_lines(diff.body_lines(), max_lines_per_library, diff.library)
+        # Heading outside the fence; only +/-/~ (and optional truncation note) inside.
+        section = "\n".join(
+            [
+                f"## {diff.library}",
+                "",
+                f"entries: {diff.old_count} -> {diff.new_count}; "
+                f"+{len(diff.added)} -{len(diff.removed)} ~{len(diff.changed)}",
+                "",
+                "```diff",
+                *body,
+                "```",
+                "",
+            ]
+        )
+        remaining = [d.library for d in changed[i + 1 :]]
+        footer = _omission_footer(remaining)
+        candidate_text = "\n".join([*sections, section]).rstrip() + "\n" + footer
+        if len(candidate_text) > max_chars:
+            if sections:
+                omitted = [d.library for d in changed[i:]]
+                break
+            # First section alone may still exceed the cap; hard-cut it.
+            section_budget = max_chars - len(footer) if footer else max_chars
+            cut = _clip_to_max_chars(section, max(1, section_budget))
+            sections.append(cut if cut.endswith("\n") else cut + "\n")
+            omitted = list(remaining)
+            break
+        sections.append(section)
+
+    text = "\n".join(sections).rstrip() + "\n"
+    if omitted:
+        text += _omission_footer(omitted)
+    return _clip_to_max_chars(text, max_chars)
+
+
 def write_library_database(
     metrics: LibraryMetrics,
     entries: List[dict],
@@ -688,10 +958,14 @@ def run_build(
             return p.name[: -len(suffix)]
         return p.stem
 
+    # Snapshot pre-merge contents for rebuilt libraries so we can emit a
+    # human-readable text diff after writing (gzipped JSONL is opaque in PRs).
+    existing_by_lib: Dict[str, List[dict]] = {}
     merged: Dict[str, List[dict]] = {}
     for path in existing_files:
         lib = _lib_name_from_path(path)
         existing = load_existing_entries(path)
+        existing_by_lib[lib] = existing
         if lib in per_library_new:
             merged[lib] = merge_entries(per_library_new[lib], existing, config.deduplicate)
         elif existing:
@@ -702,12 +976,15 @@ def run_build(
         if lib not in merged:
             merged[lib] = list(new_entries)
 
-    # Write rebuilt libraries and update their metrics.
+    # Write rebuilt libraries, update their metrics, and collect entry diffs.
+    library_diffs: List[LibraryDiff] = []
     for metric in metrics:
         if metric.error:
             logger.warning("%s: skipping database write due to build error", metric.library)
             continue
         entries = merged.get(metric.library, [])
+        old_entries = existing_by_lib.get(metric.library, [])
+        library_diffs.append(diff_library_entries(metric.library, old_entries, entries))
         write_library_database(metric, entries, config.output_dir, converter)
 
     summary = {
@@ -722,6 +999,25 @@ def run_build(
     metrics_path = config.output_dir / "build_metrics.json"
     metrics_path.write_text(json.dumps(summary, indent=2))
     logger.info("wrote metrics to %s", metrics_path)
+
+    # Capped CI log summary (up to 100 change lines per library).
+    diff_text = format_build_diff(library_diffs, max_lines_per_library=DIFF_MAX_LINES_PER_LIBRARY)
+    diff_path = config.output_dir / "build_diff.txt"
+    diff_path.write_text(diff_text, encoding="utf-8")
+    logger.info("wrote entry-level diff to %s", diff_path)
+
+    # Markdown report for the GitHub PR description: ## heading per library,
+    # each with its own ```diff fence (20 change lines per library).
+    pr_diff_text = format_build_diff_markdown(library_diffs, max_lines_per_library=DIFF_PR_MAX_LINES_PER_LIBRARY)
+    pr_diff_path = config.output_dir / "build_diff_pr.txt"
+    pr_diff_path.write_text(pr_diff_text, encoding="utf-8")
+    logger.info("wrote PR entry-level diff to %s", pr_diff_path)
+
+    # Log a short preview so local/CI logs also surface the change.
+    for line in pr_diff_text.splitlines()[:30]:
+        logger.info("diff: %s", line)
+    if pr_diff_text.count("\n") > 30:
+        logger.info("diff: ... (see %s / %s for full reports)", diff_path, pr_diff_path)
 
     if failed:
         successful = sum(1 for m in metrics if not m.error)

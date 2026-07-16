@@ -617,3 +617,238 @@ def test_main_writes_build_metrics_summary(tmp_path):
     assert summary["failed"] == 0
     names = {m["library"] for m in summary["libraries"]}
     assert names == {"zlib", "curl"}
+
+
+def test_diff_library_entries_added_removed_and_changed():
+    old = [
+        build_oss_db.make_db_entry("keep", "zlib", "1.0", "a.c", "fn_a"),
+        build_oss_db.make_db_entry("gone", "zlib", "1.0", "b.c", "fn_b"),
+        build_oss_db.make_db_entry("meta", "zlib", "1.0", "c.c", "old_fn"),
+    ]
+    new = [
+        build_oss_db.make_db_entry("keep", "zlib", "1.0", "a.c", "fn_a"),
+        build_oss_db.make_db_entry("fresh", "zlib", "2.0", "d.c", "fn_d"),
+        build_oss_db.make_db_entry("meta", "zlib", "2.0", "c.c", "new_fn"),
+    ]
+    diff = build_oss_db.diff_library_entries("zlib", old, new)
+    assert diff.library == "zlib"
+    assert diff.old_count == 3
+    assert diff.new_count == 3
+    assert {e["string"] for e in diff.added} == {"fresh"}
+    assert {e["string"] for e in diff.removed} == {"gone"}
+    assert len(diff.changed) == 1
+    assert diff.changed[0][0]["string"] == "meta"
+    assert diff.changed[0][1]["function_name"] == "new_fn"
+    assert diff.has_changes
+
+
+def test_diff_library_entries_no_changes():
+    entries = [build_oss_db.make_db_entry("s", "zlib", "1.0", "f.c", "fn")]
+    diff = build_oss_db.diff_library_entries("zlib", entries, list(entries))
+    assert not diff.has_changes
+    assert diff.added == []
+    assert diff.removed == []
+    assert diff.changed == []
+
+
+def test_format_build_diff_truncates_per_library():
+    added = [build_oss_db.make_db_entry(f"s{i}", "zlib", "1.0", "f.c", "fn") for i in range(50)]
+    diff = build_oss_db.LibraryDiff(
+        library="zlib",
+        old_count=0,
+        new_count=50,
+        added=added,
+        removed=[],
+        changed=[],
+    )
+    text = build_oss_db.format_build_diff([diff], max_lines_per_library=10)
+    lines = text.splitlines()
+    # Header for the library + 10 body lines + truncation notice.
+    assert any(line.startswith("## zlib") for line in lines)
+    body_lines = [line for line in lines if line.startswith(("+ ", "- ", "~ "))]
+    assert len(body_lines) == 10
+    assert any("truncated" in line and "zlib" in line for line in lines)
+    assert "more line(s) omitted" in text
+
+
+def test_format_build_diff_truncates_each_library_independently():
+    text = build_oss_db.format_build_diff(
+        [_lib_diff("zlib", 30), _lib_diff("curl", 30)],
+        max_lines_per_library=5,
+    )
+    for lib in ("zlib", "curl"):
+        body = [line for line in text.splitlines() if line.startswith("+ ") and lib in line]
+        # Body lines are "+ zlib-0" etc.; count lines for that library.
+        assert len(body) == 5
+        assert f"omitted for {lib}" in text
+
+
+def test_format_build_diff_markdown_reserves_actual_omission_footer_size():
+    keep = build_oss_db.LibraryDiff(
+        library="keep",
+        old_count=0,
+        new_count=1,
+        added=[build_oss_db.make_db_entry("keep-string", "keep", "1.0", "f.c", "fn")],
+        removed=[],
+        changed=[],
+    )
+    omitted_name = "lib-" + ("x" * 180)
+    omitted = build_oss_db.LibraryDiff(
+        library=omitted_name,
+        old_count=0,
+        new_count=1,
+        added=[build_oss_db.make_db_entry("omit-string", omitted_name, "1.0", "f.c", "fn")],
+        removed=[],
+        changed=[],
+    )
+    keep_text = build_oss_db.format_build_diff_markdown([keep], max_lines_per_library=5, max_chars=10_000)
+    footer = build_oss_db._omission_footer([omitted_name])
+    text = build_oss_db.format_build_diff_markdown(
+        [keep, omitted],
+        max_lines_per_library=5,
+        max_chars=len(keep_text) + len(footer),
+    )
+
+    assert len(text) <= len(keep_text) + len(footer)
+    assert "## keep" in text
+    assert omitted_name in text
+    assert "```diff" in text
+    assert text.count("```") % 2 == 0
+
+
+def _lib_diff(name: str, n: int) -> build_oss_db.LibraryDiff:
+    added = [build_oss_db.make_db_entry(f"{name}-{i}", name, "1.0", "f.c", "fn") for i in range(n)]
+    return build_oss_db.LibraryDiff(
+        library=name,
+        old_count=0,
+        new_count=n,
+        added=added,
+        removed=[],
+        changed=[],
+    )
+
+
+def test_format_build_diff_markdown_heads_outside_fences():
+    text = build_oss_db.format_build_diff_markdown(
+        [_lib_diff("zlib", 25), _lib_diff("curl", 25)],
+        max_lines_per_library=5,
+    )
+    # Headings are markdown, not inside the fenced blocks.
+    assert "## zlib" in text
+    assert "## curl" in text
+    assert text.count("```diff") == 2
+    assert text.count("```") == 4  # open + close per library
+
+    # Each ```diff ... ``` block should not contain a ## heading.
+    for part in text.split("```"):
+        if part.startswith("diff"):
+            assert "## " not in part
+            body_lines = [line for line in part.splitlines() if line.startswith(("+ ", "- ", "~ "))]
+            assert len(body_lines) == 5
+
+
+def test_format_build_diff_markdown_never_exceeds_github_limit_constant():
+    # Stress: 80 libraries x 20 long lines — must still stay under DIFF_PR_MAX_CHARS.
+    long = "x" * 200
+    diffs = []
+    for i in range(80):
+        added = [build_oss_db.make_db_entry(f"{long}-{j}", f"lib{i}", "1.0", "f.c", "fn") for j in range(30)]
+        diffs.append(
+            build_oss_db.LibraryDiff(
+                library=f"lib{i}",
+                old_count=0,
+                new_count=30,
+                added=added,
+                removed=[],
+                changed=[],
+            )
+        )
+    text = build_oss_db.format_build_diff_markdown(diffs)
+    assert len(text) <= build_oss_db.DIFF_PR_MAX_CHARS
+
+
+def test_clip_to_max_chars_closes_unclosed_code_fence():
+    text = "Before\n```diff\n+ " + ("x" * 100)
+    clipped = build_oss_db._clip_to_max_chars(text, 80)
+
+    assert len(clipped) <= 80
+    assert clipped.count("```") % 2 == 0
+    assert clipped.endswith("... truncated to stay under GitHub's PR body length limit.\n")
+
+
+def test_clip_to_max_chars_omits_fence_when_its_closing_fence_does_not_fit():
+    notice = "\n... truncated to stay under GitHub's PR body length limit.\n"
+    clipped = build_oss_db._clip_to_max_chars("```diff" + ("x" * 100), len(notice) + 3)
+
+    assert len(clipped) <= len(notice) + 3
+    assert clipped.count("```") % 2 == 0
+
+
+def test_format_build_diff_empty_and_no_changes():
+    assert "No libraries were rebuilt" in build_oss_db.format_build_diff([])
+    unchanged = build_oss_db.LibraryDiff(
+        library="zlib",
+        old_count=1,
+        new_count=1,
+        added=[],
+        removed=[],
+        changed=[],
+    )
+    assert "No entry-level changes" in build_oss_db.format_build_diff([unchanged])
+    assert "No entry-level changes" in build_oss_db.format_build_diff_markdown([unchanged])
+
+
+def test_format_build_diff_escapes_control_characters_backticks_and_long_strings():
+    entry = build_oss_db.make_db_entry("hello\nworld\rcolumn\tvalue```" + ("x" * 200), "zlib", "1.0", "f.c", "fn")
+    diff = build_oss_db.diff_library_entries("zlib", [], [entry])
+    text = build_oss_db.format_build_diff([diff])
+    assert "\\n" in text
+    assert "\\r" in text
+    assert "\\t" in text
+    assert "` ` `" in text
+    # Long strings are truncated with ellipsis; each +/-/~ line stays single-line.
+    assert "..." in text
+    for line in text.splitlines():
+        if line.startswith(("+ ", "- ", "~ ")):
+            assert "\n" not in line[2:]
+            assert len(line) < 200
+
+
+def test_main_writes_build_diff_for_new_and_merged_libraries(tmp_path):
+    existing_entry = build_oss_db.make_db_entry("old-string", "zlib", "0.9#1", "f.c", "old_fn")
+    rc = _invoke_run_build(
+        tmp_path,
+        ["zlib", "curl"],
+        existing={"zlib": [existing_entry]},
+    )
+    assert rc == 0
+    # Plain-text log report.
+    log_text = (tmp_path / "build_diff.txt").read_text(encoding="utf-8")
+    assert "## zlib" in log_text
+    assert "## curl" in log_text
+    assert "+ hello-from-zlib" in log_text
+    assert "+ hello-from-curl" in log_text
+    assert "- old-string" not in log_text
+
+    # PR markdown: headings outside per-library ```diff fences.
+    pr_text = (tmp_path / "build_diff_pr.txt").read_text(encoding="utf-8")
+    assert "## zlib" in pr_text
+    assert "## curl" in pr_text
+    assert "```diff" in pr_text
+    assert "+ hello-from-zlib" in pr_text
+    assert "+ hello-from-curl" in pr_text
+    assert "- old-string" not in pr_text
+    for part in pr_text.split("```"):
+        if part.startswith("diff"):
+            assert "## " not in part
+
+
+def test_main_build_diff_reports_no_changes_when_entries_identical(tmp_path):
+    # Rebuild with the same entry the stub always produces: after merge, the
+    # only string is still hello-from-zlib with identical metadata... but the
+    # stub always emits version 1.0#1, so seed with that exact entry.
+    existing = [build_oss_db.make_db_entry("hello-from-zlib", "zlib", "1.0#1", "f.c", "fn_zlib")]
+    rc = _invoke_run_build(tmp_path, ["zlib"], existing={"zlib": existing})
+    assert rc == 0
+    text = (tmp_path / "build_diff.txt").read_text(encoding="utf-8")
+    assert "No entry-level changes detected" in text
