@@ -27,8 +27,8 @@ import json
 import logging
 import argparse
 import collections
-from pathlib import Path
 from typing import Dict, Tuple
+from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(_REPO_ROOT) not in sys.path:
