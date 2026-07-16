@@ -30,7 +30,7 @@ that marks up the current workspace.
 Usage:
 
   $ floss suspicious.exe -j > floss-results.json
-  $ python scripts/disassemblers/render-ida-import-script.py floss-results.json > apply_floss.py
+  $ python render-ida-import-script.py floss-results.json > apply_floss.py
   # now run `apply_floss.py` in IDA
 """
 

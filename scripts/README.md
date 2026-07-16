@@ -18,7 +18,7 @@ Turn FLOSS JSON (`floss -j sample.exe > results.json`) into tool-specific artifa
 Example (Ghidra):
 
 ```console
-$ python scripts/disassemblers/render-ghidra-import-script.py results.json > apply_floss.py
+$ python render-ghidra-import-script.py results.json > apply_floss.py
 ```
 
 See [`disassemblers/`](disassemblers/) for per-tool scripts and the [IDA plugin](disassemblers/idaplugin.py) (`File → Script file…` in IDA Pro).

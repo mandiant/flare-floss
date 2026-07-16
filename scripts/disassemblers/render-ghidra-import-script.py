@@ -27,7 +27,7 @@ instead of Jython (Python 2.7).
 Usage:
 
   $ floss suspicious.exe -j > floss-results.json
-  $ python scripts/disassemblers/render-ghidra-import-script.py floss-results.json > apply_floss.py
+  $ python render-ghidra-import-script.py floss-results.json > apply_floss.py
   # now run `apply_floss.py` in Ghidra Script Manager
 """
 

@@ -22,7 +22,7 @@ Translate a floss result document into an x64dbg database.
 Usage:
 
   $ floss suspicious.exe -j > floss-results.json
-  $ python scripts/disassemblers/render-x64dbg-database.py floss-results.json > database.json
+  $ python render-x64dbg-database.py floss-results.json > database.json
   # open `database.json` in x64dbg
 """
 
