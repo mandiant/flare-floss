@@ -241,11 +241,16 @@ def main(argv=None) -> int:
     arguments:
       argv: the command line arguments
     """
-    # use rich as default Traceback handler
-    rich.traceback.install(show_locals=True)
-
     if argv is None:
         argv = sys.argv[1:]
+
+    if argv and argv[0] == "quantum":
+        from floss.quantum import main as quantum_main
+
+        return quantum_main(argv[1:])
+
+    # use rich as default Traceback handler
+    rich.traceback.install(show_locals=True)
 
     parser = make_parser(argv)
     try:

@@ -86,7 +86,9 @@ def make_parser(argv):
         " 4. decoded strings: strings decoded in a function\n\n"
         "Language-specific strings:\n"
         " 1. Go:   strings from binaries written in Go\n"
-        " 2. Rust: strings from binaries written in Rust\n"
+        " 2. Rust: strings from binaries written in Rust\n\n"
+        "Layout-aware static strings with tags (QUANTUMSTRAND):\n"
+        "  floss quantum <sample>\n"
     )
     epilog = textwrap.dedent("""
         only displaying core arguments, run `floss -H` to see all supported options
@@ -100,6 +102,9 @@ def make_parser(argv):
 
           only extract stack and tight strings
             floss --only stack tight -- suspicious.exe
+
+          extract layout-aware strings with tags
+            floss quantum suspicious.exe
         """)
     epilog_advanced = textwrap.dedent("""
         examples:
