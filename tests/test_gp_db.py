@@ -12,22 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import pathlib
-
 import floss.tags.gp
-
-CD = pathlib.Path(__file__).parent
+from floss.tags import data_root
 
 
 def test_load_db():
-    path = pathlib.Path(floss.tags.gp.__file__).resolve().parents[1] / "qs" / "db" / "data" / "gp" / "gp.jsonl.gz"
+    path = data_root() / "gp" / "gp.jsonl.gz"
     db = floss.tags.gp.StringGlobalPrevalenceDatabase.from_file(path)
 
     assert len(db) > 0  # 21 entries at time of writing
 
 
 def test_query_db():
-    path = pathlib.Path(floss.tags.gp.__file__).resolve().parents[1] / "qs" / "db" / "data" / "gp" / "gp.jsonl.gz"
+    path = data_root() / "gp" / "gp.jsonl.gz"
     db = floss.tags.gp.StringGlobalPrevalenceDatabase.from_file(path)
     res = db.metadata_by_string["!This program cannot be run in DOS mode."]
 
@@ -42,14 +39,14 @@ def test_query_db():
 
 
 def test_load_hash_db():
-    path = pathlib.Path(floss.tags.gp.__file__).resolve().parents[1] / "qs" / "db" / "data" / "gp" / "xaa-hashes.bin"
+    path = data_root() / "gp" / "xaa-hashes.bin"
     db = floss.tags.gp.StringHashDatabase.from_file(path)
 
     assert len(db) > 0
 
 
 def test_query_hash_db():
-    path = pathlib.Path(floss.tags.gp.__file__).resolve().parents[1] / "qs" / "db" / "data" / "gp" / "xaa-hashes.bin"
+    path = data_root() / "gp" / "xaa-hashes.bin"
     db = floss.tags.gp.StringHashDatabase.from_file(path)
 
     assert "!This program cannot be run in DOS mode." in db

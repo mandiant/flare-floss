@@ -12,19 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import pathlib
-
 import floss.tags.oss
+from floss.tags import data_root
 
 
 def test_load_db():
-    path = pathlib.Path(floss.tags.oss.__file__).resolve().parents[1] / "qs" / "db" / "data" / "oss" / "zlib.jsonl.gz"
+    path = data_root() / "oss" / "zlib.jsonl.gz"
     db = floss.tags.oss.OpenSourceStringDatabase.from_file(path)
     assert len(db) > 0  # 21 entries at time of writing
 
 
 def test_query_db():
-    path = pathlib.Path(floss.tags.oss.__file__).resolve().parents[1] / "qs" / "db" / "data" / "oss" / "zlib.jsonl.gz"
+    path = data_root() / "oss" / "zlib.jsonl.gz"
     db = floss.tags.oss.OpenSourceStringDatabase.from_file(path)
 
     s = db.metadata_by_string["invalid distance code"]

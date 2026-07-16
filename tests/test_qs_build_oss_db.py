@@ -18,8 +18,9 @@ import logging
 import pathlib
 
 import scripts.tags.build_oss_db as build_oss_db
+from floss.tags import data_root
 
-SAMPLE_DB_PATH = pathlib.Path(__file__).resolve().parent.parent / "floss" / "qs" / "db" / "data" / "oss"
+SAMPLE_DB_PATH = data_root() / "oss"
 
 
 def _capture_warnings(logger_name: str) -> list:
