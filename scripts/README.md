@@ -33,6 +33,4 @@ Scripts that extract strings, build tag databases, and query them. See [`tags/RE
 
 - [`bulk_analyze.py`](analysis/bulk_analyze.py) — run `floss` or `floss quantum` over every binary in a directory and write JSON results.
 
-## Other
-
-- [`extract_rust_hashes.py`](extract_rust_hashes.py) — regenerate `floss/language/rust/rust_version_database.py` from Rust release metadata (not part of the FLOSS or QuantumStrand runtimes).
+Language-specific data maintenance (for example regenerating the Rust version hash database) lives alongside the implementation under `floss/language/`.

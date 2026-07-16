@@ -19,9 +19,9 @@ File name: extract_rust_hashes.py
 
 Description: Generates a database of Rust hashes from the Rust repository. Repo: https://github.com/rust-lang/rust/releases
 
-Usage:
+Usage (from repository root):
 
-  $ python3 scripts/extract_rust_hashes.py
+  $ python3 floss/language/rust/extract_rust_hashes.py
 """
 
 import subprocess
@@ -89,21 +89,19 @@ header = """
 #
 # Regeneration Instructions:
 #
-# To regenerate or update this file, you can follow these steps:
-# 1. Navigate to the script directory.
-# 2. Execute scripts/extract_rust_hashes.py from the repository root.
-#    Example command: python scripts/extract_rust_hashes.py
+# To regenerate or update this file, run from the repository root:
+#    python floss/language/rust/extract_rust_hashes.py
 #############################################################################################
 
 
 """
 
-# write the hashes to a file
-file_path = Path("rust_version_database.py")
+# write the hashes next to this script
+file_path = Path(__file__).resolve().parent / "rust_version_database.py"
 with file_path.open(mode="w") as f:
     f.write(header)
     f.write("rust_commit_hash = ")
     f.write(str(rust_hashes))
 
 # format the file
-subprocess.call(["black", "-l", "120", "rust_version_database.py"])
+subprocess.call(["black", "-l", "120", str(file_path)])

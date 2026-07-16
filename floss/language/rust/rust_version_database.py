@@ -25,8 +25,8 @@
 #
 # To regenerate or update this file, you can follow these steps:
 # 1. Navigate to the script directory.
-# 2. Execute scripts/extract_rust_hashes.py from the repository root.
-#    Example command: python scripts/extract_rust_hashes.py
+# 2. Run from the repository root:
+#    python floss/language/rust/extract_rust_hashes.py
 #############################################################################################
 
 
