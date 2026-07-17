@@ -117,6 +117,10 @@ dynamic = ["version", "readme"]
 version = {attr = "floss.version.__version__"}
 readme = {file = "README.md", content-type = "text/markdown"}
 
+[tool.pytest.ini_options]
+# so tests can import scripts.tags.* (scripts is not an installed package)
+pythonpath = ["."]
+
 [tool.setuptools]
 packages = ["floss", "floss.sigs"]
 
