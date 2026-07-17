@@ -78,6 +78,9 @@ def analyze_path(path: pathlib.Path, min_length: int = MIN_STR_LEN) -> ResultDoc
 
 
 def main(argv=None) -> int:
+    # standalone `quantum` / `python -m floss.quantum` entry (floss quantum already installs in main)
+    rich.traceback.install(show_locals=True)
+
     parser = argparse.ArgumentParser(
         description="Extract human readable strings from binary data with layout and tags."
     )
@@ -109,7 +112,6 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
 
     floss.main.set_log_config(args.debug, args.quiet)
-    rich.traceback.install()
     if isinstance(sys.stdout, io.TextIOWrapper) or hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
     colorama.just_fix_windows_console()
