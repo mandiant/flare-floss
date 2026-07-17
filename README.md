@@ -43,6 +43,37 @@ The strings FLOSS extracts specific to a compiler are much easier to inspect by 
 
 Please consult the documentation to learn more about the [language-specific string extraction](doc/language_specific_strings.md).
 
+### Layout-aware strings (`floss quantum`)
+
+QUANTUMSTRAND-style analysis is available as the `floss quantum` subcommand. It
+augments traditional `strings.exe` output with context to aid malware analysis
+and reverse engineering: file structure next to strings, and mute/highlight of
+entries based on global prevalence, library association, expert rules, and more.
+
+```console
+$ floss quantum sample.exe
+$ floss quantum sample.exe -j
+```
+
+Features:
+
+- extract ASCII and UTF-16LE strings
+- show strings next to right-aligned, colored context, including tags and file offset
+- render strings within PE section range delimiters
+- annotate strings from known PE structures, like the import table
+- don't show junk strings that overlap with instructions
+- mute strings known to be globally prevalent, via an embedded database
+- mute strings from popular open source libraries, via embedded databases
+- highlight strings that match expert rules, via embedded databases
+
+![screenshot 1](https://github.com/mandiant/flare-floss/assets/156560/f2d471a3-2624-498c-aaa9-928e2909c338)
+![screenshot 2](https://github.com/mandiant/flare-floss/assets/156560/23bd20a1-7dff-46b5-be65-12582cb90d64)
+
+Tag databases and FLIRT signature files are tracked with Git LFS; contributors
+cloning the repo may need Git LFS installed to fetch those files. Maintenance of
+tag databases is documented in [scripts/tags/README.md](scripts/tags/README.md)
+and the per-database notes under `floss/qs/db/data/`.
+
 ## Installation
 To use FLOSS, download a standalone executable file from the releases page:
 https://github.com/mandiant/flare-floss/releases
