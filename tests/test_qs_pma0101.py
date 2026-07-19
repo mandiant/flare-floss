@@ -17,8 +17,9 @@ from pathlib import Path
 import pytest
 
 from floss.tags import load_databases
-from floss.layout import compute_layout, collect_strings, extract_layout_strings
+from floss.layout import compute_layout
 from floss.ranges import Slice
+from floss.layout.extract import collect_strings, extract_layout_strings
 
 
 @pytest.fixture(scope="module")

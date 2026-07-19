@@ -36,9 +36,10 @@ from rich.console import Console
 
 import floss.main
 from floss.tags import TagRules, load_databases, hide_strings_by_rules, remove_false_positive_lib_strings
-from floss.layout import MIN_STR_LEN, compute_layout, extract_layout_strings
+from floss.layout import compute_layout
 from floss.ranges import Slice
 from floss.document import Sample, Metadata, ResultDocument
+from floss.layout.extract import MIN_STR_LEN, extract_layout_strings
 from floss.render.layout_text import render_strings
 
 logger = logging.getLogger("floss.quantum")

@@ -14,8 +14,9 @@
 
 from pathlib import Path
 
-from floss.layout import ELFLayout, SegmentLayout, compute_layout
+from floss.layout import compute_layout
 from floss.ranges import Slice
+from floss.layout.base import ELFLayout, SegmentLayout
 
 CD = Path(__file__).resolve().parent
 ELF_DIR = CD / "data" / "elf"

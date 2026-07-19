@@ -20,9 +20,10 @@ from pathlib import Path
 import pytest
 
 from floss.tags import load_databases
-from floss.layout import compute_layout, collect_strings, extract_layout_strings
+from floss.layout import compute_layout
 from floss.ranges import Slice
 from floss.document import Sample, Metadata, ResultDocument
+from floss.layout.extract import collect_strings, extract_layout_strings
 
 CD = Path(__file__).resolve().parent
 MIN_STR_LEN = 6
