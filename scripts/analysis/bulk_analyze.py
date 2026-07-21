@@ -1,3 +1,17 @@
+# Copyright 2026 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import sys
 import logging
 import pathlib
@@ -5,13 +19,13 @@ import argparse
 import subprocess
 
 import floss.main
-import floss.qs.main
+import floss.quantum
 
-logger = logging.getLogger("floss.qs.bulk")
+logger = logging.getLogger("floss.bulk")
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Bulk analyze a directory of binaries with floss-qs.")
+    parser = argparse.ArgumentParser(description="Bulk analyze a directory of binaries with floss.")
     parser.add_argument("input_directory", type=pathlib.Path, help="Directory containing binaries to analyze.")
     parser.add_argument("output_directory", type=pathlib.Path, help="Directory to write JSON results to.")
     parser.add_argument(
@@ -19,7 +33,7 @@ def main():
         "--minimum-length",
         dest="min_length",
         type=int,
-        default=floss.qs.main.MIN_STR_LEN,
+        default=floss.quantum.MIN_STR_LEN,
         help="Minimum string length.",
     )
     parser.add_argument(
@@ -71,7 +85,7 @@ def main():
             cmd = [
                 sys.executable,
                 "-m",
-                "floss.qs.main",
+                "floss.quantum",
                 str(file_path),
                 "--json",
                 "-n",
@@ -93,7 +107,7 @@ def main():
                         cmd_render = [
                             sys.executable,
                             "-m",
-                            "floss.qs.main",
+                            "floss.quantum",
                             str(json_output_path),
                             "--load",
                         ]
@@ -110,7 +124,11 @@ def main():
                                 f.write(result_render.stdout)
                             logger.info("Wrote rendered output to %s", rendered_output_path)
                         else:
-                            logger.error("Failed to render file %s from JSON, exited with code %d", file_path, result_render.returncode)
+                            logger.error(
+                                "Failed to render file %s from JSON, exited with code %d",
+                                file_path,
+                                result_render.returncode,
+                            )
                             if result_render.stdout:
                                 logger.error("stdout:\n%s", result_render.stdout)
                             if result_render.stderr:
@@ -129,7 +147,7 @@ def main():
             cmd = [
                 sys.executable,
                 "-m",
-                "floss.qs.main",
+                "floss.quantum",
                 str(json_output_path),
                 "--load",
             ]

@@ -29,8 +29,8 @@ import pytest
 CD = Path(__file__).resolve().parent
 
 
-def get_script_path(s) -> Path:
-    return CD / ".." / "scripts" / s
+def get_disassembler_script_path(s) -> Path:
+    return CD / ".." / "scripts" / "disassemblers" / s
 
 
 def get_file_path() -> Path:
@@ -62,7 +62,7 @@ def get_results_file_path():
         pytest.param("render-x64dbg-database.py", [get_results_file_path()]),
     ],
 )
-def test_scripts(script, args):
-    script_path = get_script_path(script)
+def test_disassembler_scripts(script, args):
+    script_path = get_disassembler_script_path(script)
     p = run_program(script_path, args)
     assert p.returncode == 0

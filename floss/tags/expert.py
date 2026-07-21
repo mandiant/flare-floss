@@ -1,3 +1,25 @@
+# Copyright 2026 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""Expert-curated tag source: rules authored by analysts (CAPA-derived, etc.).
+
+The ``floss/tags`` package is named for the user-visible outcome (tags on strings),
+not for the on-disk JSONL databases. Each module here is a *tag source*: it loads
+serialized classification data and exposes a query interface. ``floss.tags.engine``
+wraps those queries into ``Tagger`` callables applied during analysis.
+"""
+
 import re
 import pathlib
 from typing import Set, Dict, List, Tuple, Literal, Sequence
@@ -5,7 +27,7 @@ from dataclasses import dataclass
 
 import msgspec
 
-import floss.qs.db
+from floss.tags import data_root
 
 
 class ExpertRule(msgspec.Struct):
@@ -82,7 +104,7 @@ class ExpertStringDatabase:
         )
 
 
-DEFAULT_PATHS = (pathlib.Path(floss.qs.db.__file__).parent / "data" / "expert" / "capa.jsonl",)
+DEFAULT_PATHS = (data_root() / "expert" / "capa.jsonl",)
 
 
 def get_default_databases() -> Sequence[ExpertStringDatabase]:

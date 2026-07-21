@@ -53,7 +53,7 @@ jobs:
 
       - name: Build OSS databases
         run: |
-          python scripts/build_oss_db.py `
+          python scripts/tags/build_oss_db.py `
             --config floss\qs\db\data\oss\libraries.json `
             --jh-path ..\lancelot\target\release\jh.exe `
             --output-dir floss\qs\db\data\oss `

@@ -1,3 +1,17 @@
+# Copyright 2026 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import copy
 import hashlib
 import datetime
@@ -5,16 +19,11 @@ from pathlib import Path
 
 import pytest
 
-from floss.qs.main import (
-    Slice,
-    Sample,
-    Metadata,
-    ResultDocument,
-    compute_layout,
-    load_databases,
-    collect_strings,
-    extract_layout_strings,
-)
+from floss.tags import load_databases
+from floss.layout import compute_layout
+from floss.ranges import Slice
+from floss.document import Sample, Metadata, ResultDocument
+from floss.layout.extract import collect_strings, extract_layout_strings
 
 CD = Path(__file__).resolve().parent
 MIN_STR_LEN = 6
@@ -46,7 +55,7 @@ def test_round_trip(analyzed_layout, pma_binary_path):
         path=str(pma_binary_path.resolve()),
     )
     meta = Metadata(version="1", sample=sample, min_str_len=MIN_STR_LEN, timestamp=datetime.datetime.now())
-    result = ResultDocument.from_qs(meta=meta, layout=analyzed_layout)
+    result = ResultDocument.from_layout(meta=meta, layout=analyzed_layout)
     one = result
 
     doc = one.model_dump_json(exclude_none=True)

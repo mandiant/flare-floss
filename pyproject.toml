@@ -103,12 +103,23 @@ dependencies = [
     # we still support.
 
     "networkx>=3",
+    # layout / tagging (formerly optional [qs])
+    "dnfile==0.13.0",
+    "colorama==0.4.6",
+    "machofile==2026.2.4",
+    "msgspec==0.21.1",
+    "python-lancelot==0.9.7",
+    "pyelftools==0.31",
 ]
 dynamic = ["version", "readme"]
 
 [tool.setuptools.dynamic]
 version = {attr = "floss.version.__version__"}
 readme = {file = "README.md", content-type = "text/markdown"}
+
+[tool.pytest.ini_options]
+# so tests can import scripts.tags.* (scripts is not an installed package)
+pythonpath = ["."]
 
 [tool.setuptools]
 packages = ["floss", "floss.sigs"]
@@ -118,14 +129,6 @@ packages = ["floss", "floss.sigs"]
 # we want all developer environments to be consistent.
 # These dependencies are not used in production environments
 # and should not conflict with other libraries/tooling.
-qs = [
-    "dnfile==0.13.0",
-    "colorama==0.4.6",
-    "machofile==2026.2.4",
-    "msgspec==0.14.2",
-    "python-lancelot==0.9.7",
-    "pyelftools==0.31",
-]
 dev = [
     "pre-commit==4.6.0",
     "pyyaml==6.0.1",
@@ -156,4 +159,4 @@ Signatures = "https://github.com/mandiant/flare-floss/tree/master/floss/sigs"
 
 [project.scripts]
 floss = "floss.main:main"
-qs = "floss.qs.main:main"
+quantum = "floss.quantum:main"

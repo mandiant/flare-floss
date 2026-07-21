@@ -101,7 +101,7 @@ These files are then gzip'd:
 $  gzip -c zlib.jsonl > zlib.jsonl.gz
 ```
 
-The `build_oss_db.py` script automates the steps above and merges into
+The `scripts/tags/build_oss_db.py` script automates the steps above and merges into
 any `.jsonl.gz` already present in the output directory rather than
 replacing them. For each library being rebuilt, the newly-extracted
 entries are combined with the existing entries (new entries win on

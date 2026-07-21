@@ -23,7 +23,7 @@ import pathlib
 
 import msgspec
 
-import floss.qs.db.oss
+import floss.tags.oss
 
 p = pathlib.Path(sys.argv[1])
 for line in p.read_text().split("\n"):
@@ -41,7 +41,7 @@ for line in p.read_text().split("\n"):
     if value.startswith('"'):
         value = json.loads(value)
 
-    s = floss.qs.db.oss.OpenSourceString(
+    s = floss.tags.oss.OpenSourceString(
         string=value,
         library_name=library,
         library_version=version,

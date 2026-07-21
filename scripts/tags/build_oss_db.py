@@ -38,15 +38,15 @@ from __future__ import annotations
 import os
 import re
 import sys
-import time
 import gzip
 import json
+import time
 import shutil
 import logging
 import pathlib
 import argparse
 import subprocess
-from typing import Callable, Set, Dict, List, Tuple, Optional
+from typing import Set, Dict, List, Tuple, Callable, Optional
 from dataclasses import dataclass
 
 logging.basicConfig(
@@ -81,8 +81,8 @@ class BuildConfig:
 
 def make_db_entry(
     string: str,
-    library_name: str,
-    library_version: str,
+    library_name: Optional[str],
+    library_version: Optional[str],
     file_path: Optional[str],
     function_name: Optional[str],
     line_number: Optional[int] = None,
@@ -564,14 +564,22 @@ def load_existing_entries(path: pathlib.Path) -> List[dict]:
             continue
         if not isinstance(row, dict) or "string" not in row:
             continue
+        string = row.get("string")
+        if not isinstance(string, str):
+            continue
+        library_name = row.get("library_name")
+        library_version = row.get("library_version")
+        file_path = row.get("file_path")
+        function_name = row.get("function_name")
+        line_number = row.get("line_number")
         entries.append(
             make_db_entry(
-                row.get("string"),
-                row.get("library_name"),
-                row.get("library_version"),
-                row.get("file_path"),
-                row.get("function_name"),
-                row.get("line_number"),
+                string,
+                library_name if isinstance(library_name, str) else None,
+                library_version if isinstance(library_version, str) else None,
+                file_path if isinstance(file_path, str) else None,
+                function_name if isinstance(function_name, str) else None,
+                line_number if isinstance(line_number, int) else None,
             )
         )
     return entries
@@ -864,7 +872,7 @@ def format_build_diff_markdown(
             section_budget = max_chars - len(footer) if footer else max_chars
             cut = _clip_to_max_chars(section, max(1, section_budget))
             sections.append(cut if cut.endswith("\n") else cut + "\n")
-            omitted = [d.library for d in remaining]
+            omitted = list(remaining)
             break
         sections.append(section)
 
@@ -1091,7 +1099,7 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     parser.add_argument(
         "--output-dir",
         type=pathlib.Path,
-        default=pathlib.Path(__file__).parent,
+        default=pathlib.Path(__file__).resolve().parents[2] / "floss" / "qs" / "db" / "data" / "oss",
         help="directory for generated .jsonl.gz files and metrics",
     )
     parser.add_argument(

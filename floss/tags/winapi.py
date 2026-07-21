@@ -1,9 +1,29 @@
+# Copyright 2026 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""Windows API tag source: known DLL and API name strings (#winapi).
+
+Tag sources load on-disk databases and answer whether a string should receive a tag.
+See ``floss.tags.engine`` for wiring into the analysis pipeline.
+"""
+
 import gzip
 import pathlib
 from typing import Set, Sequence
 from dataclasses import dataclass
 
-import floss.qs.db
+from floss.tags import data_root
 
 
 @dataclass
@@ -32,7 +52,7 @@ class WindowsApiStringDatabase:
         return cls(dll_names=dll_names, api_names=api_names)
 
 
-DEFAULT_PATHS = (pathlib.Path(floss.qs.db.__file__).parent / "data" / "winapi",)
+DEFAULT_PATHS = (data_root() / "winapi",)
 
 
 def get_default_databases() -> Sequence[WindowsApiStringDatabase]:

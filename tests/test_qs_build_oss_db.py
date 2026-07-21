@@ -16,15 +16,11 @@ import gzip
 import json
 import logging
 import pathlib
-import sys
 
-SCRIPTS_DIR = pathlib.Path(__file__).resolve().parent.parent / "scripts"
-if str(SCRIPTS_DIR) not in sys.path:
-    sys.path.insert(0, str(SCRIPTS_DIR))
+import scripts.tags.build_oss_db as build_oss_db
+from floss.tags import data_root
 
-import build_oss_db  # noqa: E402
-
-SAMPLE_DB_PATH = pathlib.Path(__file__).resolve().parent.parent / "floss" / "qs" / "db" / "data" / "oss"
+SAMPLE_DB_PATH = data_root() / "oss"
 
 
 def _capture_warnings(logger_name: str) -> list:
@@ -492,8 +488,8 @@ def _invoke_run_build(
 
     return build_oss_db.run_build(
         config,
-        _FakeVcpkg(),
-        _FakeJH(),
+        _FakeVcpkg(),  # type: ignore[arg-type]
+        _FakeJH(),  # type: ignore[arg-type]
         build_oss_db.Converter(),
         build_library_fn=build_library_fn,
     )

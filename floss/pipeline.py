@@ -12,22 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import floss.tags.winapi
-from floss.tags import data_root
+"""Full FLOSS analysis orchestration.
 
-
-def test_load_db():
-    path = data_root() / "winapi"
-    db = floss.tags.winapi.WindowsApiStringDatabase.from_dir(path)
-    assert len(db) > 0
-
-
-def test_query_db():
-    path = data_root() / "winapi"
-    db = floss.tags.winapi.WindowsApiStringDatabase.from_dir(path)
-
-    assert "kernel32.dll" in db.dll_names
-    assert "kernel33.dll" not in db.dll_names
-
-    assert "CreateFileA" in db.api_names
-    assert "CreateFileB" not in db.api_names
+Iteration 2 will implement the unified pipeline here: deobfuscation (stack/tight/decoded
+strings) plus layout mapping and tag enrichment into a single ``ResultDocument``.
+``floss.enrich`` was removed as an unused stub; enrichment logic will land in this module.
+"""

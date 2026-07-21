@@ -12,22 +12,31 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import floss.tags.winapi
-from floss.tags import data_root
+"""Layout string types used while walking binary layouts."""
+
+from __future__ import annotations
+
+from typing import Set, List, Literal, TypeAlias
+
+from pydantic import BaseModel
+
+from floss.ranges import Slice
+
+Tag: TypeAlias = str
 
 
-def test_load_db():
-    path = data_root() / "winapi"
-    db = floss.tags.winapi.WindowsApiStringDatabase.from_dir(path)
-    assert len(db) > 0
+class ExtractedString(BaseModel):
+    string: str
+    slice: Slice
+    encoding: Literal["ascii", "unicode"]
 
 
-def test_query_db():
-    path = data_root() / "winapi"
-    db = floss.tags.winapi.WindowsApiStringDatabase.from_dir(path)
+class TaggedString(BaseModel):
+    string: ExtractedString
+    tags: Set[Tag]
+    structure: str = ""
 
-    assert "kernel32.dll" in db.dll_names
-    assert "kernel33.dll" not in db.dll_names
-
-    assert "CreateFileA" in db.api_names
-    assert "CreateFileB" not in db.api_names
+    @property
+    def offset(self) -> int:
+        "convenience"
+        return self.string.slice.range.offset

@@ -9,7 +9,7 @@ import capa.features.insn
 import capa.features.common
 import capa.features.basicblock
 
-from floss.qs.db.expert import ExpertRule
+from floss.tags.expert import ExpertRule
 
 
 def walk_rule_logic(rule: capa.rules.Rule, node: capa.engine.Statement | capa.engine.Feature):

@@ -1,44 +1,54 @@
+# Copyright 2026 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from unittest.mock import Mock, MagicMock
 
 import pefile
 import pytest
 
-from floss.qs.main import (
-    Range,
-    Slice,
-    _get_code_ranges,
-    _merge_overlapping_ranges,
-)
+from floss.ranges import Range, Slice, merge_overlapping_ranges
+from floss.layout.pe import _get_code_ranges
 
 
-# Tests for _merge_overlapping_ranges
+# Tests for merge_overlapping_ranges
 def test_merge_empty_list():
     """Test merging an empty list of ranges."""
-    assert _merge_overlapping_ranges([]) == []
+    assert merge_overlapping_ranges([]) == []
 
 
 def test_merge_no_overlap():
     """Test merging ranges that do not overlap."""
     ranges = [(10, 20), (30, 40), (50, 60)]
-    assert _merge_overlapping_ranges(ranges) == [(10, 20), (30, 40), (50, 60)]
+    assert merge_overlapping_ranges(ranges) == [(10, 20), (30, 40), (50, 60)]
 
 
 def test_merge_with_overlap():
     """Test merging ranges that partially overlap."""
     ranges = [(10, 20), (15, 25), (30, 40)]
-    assert _merge_overlapping_ranges(ranges) == [(10, 25), (30, 40)]
+    assert merge_overlapping_ranges(ranges) == [(10, 25), (30, 40)]
 
 
 def test_merge_adjacent():
     """Test merging ranges that are right next to each other."""
     ranges = [(10, 20), (21, 30), (31, 40)]
-    assert _merge_overlapping_ranges(ranges) == [(10, 40)]
+    assert merge_overlapping_ranges(ranges) == [(10, 40)]
 
 
 def test_merge_fully_contained():
     """Test merging ranges where some are fully contained within others."""
     ranges = [(10, 40), (15, 25), (20, 30)]
-    assert _merge_overlapping_ranges(ranges) == [(10, 40)]
+    assert merge_overlapping_ranges(ranges) == [(10, 40)]
 
 
 def test_merge_complex_mix():
@@ -48,7 +58,7 @@ def test_merge_complex_mix():
     # (10, 20) and (18, 30) -> (10, 30)
     # (35, 40) and (39, 55) -> (35, 55)
     # (35, 55) and (50, 60) -> (35, 60)
-    assert _merge_overlapping_ranges(ranges) == [(10, 30), (35, 60)]
+    assert merge_overlapping_ranges(ranges) == [(10, 30), (35, 60)]
 
 
 # Tests for _get_code_ranges

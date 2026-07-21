@@ -1,3 +1,23 @@
+# Copyright 2026 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""Global-prevalence tag source: strings common across many binaries (#common, #code-junk).
+
+Tag sources load on-disk databases and answer whether a string should receive a tag.
+See ``floss.tags.engine`` for wiring into the analysis pipeline.
+"""
+
 import gzip
 import hashlib
 import pathlib
@@ -8,7 +28,7 @@ from dataclasses import dataclass
 
 import msgspec
 
-import floss.qs.db
+from floss.tags import data_root
 
 Encoding = Literal["ascii"] | Literal["utf-16le"] | Literal["unknown"]
 # header | gap | overlay
@@ -126,11 +146,11 @@ class StringHashDatabase:
 
 
 DEFAULT_PATHS = (
-    pathlib.Path(floss.qs.db.__file__).parent / "data" / "gp" / "gp.jsonl.gz",
-    pathlib.Path(floss.qs.db.__file__).parent / "data" / "gp" / "cwindb-native.jsonl.gz",
-    pathlib.Path(floss.qs.db.__file__).parent / "data" / "gp" / "cwindb-dotnet.jsonl.gz",
-    pathlib.Path(floss.qs.db.__file__).parent / "data" / "gp" / "xaa-hashes.bin",
-    pathlib.Path(floss.qs.db.__file__).parent / "data" / "gp" / "yaa-hashes.bin",
+    data_root() / "gp" / "gp.jsonl.gz",
+    data_root() / "gp" / "cwindb-native.jsonl.gz",
+    data_root() / "gp" / "cwindb-dotnet.jsonl.gz",
+    data_root() / "gp" / "xaa-hashes.bin",
+    data_root() / "gp" / "yaa-hashes.bin",
 )
 
 

@@ -1,4 +1,16 @@
-# Copyright (C) 2023 Mandiant, Inc. All Rights Reserved.
+# Copyright 2026 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 # examples:
 # $ generate_gp_db.py cwinpes cwindb-native.jsonl.gz --type native
@@ -16,9 +28,14 @@ import logging
 import argparse
 import collections
 from typing import Dict, Tuple
+from pathlib import Path
 
-from floss.qs.db.gp import Encoding, Location, StringGlobalPrevalence, StringGlobalPrevalenceDatabase
-from floss.qs.scripts.extract_strings import PeStrings
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
+from floss.tags.gp import Encoding, Location, StringGlobalPrevalence, StringGlobalPrevalenceDatabase
+from scripts.tags.extract_strings import PeStrings
 
 MIN_COUNT = 500
 
