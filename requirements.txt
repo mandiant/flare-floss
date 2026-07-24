@@ -43,7 +43,7 @@ pytest==9.1.0
 pytest-cov==7.1.0
 pytest-instafail==0.5.0
 pytest-sugar==1.1.1
-python-flirt==0.9.2
+python-flirt==0.10.0
 pyyaml==6.0.1
 rich==15.0.0
 setuptools==83.0.0
