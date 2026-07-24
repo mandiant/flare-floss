@@ -17,6 +17,7 @@ lib/
 # Pyenv file
 .python-version
 .venv
+floss-venv/
 
 # Test executables
 bin/
@@ -33,3 +34,4 @@ flare_floss.egg-info
 .direnv/
 .env/
 .envrc
+*.code-workspace

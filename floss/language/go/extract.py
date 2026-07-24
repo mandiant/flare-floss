@@ -424,6 +424,25 @@ def get_static_strings_from_blob_range(sample: pathlib.Path, static_strings: Lis
     return list(filter(lambda s: string_blob_start <= s.offset < string_blob_end, static_strings))
 
 
+def get_file_offset_in_blob(sample: pathlib.Path) -> int:
+    pe = pefile.PE(data=pathlib.Path(sample).read_bytes(), fast_load=True)
+
+    struct_strings = list(sorted(set(get_struct_string_candidates(pe)), key=lambda s: s.address))
+    if not struct_strings:
+        return []
+
+    try:
+        string_blob_start, _ = find_string_blob_range(pe, struct_strings)
+    except ValueError as e:
+        raise ValueError("Failed to find string blob range") from e
+
+    image_base = pe.OPTIONAL_HEADER.ImageBase
+    virtual_address = string_blob_start - image_base
+    raw_data_offset = pe.get_offset_from_rva(string_blob_start - image_base)
+
+    return image_base + virtual_address - raw_data_offset
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Get Go strings")
     parser.add_argument("path", help="file or path to analyze")
