@@ -52,7 +52,7 @@ sortedcontainers==2.4.0
 spinners==0.0.24
 tabulate==0.10.0
 termcolor==3.3.0
-tqdm==4.68.2
+tqdm==4.69.0
 types-pyyaml==6.0.10
 types-tabulate==0.10.0.20260408
 virtualenv==21.6.0
