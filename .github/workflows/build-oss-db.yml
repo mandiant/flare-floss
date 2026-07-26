@@ -54,23 +54,23 @@ jobs:
       - name: Build OSS databases
         run: |
           python scripts/tags/build_oss_db.py `
-            --config floss\qs\db\data\oss\libraries.json `
+            --config floss\tags\data\oss\libraries.json `
             --jh-path ..\lancelot\target\release\jh.exe `
-            --output-dir floss\qs\db\data\oss `
+            --output-dir floss\tags\data\oss `
             --continue-on-error
         working-directory: flare-floss
 
       - name: Show metrics summary
         if: success() || failure()
         run: |
-          Get-Content floss\qs\db\data\oss\build_metrics.json
+          Get-Content floss\tags\data\oss\build_metrics.json
         working-directory: flare-floss
 
       - name: Show entry-level diff
         if: success() || failure()
         run: |
-          if (Test-Path floss\qs\db\data\oss\build_diff.txt) {
-            Get-Content floss\qs\db\data\oss\build_diff.txt
+          if (Test-Path floss\tags\data\oss\build_diff.txt) {
+            Get-Content floss\tags\data\oss\build_diff.txt
           } else {
             Write-Host "build_diff.txt not produced"
           }
@@ -81,19 +81,19 @@ jobs:
         shell: pwsh
         run: |
           # Markdown already has per-library ## headings and ```diff fences.
-          $diffPath = "flare-floss/floss/qs/db/data/oss/build_diff_pr.txt"
+          $diffPath = "flare-floss/floss/tags/data/oss/build_diff_pr.txt"
           $diff = if (Test-Path $diffPath) {
             Get-Content $diffPath -Raw
           } else {
             "(no entry-level diff produced)"
           }
-          $librariesConfig = Get-Content "flare-floss/floss/qs/db/data/oss/libraries.json" -Raw | ConvertFrom-Json
+          $librariesConfig = Get-Content "flare-floss/floss/tags/data/oss/libraries.json" -Raw | ConvertFrom-Json
           $body = @(
             "Automated bi-weekly rebuild of the OSS string databases.",
             "",
             "- Triplet: ``$($librariesConfig.triplet)``",
             "- Compiler: ``$($librariesConfig.compiler)``",
-            "- Library list: see ``floss/qs/db/data/oss/libraries.json``",
+            "- Library list: see ``floss/tags/data/oss/libraries.json``",
             "",
             "Per-library entry counts and timing are printed in the workflow logs (``build_metrics.json``).",
             "",

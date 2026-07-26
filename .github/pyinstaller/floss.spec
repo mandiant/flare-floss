@@ -58,13 +58,13 @@ datas = [
     # this gets invoked from the directory of the spec file,
     # i.e. ./.github/pyinstaller
     ('../../floss/sigs', 'sigs'),
-    # tag databases (legacy path: floss/qs/db/data)
-    ('../../floss/qs/db/data/crt/*.jsonl.gz', 'floss/qs/db/data/crt'),
-    ('../../floss/qs/db/data/expert/*.jsonl', 'floss/qs/db/data/expert'),
-    ('../../floss/qs/db/data/gp/*.jsonl.gz', 'floss/qs/db/data/gp'),
-    ('../../floss/qs/db/data/gp/*.bin', 'floss/qs/db/data/gp'),
-    ('../../floss/qs/db/data/oss/*.jsonl.gz', 'floss/qs/db/data/oss'),
-    ('../../floss/qs/db/data/winapi/*.txt.gz', 'floss/qs/db/data/winapi'),
+    # tag databases
+    ('../../floss/tags/data/crt/*.jsonl.gz', 'floss/tags/data/crt'),
+    ('../../floss/tags/data/expert/*.jsonl', 'floss/tags/data/expert'),
+    ('../../floss/tags/data/gp/*.jsonl.gz', 'floss/tags/data/gp'),
+    ('../../floss/tags/data/gp/*.bin', 'floss/tags/data/gp'),
+    ('../../floss/tags/data/oss/*.jsonl.gz', 'floss/tags/data/oss'),
+    ('../../floss/tags/data/winapi/*.txt.gz', 'floss/tags/data/winapi'),
 ]
 
 excludes = [
