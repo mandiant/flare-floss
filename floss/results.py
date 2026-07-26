@@ -17,7 +17,7 @@ import re
 import json
 import datetime
 from enum import Enum
-from typing import Dict, List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Dict, List, Optional
 from pathlib import Path
 from dataclasses import field
 
@@ -204,15 +204,17 @@ class ResultLayout:
     @classmethod
     def from_layout(cls, layout: "Layout") -> "ResultLayout":
         """Recursively convert a live Layout tree to the serializable form."""
+        from floss.layout.types import TaggedString, ExtractedString
+
         result_strings: List[ResultString] = []
         for s in layout.strings:
             # after tagging, strings are TaggedString; before, ExtractedString
-            if hasattr(s, "string") and hasattr(s.string, "string"):
-                # TaggedString
-                extracted = s.string
-                tags = sorted(list(s.tags)) if getattr(s, "tags", None) else []
-                structure = getattr(s, "structure", "") or ""
+            if isinstance(s, TaggedString):
+                extracted: ExtractedString = s.string
+                tags = sorted(list(s.tags))
+                structure = s.structure or ""
             else:
+                assert isinstance(s, ExtractedString)
                 extracted = s
                 tags = []
                 structure = ""

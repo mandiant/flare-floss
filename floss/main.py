@@ -22,22 +22,22 @@ import floss.results
 import floss.logging_
 import floss.render.json
 import floss.render.default
-from floss.utils import is_string_type_enabled
-from floss.results import Analysis, load
-from floss.pipeline import (
-    Options,
-    PipelineError,
-    analyze,
-    select_functions,
-    load_vw,
-    get_signatures,
-)
 from floss.cli import (
     SIGNATURES_PATH_DEFAULT_STRING,
     StringType,
     ArgumentValueError,
     make_parser,
     set_log_config,
+)
+from floss.utils import is_string_type_enabled
+from floss.results import Analysis, load
+from floss.pipeline import (
+    Options,
+    PipelineError,
+    analyze,
+    load_vw,
+    get_signatures,
+    select_functions,
 )
 
 # re-exports for tests and plugins that import helpers from floss.main
@@ -223,7 +223,7 @@ def main(argv=None) -> int:
     )
 
     try:
-        results = analyze(options)
+        analysis_results = analyze(options)
     except PipelineError as e:
         if e.exit_code in (1, 130):
             logger.info("%s", e)
@@ -231,14 +231,14 @@ def main(argv=None) -> int:
             logger.error("%s", e)
         return e.exit_code
 
-    if results is None:
+    if analysis_results is None:
         return 0
 
     if args.json:
-        r = floss.render.json.render(results)
+        r = floss.render.json.render(analysis_results)
     else:
         logger.info("rendering results")
-        r = floss.render.default.render(results, args.verbose, args.quiet, args.color)
+        r = floss.render.default.render(analysis_results, args.verbose, args.quiet, args.color)
 
     print(r)
     return 0

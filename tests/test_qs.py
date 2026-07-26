@@ -20,10 +20,10 @@ import pytest
 
 import floss.render.json
 from floss.tags import load_databases
+from floss.enrich import static_strings_from_layout
 from floss.layout import compute_layout
 from floss.ranges import Slice
-from floss.results import Analysis, Metadata, ResultDocument, ResultLayout, Strings
-from floss.enrich import static_strings_from_layout
+from floss.results import Strings, Analysis, Metadata, ResultLayout, ResultDocument
 from floss.layout.extract import collect_strings, extract_layout_strings
 
 CD = Path(__file__).resolve().parent

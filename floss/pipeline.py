@@ -23,7 +23,7 @@ from __future__ import annotations
 import os
 import sys
 from time import time
-from typing import List, Optional, Set
+from typing import Set, List, Optional
 from pathlib import Path
 from dataclasses import dataclass
 
@@ -34,9 +34,11 @@ from vivisect import VivWorkspace
 
 import floss.utils
 import floss.results
+import floss.logging_
 import floss.language.utils
 import floss.language.go.extract
 import floss.language.rust.extract
+from floss.cli import WorkspaceLoadError
 from floss.const import (
     MAX_FILE_SIZE,
     UNSUPPORTED_FILE_MAGIC,
@@ -50,8 +52,13 @@ from floss.utils import (
     get_static_strings,
     get_vivisect_meta_info,
 )
+from floss.enrich import (
+    is_structured_layout,
+    enrich_static_strings,
+    static_strings_from_layout,
+)
 from floss.render import Verbosity
-from floss.results import Analysis, Metadata, ResultDocument, ResultLayout
+from floss.results import Analysis, Metadata, ResultLayout, ResultDocument
 from floss.identify import (
     append_unique,
     get_function_fvas,
@@ -65,13 +72,6 @@ from floss.stackstrings import extract_stackstrings
 from floss.tightstrings import extract_tightstrings
 from floss.string_decoder import decode_strings
 from floss.language.identify import Language, identify_language_and_version
-from floss.enrich import (
-    enrich_static_strings,
-    is_structured_layout,
-    static_strings_from_layout,
-)
-from floss.cli import WorkspaceLoadError
-import floss.logging_
 
 logger = floss.logging_.getLogger("floss.pipeline")
 
@@ -218,10 +218,10 @@ def _try_layout_static(
     Quantum-style layout extract when PE/ELF/Mach-O parse succeeds.
     Returns serializable ResultLayout, or None to fall back to classic statics.
     """
-    from floss.ranges import Slice
-    from floss.layout import compute_layout
-    from floss.layout.extract import extract_layout_strings
     from floss.tags import load_databases, remove_false_positive_lib_strings
+    from floss.layout import compute_layout
+    from floss.ranges import Slice
+    from floss.layout.extract import extract_layout_strings
 
     buf = sample.read_bytes()
     file_slice = Slice.from_bytes(buf=buf)
@@ -361,9 +361,7 @@ def analyze(options: Options) -> Optional[ResultDocument]:
         if results.metadata.language == Language.GO.value:
             logger.info("extracting language-specific Go strings")
             interim = time()
-            results.strings.language_strings = floss.language.go.extract.extract_go_strings(
-                sample, options.min_length
-            )
+            results.strings.language_strings = floss.language.go.extract.extract_go_strings(sample, options.min_length)
             results.metadata.runtime.language_strings = get_runtime_diff(interim)
 
             base_statics = results.strings.static_strings if layout_doc is not None else static_strings
@@ -372,9 +370,7 @@ def analyze(options: Options) -> Optional[ResultDocument]:
                 string_blob_strings, results.strings.language_strings, options.min_length
             )
             if layout_doc is not None:
-                results.strings.language_strings = enrich_static_strings(
-                    results.strings.language_strings, layout_doc
-                )
+                results.strings.language_strings = enrich_static_strings(results.strings.language_strings, layout_doc)
                 results.strings.language_strings_missed = enrich_static_strings(
                     results.strings.language_strings_missed, layout_doc
                 )
@@ -393,9 +389,7 @@ def analyze(options: Options) -> Optional[ResultDocument]:
                 rdata_strings, results.strings.language_strings, options.min_length
             )
             if layout_doc is not None:
-                results.strings.language_strings = enrich_static_strings(
-                    results.strings.language_strings, layout_doc
-                )
+                results.strings.language_strings = enrich_static_strings(results.strings.language_strings, layout_doc)
                 results.strings.language_strings_missed = enrich_static_strings(
                     results.strings.language_strings_missed, layout_doc
                 )

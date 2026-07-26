@@ -18,17 +18,17 @@ import json
 import tempfile
 from pathlib import Path
 
+import floss.render.json
 from floss.results import (
+    Strings,
     Analysis,
     Metadata,
-    ResultDocument,
     ResultLayout,
     ResultString,
     StaticString,
+    ResultDocument,
     StringEncoding,
-    Strings,
 )
-import floss.render.json
 
 
 def test_enriched_static_json_roundtrip():

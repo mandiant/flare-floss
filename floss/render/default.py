@@ -29,6 +29,7 @@ import floss.logging_
 import floss.language.identify
 from floss.render import Verbosity
 from floss.results import AddressType, StackString, TightString, DecodedString, ResultDocument, StringEncoding
+from floss.tags.filter import TagRules
 from floss.render.sanitize import sanitize
 
 MIN_WIDTH_LEFT_COL = 22
@@ -37,6 +38,14 @@ MIN_WIDTH_RIGHT_COL = 82
 DISABLED = "Disabled"
 
 logger = floss.logging_.getLogger(__name__)
+
+DEFAULT_TAG_RULES: TagRules = {
+    "#capa": "highlight",
+    "#common": "mute",
+    "#duplicate": "mute",
+    "#code": "hide",
+    "#reloc": "hide",
+}
 
 
 def heading_style(s: str):
@@ -331,15 +340,6 @@ def get_color(color):
     return color_system
 
 
-DEFAULT_TAG_RULES = {
-    "#capa": "highlight",
-    "#common": "mute",
-    "#duplicate": "mute",
-    "#code": "hide",
-    "#reloc": "hide",
-}
-
-
 def render(results: floss.results.ResultDocument, verbose, disable_headers, color):
     sys.__stdout__.reconfigure(encoding="utf-8")  # type: ignore [union-attr]
     console = Console(file=io.StringIO(), color_system=get_color(color), highlight=False, soft_wrap=True)
@@ -349,9 +349,10 @@ def render(results: floss.results.ResultDocument, verbose, disable_headers, colo
     # layout-aware path: no classic meta table (quantum-style)
     if has_layout:
         if results.analysis.enable_static_strings and results.layout is not None:
+            import copy
+
             from floss.tags.filter import hide_strings_by_rules
             from floss.render.layout_text import render_strings
-            import copy
 
             layout_view = copy.deepcopy(results.layout)
             hide_strings_by_rules(layout_view, DEFAULT_TAG_RULES)
