@@ -17,7 +17,7 @@ import re
 import json
 import datetime
 from enum import Enum
-from typing import Dict, List
+from typing import Dict, List, Optional, TYPE_CHECKING
 from pathlib import Path
 from dataclasses import field
 
@@ -36,6 +36,9 @@ import floss.logging_
 from floss.render import Verbosity
 from floss.version import __version__
 from floss.render.sanitize import sanitize
+
+if TYPE_CHECKING:
+    from floss.layout.base import Layout
 
 logger = floss.logging_.getLogger(__name__)
 
@@ -58,10 +61,10 @@ class StringEncoding(str, Enum):
 class StackString:
     """
     here's what the following members represent:
-        
-        
+
+
         [smaller addresses]
-       
+
         +---------------+  <- stack_pointer (top of stack)
         |               | \
         +---------------+  | offset
@@ -75,7 +78,7 @@ class StackString:
         +---------------+  |
         |               | /
         +---------------+  <- original_stack_pointer (bottom of stack, probably bp)
-        
+
         [bigger addresses]
 
 
@@ -98,6 +101,7 @@ class StackString:
     original_stack_pointer: int
     offset: int
     frame_offset: int
+    tags: List[str] = field(default_factory=list)
 
 
 class TightString(StackString):
@@ -130,6 +134,9 @@ class DecodedString:
     encoding: StringEncoding
     decoded_at: int
     decoding_routine: int
+    tags: List[str] = field(default_factory=list)
+    section: str = ""
+    structure: str = ""
 
 
 @dataclass(frozen=True)
@@ -141,11 +148,17 @@ class StaticString:
         string: the string
         offset: the offset into the input where the string is found
         encoding: the string encoding, like ASCII or unicode
+        tags: classification tags (layout/content), when enriched
+        section: containing layout node name, when known
+        structure: PE/ELF/Mach-O structure name, when known
     """
 
     string: str
     offset: int
     encoding: StringEncoding
+    tags: List[str] = field(default_factory=list)
+    section: str = ""
+    structure: str = ""
 
     @classmethod
     def from_utf8(cls, buf, addr, min_length):
@@ -163,6 +176,70 @@ class StaticString:
 
 
 @dataclass
+class ResultString:
+    """Serializable layout-tree string (used for section-aware static render)."""
+
+    string: str
+    offset: int
+    size: int
+    encoding: str
+    tags: List[str] = field(default_factory=list)
+    structure: str = ""
+
+
+@dataclass
+class ResultLayout:
+    """Serializable binary layout tree for static string context."""
+
+    name: str
+    offset: int
+    length: int
+    strings: List[ResultString] = field(default_factory=list)
+    children: List["ResultLayout"] = field(default_factory=list)
+
+    @property
+    def end(self) -> int:
+        return self.offset + self.length
+
+    @classmethod
+    def from_layout(cls, layout: "Layout") -> "ResultLayout":
+        """Recursively convert a live Layout tree to the serializable form."""
+        result_strings: List[ResultString] = []
+        for s in layout.strings:
+            # after tagging, strings are TaggedString; before, ExtractedString
+            if hasattr(s, "string") and hasattr(s.string, "string"):
+                # TaggedString
+                extracted = s.string
+                tags = sorted(list(s.tags)) if getattr(s, "tags", None) else []
+                structure = getattr(s, "structure", "") or ""
+            else:
+                extracted = s
+                tags = []
+                structure = ""
+
+            result_strings.append(
+                ResultString(
+                    string=extracted.string,
+                    offset=extracted.slice.range.offset,
+                    size=extracted.slice.range.length,
+                    encoding=extracted.encoding,
+                    tags=tags,
+                    structure=structure,
+                )
+            )
+
+        result_children = [cls.from_layout(child) for child in (layout.children or [])]
+
+        return cls(
+            name=layout.name,
+            offset=layout.slice.range.offset,
+            length=layout.slice.range.length,
+            strings=result_strings,
+            children=result_children,
+        )
+
+
+@dataclass
 class Runtime:
     start_date: datetime.datetime = datetime.datetime.now()
     total: float = 0
@@ -173,6 +250,8 @@ class Runtime:
     stack_strings: float = 0
     decoded_strings: float = 0
     tight_strings: float = 0
+    layout: float = 0
+    tags: float = 0
 
 
 @dataclass
@@ -191,10 +270,18 @@ class Analysis:
     enable_stack_strings: bool = True
     enable_tight_strings: bool = True
     enable_decoded_strings: bool = True
+    enable_layout: bool = True
+    enable_tags: bool = True
     functions: Functions = field(default_factory=Functions)
 
 
-STRING_TYPE_FIELDS = set([field for field in Analysis.__annotations__ if field.startswith("enable_")])
+# string-type enable flags only (layout/tags are separate product toggles)
+STRING_TYPE_FIELDS = {
+    "enable_static_strings",
+    "enable_stack_strings",
+    "enable_tight_strings",
+    "enable_decoded_strings",
+}
 
 
 @dataclass
@@ -224,6 +311,7 @@ class ResultDocument:
     metadata: Metadata
     analysis: Analysis = field(default_factory=Analysis)
     strings: Strings = field(default_factory=Strings)
+    layout: Optional[ResultLayout] = None
 
     @classmethod
     def parse_file(cls, path: Path) -> "ResultDocument":
