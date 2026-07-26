@@ -43,16 +43,18 @@ The strings FLOSS extracts specific to a compiler are much easier to inspect by 
 
 Please consult the documentation to learn more about the [language-specific string extraction](doc/language_specific_strings.md).
 
-### Layout-aware strings (`floss quantum`)
+### Layout-aware static strings
 
-QUANTUMSTRAND-style analysis is available as the `floss quantum` subcommand. It
-augments traditional `strings.exe` output with context to aid malware analysis
-and reverse engineering: file structure next to strings, and mute/highlight of
-entries based on global prevalence, library association, expert rules, and more.
+For PE, ELF, and Mach-O samples, FLOSS enriches static strings by default with
+file structure context and tags (global prevalence, open-source libraries,
+expert rules, and more). Stack, tight, and decoded strings still appear after
+the layout-aware static listing when deobfuscation is enabled.
 
 ```console
-$ floss quantum sample.exe
-$ floss quantum sample.exe -j
+$ floss sample.exe
+$ floss sample.exe -j
+$ floss --no layout sample.exe    # classic static listing
+$ floss --no tags sample.exe      # layout without tag databases
 ```
 
 Features:
@@ -72,7 +74,7 @@ Features:
 Tag databases and FLIRT signature files are tracked with Git LFS; contributors
 cloning the repo may need Git LFS installed to fetch those files. Maintenance of
 tag databases is documented in [scripts/tags/README.md](scripts/tags/README.md)
-and the per-database notes under `floss/qs/db/data/`.
+and the per-database notes under `floss/tags/data/`.
 
 ## Installation
 To use FLOSS, download a standalone executable file from the releases page:
