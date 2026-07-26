@@ -331,23 +331,46 @@ def get_color(color):
     return color_system
 
 
+DEFAULT_TAG_RULES = {
+    "#capa": "highlight",
+    "#common": "mute",
+    "#duplicate": "mute",
+    "#code": "hide",
+    "#reloc": "hide",
+}
+
+
 def render(results: floss.results.ResultDocument, verbose, disable_headers, color):
     sys.__stdout__.reconfigure(encoding="utf-8")  # type: ignore [union-attr]
     console = Console(file=io.StringIO(), color_system=get_color(color), highlight=False, soft_wrap=True)
 
-    if not disable_headers:
-        console.print("\n")
-        if verbose == Verbosity.DEFAULT:
-            console.print(f"FLARE FLOSS RESULTS (version {results.metadata.version})\n")
-        else:
-            colored_str = heading_style(f"FLARE FLOSS RESULTS (version {results.metadata.version})\n")
-            console.print(colored_str)
-        render_meta(results, console, verbose)
-        console.print("\n")
+    has_layout = results.layout is not None and results.analysis.enable_static_strings
 
-    if results.analysis.enable_static_strings:
-        render_staticstrings(results.strings.static_strings, console, verbose, disable_headers)
-        console.print("\n")
+    # layout-aware path: no classic meta table (quantum-style)
+    if has_layout:
+        if results.analysis.enable_static_strings and results.layout is not None:
+            from floss.tags.filter import hide_strings_by_rules
+            from floss.render.layout_text import render_strings
+            import copy
+
+            layout_view = copy.deepcopy(results.layout)
+            hide_strings_by_rules(layout_view, DEFAULT_TAG_RULES)
+            render_strings(console, layout_view, DEFAULT_TAG_RULES)
+            console.print()
+    else:
+        if not disable_headers:
+            console.print("\n")
+            if verbose == Verbosity.DEFAULT:
+                console.print(f"FLARE FLOSS RESULTS (version {results.metadata.version})\n")
+            else:
+                colored_str = heading_style(f"FLARE FLOSS RESULTS (version {results.metadata.version})\n")
+                console.print(colored_str)
+            render_meta(results, console, verbose)
+            console.print("\n")
+
+        if results.analysis.enable_static_strings:
+            render_staticstrings(results.strings.static_strings, console, verbose, disable_headers)
+            console.print("\n")
 
     if results.metadata.language in (
         floss.language.identify.Language.GO.value,
@@ -363,17 +386,18 @@ def render(results: floss.results.ResultDocument, verbose, disable_headers, colo
         )
         console.print("\n")
 
-    if results.analysis.enable_stack_strings:
+    # recovered strings always after static/language (classic blocks)
+    if results.analysis.enable_stack_strings and results.strings.stack_strings:
         render_heading(f"FLOSS STACK STRINGS ({len(results.strings.stack_strings)})", console, verbose, disable_headers)
         render_stackstrings(results.strings.stack_strings, console, verbose, disable_headers)
         console.print("\n")
 
-    if results.analysis.enable_tight_strings:
+    if results.analysis.enable_tight_strings and results.strings.tight_strings:
         render_heading(f"FLOSS TIGHT STRINGS ({len(results.strings.tight_strings)})", console, verbose, disable_headers)
         render_stackstrings(results.strings.tight_strings, console, verbose, disable_headers)
         console.print("\n")
 
-    if results.analysis.enable_decoded_strings:
+    if results.analysis.enable_decoded_strings and results.strings.decoded_strings:
         render_heading(
             f"FLOSS DECODED STRINGS ({len(results.strings.decoded_strings)})", console, verbose, disable_headers
         )

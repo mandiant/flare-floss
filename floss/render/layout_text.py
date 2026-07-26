@@ -23,7 +23,7 @@ from rich.text import Text
 from rich.style import Style
 from rich.console import Console
 
-from floss.document import ResultLayout, ResultString
+from floss.results import ResultLayout, ResultString
 from floss.tags.filter import TagRules, should_hide_string
 from floss.layout.types import Tag
 

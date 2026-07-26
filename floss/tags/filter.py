@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Dict, Literal
 
-from floss.document import ResultLayout, ResultString
+from floss.results import ResultLayout, ResultString
 from floss.tags.oss import DEFAULT_FILENAMES
 
 if TYPE_CHECKING:
