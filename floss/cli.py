@@ -24,6 +24,7 @@ from enum import Enum
 from typing import List, Optional
 from pathlib import Path
 
+import floss.utils
 import floss.logging_
 from floss.const import (
     MEGABYTE,
@@ -50,6 +51,10 @@ class StringType(str, Enum):
     STACK = "stack"
     TIGHT = "tight"
     DECODED = "decoded"
+
+
+# extra --no choices (not used with --only)
+NO_ONLY_EXTRA = ("layout", "tags")
 
 
 class WorkspaceLoadError(ValueError):
@@ -87,8 +92,9 @@ def make_parser(argv):
         "Language-specific strings:\n"
         " 1. Go:   strings from binaries written in Go\n"
         " 2. Rust: strings from binaries written in Rust\n\n"
-        "Layout-aware static strings with tags (QUANTUMSTRAND):\n"
-        "  floss quantum <sample>\n"
+        "By default, static strings are layout-aware with tags for PE/ELF/Mach-O\n"
+        "(section context, prevalence/library/expert tags). Disable with:\n"
+        "  --no layout   or   --no tags\n"
     )
     epilog = textwrap.dedent("""
         only displaying core arguments, run `floss -H` to see all supported options
@@ -103,8 +109,8 @@ def make_parser(argv):
           only extract stack and tight strings
             floss --only stack tight -- suspicious.exe
 
-          extract layout-aware strings with tags
-            floss quantum suspicious.exe
+          classic static strings without layout/tags
+            floss --no layout -- suspicious.exe
         """)
     epilog_advanced = textwrap.dedent("""
         examples:
@@ -113,7 +119,7 @@ def make_parser(argv):
 
           only decode strings from the specified functions
             floss --functions 0x401000 0x401100 suspicious.exe
-        
+
           extract strings from a binary written in Go (if automatic language identification fails)
             floss --language go program.exe
         """)
@@ -147,9 +153,9 @@ def make_parser(argv):
         action="extend",
         dest="disabled_types",
         nargs="+",
-        choices=[t.value for t in StringType],
+        choices=[t.value for t in StringType] + list(NO_ONLY_EXTRA),
         default=[],
-        help="do not extract specified string type(s)",
+        help="do not extract specified string type(s); also: layout, tags",
     )
     analysis_group.add_argument(
         "--only",
