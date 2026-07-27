@@ -29,8 +29,9 @@ import floss.logging_
 import floss.language.identify
 from floss.render import Verbosity
 from floss.results import AddressType, StackString, TightString, DecodedString, ResultDocument, StringEncoding
-from floss.tags.filter import TagRules
+from floss.tags.filter import TagRules, hide_strings_by_rules
 from floss.render.sanitize import sanitize
+from floss.render.layout_text import render_strings
 
 MIN_WIDTH_LEFT_COL = 22
 MIN_WIDTH_RIGHT_COL = 82
@@ -346,9 +347,6 @@ def render(results: floss.results.ResultDocument, verbose, disable_headers, colo
 
     # layout-aware path: no classic meta table (quantum-style)
     if results.layout is not None and results.analysis.enable_static_strings:
-        from floss.tags.filter import hide_strings_by_rules
-        from floss.render.layout_text import render_strings
-
         layout_view = hide_strings_by_rules(results.layout, DEFAULT_TAG_RULES)
         render_strings(console, layout_view, DEFAULT_TAG_RULES)
         console.print()
