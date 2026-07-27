@@ -65,8 +65,16 @@ def should_hide_string(s: ResultString, tag_rules: TagRules) -> bool:
     return any(map(lambda tag: tag_rules.get(tag) == "hide", s.tags))
 
 
-def hide_strings_by_rules(layout: ResultLayout, tag_rules: TagRules):
-    layout.strings = list(filter(lambda s: not should_hide_string(s, tag_rules), layout.strings))
+def hide_strings_by_rules(layout: ResultLayout, tag_rules: TagRules) -> ResultLayout:
+    """Return a new layout tree with hide-rule strings removed.
 
-    for child in layout.children:
-        hide_strings_by_rules(child, tag_rules)
+    Does not mutate ``layout`` or its children, so callers can render a
+    filtered view without deep-copying the original result document.
+    """
+    return ResultLayout(
+        name=layout.name,
+        offset=layout.offset,
+        length=layout.length,
+        strings=[s for s in layout.strings if not should_hide_string(s, tag_rules)],
+        children=[hide_strings_by_rules(child, tag_rules) for child in layout.children],
+    )

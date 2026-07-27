@@ -344,20 +344,14 @@ def render(results: floss.results.ResultDocument, verbose, disable_headers, colo
     sys.__stdout__.reconfigure(encoding="utf-8")  # type: ignore [union-attr]
     console = Console(file=io.StringIO(), color_system=get_color(color), highlight=False, soft_wrap=True)
 
-    has_layout = results.layout is not None and results.analysis.enable_static_strings
-
     # layout-aware path: no classic meta table (quantum-style)
-    if has_layout:
-        if results.analysis.enable_static_strings and results.layout is not None:
-            import copy
+    if results.layout is not None and results.analysis.enable_static_strings:
+        from floss.tags.filter import hide_strings_by_rules
+        from floss.render.layout_text import render_strings
 
-            from floss.tags.filter import hide_strings_by_rules
-            from floss.render.layout_text import render_strings
-
-            layout_view = copy.deepcopy(results.layout)
-            hide_strings_by_rules(layout_view, DEFAULT_TAG_RULES)
-            render_strings(console, layout_view, DEFAULT_TAG_RULES)
-            console.print()
+        layout_view = hide_strings_by_rules(results.layout, DEFAULT_TAG_RULES)
+        render_strings(console, layout_view, DEFAULT_TAG_RULES)
+        console.print()
     else:
         if not disable_headers:
             console.print("\n")
