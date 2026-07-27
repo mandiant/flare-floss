@@ -73,12 +73,14 @@ def test_round_trip(analyzed_layout, pma_binary_path):
     finally:
         path.unlink()
 
+    # show the round trip works
     assert one.metadata.file_path == two.metadata.file_path
     assert one.layout is not None and two.layout is not None
     assert one.layout.name == two.layout.name
     assert len(one.strings.static_strings) == len(two.strings.static_strings)
     assert one.strings.static_strings[0].tags == two.strings.static_strings[0].tags
 
+    # now show that two different versions are not equal.
     three = copy.deepcopy(two)
     three.metadata.version = "0"
     assert one.metadata.version != three.metadata.version
@@ -86,17 +88,20 @@ def test_round_trip(analyzed_layout, pma_binary_path):
 
 def test_string_extraction(analyzed_layout):
     strings = collect_strings(analyzed_layout)
+    # Check if a known string is extracted
     assert any(s.string.string == "user32.dll" for s in strings)
 
 
 def test_tagging(analyzed_layout):
     strings = collect_strings(analyzed_layout)
+    # Check if a known string is tagged correctly
     user32_string = next(s for s in strings if s.string.string == "user32.dll")
     assert "#winapi" in user32_string.tags
 
 
 def test_structure_marking(analyzed_layout):
     strings = collect_strings(analyzed_layout)
+    # Check if a string is correctly associated with a structure
     data_string = next(s for s in strings if s.string.string == "@.data")
     assert data_string.structure == "section header"
 
