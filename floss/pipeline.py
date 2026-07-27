@@ -116,11 +116,13 @@ def select_functions(vw, asked_functions: Optional[List[int]]) -> Set[int]:
     """
     functions = set(vw.getFunctions())
     if not asked_functions:
+        # user didn't specify anything, so return them all.
         logger.debug("selected ALL functions")
         return functions
 
     asked_functions_ = set(asked_functions or [])
 
+    # validate that all functions requested by the user exist.
     missing_functions = sorted(asked_functions_ - functions)
     if missing_functions:
         raise ValueError("failed to find functions: %s" % (", ".join(map(hex, sorted(missing_functions)))))
@@ -200,6 +202,8 @@ def get_signatures(sigs_path: Path) -> List[Path]:
                 if item.suffix in [".pat", ".pat.gz", ".sig"]:
                     paths.append(item)
 
+    # load signatures in deterministic order: the alphabetic sorting of filename.
+    # this means that `0_sigs.pat` loads before `1_sigs.pat`.
     paths = [path.resolve().absolute() for path in paths]
     paths = sorted(paths, key=lambda p: p.name)
 
@@ -273,6 +277,7 @@ def analyze(options: Options) -> Optional[ResultDocument]:
 
     static_runtime = get_runtime_diff(interim)
 
+    # set language configurations
     selected_lang = Language(options.language)
     if selected_lang == Language.DISABLED:
         results.metadata.language = ""
@@ -311,6 +316,9 @@ def analyze(options: Options) -> Optional[ResultDocument]:
     elif results.metadata.language == Language.DOTNET.value:
         logger.warning(".NET language-specific string extraction is not supported yet")
         logger.warning("FLOSS does NOT attempt to deobfuscate any strings from .NET binaries")
+        # enable .NET strings once we can extract them
+        # results.metadata.language = Language.DOTNET.value
+        # TODO for pure .NET binaries our deobfuscation algorithms do nothing, but for mixed-mode assemblies they may
         analysis.enable_stack_strings = False
         analysis.enable_tight_strings = False
         analysis.enable_decoded_strings = False
@@ -319,6 +327,7 @@ def analyze(options: Options) -> Optional[ResultDocument]:
     disabled = options.disabled_types or []
     if results.metadata.language not in ("", "unknown"):
         if not enabled and not disabled and options.prompt_deobfuscation:
+            # when stdout is redirected, such as in 'floss foo.exe | less' use default prompt values
             if sys.stdout.isatty():
                 try:
                     prompt = input("Do you want to enable string deobfuscation? (this could take a long time) [y/N] ")
@@ -340,20 +349,24 @@ def analyze(options: Options) -> Optional[ResultDocument]:
                 analysis.enable_tight_strings = False
                 analysis.enable_decoded_strings = False
 
+    # in order of expected run time, fast to slow
+    # 1. static strings (done above for language ID; layout-aware replace below when enabled)
+    #  a) includes language-specific strings, if applicable
+    # 2. stack strings
+    # 3. tight strings
+    # 4. decoded strings
+
     if results.analysis.enable_static_strings:
         logger.info("extracting static strings")
         layout_doc: Optional[ResultLayout] = None
         if analysis.enable_layout:
-            interim_layout = time()
             layout_doc = _try_layout_static(sample, options.min_length, analysis.enable_tags)
-            results.metadata.runtime.layout = get_runtime_diff(interim_layout)
-            if layout_doc is not None and analysis.enable_tags:
-                results.metadata.runtime.tags = results.metadata.runtime.layout
 
         if layout_doc is not None:
             results.layout = layout_doc
             results.strings.static_strings = static_strings_from_layout(layout_doc)
-            results.metadata.runtime.static_strings = get_runtime_diff(time0)  # includes layout work
+            # includes layout/tag work when structured layout succeeded
+            results.metadata.runtime.static_strings = get_runtime_diff(time0)
         else:
             results.strings.static_strings = static_strings
             results.metadata.runtime.static_strings = static_runtime
@@ -364,6 +377,8 @@ def analyze(options: Options) -> Optional[ResultDocument]:
             results.strings.language_strings = floss.language.go.extract.extract_go_strings(sample, options.min_length)
             results.metadata.runtime.language_strings = get_runtime_diff(interim)
 
+            # missed strings only includes non-identified strings in searched range
+            # here currently only focus on strings in string blob range
             base_statics = results.strings.static_strings if layout_doc is not None else static_strings
             string_blob_strings = floss.language.go.extract.get_static_strings_from_blob_range(sample, base_statics)
             results.strings.language_strings_missed = floss.language.utils.get_missed_strings(
@@ -383,6 +398,7 @@ def analyze(options: Options) -> Optional[ResultDocument]:
             )
             results.metadata.runtime.language_strings = get_runtime_diff(interim)
 
+            # currently Rust strings are only extracted from the .rdata section
             base_statics = results.strings.static_strings if layout_doc is not None else static_strings
             rdata_strings = floss.language.rust.extract.get_static_strings_from_rdata(sample, base_statics)
             results.strings.language_strings_missed = floss.language.utils.get_missed_strings(
@@ -437,6 +453,7 @@ def analyze(options: Options) -> Optional[ResultDocument]:
             selected_functions = select_functions(vw, options.functions)
             results.analysis.functions.discovered = len(vw.getFunctions())
         except ValueError as e:
+            # failed to find functions in workspace
             raise PipelineError(e.args[0], exit_code=-1)
 
         decoding_function_features, library_functions = find_decoding_function_features(
@@ -453,6 +470,8 @@ def analyze(options: Options) -> Optional[ResultDocument]:
         if results.analysis.enable_stack_strings:
             funcs = selected_functions
             if results.analysis.enable_tight_strings:
+                # don't run stack-string extraction on functions with tight loops as this will likely
+                # result in FPs and should be caught by the tightstrings extraction below
                 funcs = get_functions_without_tightloops(decoding_function_features)
 
             results.strings.stack_strings = extract_stackstrings(
@@ -480,6 +499,7 @@ def analyze(options: Options) -> Optional[ResultDocument]:
             interim = time()
 
         if results.analysis.enable_decoded_strings:
+            # TODO select more based on score rather than absolute count?!
             top_functions = get_top_functions(decoding_function_features, 20)
 
             fvas_to_emulate = get_function_fvas(top_functions)
@@ -496,6 +516,7 @@ def analyze(options: Options) -> Optional[ResultDocument]:
                     results.analysis.functions.decoding_function_scores[fva] = {"score": score, "xrefs_to": xrefs_to}
                     logger.debug("  - 0x%x: score: %.3f, xrefs to: %d", fva, score, xrefs_to)
 
+            # TODO filter out strings decoded in library function or function only called by library function(s)
             results.strings.decoded_strings = decode_strings(
                 vw,
                 fvas_to_emulate,

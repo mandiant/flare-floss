@@ -252,8 +252,6 @@ class Runtime:
     stack_strings: float = 0
     decoded_strings: float = 0
     tight_strings: float = 0
-    layout: float = 0
-    tags: float = 0
 
 
 @dataclass

@@ -171,6 +171,7 @@ def main(argv=None) -> int:
     if args.json:
         r = floss.render.json.render(analysis_results)
     else:
+        # this may be slow when there's many strings, so informing users what's happening
         logger.info("rendering results")
         r = floss.render.default.render(analysis_results, args.verbose, args.quiet, args.color)
 
