@@ -88,53 +88,6 @@ def main(argv=None) -> int:
     if argv is None:
         argv = sys.argv[1:]
 
-    # deprecated alias: floss quantum … → same pipeline with static-focused defaults
-    if argv and argv[0] == "quantum":
-        logger.warning("'floss quantum' is deprecated; layout-aware static analysis is the default for floss")
-        # map quantum argv to floss --no stack tight decoded
-        rest = argv[1:]
-        # quantum used positional path; floss uses sample as last positional via FileType
-        # rebuild as: --no stack tight decoded [quantum flags] path
-        mapped = ["--no", "stack", "tight", "decoded"]
-        # translate quantum-style path argument (no FileType wrapping issues if we pass through make_parser)
-        i = 0
-        path = None
-        min_length = None
-        want_json = False
-        quiet = False
-        debug = 0
-        while i < len(rest):
-            a = rest[i]
-            if a in ("-j", "--json"):
-                want_json = True
-            elif a in ("-q", "--quiet"):
-                quiet = True
-            elif a in ("-d", "--debug"):
-                debug += 1
-            elif a in ("-n", "--minimum-length") and i + 1 < len(rest):
-                min_length = rest[i + 1]
-                i += 1
-            elif a in ("-l", "--load"):
-                mapped.append("--load")
-            elif a in ("--version",):
-                mapped.append("--version")
-            elif not a.startswith("-"):
-                path = a
-            i += 1
-        if want_json:
-            mapped.append("--json")
-        if quiet:
-            mapped.append("--quiet")
-        for _ in range(debug):
-            mapped.append("-d")
-        if min_length is not None:
-            mapped.extend(["-n", str(min_length)])
-        if path is None:
-            print("floss quantum: missing sample path", file=sys.stderr)
-            return -1
-        mapped.append(path)
-        argv = mapped
-
     parser = make_parser(argv)
     try:
         args = parser.parse_args(args=argv)

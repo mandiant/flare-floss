@@ -31,6 +31,6 @@ Scripts that extract strings, build tag databases, and query them. See [`tags/RE
 
 ## analysis/
 
-- [`bulk_analyze.py`](analysis/bulk_analyze.py) — run `floss` or `floss quantum` over every binary in a directory and write JSON results.
+- [`bulk_analyze.py`](analysis/bulk_analyze.py) — run `floss` over every binary in a directory and write JSON results.
 
 Language-specific data maintenance (for example regenerating the Rust version hash database) lives alongside the implementation under `floss/language/`.
