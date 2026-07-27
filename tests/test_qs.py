@@ -74,16 +74,23 @@ def test_round_trip(analyzed_layout, pma_binary_path):
         path.unlink()
 
     # show the round trip works
+    # first by comparing key fields after JSON serialize/parse
+    # (full ResultDocument equality is not used: nested Runtime timestamps and
+    #  similar fields can differ in representation after a round-trip)
     assert one.metadata.file_path == two.metadata.file_path
     assert one.layout is not None and two.layout is not None
     assert one.layout.name == two.layout.name
     assert len(one.strings.static_strings) == len(two.strings.static_strings)
     assert one.strings.static_strings[0].tags == two.strings.static_strings[0].tags
+    # second by showing layout/tag content survived in the parsed document
+    assert two.layout.name == layout_doc.name
+    assert two.strings.static_strings[0].tags == statics[0].tags
 
     # now show that two different versions are not equal.
     three = copy.deepcopy(two)
     three.metadata.version = "0"
     assert one.metadata.version != three.metadata.version
+    assert floss.render.json.render(one) != floss.render.json.render(three)
 
 
 def test_string_extraction(analyzed_layout):
