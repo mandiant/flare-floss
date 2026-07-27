@@ -107,3 +107,14 @@ def test_structure_marking(analyzed_layout):
 
     close_string = next(s for s in strings if s.string.string == "CloseHandle")
     assert close_string.structure == "import table"
+
+
+def test_analysis_pipeline(pma_binary_path):
+    # Run the analysis pipeline
+    slice_buf = pma_binary_path.read_bytes()
+    file_slice = Slice.from_bytes(slice_buf)
+    layout = compute_layout(file_slice)
+    extract_layout_strings(layout, 6)
+
+    # Check that the layout has been computed correctly
+    assert layout.name == "pe"
