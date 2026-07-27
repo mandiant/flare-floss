@@ -17,6 +17,7 @@ import pytest
 from fixtures import scfile, exefile
 
 import floss.main
+from floss.cli import StringType
 
 
 def test_functions(exefile):
@@ -38,7 +39,7 @@ def test_shellcode(scfile):
     assert floss.main.main([scfile, "--format", "pe"]) == -1
 
 
-@pytest.mark.parametrize("type_", [t.value for t in floss.main.StringType])
+@pytest.mark.parametrize("type_", [t.value for t in StringType])
 @pytest.mark.parametrize("analysis", ("--only", "--no"))
 def test_args_analysis_type(exefile, analysis, type_):
     assert (

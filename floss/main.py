@@ -31,26 +31,7 @@ from floss.cli import (
 )
 from floss.utils import is_string_type_enabled
 from floss.results import Analysis, load
-from floss.pipeline import (
-    Options,
-    PipelineError,
-    analyze,
-    load_vw,
-    get_signatures,
-    select_functions,
-)
-
-# re-exports for tests and plugins that import helpers from floss.main
-__all__ = [
-    "main",
-    "StringType",
-    "select_functions",
-    "load_vw",
-    "get_signatures",
-    "get_default_root",
-    "is_running_standalone",
-    "set_log_config",
-]
+from floss.pipeline import Options, PipelineError, analyze
 
 logger = floss.logging_.getLogger("floss")
 
