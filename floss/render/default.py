@@ -379,18 +379,19 @@ def render(results: floss.results.ResultDocument, verbose, disable_headers, colo
         )
         console.print("\n")
 
-    # recovered strings always after static/language (classic blocks)
-    if results.analysis.enable_stack_strings and results.strings.stack_strings:
+    # recovered strings always after static/language (classic blocks).
+    # show the section whenever the mode is enabled, including count 0.
+    if results.analysis.enable_stack_strings:
         render_heading(f"FLOSS STACK STRINGS ({len(results.strings.stack_strings)})", console, verbose, disable_headers)
         render_stackstrings(results.strings.stack_strings, console, verbose, disable_headers)
         console.print("\n")
 
-    if results.analysis.enable_tight_strings and results.strings.tight_strings:
+    if results.analysis.enable_tight_strings:
         render_heading(f"FLOSS TIGHT STRINGS ({len(results.strings.tight_strings)})", console, verbose, disable_headers)
         render_stackstrings(results.strings.tight_strings, console, verbose, disable_headers)
         console.print("\n")
 
-    if results.analysis.enable_decoded_strings and results.strings.decoded_strings:
+    if results.analysis.enable_decoded_strings:
         render_heading(
             f"FLOSS DECODED STRINGS ({len(results.strings.decoded_strings)})", console, verbose, disable_headers
         )
