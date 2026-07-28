@@ -39,13 +39,13 @@ Not all compilers use string formats that the classic `strings.exe` algorithm su
  1. Go
  2. Rust
 
-The strings FLOSS extracts specific to a compiler are much easier to inspect by humans. 
+The strings FLOSS extracts specific to a compiler are much easier to inspect by humans.
 
 Please consult the documentation to learn more about the [language-specific string extraction](doc/language_specific_strings.md).
 
 ### Layout-aware static strings
 
-For PE, ELF, and Mach-O samples, FLOSS enriches static strings by default with
+FLOSS enriches static strings by default with
 file structure context and tags (global prevalence, open-source libraries,
 expert rules, and more). Stack, tight, and decoded strings still appear after
 the layout-aware static listing when deobfuscation is enabled.
@@ -104,7 +104,7 @@ For a detailed description of using FLOSS, review the documentation
  [here](doc/usage.md).
 
 ## Scripts
-FLOSS also contains additional Python scripts in the [scripts](scripts) directory 
+FLOSS also contains additional Python scripts in the [scripts](scripts) directory
 which can be used to load its output into other tools such as Binary Ninja or IDA Pro.
 For detailed description of these scripts review the documentation [here](scripts/README.md).
 
