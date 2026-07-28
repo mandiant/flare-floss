@@ -53,10 +53,6 @@ class StringType(str, Enum):
     DECODED = "decoded"
 
 
-# extra --no choices (not used with --only)
-NO_ONLY_EXTRA = ("layout", "tags")
-
-
 class WorkspaceLoadError(ValueError):
     pass
 
@@ -94,7 +90,8 @@ def make_parser(argv):
         " 2. Rust: strings from binaries written in Rust\n\n"
         "By default, static strings are layout-aware with tags for PE/ELF/Mach-O\n"
         "(section context, prevalence/library/expert tags). Disable with:\n"
-        "  --no layout   or   --no tags\n"
+        "  --no-layout   or   --no-tags\n"
+        "(temporary flags; CLI cleanup tracked in github.com/mandiant/flare-floss/issues/1348)\n"
     )
     epilog = textwrap.dedent("""
         only displaying core arguments, run `floss -H` to see all supported options
@@ -110,7 +107,7 @@ def make_parser(argv):
             floss --only stack tight -- suspicious.exe
 
           classic static strings without layout/tags
-            floss --no layout -- suspicious.exe
+            floss --no-layout -- suspicious.exe
         """)
     epilog_advanced = textwrap.dedent("""
         examples:
@@ -153,9 +150,9 @@ def make_parser(argv):
         action="extend",
         dest="disabled_types",
         nargs="+",
-        choices=[t.value for t in StringType] + list(NO_ONLY_EXTRA),
+        choices=[t.value for t in StringType],
         default=[],
-        help="do not extract specified string type(s); also: layout, tags",
+        help="do not extract specified string type(s)",
     )
     analysis_group.add_argument(
         "--only",
@@ -165,6 +162,17 @@ def make_parser(argv):
         choices=[t.value for t in StringType],
         default=[],
         help="only extract specified string type(s)",
+    )
+    # temporary product toggles (not string types); see issue #1348 for CLI cleanup
+    analysis_group.add_argument(
+        "--no-layout",
+        action="store_true",
+        help="disable layout-aware static analysis (classic flat static listing)",
+    )
+    analysis_group.add_argument(
+        "--no-tags",
+        action="store_true",
+        help="disable tag databases (layout sections without prevalence/library tags)",
     )
 
     advanced_group = parser.add_argument_group("advanced arguments")

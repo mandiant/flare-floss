@@ -53,8 +53,8 @@ the layout-aware static listing when deobfuscation is enabled.
 ```console
 $ floss sample.exe
 $ floss sample.exe -j
-$ floss --no layout sample.exe    # classic static listing
-$ floss --no tags sample.exe      # layout without tag databases
+$ floss --no-layout sample.exe    # classic static listing
+$ floss --no-tags sample.exe      # layout without tag databases
 ```
 
 Features:

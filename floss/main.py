@@ -108,17 +108,14 @@ def main(argv=None) -> int:
         if StringType.STATIC.value not in disabled:
             disabled.append(StringType.STATIC.value)
 
-    # layout/tags: only disabled via --no layout / --no tags (not gated by --only)
-    enable_layout = "layout" not in disabled
-    enable_tags = "tags" not in disabled
-
+    # layout/tags: temporary dedicated flags (not --no string types); see issue #1348
     analysis = Analysis(
         enable_static_strings=is_string_type_enabled(StringType.STATIC, disabled, enabled),
         enable_stack_strings=is_string_type_enabled(StringType.STACK, disabled, enabled),
         enable_tight_strings=is_string_type_enabled(StringType.TIGHT, disabled, enabled),
         enable_decoded_strings=is_string_type_enabled(StringType.DECODED, disabled, enabled),
-        enable_layout=enable_layout,
-        enable_tags=enable_tags,
+        enable_layout=not args.no_layout,
+        enable_tags=not args.no_tags,
     )
 
     if args.load:
