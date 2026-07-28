@@ -22,10 +22,9 @@ from floss.results import ResultLayout, ResultString, StaticString, StringEncodi
 
 
 def layout_encoding_to_string_encoding(encoding: str) -> StringEncoding:
+    # layout ExtractedString.encoding is only "ascii" | "unicode"
     if encoding == "unicode":
         return StringEncoding.UTF16LE
-    if encoding == "utf-8":
-        return StringEncoding.UTF8
     return StringEncoding.ASCII
 
 

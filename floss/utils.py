@@ -602,6 +602,16 @@ def read_memory(vw, va: int, size: int) -> bytes:
     raise envi.exc.SegmentationViolation(va)
 
 
+def get_static_strings_from_bytes(buf: bytes, min_length: int) -> list:
+    """
+    Returns list of static strings from a buffer which are above the minimum length.
+    """
+    if not buf:
+        logger.warning("File is empty")
+        return []
+    return list(extract_ascii_unicode_strings(buf, min_length))
+
+
 def get_static_strings(sample: Path, min_length: int) -> list:
     """
     Returns list of static strings from the file which are above the minimum length

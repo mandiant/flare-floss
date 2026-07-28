@@ -49,8 +49,8 @@ from floss.utils import (
     hex,
     get_imagebase,
     get_runtime_diff,
-    get_static_strings,
     get_vivisect_meta_info,
+    get_static_strings_from_bytes,
 )
 from floss.enrich import (
     is_structured_layout,
@@ -214,40 +214,42 @@ def get_signatures(sigs_path: Path) -> List[Path]:
 
 
 def _try_layout_static(
-    sample: Path,
+    buf: bytes,
     min_length: int,
     enable_tags: bool,
 ) -> Optional[ResultLayout]:
     """
     Quantum-style layout extract when PE/ELF/Mach-O parse succeeds.
     Returns serializable ResultLayout, or None to fall back to classic statics.
+
+    Any failure after a structured layout is detected (extract/tag/structures/DB)
+    also returns None so default-on layout cannot crash the whole run.
     """
     from floss.tags import load_databases, remove_false_positive_lib_strings
     from floss.layout import compute_layout
     from floss.ranges import Slice
     from floss.layout.extract import extract_layout_strings
 
-    buf = sample.read_bytes()
-    file_slice = Slice.from_bytes(buf=buf)
     try:
+        file_slice = Slice.from_bytes(buf=buf)
         live = compute_layout(file_slice)
+
+        if not is_structured_layout(live.name):
+            logger.debug("no structured layout (got %r); using classic static strings", live.name)
+            return None
+
+        extract_layout_strings(live, min_length)
+        # tag_strings always converts ExtractedString → TaggedString (needed for mark_structures)
+        taggers = load_databases() if enable_tags else []
+        live.tag_strings(taggers)
+        live.mark_structures()
+        if enable_tags:
+            remove_false_positive_lib_strings(live)
+
+        return ResultLayout.from_layout(live)
     except Exception as e:
-        logger.debug("layout computation failed: %s", e)
+        logger.debug("layout-aware static analysis failed; using classic statics: %s", e)
         return None
-
-    if not is_structured_layout(live.name):
-        logger.debug("no structured layout (got %r); using classic static strings", live.name)
-        return None
-
-    extract_layout_strings(live, min_length)
-    # tag_strings always converts ExtractedString → TaggedString (needed for mark_structures)
-    taggers = load_databases() if enable_tags else []
-    live.tag_strings(taggers)
-    live.mark_structures()
-    if enable_tags:
-        remove_false_positive_lib_strings(live)
-
-    return ResultLayout.from_layout(live)
 
 
 def analyze(options: Options) -> Optional[ResultDocument]:
@@ -270,8 +272,9 @@ def analyze(options: Options) -> Optional[ResultDocument]:
     time0 = time()
     interim = time0
 
-    # always extract classic static strings for language identification
-    static_strings = get_static_strings(sample, options.min_length)
+    # one read for classic statics + optional layout (avoids double-reading the file)
+    sample_buf = sample.read_bytes()
+    static_strings = get_static_strings_from_bytes(sample_buf, options.min_length)
     if not static_strings:
         return None
 
@@ -360,7 +363,7 @@ def analyze(options: Options) -> Optional[ResultDocument]:
         logger.info("extracting static strings")
         layout_doc: Optional[ResultLayout] = None
         if analysis.enable_layout:
-            layout_doc = _try_layout_static(sample, options.min_length, analysis.enable_tags)
+            layout_doc = _try_layout_static(sample_buf, options.min_length, analysis.enable_tags)
 
         if layout_doc is not None:
             results.layout = layout_doc

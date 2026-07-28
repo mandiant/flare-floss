@@ -18,14 +18,12 @@ import subprocess
 
 from PyInstaller.utils.hooks import collect_submodules
 
-# layout/tags/quantum modules are not imported by floss/main.py yet, but must be
-# bundled for the standalone binary (formerly built via qs.spec).
-quantum_hiddenimports = (
+# layout/tags are imported lazily from floss.pipeline; collect them so the
+# standalone binary still bundles the full layout-aware static path.
+layout_tags_hiddenimports = (
     collect_submodules("floss.layout")
     + collect_submodules("floss.tags")
     + [
-        "floss.quantum",
-        "floss.document",
         "floss.render.layout_text",
         "floss.ranges",
         "elftools",
@@ -109,7 +107,7 @@ a = Analysis(
     pathex=["floss"],
     binaries=[],
     datas=datas,
-    hiddenimports=quantum_hiddenimports,
+    hiddenimports=layout_tags_hiddenimports,
     hookspath=[".github/pyinstaller/hooks"],
     runtime_hooks=[],
     excludes=excludes,

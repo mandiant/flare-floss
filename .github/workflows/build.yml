@@ -41,11 +41,12 @@ jobs:
           pip install -e .[build]
       - name: Build standalone executable
         run: pyinstaller .github/pyinstaller/floss.spec
-      - name: Smoke test quantum layout/tags via floss quantum
+      - name: Smoke test layout/tags via standalone floss
         run: |
           chmod +x dist/${{ matrix.artifact_name }}
-          ./dist/${{ matrix.artifact_name }} quantum --help
-          ./dist/${{ matrix.artifact_name }} quantum tests/data/test-decode-to-stack.exe -j | grep -q '#common'
+          ./dist/${{ matrix.artifact_name }} --help
+          # static-only layout path (default) should include tag annotations in JSON
+          ./dist/${{ matrix.artifact_name }} --no stack tight decoded tests/data/test-decode-to-stack.exe -j | grep -q '#common'
       - uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
         with:
           name: ${{ matrix.asset_name }}

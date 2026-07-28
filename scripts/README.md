@@ -5,7 +5,7 @@ Auxiliary scripts live under `scripts/`, grouped by purpose:
 | Directory | Purpose |
 |-----------|---------|
 | [`disassemblers/`](disassemblers/) | Convert classic FLOSS JSON output into import scripts for Binary Ninja, Ghidra, IDA Pro, Radare2, and x64dbg; includes the IDA plugin |
-| [`tags/`](tags/) | Build and maintain QuantumStrand tag databases (global prevalence, OSS libraries, VT feeds) |
+| [`tags/`](tags/) | Build and maintain FLOSS tag databases (global prevalence, OSS libraries, VT feeds) |
 | [`analysis/`](analysis/) | Batch analysis helpers |
 
 ## disassemblers/
