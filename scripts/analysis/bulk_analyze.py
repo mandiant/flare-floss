@@ -26,16 +26,8 @@ logger = logging.getLogger("floss.bulk")
 
 def main():
     parser = argparse.ArgumentParser(description="Bulk analyze a directory of binaries with floss.")
-    parser.add_argument(
-        "input_directory",
-        type=pathlib.Path,
-        help="Directory containing binaries to analyze.",
-    )
-    parser.add_argument(
-        "output_directory",
-        type=pathlib.Path,
-        help="Directory to write JSON results to.",
-    )
+    parser.add_argument("input_directory", type=pathlib.Path, help="Directory containing binaries to analyze.")
+    parser.add_argument("output_directory", type=pathlib.Path, help="Directory to write JSON results to.")
     parser.add_argument(
         "-n",
         "--minimum-length",
@@ -58,10 +50,7 @@ def main():
     logging_group = parser.add_argument_group("logging arguments")
     logging_group.add_argument("-d", "--debug", action="store_true", help="Enable debugging output on STDERR.")
     logging_group.add_argument(
-        "-q",
-        "--quiet",
-        action="store_true",
-        help="Disable all status output except fatal errors.",
+        "-q", "--quiet", action="store_true", help="Disable all status output except fatal errors."
     )
     args = parser.parse_args()
 
@@ -132,11 +121,7 @@ def main():
                             cmd_render.append("--debug")
 
                         result_render = subprocess.run(
-                            cmd_render,
-                            check=False,
-                            capture_output=True,
-                            text=True,
-                            encoding="utf-8",
+                            cmd_render, check=False, capture_output=True, text=True, encoding="utf-8"
                         )
                         if result_render.returncode == 0:
                             with rendered_output_path.open("w", encoding="utf-8") as f:
@@ -153,22 +138,13 @@ def main():
                             if result_render.stderr:
                                 logger.error("stderr:\n%s", result_render.stderr)
                 else:
-                    logger.error(
-                        "Failed to analyze file %s, exited with code %d",
-                        file_path,
-                        result.returncode,
-                    )
+                    logger.error("Failed to analyze file %s, exited with code %d", file_path, result.returncode)
                     if result.stdout:
                         logger.error("stdout:\n%s", result.stdout)
                     if result.stderr:
                         logger.error("stderr:\n%s", result.stderr)
             except Exception as e:
-                logger.error(
-                    "Failed to run analysis subprocess for file %s: %s",
-                    file_path,
-                    e,
-                    exc_info=True,
-                )
+                logger.error("Failed to run analysis subprocess for file %s: %s", file_path, e, exc_info=True)
 
         elif should_render:
             logger.info("Generating rendered output from existing JSON for: %s", file_path)
@@ -192,21 +168,14 @@ def main():
                     logger.info("Wrote rendered output to %s", rendered_output_path)
                 else:
                     logger.error(
-                        "Failed to generate rendered output for %s, exited with code %d",
-                        file_path,
-                        result.returncode,
+                        "Failed to generate rendered output for %s, exited with code %d", file_path, result.returncode
                     )
                     if result.stdout:
                         logger.error("stdout:\n%s", result.stdout)
                     if result.stderr:
                         logger.error("stderr:\n%s", result.stderr)
             except Exception as e:
-                logger.error(
-                    "Failed to run rendering subprocess for file %s: %s",
-                    file_path,
-                    e,
-                    exc_info=True,
-                )
+                logger.error("Failed to run rendering subprocess for file %s: %s", file_path, e, exc_info=True)
 
     return 0
 
