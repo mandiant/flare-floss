@@ -346,6 +346,8 @@ def render(results: floss.results.ResultDocument, verbose, disable_headers, colo
     console = Console(file=io.StringIO(), color_system=get_color(color), highlight=False, soft_wrap=True)
 
     # layout-aware path: no classic meta table (quantum-style)
+    # TODO(#1348): --load + --no-layout still hits this branch when the JSON
+    # already contains a layout tree (load does not clear results.layout).
     if results.layout is not None and results.analysis.enable_static_strings:
         layout_view = hide_strings_by_rules(results.layout, DEFAULT_TAG_RULES)
         render_strings(console, layout_view, DEFAULT_TAG_RULES)

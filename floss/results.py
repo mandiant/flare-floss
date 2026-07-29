@@ -343,6 +343,10 @@ def load(sample: Path, analysis: Analysis, functions: List[int], min_length: int
     logger.debug("loading results document: %s", str(sample))
     results = read(sample)
     results.metadata.file_path = f"{sample}\n{results.metadata.file_path}"
+    # TODO(#1348): apply enable_layout / enable_tags from ``analysis`` on load.
+    # Today only string-type flags are applied (check_set_string_types). A JSON
+    # saved with a layout tree still renders layout UI under ``floss --load``
+    # even when the user passes --no-layout (results.layout is not cleared).
     check_set_string_types(results, analysis)
     if functions:
         filter_functions(results, functions)
