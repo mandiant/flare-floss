@@ -21,6 +21,7 @@ import subprocess
 from floss.cli import set_log_config
 from floss.layout.extract import MIN_STR_LEN
 
+# TODO: full deobf when those strings are first-class in layout output)
 logger = logging.getLogger("floss.bulk")
 
 
