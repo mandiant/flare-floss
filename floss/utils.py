@@ -607,7 +607,7 @@ def get_static_strings_from_bytes(buf: bytes, min_length: int) -> list:
     Returns list of static strings from a buffer which are above the minimum length.
     """
     if not buf:
-        logger.warning("File is empty")
+        logger.warning("file is empty")
         return []
     return list(extract_ascii_unicode_strings(buf, min_length))
 
@@ -618,7 +618,7 @@ def get_static_strings(sample: Path, min_length: int) -> list:
     """
 
     if sample.stat().st_size == 0:
-        logger.warning("File is empty")
+        logger.warning("file is empty")
         return []
 
     with sample.open("rb") as f:

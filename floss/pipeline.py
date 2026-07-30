@@ -53,6 +53,7 @@ from floss.utils import (
     get_static_strings_from_bytes,
 )
 from floss.enrich import (
+    build_offset_index,
     is_structured_layout,
     enrich_static_strings,
     static_strings_from_layout,
@@ -248,7 +249,7 @@ def _try_layout_static(
 
         return ResultLayout.from_layout(live)
     except Exception as e:
-        logger.debug("layout-aware static analysis failed; using classic statics: %s", e)
+        logger.warning("layout-aware static analysis failed; using classic statics: %s", e)
         return None
 
 
@@ -362,17 +363,24 @@ def analyze(options: Options) -> Optional[ResultDocument]:
     if results.analysis.enable_static_strings:
         logger.info("extracting static strings")
         layout_doc: Optional[ResultLayout] = None
+        # only layout/tag work for static_strings runtime — not language ID or the TTY prompt above
+        layout_t0 = time()
         if analysis.enable_layout:
             layout_doc = _try_layout_static(sample_buf, options.min_length, analysis.enable_tags)
 
         if layout_doc is not None:
             results.layout = layout_doc
             results.strings.static_strings = static_strings_from_layout(layout_doc)
-            # includes layout/tag work when structured layout succeeded
-            results.metadata.runtime.static_strings = get_runtime_diff(time0)
+            # classic extraction + layout/tag work (excludes language ID / deobfuscation prompt)
+            results.metadata.runtime.static_strings = static_runtime + get_runtime_diff(layout_t0)
         else:
             results.strings.static_strings = static_strings
             results.metadata.runtime.static_strings = static_runtime
+
+        # one offset index for both language_strings and language_strings_missed
+        layout_offset_index = None
+        if layout_doc is not None and results.metadata.language in (Language.GO.value, Language.RUST.value):
+            layout_offset_index = build_offset_index(layout_doc)
 
         if results.metadata.language == Language.GO.value:
             logger.info("extracting language-specific Go strings")
@@ -387,10 +395,12 @@ def analyze(options: Options) -> Optional[ResultDocument]:
             results.strings.language_strings_missed = floss.language.utils.get_missed_strings(
                 string_blob_strings, results.strings.language_strings, options.min_length
             )
-            if layout_doc is not None:
-                results.strings.language_strings = enrich_static_strings(results.strings.language_strings, layout_doc)
+            if layout_offset_index is not None:
+                results.strings.language_strings = enrich_static_strings(
+                    results.strings.language_strings, offset_index=layout_offset_index
+                )
                 results.strings.language_strings_missed = enrich_static_strings(
-                    results.strings.language_strings_missed, layout_doc
+                    results.strings.language_strings_missed, offset_index=layout_offset_index
                 )
 
         elif results.metadata.language == Language.RUST.value:
@@ -407,10 +417,12 @@ def analyze(options: Options) -> Optional[ResultDocument]:
             results.strings.language_strings_missed = floss.language.utils.get_missed_strings(
                 rdata_strings, results.strings.language_strings, options.min_length
             )
-            if layout_doc is not None:
-                results.strings.language_strings = enrich_static_strings(results.strings.language_strings, layout_doc)
+            if layout_offset_index is not None:
+                results.strings.language_strings = enrich_static_strings(
+                    results.strings.language_strings, offset_index=layout_offset_index
+                )
                 results.strings.language_strings_missed = enrich_static_strings(
-                    results.strings.language_strings_missed, layout_doc
+                    results.strings.language_strings_missed, offset_index=layout_offset_index
                 )
 
     if (

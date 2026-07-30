@@ -92,9 +92,18 @@ def enrich_static_string(
 
 def enrich_static_strings(
     strings: List[StaticString],
-    layout: Optional[ResultLayout],
+    layout: Optional[ResultLayout] = None,
+    *,
+    offset_index: Optional[Dict[int, Tuple[ResultString, str]]] = None,
 ) -> List[StaticString]:
-    if layout is None:
-        return strings
-    index = build_offset_index(layout)
-    return [enrich_static_string(s, index) for s in strings]
+    """
+    Project layout tags/section/structure onto static strings by file offset.
+
+    Pass a prebuilt ``offset_index`` when enriching multiple string lists so the
+    layout tree is walked only once.
+    """
+    if offset_index is None:
+        if layout is None:
+            return strings
+        offset_index = build_offset_index(layout)
+    return [enrich_static_string(s, offset_index) for s in strings]
