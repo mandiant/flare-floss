@@ -32,6 +32,9 @@ class FlossJSONEncoder(json.JSONEncoder):
         if dataclasses.is_dataclass(o):
             return dataclasses.asdict(o)  # type: ignore [arg-type]
         if isinstance(o, datetime.datetime):
+            if o.tzinfo is not None:
+                o = o.astimezone(datetime.timezone.utc)
+                return o.isoformat("T").replace("+00:00", "Z")
             return o.isoformat("T") + "Z"
         return super().default(o)
 

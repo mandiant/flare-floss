@@ -239,15 +239,15 @@ class ResultLayout:
 
 @dataclass
 class Runtime:
-    start_date: datetime.datetime = datetime.datetime.now()
-    total: float = 0
-    vivisect: float = 0
-    find_features: float = 0
-    static_strings: float = 0
-    language_strings: float = 0
-    stack_strings: float = 0
-    decoded_strings: float = 0
-    tight_strings: float = 0
+    start_date: datetime.datetime = field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc))
+    total: float = 0.0
+    vivisect: float = 0.0
+    find_features: float = 0.0
+    static_strings: float = 0.0
+    language_strings: float = 0.0
+    stack_strings: float = 0.0
+    decoded_strings: float = 0.0
+    tight_strings: float = 0.0
 
 
 @dataclass
