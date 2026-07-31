@@ -50,7 +50,6 @@ from floss.utils import (
     get_imagebase,
     get_runtime_diff,
     get_vivisect_meta_info,
-    get_static_strings_from_bytes,
 )
 from floss.enrich import (
     build_offset_index,
@@ -60,6 +59,7 @@ from floss.enrich import (
 )
 from floss.render import Verbosity
 from floss.results import Analysis, Metadata, ResultLayout, ResultDocument
+from floss.strings import extract_ascii_unicode_strings
 from floss.identify import (
     append_unique,
     get_function_fvas,
@@ -275,7 +275,10 @@ def analyze(options: Options) -> Optional[ResultDocument]:
 
     # one read for classic statics + optional layout (avoids double-reading the file)
     sample_buf = sample.read_bytes()
-    static_strings = get_static_strings_from_bytes(sample_buf, options.min_length)
+    if not sample_buf:
+        logger.warning("file is empty")
+        return None
+    static_strings = list(extract_ascii_unicode_strings(sample_buf, options.min_length))
     if not static_strings:
         return None
 
