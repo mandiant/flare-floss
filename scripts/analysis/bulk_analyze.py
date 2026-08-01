@@ -83,7 +83,6 @@ def main():
 
         if should_analyze:
             logger.info("Analyzing file: %s", file_path)
-            # sample before --no: nargs="+" would otherwise swallow the path as a type choice
             cmd = [
                 sys.executable,
                 "-m",

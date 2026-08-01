@@ -52,7 +52,6 @@ jobs:
           chmod +x dist/${{ matrix.artifact_name }}
           ./dist/${{ matrix.artifact_name }} --help
           # static-only layout path (default) should include tag annotations in JSON
-          # sample before --only/--no: nargs="+" would otherwise swallow the path as a type choice
           ./dist/${{ matrix.artifact_name }} tests/data/test-decode-to-stack.exe --only static -j | grep -q '#common'
       - uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
         with:
