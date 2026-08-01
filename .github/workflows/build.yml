@@ -41,13 +41,19 @@ jobs:
           pip install -e .[build]
       - name: Build standalone executable
         run: pyinstaller .github/pyinstaller/floss.spec
+      # build job uses submodules: false; smoke test needs a real PE sample
+      - name: Checkout test sample
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          repository: mandiant/flare-floss-testfiles
+          path: tests/data
       - name: Smoke test layout/tags via standalone floss
         run: |
           chmod +x dist/${{ matrix.artifact_name }}
           ./dist/${{ matrix.artifact_name }} --help
           # static-only layout path (default) should include tag annotations in JSON
-          # sample must precede --no: nargs="+" would otherwise swallow the path as a type choice
-          ./dist/${{ matrix.artifact_name }} tests/data/test-decode-to-stack.exe --no stack tight decoded -j | grep -q '#common'
+          # sample before --only/--no: nargs="+" would otherwise swallow the path as a type choice
+          ./dist/${{ matrix.artifact_name }} tests/data/test-decode-to-stack.exe --only static -j | grep -q '#common'
       - uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
         with:
           name: ${{ matrix.asset_name }}
