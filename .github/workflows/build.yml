@@ -2,7 +2,7 @@ name: build
 
 on:
   pull_request:
-    branches: [ master ]
+    branches: [ master, quantumstrand ]
   release:
     types: [edited, published]
     branches: [ master ]
@@ -46,7 +46,8 @@ jobs:
           chmod +x dist/${{ matrix.artifact_name }}
           ./dist/${{ matrix.artifact_name }} --help
           # static-only layout path (default) should include tag annotations in JSON
-          ./dist/${{ matrix.artifact_name }} --no stack tight decoded tests/data/test-decode-to-stack.exe -j | grep -q '#common'
+          # sample must precede --no: nargs="+" would otherwise swallow the path as a type choice
+          ./dist/${{ matrix.artifact_name }} tests/data/test-decode-to-stack.exe --no stack tight decoded -j | grep -q '#common'
       - uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
         with:
           name: ${{ matrix.asset_name }}
