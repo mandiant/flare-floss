@@ -283,6 +283,10 @@ STRING_TYPE_FIELDS = {
 @dataclass
 class Metadata:
     file_path: str
+    # sample identity for consumers (path + content hashes); hashes empty when unknown (e.g. --load of old JSON)
+    md5: str = ""
+    sha1: str = ""
+    sha256: str = ""
     version: str = __version__
     imagebase: int = 0
     min_length: int = 0

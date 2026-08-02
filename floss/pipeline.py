@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import os
 import sys
+import hashlib
 from time import time
 from typing import Set, List, Optional
 from pathlib import Path
@@ -279,6 +280,11 @@ def analyze(options: Options) -> Optional[ResultDocument]:
     if not sample_buf:
         logger.warning("file is empty")
         return None
+
+    results.metadata.md5 = hashlib.md5(sample_buf).hexdigest()
+    results.metadata.sha1 = hashlib.sha1(sample_buf).hexdigest()
+    results.metadata.sha256 = hashlib.sha256(sample_buf).hexdigest()
+
     static_strings = list(extract_ascii_unicode_strings(sample_buf, options.min_length))
     if not static_strings:
         return None

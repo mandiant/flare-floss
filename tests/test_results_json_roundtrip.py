@@ -49,7 +49,13 @@ def test_enriched_static_json_roundtrip():
         children=[],
     )
     doc = ResultDocument(
-        metadata=Metadata(file_path="sample.exe", min_length=4),
+        metadata=Metadata(
+            file_path="sample.exe",
+            min_length=4,
+            md5="d" * 32,
+            sha1="a" * 40,
+            sha256="b" * 64,
+        ),
         analysis=Analysis(
             enable_static_strings=True,
             enable_stack_strings=False,
@@ -75,6 +81,9 @@ def test_enriched_static_json_roundtrip():
 
     raw = floss.render.json.render(doc)
     data = json.loads(raw)
+    assert data["metadata"]["md5"] == "d" * 32
+    assert data["metadata"]["sha1"] == "a" * 40
+    assert data["metadata"]["sha256"] == "b" * 64
     assert data["layout"]["name"] == "pe"
     assert data["strings"]["static_strings"][0]["tags"] == ["#common", "#winapi"]
     assert data["strings"]["static_strings"][0]["section"] == "pe"
@@ -91,6 +100,8 @@ def test_enriched_static_json_roundtrip():
 
     assert loaded.layout is not None
     assert loaded.layout.name == "pe"
+    assert loaded.metadata.md5 == "d" * 32
+    assert loaded.metadata.sha256 == "b" * 64
     assert loaded.strings.static_strings[0].tags == ["#common", "#winapi"]
     assert loaded.strings.static_strings[0].structure == "import table"
 
