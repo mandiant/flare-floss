@@ -49,7 +49,6 @@ from floss.utils import (
     hex,
     get_imagebase,
     get_runtime_diff,
-    get_static_strings,
     get_vivisect_meta_info,
 )
 from floss.enrich import (
@@ -60,6 +59,7 @@ from floss.enrich import (
 )
 from floss.render import Verbosity
 from floss.results import Analysis, Metadata, ResultLayout, ResultDocument
+from floss.strings import extract_ascii_unicode_strings
 from floss.identify import (
     append_unique,
     get_function_fvas,
@@ -273,8 +273,13 @@ def analyze(options: Options) -> Optional[ResultDocument]:
     time0 = time()
     interim = time0
 
-    # classic statics via mmap (memory-efficient); full buffer only when layout runs below
-    static_strings = get_static_strings(sample, options.min_length)
+    # one read for classic statics + layout (layout is default and needs a full buffer)
+    # TODO: mmap-only classic path if layout is ever optional-only again
+    sample_buf = sample.read_bytes()
+    if not sample_buf:
+        logger.warning("file is empty")
+        return None
+    static_strings = list(extract_ascii_unicode_strings(sample_buf, options.min_length))
     if not static_strings:
         return None
 
@@ -365,16 +370,7 @@ def analyze(options: Options) -> Optional[ResultDocument]:
         # only layout/tag work for static_strings runtime — not language ID or the TTY prompt above
         layout_t0 = time()
         if analysis.enable_layout:
-            # layout needs a contiguous bytes buffer; warn on large samples before materializing
-            if sample_size > MAX_FILE_SIZE:
-                logger.warning(
-                    "loading entire sample into memory for layout analysis (%d bytes); "
-                    "use --no-layout for mmap-only static extraction on very large files",
-                    sample_size,
-                )
-            sample_buf = sample.read_bytes()
             layout_doc = _try_layout_static(sample_buf, options.min_length, analysis.enable_tags)
-            del sample_buf  # release before language/deobfuscation work
 
         if layout_doc is not None:
             results.layout = layout_doc
