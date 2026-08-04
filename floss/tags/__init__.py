@@ -25,8 +25,8 @@ import pathlib
 
 
 def data_root() -> pathlib.Path:
-    """Shipped tag DBs: floss/qs/db/data (legacy path)."""
-    return pathlib.Path(__file__).resolve().parents[1] / "qs" / "db" / "data"
+    """Shipped tag databases under floss/tags/data."""
+    return pathlib.Path(__file__).resolve().parent / "data"
 
 
 from floss.tags.engine import (

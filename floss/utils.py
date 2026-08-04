@@ -608,7 +608,7 @@ def get_static_strings(sample: Path, min_length: int) -> list:
     """
 
     if sample.stat().st_size == 0:
-        logger.warning("File is empty")
+        logger.warning("file is empty")
         return []
 
     with sample.open("rb") as f:

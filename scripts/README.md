@@ -5,7 +5,7 @@ Auxiliary scripts live under `scripts/`, grouped by purpose:
 | Directory | Purpose |
 |-----------|---------|
 | [`disassemblers/`](disassemblers/) | Convert classic FLOSS JSON output into import scripts for Binary Ninja, Ghidra, IDA Pro, Radare2, and x64dbg; includes the IDA plugin |
-| [`tags/`](tags/) | Build and maintain QuantumStrand tag databases (global prevalence, OSS libraries, VT feeds) |
+| [`tags/`](tags/) | Build and maintain FLOSS tag databases (global prevalence, OSS libraries, VT feeds) |
 | [`analysis/`](analysis/) | Batch analysis helpers |
 
 ## disassemblers/
@@ -31,6 +31,6 @@ Scripts that extract strings, build tag databases, and query them. See [`tags/RE
 
 ## analysis/
 
-- [`bulk_analyze.py`](analysis/bulk_analyze.py) — run `floss` or `floss quantum` over every binary in a directory and write JSON results.
+- [`bulk_analyze.py`](analysis/bulk_analyze.py) — run `floss` over every binary in a directory and write JSON results.
 
 Language-specific data maintenance (for example regenerating the Rust version hash database) lives alongside the implementation under `floss/language/`.

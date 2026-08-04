@@ -17,6 +17,7 @@ import pytest
 from fixtures import scfile, exefile
 
 import floss.main
+from floss.cli import StringType
 
 
 def test_functions(exefile):
@@ -38,7 +39,7 @@ def test_shellcode(scfile):
     assert floss.main.main([scfile, "--format", "pe"]) == -1
 
 
-@pytest.mark.parametrize("type_", [t.value for t in floss.main.StringType])
+@pytest.mark.parametrize("type_", [t.value for t in StringType])
 @pytest.mark.parametrize("analysis", ("--only", "--no"))
 def test_args_analysis_type(exefile, analysis, type_):
     assert (
@@ -51,3 +52,82 @@ def test_args_analysis_type(exefile, analysis, type_):
         )
         == 0
     )
+
+
+@pytest.mark.parametrize("flag", ("--no-layout", "--no-tags"))
+def test_args_layout_tag_product_flags(exefile, flag):
+    """Product toggles for layout/tags (not mixed into --no string types)."""
+    assert floss.main.main([exefile, flag, "--no", "stack", "tight", "decoded", "-q"]) == 0
+
+
+def test_no_layout_yields_classic_static(exefile):
+    """enable_layout=False: no layout tree; classic static strings still present."""
+    from pathlib import Path
+
+    from floss.results import Analysis
+    from floss.pipeline import Options, analyze
+
+    results = analyze(
+        Options(
+            sample=Path(exefile),
+            min_length=4,
+            analysis=Analysis(
+                enable_static_strings=True,
+                enable_stack_strings=False,
+                enable_tight_strings=False,
+                enable_decoded_strings=False,
+                enable_layout=False,
+                enable_tags=True,
+            ),
+            prompt_deobfuscation=False,
+        )
+    )
+    assert results is not None
+    assert results.layout is None
+    assert len(results.strings.static_strings) > 0
+
+
+def test_no_tags_skips_tag_databases(exefile):
+    """enable_tags=False: layout present; no DB tags (#common, #winapi, …).
+
+    Layout-intrinsic tags such as #code / #duplicate may still appear.
+    """
+    from pathlib import Path
+
+    from floss.results import Analysis, ResultLayout
+    from floss.pipeline import Options, analyze
+
+    results = analyze(
+        Options(
+            sample=Path(exefile),
+            min_length=4,
+            analysis=Analysis(
+                enable_static_strings=True,
+                enable_stack_strings=False,
+                enable_tight_strings=False,
+                enable_decoded_strings=False,
+                enable_layout=True,
+                enable_tags=False,
+            ),
+            prompt_deobfuscation=False,
+        )
+    )
+    assert results is not None
+    assert results.layout is not None
+    assert isinstance(results.layout, ResultLayout)
+
+    def all_tags(layout):
+        tags = set()
+        for s in layout.strings:
+            tags.update(s.tags)
+        for child in layout.children:
+            tags.update(all_tags(child))
+        return tags
+
+    tags = all_tags(results.layout)
+    # database-backed tags must be absent when tag DBs are disabled
+    for db_tag in ("#common", "#winapi", "#capa", "#msvc", "#openssl"):
+        assert db_tag not in tags
+    for s in results.strings.static_strings:
+        for db_tag in ("#common", "#winapi", "#capa", "#msvc", "#openssl"):
+            assert db_tag not in s.tags

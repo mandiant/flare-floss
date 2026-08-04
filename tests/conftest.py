@@ -20,10 +20,6 @@ import yaml
 import pytest
 import viv_utils
 
-import floss.main as floss_main
-import floss.stackstrings as stackstrings
-import floss.tightstrings as tightstrings
-import floss.string_decoder as string_decoder
 from floss.const import MIN_STRING_LENGTH
 from floss.identify import (
     get_function_fvas,
@@ -32,12 +28,18 @@ from floss.identify import (
     find_decoding_function_features,
     get_functions_without_tightloops,
 )
+from floss.pipeline import select_functions
 
 
 def extract_strings(vw):
     """
     Deobfuscate strings from vivisect workspace
     """
+    # import here to avoid circular import with floss.features (identify <-> features)
+    import floss.stackstrings as stackstrings
+    import floss.tightstrings as tightstrings
+    import floss.string_decoder as string_decoder
+
     top_functions, decoding_function_features = identify_decoding_functions(vw)
 
     for s_decoded in string_decoder.decode_strings(
@@ -57,7 +59,7 @@ def extract_strings(vw):
 
 
 def identify_decoding_functions(vw):
-    selected_functions = floss_main.select_functions(vw, None)
+    selected_functions = select_functions(vw, None)
     decoding_function_features, _ = find_decoding_function_features(vw, selected_functions, disable_progress=True)
     top_functions = get_top_functions(decoding_function_features, 20)
     return top_functions, decoding_function_features
@@ -98,7 +100,12 @@ class YamlFile(pytest.File):
                 filepath = test_dir / filename
                 if filepath.exists():
                     yield FLOSSTest.from_parent(
-                        self, path=str(filepath), platform=platform, arch=arch, filename=filename, spec=spec
+                        self,
+                        path=str(filepath),
+                        platform=platform,
+                        arch=arch,
+                        filename=filename,
+                        spec=spec,
                     )
 
 

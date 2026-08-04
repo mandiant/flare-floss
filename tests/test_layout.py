@@ -13,16 +13,17 @@
 # limitations under the License.
 
 import copy
-import hashlib
-import datetime
+import tempfile
 from pathlib import Path
 
 import pytest
 
+import floss.render.json
 from floss.tags import load_databases
+from floss.enrich import static_strings_from_layout
 from floss.layout import compute_layout
 from floss.ranges import Slice
-from floss.document import Sample, Metadata, ResultDocument
+from floss.results import Strings, Analysis, Metadata, ResultLayout, ResultDocument
 from floss.layout.extract import collect_strings, extract_layout_strings
 
 CD = Path(__file__).resolve().parent
@@ -47,33 +48,40 @@ def analyzed_layout(pma_binary_path):
 
 
 def test_round_trip(analyzed_layout, pma_binary_path):
-    buf = pma_binary_path.read_bytes()
-    sample = Sample(
-        md5=hashlib.md5(buf).hexdigest(),
-        sha1=hashlib.sha1(buf).hexdigest(),
-        sha256=hashlib.sha256(buf).hexdigest(),
-        path=str(pma_binary_path.resolve()),
+    layout_doc = ResultLayout.from_layout(analyzed_layout)
+    statics = static_strings_from_layout(layout_doc)
+    one = ResultDocument(
+        metadata=Metadata(file_path=str(pma_binary_path.resolve()), min_length=MIN_STR_LEN),
+        analysis=Analysis(
+            enable_static_strings=True,
+            enable_stack_strings=False,
+            enable_tight_strings=False,
+            enable_decoded_strings=False,
+            enable_layout=True,
+            enable_tags=True,
+        ),
+        strings=Strings(static_strings=statics),
+        layout=layout_doc,
     )
-    meta = Metadata(version="1", sample=sample, min_str_len=MIN_STR_LEN, timestamp=datetime.datetime.now())
-    result = ResultDocument.from_layout(meta=meta, layout=analyzed_layout)
-    one = result
 
-    doc = one.model_dump_json(exclude_none=True)
-    two = ResultDocument.model_validate_json(doc)
+    doc = floss.render.json.render(one)
+    with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
+        f.write(doc)
+        path = Path(f.name)
+    try:
+        two = ResultDocument.parse_file(path)
+    finally:
+        path.unlink()
 
     # show the round trip works
-    # first by comparing the objects directly,
-    # which works thanks to pydantic model equality.
     assert one == two
-    # second by showing their json representations are the same.
-    assert one.model_dump_json(exclude_none=True) == two.model_dump_json(exclude_none=True)
+    assert floss.render.json.render(one) == floss.render.json.render(two)
 
     # now show that two different versions are not equal.
     three = copy.deepcopy(two)
-    three.meta.__dict__.update({"version": "0"})
-    assert one.meta.version != three.meta.version
-    assert one != three
-    assert one.model_dump_json(exclude_none=True) != three.model_dump_json(exclude_none=True)
+    three.metadata.version = "0"
+    assert two.metadata.version != three.metadata.version
+    assert floss.render.json.render(two) != floss.render.json.render(three)
 
 
 def test_string_extraction(analyzed_layout):

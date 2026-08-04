@@ -18,14 +18,12 @@ import subprocess
 
 from PyInstaller.utils.hooks import collect_submodules
 
-# layout/tags/quantum modules are not imported by floss/main.py yet, but must be
-# bundled for the standalone binary (formerly built via qs.spec).
-quantum_hiddenimports = (
+# layout/tags are imported lazily from floss.pipeline; collect them so the
+# standalone binary still bundles the full layout-aware static path.
+layout_tags_hiddenimports = (
     collect_submodules("floss.layout")
     + collect_submodules("floss.tags")
     + [
-        "floss.quantum",
-        "floss.document",
         "floss.render.layout_text",
         "floss.ranges",
         "elftools",
@@ -58,13 +56,13 @@ datas = [
     # this gets invoked from the directory of the spec file,
     # i.e. ./.github/pyinstaller
     ('../../floss/sigs', 'sigs'),
-    # tag databases (legacy path: floss/qs/db/data)
-    ('../../floss/qs/db/data/crt/*.jsonl.gz', 'floss/qs/db/data/crt'),
-    ('../../floss/qs/db/data/expert/*.jsonl', 'floss/qs/db/data/expert'),
-    ('../../floss/qs/db/data/gp/*.jsonl.gz', 'floss/qs/db/data/gp'),
-    ('../../floss/qs/db/data/gp/*.bin', 'floss/qs/db/data/gp'),
-    ('../../floss/qs/db/data/oss/*.jsonl.gz', 'floss/qs/db/data/oss'),
-    ('../../floss/qs/db/data/winapi/*.txt.gz', 'floss/qs/db/data/winapi'),
+    # tag databases
+    ('../../floss/tags/data/crt/*.jsonl.gz', 'floss/tags/data/crt'),
+    ('../../floss/tags/data/expert/*.jsonl', 'floss/tags/data/expert'),
+    ('../../floss/tags/data/gp/*.jsonl.gz', 'floss/tags/data/gp'),
+    ('../../floss/tags/data/gp/*.bin', 'floss/tags/data/gp'),
+    ('../../floss/tags/data/oss/*.jsonl.gz', 'floss/tags/data/oss'),
+    ('../../floss/tags/data/winapi/*.txt.gz', 'floss/tags/data/winapi'),
 ]
 
 excludes = [
@@ -109,7 +107,7 @@ a = Analysis(
     pathex=["floss"],
     binaries=[],
     datas=datas,
-    hiddenimports=quantum_hiddenimports,
+    hiddenimports=layout_tags_hiddenimports,
     hookspath=[".github/pyinstaller/hooks"],
     runtime_hooks=[],
     excludes=excludes,

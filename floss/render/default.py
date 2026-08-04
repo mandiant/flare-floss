@@ -29,7 +29,9 @@ import floss.logging_
 import floss.language.identify
 from floss.render import Verbosity
 from floss.results import AddressType, StackString, TightString, DecodedString, ResultDocument, StringEncoding
+from floss.tags.filter import TagRules, hide_strings_by_rules
 from floss.render.sanitize import sanitize
+from floss.render.layout_text import render_strings
 
 MIN_WIDTH_LEFT_COL = 22
 MIN_WIDTH_RIGHT_COL = 82
@@ -37,6 +39,14 @@ MIN_WIDTH_RIGHT_COL = 82
 DISABLED = "Disabled"
 
 logger = floss.logging_.getLogger(__name__)
+
+DEFAULT_TAG_RULES: TagRules = {
+    "#capa": "highlight",
+    "#common": "mute",
+    "#duplicate": "mute",
+    "#code": "hide",
+    "#reloc": "hide",
+}
 
 
 def heading_style(s: str):
@@ -71,11 +81,23 @@ def render_meta(results: ResultDocument, console, verbose):
 
     if verbose == Verbosity.DEFAULT:
         rows.append((width("file path", MIN_WIDTH_LEFT_COL), width(results.metadata.file_path, MIN_WIDTH_RIGHT_COL)))
+        if results.metadata.sha256:
+            rows.append(("sha256", results.metadata.sha256))
         rows.append(("identified language", language_value))
     else:
         rows.extend(
             [
                 (width("file path", MIN_WIDTH_LEFT_COL), width(results.metadata.file_path, MIN_WIDTH_RIGHT_COL)),
+            ]
+        )
+        if results.metadata.md5:
+            rows.append(("md5", results.metadata.md5))
+        if results.metadata.sha1:
+            rows.append(("sha1", results.metadata.sha1))
+        if results.metadata.sha256:
+            rows.append(("sha256", results.metadata.sha256))
+        rows.extend(
+            [
                 ("start date", results.metadata.runtime.start_date.strftime("%Y-%m-%d %H:%M:%S")),
                 ("runtime", strtime(results.metadata.runtime.total)),
                 ("version", results.metadata.version),
@@ -335,19 +357,27 @@ def render(results: floss.results.ResultDocument, verbose, disable_headers, colo
     sys.__stdout__.reconfigure(encoding="utf-8")  # type: ignore [union-attr]
     console = Console(file=io.StringIO(), color_system=get_color(color), highlight=False, soft_wrap=True)
 
-    if not disable_headers:
-        console.print("\n")
-        if verbose == Verbosity.DEFAULT:
-            console.print(f"FLARE FLOSS RESULTS (version {results.metadata.version})\n")
-        else:
-            colored_str = heading_style(f"FLARE FLOSS RESULTS (version {results.metadata.version})\n")
-            console.print(colored_str)
-        render_meta(results, console, verbose)
-        console.print("\n")
+    # layout-aware path: no classic meta table (quantum-style)
+    # TODO(#1348): --load + --no-layout still hits this branch when the JSON
+    # already contains a layout tree (load does not clear results.layout).
+    if results.layout is not None and results.analysis.enable_static_strings:
+        layout_view = hide_strings_by_rules(results.layout, DEFAULT_TAG_RULES)
+        render_strings(console, layout_view, DEFAULT_TAG_RULES)
+        console.print()
+    else:
+        if not disable_headers:
+            console.print("\n")
+            if verbose == Verbosity.DEFAULT:
+                console.print(f"FLARE FLOSS RESULTS (version {results.metadata.version})\n")
+            else:
+                colored_str = heading_style(f"FLARE FLOSS RESULTS (version {results.metadata.version})\n")
+                console.print(colored_str)
+            render_meta(results, console, verbose)
+            console.print("\n")
 
-    if results.analysis.enable_static_strings:
-        render_staticstrings(results.strings.static_strings, console, verbose, disable_headers)
-        console.print("\n")
+        if results.analysis.enable_static_strings:
+            render_staticstrings(results.strings.static_strings, console, verbose, disable_headers)
+            console.print("\n")
 
     if results.metadata.language in (
         floss.language.identify.Language.GO.value,
@@ -363,6 +393,8 @@ def render(results: floss.results.ResultDocument, verbose, disable_headers, colo
         )
         console.print("\n")
 
+    # recovered strings always after static/language (classic blocks).
+    # show the section whenever the mode is enabled, including count 0.
     if results.analysis.enable_stack_strings:
         render_heading(f"FLOSS STACK STRINGS ({len(results.strings.stack_strings)})", console, verbose, disable_headers)
         render_stackstrings(results.strings.stack_strings, console, verbose, disable_headers)

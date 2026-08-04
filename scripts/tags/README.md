@@ -1,6 +1,6 @@
 # Tag database maintenance
 
-Scripts for building and inspecting the QuantumStrand tag databases shipped under `floss/qs/db/data/`.
+Scripts for building and inspecting the tag databases shipped under `floss/tags/data/`.
 
 ## Pipeline overview
 
@@ -30,7 +30,7 @@ query_string.py     →  lookup GP tags     (debug / inspection)
    $ python scripts/tags/generate_gp_db.py outdir gp.jsonl.gz --type native
    ```
 
-3. Install the result at `floss/qs/db/data/gp/gp.jsonl.gz` (and related hash files).
+3. Install the result at `floss/tags/data/gp/gp.jsonl.gz` (and related hash files).
 
 4. **Query** a string against the installed database:
 
@@ -40,10 +40,10 @@ query_string.py     →  lookup GP tags     (debug / inspection)
 
 ## Open-source library (OSS) databases
 
-`build_oss_db.py` automates the [vcpkg & jh technique](../../floss/qs/db/data/oss/readme.md): install static libraries, extract features with jh, emit gzip-compressed JSONL, and merge with any existing databases in the output directory.
+`build_oss_db.py` automates the [vcpkg & jh technique](../../floss/tags/data/oss/readme.md): install static libraries, extract features with jh, emit gzip-compressed JSONL, and merge with any existing databases in the output directory.
 
 ```console
-$ python scripts/tags/build_oss_db.py --libraries zlib curl --output-dir floss/qs/db/data/oss
+$ python scripts/tags/build_oss_db.py --libraries zlib curl --output-dir floss/tags/data/oss
 ```
 
 ## VirusTotal feed sampling
