@@ -2,8 +2,12 @@ from pathlib import Path
 
 import pytest
 
+from floss.language.identify import (
+    VERSION_UNKNOWN_OR_NA,
+    Language,
+    identify_language_and_version,
+)
 from floss.utils import get_static_strings
-from floss.language.identify import VERSION_UNKNOWN_OR_NA, Language, identify_language_and_version
 
 
 @pytest.mark.parametrize(
@@ -17,11 +21,27 @@ from floss.language.identify import VERSION_UNKNOWN_OR_NA, Language, identify_la
             VERSION_UNKNOWN_OR_NA,
         ),
         ("data/language/rust/rust-hello/bin/rust-hello.exe", Language.RUST, "1.69.0"),
-        ("data/language/zig/zig-hello/bin/zig-hello.exe", Language.ZIG, VERSION_UNKNOWN_OR_NA),
-        ("data/language/zig/zig-hello/bin/zig-hello64.exe", Language.ZIG, VERSION_UNKNOWN_OR_NA),
+        (
+            "data/language/zig/zig-hello/bin/zig-hello.exe",
+            Language.ZIG,
+            VERSION_UNKNOWN_OR_NA,
+        ),
+        (
+            "data/language/zig/zig-hello/bin/zig-hello64.exe",
+            Language.ZIG,
+            VERSION_UNKNOWN_OR_NA,
+        ),
         ("data/test-decode-to-stack.exe", Language.UNKNOWN, VERSION_UNKNOWN_OR_NA),
-        ("data/language/dotnet/dotnet-hello/bin/dotnet-hello.exe", Language.DOTNET, VERSION_UNKNOWN_OR_NA),
-        ("data/src/shellcode-stackstrings/bin/shellcode-stackstrings.bin", Language.UNKNOWN, VERSION_UNKNOWN_OR_NA),
+        (
+            "data/language/dotnet/dotnet-hello/bin/dotnet-hello.exe",
+            Language.DOTNET,
+            VERSION_UNKNOWN_OR_NA,
+        ),
+        (
+            "data/src/shellcode-stackstrings/bin/shellcode-stackstrings.bin",
+            Language.UNKNOWN,
+            VERSION_UNKNOWN_OR_NA,
+        ),
     ],
 )
 def test_language_detection(binary_file, expected_result, expected_version):
@@ -34,8 +54,12 @@ def test_language_detection(binary_file, expected_result, expected_version):
 
     language, version = identify_language_and_version(abs_path, static_strings)
 
-    assert language == expected_result, f"Expected: {expected_result.value}, Actual: {language.value}"
-    assert version == expected_version, f"Expected: {expected_version}, Actual: {version}"
+    assert language == expected_result, (
+        f"Expected: {expected_result.value}, Actual: {language.value}"
+    )
+    assert version == expected_version, (
+        f"Expected: {expected_version}, Actual: {version}"
+    )
 
 
 def test_zig_detection_ignores_unmapped_runtime_markers(tmp_path):
