@@ -43,3 +43,10 @@ Learn more:
     Rust Project: [Rust Project](https://github.com/rust-lang/rust)
     Source code: 
     - https://github.com/rust-lang/rust/blob/3911a63b7777e19dad4043542f908018e70c0bdd/library/alloc/src/string.rs
+
+## Zig String Extraction
+Zig binaries contain a string called `ZIG_PROGRESS`. It is stored in the following sections:
+
+- **PE**: `.rdata`
+- **ELF**: `.rodata`
+- **Mach-O**: `__cstring`

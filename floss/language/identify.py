@@ -35,6 +35,7 @@ class Language(Enum):
     GO = "go"
     RUST = "rust"
     DOTNET = "dotnet"
+    ZIG = "zig"
     UNKNOWN = "unknown"
     DISABLED = "none"
 
@@ -44,6 +45,11 @@ def identify_language_and_version(sample: Path, static_strings: Iterable[StaticS
     if is_rust:
         logger.info("Rust binary found with version: %s", version)
         return Language.RUST, version
+
+    is_zig, version = get_if_zig_and_version(static_strings)
+    if is_zig:
+        logger.info("Zig binary found")
+        return Language.ZIG, version
 
     # open file as PE for further checks
     try:
@@ -94,6 +100,21 @@ def get_if_rust_and_version(static_strings: Iterable[StaticString]) -> Tuple[boo
             else:
                 logger.debug("hash %s not found in Rust commit hash database", matches["hash"])
                 return True, VERSION_UNKNOWN_OR_NA
+
+    return False, VERSION_UNKNOWN_OR_NA
+
+
+def get_if_zig_and_version(static_strings: Iterable[StaticString]) -> Tuple[bool, str]:
+    """
+    Return whether the binary appears to be compiled with Zig.
+
+    ZIG_PROGRESS is used as a Zig compiler/runtime heuristic, but it does not
+    contain enough information to determine the Zig compiler version.
+    """
+
+    for static_string_obj in static_strings:
+        if "ZIG_PROGRESS" in static_string_obj.string:
+            return True, VERSION_UNKNOWN_OR_NA
 
     return False, VERSION_UNKNOWN_OR_NA
 
