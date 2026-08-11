@@ -184,7 +184,6 @@ def main(argv=None) -> int:
         signatures=args.signatures,
         large_file=args.large_file,
         quiet=args.quiet,
-        disable_progress=args.disable_progress,
         verbose=args.verbose,
         prompt_deobfuscation=True,
     )

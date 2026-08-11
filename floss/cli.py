@@ -191,11 +191,6 @@ def make_parser():
         "end with -- before the sample",
     )
     advanced_group.add_argument(
-        "--disable-progress",
-        action="store_true",
-        help="disable all progress bars",
-    )
-    advanced_group.add_argument(
         "--signatures",
         type=str,
         default=SIGNATURES_PATH_DEFAULT_STRING,
