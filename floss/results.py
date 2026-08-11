@@ -285,7 +285,6 @@ STRING_TYPE_FIELDS = {
 @dataclass
 class Metadata:
     file_path: str
-    # sample identity for consumers (path + content hashes); hashes empty when unknown (e.g. loaded old JSON)
     md5: str = ""
     sha1: str = ""
     sha256: str = ""
