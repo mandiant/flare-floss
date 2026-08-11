@@ -108,7 +108,7 @@ def main(argv=None) -> int:
             parser.print_help()
             return 1
         args = parser.parse_args(args=argv)
-        if args.enabled_types and args.disabled_types:
+        if args.string_types and args.no_string_types:
             parser.error("--string-type and --no-string-type arguments are not allowed together")
     except ArgumentValueError as e:
         print(e)
@@ -135,21 +135,21 @@ def main(argv=None) -> int:
     sample = Path(args.sample.name)
     args.sample.close()
 
-    disabled = list(args.disabled_types or [])
-    enabled = list(args.enabled_types or [])
+    no_string_types = list(args.no_string_types or [])
+    string_types = list(args.string_types or [])
 
     if args.functions:
-        if is_string_type_enabled(StringType.STATIC, disabled, enabled):
+        if is_string_type_enabled(StringType.STATIC, no_string_types, string_types):
             logger.warning("analyzing specified functions, not showing static strings")
-        if StringType.STATIC.value not in disabled:
-            disabled.append(StringType.STATIC.value)
+        if StringType.STATIC.value not in no_string_types:
+            no_string_types.append(StringType.STATIC.value)
 
     # layout/tags are always on: automatic and detected from the sample content
     analysis = Analysis(
-        enable_static_strings=is_string_type_enabled(StringType.STATIC, disabled, enabled),
-        enable_stack_strings=is_string_type_enabled(StringType.STACK, disabled, enabled),
-        enable_tight_strings=is_string_type_enabled(StringType.TIGHT, disabled, enabled),
-        enable_decoded_strings=is_string_type_enabled(StringType.DECODED, disabled, enabled),
+        enable_static_strings=is_string_type_enabled(StringType.STATIC, no_string_types, string_types),
+        enable_stack_strings=is_string_type_enabled(StringType.STACK, no_string_types, string_types),
+        enable_tight_strings=is_string_type_enabled(StringType.TIGHT, no_string_types, string_types),
+        enable_decoded_strings=is_string_type_enabled(StringType.DECODED, no_string_types, string_types),
         enable_layout=True,
         enable_tags=True,
     )
@@ -178,8 +178,8 @@ def main(argv=None) -> int:
         analysis=analysis,
         format=args.format,
         language=args.language,
-        enabled_types=enabled,
-        disabled_types=disabled,
+        string_types=string_types,
+        no_string_types=no_string_types,
         functions=args.functions,
         signatures=args.signatures,
         large_file=args.large_file,

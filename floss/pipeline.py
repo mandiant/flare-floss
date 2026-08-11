@@ -96,8 +96,8 @@ class Options:
     analysis: Analysis
     format: str = "auto"
     language: str = Language.UNKNOWN.value
-    enabled_types: Optional[List[str]] = None
-    disabled_types: Optional[List[str]] = None
+    string_types: Optional[List[str]] = None
+    no_string_types: Optional[List[str]] = None
     functions: Optional[List[int]] = None
     signatures: Optional[Path] = None
     large_file: bool = False
@@ -341,10 +341,10 @@ def analyze(options: Options) -> Optional[ResultDocument]:
         analysis.enable_tight_strings = False
         analysis.enable_decoded_strings = False
 
-    enabled = options.enabled_types or []
-    disabled = options.disabled_types or []
+    string_types = options.string_types or []
+    no_string_types = options.no_string_types or []
     if results.metadata.language not in ("", "unknown"):
-        if not enabled and not disabled and options.prompt_deobfuscation:
+        if not string_types and not no_string_types and options.prompt_deobfuscation:
             # when stdout is redirected, such as in 'floss foo.exe | less' use default prompt values
             if sys.stdout.isatty():
                 try:

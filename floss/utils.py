@@ -471,11 +471,11 @@ def get_call_funcname(api):
     return api[3]
 
 
-def is_string_type_enabled(type_, disabled_types, enabled_types):
-    if disabled_types:
-        return type_ not in disabled_types
-    elif enabled_types:
-        return type_ in enabled_types
+def is_string_type_enabled(type_, no_string_types, string_types):
+    if no_string_types:
+        return type_ not in no_string_types
+    elif string_types:
+        return type_ in string_types
     else:
         return True
 
