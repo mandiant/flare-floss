@@ -24,7 +24,7 @@ import os
 import sys
 import hashlib
 from time import time
-from typing import Set, List, Tuple, Optional
+from typing import Set, List, Optional
 from pathlib import Path
 from dataclasses import dataclass
 
@@ -58,8 +58,9 @@ from floss.enrich import (
     enrich_static_strings,
     static_strings_from_layout,
 )
+from floss.layout import Layout
 from floss.render import Verbosity
-from floss.results import Analysis, Metadata, ResultLayout, ResultDocument
+from floss.results import Runtime, Analysis, Metadata, ResultLayout, ResultDocument
 from floss.strings import extract_ascii_unicode_strings
 from floss.identify import (
     append_unique,
@@ -215,47 +216,85 @@ def get_signatures(sigs_path: Path) -> List[Path]:
     return paths
 
 
-def _try_layout_static(
+def _compute_layout(
     buf: bytes,
     min_length: int,
-    enable_tags: bool,
-) -> Tuple[Optional[ResultLayout], float]:
+) -> Optional[Layout]:
     """
-    Quantum-style layout extract when PE/ELF/Mach-O parse succeeds.
-    Returns serializable ResultLayout (or None to fall back to classic statics)
-    along with the elapsed seconds spent in the tag database matching step.
+    Compute a structured layout and extract static strings.
 
-    Any failure after a structured layout is detected (extract/tag/structures/DB)
-    also returns None so default-on layout cannot crash the whole run.
+    Returns the live layout, or None to fall back to classic statics when
+    the layout does not parse or any step fails. Default-on layout must not
+    crash the whole run.
     """
-    from floss.tags import load_databases, remove_false_positive_lib_strings
     from floss.layout import compute_layout
     from floss.ranges import Slice
     from floss.layout.extract import extract_layout_strings
 
-    tags_elapsed = 0.0
     try:
         file_slice = Slice.from_bytes(buf=buf)
         live = compute_layout(file_slice)
 
         if not is_structured_layout(live.name):
             logger.debug("no structured layout (got %r); using classic static strings", live.name)
-            return None, tags_elapsed
+            return None
 
         extract_layout_strings(live, min_length)
-        # tag_strings always converts ExtractedString → TaggedString (needed for mark_structures)
-        taggers = load_databases() if enable_tags else []
-        tags_t0 = time()
-        live.tag_strings(taggers)
-        tags_elapsed = get_runtime_diff(tags_t0)
-        live.mark_structures()
-        if enable_tags:
-            remove_false_positive_lib_strings(live)
-
-        return ResultLayout.from_layout(live), tags_elapsed
+        return live
     except Exception as e:
         logger.warning("layout-aware static analysis failed; using classic statics: %s", e)
-        return None, tags_elapsed
+        return None
+
+
+def _tag_layout(
+    live: Layout,
+    enable_tags: bool,
+) -> None:
+    """
+    Tag the layout strings and drop false positives.
+    """
+    from floss.tags import load_databases, remove_false_positive_lib_strings
+
+    # tag_strings always converts ExtractedString → TaggedString (needed for mark_structures)
+    taggers = load_databases() if enable_tags else []
+    live.tag_strings(taggers)
+    live.mark_structures()
+    if enable_tags:
+        remove_false_positive_lib_strings(live)
+
+
+def _try_layout_static(
+    buf: bytes,
+    min_length: int,
+    enable_tags: bool,
+    runtime: Runtime,
+) -> Optional[ResultLayout]:
+    """
+    Layout-aware static extraction with timing.
+
+    Runs the layout computation and the tag matching steps, and records
+    the elapsed time of the layout and tag step in ``runtime.layout`` and
+    the tag database matching step in ``runtime.tags``.
+
+    Returns a serializable ResultLayout, or None to fall back to classic
+    statics. Default-on layout must not crash the whole run.
+    """
+    layout_t0 = time()
+    try:
+        live = _compute_layout(buf, min_length)
+        if live is None:
+            return None
+
+        tags_t0 = time()
+        _tag_layout(live, enable_tags)
+        runtime.tags = get_runtime_diff(tags_t0)
+
+        return ResultLayout.from_layout(live)
+    except Exception as e:
+        logger.warning("layout-aware static analysis failed; using classic statics: %s", e)
+        return None
+    finally:
+        runtime.layout = get_runtime_diff(layout_t0)
 
 
 def analyze(options: Options) -> Optional[ResultDocument]:
@@ -377,13 +416,12 @@ def analyze(options: Options) -> Optional[ResultDocument]:
     if results.analysis.enable_static_strings:
         logger.info("extracting static strings")
         layout_doc: Optional[ResultLayout] = None
-        layout_tags_elapsed = 0.0
         # only layout/tag work for static_strings runtime — not language ID or the TTY prompt above
         layout_t0 = time()
         if analysis.enable_layout:
-            layout_doc, layout_tags_elapsed = _try_layout_static(sample_buf, options.min_length, analysis.enable_tags)
-            results.metadata.runtime.layout = get_runtime_diff(layout_t0)
-            results.metadata.runtime.tags = layout_tags_elapsed
+            layout_doc = _try_layout_static(
+                sample_buf, options.min_length, analysis.enable_tags, results.metadata.runtime
+            )
 
         if layout_doc is not None:
             results.layout = layout_doc
