@@ -187,7 +187,7 @@ def make_parser():
         type=lambda x: int(x, 0x10),
         default=None,
         nargs="+",
-        help="only analyze the specified functions, hex-encoded like 0x401000, space-separate multiple functions, "
+        help="only analyze the specified functions, hex-encoded like 0x401000, space-separate multiple functions, ",
     )
     advanced_group.add_argument(
         "--signatures",
