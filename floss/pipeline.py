@@ -24,7 +24,7 @@ import os
 import sys
 import hashlib
 from time import time
-from typing import Set, List, Optional, Tuple
+from typing import Set, List, Tuple, Optional
 from pathlib import Path
 from dataclasses import dataclass
 
