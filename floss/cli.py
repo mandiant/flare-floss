@@ -188,7 +188,6 @@ def make_parser():
         default=None,
         nargs="+",
         help="only analyze the specified functions, hex-encoded like 0x401000, space-separate multiple functions, "
-        "end with -- before the sample",
     )
     advanced_group.add_argument(
         "--signatures",
