@@ -100,6 +100,9 @@ def make_parser():
           extract all strings from an executable
             floss suspicious.exe
 
+          classic flat list of strings without layout and tags
+            floss --plain suspicious.exe
+
           do not extract static strings
             floss --no-string-type static -- suspicious.exe
 
