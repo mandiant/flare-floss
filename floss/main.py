@@ -73,7 +73,7 @@ def is_results_document(sample: Path) -> bool:
     except (OSError, ValueError):
         return False
 
-    return isinstance(data, dict) and {"metadata", "analysis", "strings"} <= set(data)
+    return isinstance(data, dict) and all(k in data for k in ("metadata", "analysis", "strings"))
 
 
 def get_default_root() -> Path:
