@@ -110,7 +110,7 @@ def make_parser():
             floss -f sc32 shellcode.bin
 
           only decode strings from the specified functions
-            floss --analyze-functions 0x401000 0x401100 suspicious.exe
+            floss --analyze-functions 0x401000 0x401100 -- suspicious.exe
 
           extract strings from a binary written in Go (if automatic language identification fails)
             floss --language go program.exe
@@ -184,7 +184,8 @@ def make_parser():
         type=lambda x: int(x, 0x10),
         default=None,
         nargs="+",
-        help="only analyze the specified functions, hex-encoded like 0x401000, space-separate multiple functions",
+        help="only analyze the specified functions, hex-encoded like 0x401000, space-separate multiple functions, "
+        "end with -- before the sample",
     )
     advanced_group.add_argument(
         "--disable-progress",

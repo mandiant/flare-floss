@@ -135,8 +135,9 @@ This can improve performance as FLOSS by perhaps one-third
  (on the order of seconds, so it is usually _not_ worth it
   to always manually identify decoding routines).
 Specify functions by using their hex-encoded virtual address.
+Since `--analyze-functions` accepts multiple arguments, end the command options with a double dash `--`.
 
-    floss.exe --analyze-functions 0x401000 0x402000 malware.exe
+    floss.exe --analyze-functions 0x401000 0x402000 -- malware.exe
 
 
 ### Install/Uninstall right click menu option for Windows (`--install-right-click-menu/--uninstall-right-click-menu`)
