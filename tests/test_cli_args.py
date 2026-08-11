@@ -22,12 +22,12 @@ from floss.cli import StringType
 
 def test_functions(exefile):
     # 0x1111111 is not a function
-    assert floss.main.main([exefile, "--function", "0x1111111"]) == -1
+    assert floss.main.main([exefile, "--analyze-functions", "0x1111111"]) == -1
 
     # ok
-    assert floss.main.main([exefile, "--function", "0x401560"]) == 0
-    assert floss.main.main([exefile, "--function", "0x401560"]) == 0
-    assert floss.main.main([exefile, "--function", "0x401560", "0x401000"]) == 0
+    assert floss.main.main([exefile, "--analyze-functions", "0x401560"]) == 0
+    assert floss.main.main([exefile, "--analyze-functions", "0x401560"]) == 0
+    assert floss.main.main([exefile, "--analyze-functions", "0x401560", "0x401000"]) == 0
 
 
 def test_shellcode(scfile):
@@ -40,7 +40,7 @@ def test_shellcode(scfile):
 
 
 @pytest.mark.parametrize("type_", [t.value for t in StringType])
-@pytest.mark.parametrize("analysis", ("--only", "--no"))
+@pytest.mark.parametrize("analysis", ("--string-type", "--no-string-type"))
 def test_args_analysis_type(exefile, analysis, type_):
     assert (
         floss.main.main(
@@ -54,10 +54,17 @@ def test_args_analysis_type(exefile, analysis, type_):
     )
 
 
-@pytest.mark.parametrize("flag", ("--no-layout", "--no-tags"))
-def test_args_layout_tag_product_flags(exefile, flag):
-    """Product toggles for layout/tags (not mixed into --no string types)."""
-    assert floss.main.main([exefile, flag, "--no", "stack", "tight", "decoded", "-q"]) == 0
+def test_args_string_type_all(exefile):
+    assert floss.main.main([exefile, "--string-type", "all"]) == 0
+
+
+def test_args_no_string_type_all(exefile):
+    # excluding every string type leaves nothing to extract; exits cleanly
+    assert floss.main.main([exefile, "--no-string-type", "all", "-q"]) == 0
+
+
+def test_args_analysis_type_conflict(exefile):
+    assert floss.main.main([exefile, "--string-type", "stack", "--no-string-type", "tight"]) == -1
 
 
 def test_no_layout_yields_classic_static(exefile):

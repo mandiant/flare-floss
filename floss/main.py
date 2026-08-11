@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import sys
+from typing import List
 from pathlib import Path
 
 import rich.traceback
@@ -44,6 +45,41 @@ def is_running_standalone() -> bool:
     return hasattr(sys, "frozen") and hasattr(sys, "_MEIPASS")
 
 
+def is_results_document(sample: Path) -> bool:
+    """
+    Heuristically detect a saved FLOSS results document from its content.
+
+    A results document is JSON, so the first non-whitespace byte is ``{``.
+    Binary samples (PE/ELF/Mach-O/shellcode) start with other magic bytes.
+    """
+    try:
+        with sample.open("rb") as f:
+            for byte in iter(lambda: f.read(1), b""):
+                if not byte.strip():
+                    continue
+                return byte == b"{"
+    except OSError:
+        return False
+    return False
+
+
+def expand_all_types(types) -> List[str]:
+    """
+    Expand the "all" pseudo-type in --string-type/--no-string-type values
+    into every concrete string type, preserving order and de-duplicating.
+    """
+    expanded = []
+    for t in types:
+        if t == "all":
+            candidates = [st.value for st in StringType]
+        else:
+            candidates = [t]
+        for c in candidates:
+            if c not in expanded:
+                expanded.append(c)
+    return expanded
+
+
 def get_default_root() -> Path:
     """
     get the file system path to the default resources directory.
@@ -69,11 +105,15 @@ def main(argv=None) -> int:
     if argv is None:
         argv = sys.argv[1:]
 
-    parser = make_parser(argv)
+    parser = make_parser()
     try:
+        if not argv:
+            # no arguments: print the full option list and exit with code 1
+            parser.print_help()
+            return 1
         args = parser.parse_args(args=argv)
         if args.enabled_types and args.disabled_types:
-            parser.error("--no and --only arguments are not allowed together")
+            parser.error("--string-type and --no-string-type arguments are not allowed together")
     except ArgumentValueError as e:
         print(e)
         return -1
@@ -99,8 +139,8 @@ def main(argv=None) -> int:
     sample = Path(args.sample.name)
     args.sample.close()
 
-    disabled = list(args.disabled_types or [])
-    enabled = list(args.enabled_types or [])
+    disabled = expand_all_types(list(args.disabled_types or []))
+    enabled = expand_all_types(list(args.enabled_types or []))
 
     if args.functions:
         if is_string_type_enabled(StringType.STATIC, disabled, enabled):
@@ -108,17 +148,17 @@ def main(argv=None) -> int:
         if StringType.STATIC.value not in disabled:
             disabled.append(StringType.STATIC.value)
 
-    # layout/tags: temporary dedicated flags (not --no string types); see issue #1348
+    # layout/tags are always on: automatic and detected from the sample content
     analysis = Analysis(
         enable_static_strings=is_string_type_enabled(StringType.STATIC, disabled, enabled),
         enable_stack_strings=is_string_type_enabled(StringType.STACK, disabled, enabled),
         enable_tight_strings=is_string_type_enabled(StringType.TIGHT, disabled, enabled),
         enable_decoded_strings=is_string_type_enabled(StringType.DECODED, disabled, enabled),
-        enable_layout=not args.no_layout,
-        enable_tags=not args.no_tags,
+        enable_layout=True,
+        enable_tags=True,
     )
 
-    if args.load:
+    if is_results_document(sample):
         try:
             results = load(sample, analysis, args.functions, args.min_length)
         except floss.results.InvalidResultsFile as e:

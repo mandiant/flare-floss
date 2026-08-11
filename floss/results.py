@@ -244,6 +244,8 @@ class Runtime:
     vivisect: float = 0.0
     find_features: float = 0.0
     static_strings: float = 0.0
+    layout: float = 0.0
+    tags: float = 0.0
     language_strings: float = 0.0
     stack_strings: float = 0.0
     decoded_strings: float = 0.0
@@ -283,7 +285,7 @@ STRING_TYPE_FIELDS = {
 @dataclass
 class Metadata:
     file_path: str
-    # sample identity for consumers (path + content hashes); hashes empty when unknown (e.g. --load of old JSON)
+    # sample identity for consumers (path + content hashes); hashes empty when unknown (e.g. loaded old JSON)
     md5: str = ""
     sha1: str = ""
     sha256: str = ""
@@ -347,10 +349,6 @@ def load(sample: Path, analysis: Analysis, functions: List[int], min_length: int
     logger.debug("loading results document: %s", str(sample))
     results = read(sample)
     results.metadata.file_path = f"{sample}\n{results.metadata.file_path}"
-    # TODO(#1348): apply enable_layout / enable_tags from ``analysis`` on load.
-    # Today only string-type flags are applied (check_set_string_types). A JSON
-    # saved with a layout tree still renders layout UI under ``floss --load``
-    # even when the user passes --no-layout (results.layout is not cleared).
     check_set_string_types(results, analysis)
     if functions:
         filter_functions(results, functions)
@@ -378,7 +376,9 @@ def read(sample: Path) -> ResultDocument:
 def check_set_string_types(results: ResultDocument, wanted_analysis: Analysis) -> None:
     for string_type in STRING_TYPE_FIELDS:
         if getattr(wanted_analysis, string_type) and not getattr(results.analysis, string_type):
-            logger.warning(f"{string_type} not in loaded data, use --only/--no to enable/disable type(s)")
+            logger.warning(
+                f"{string_type} not in loaded data, use --string-type/--no-string-type to enable/disable type(s)"
+            )
         setattr(results.analysis, string_type, getattr(wanted_analysis, string_type))
 
 

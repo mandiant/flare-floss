@@ -53,8 +53,6 @@ the layout-aware static listing when deobfuscation is enabled.
 ```console
 $ floss sample.exe
 $ floss sample.exe -j
-$ floss --no-layout sample.exe    # classic static listing
-$ floss --no-tags sample.exe      # layout without tag databases
 ```
 
 Features:
@@ -89,16 +87,15 @@ Extract obfuscated strings from a malware binary:
 
 Only extract stack and tight strings:
 
-    $ floss --only stack tight -- suspicious.exe
+    $ floss --string-type stack tight -- suspicious.exe
 
 Do not extract static strings:
 
-    $ floss --no static -- backdoor.exe
+    $ floss --no-string-type static -- backdoor.exe
 
 Display the help/usage screens:
 
-    $ floss -h  # show core arguments
-    $ floss -H  # show all supported arguments
+    $ floss -h  # show all supported arguments
 
 For a detailed description of using FLOSS, review the documentation
  [here](doc/usage.md).

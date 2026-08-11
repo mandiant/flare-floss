@@ -113,7 +113,6 @@ def main():
                             sys.executable,
                             "-m",
                             "floss.main",
-                            "--load",
                             str(json_output_path),
                         ]
                         if args.quiet:
@@ -153,7 +152,6 @@ def main():
                 sys.executable,
                 "-m",
                 "floss.main",
-                "--load",
                 str(json_output_path),
             ]
             if args.quiet:

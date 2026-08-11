@@ -2,7 +2,7 @@ import textwrap
 
 import floss.main
 
-# floss --no static -j tests/data/src/decode-in-place/bin/test-decode-in-place.exe
+# floss --no-string-type static -j tests/data/src/decode-in-place/bin/test-decode-in-place.exe
 RESULTS = textwrap.dedent("""
 {
     "analysis": {
@@ -94,7 +94,6 @@ def test_load(tmp_path):
     assert (
         floss.main.main(
             [
-                "-l",
                 str(d.joinpath(p)),
             ]
         )

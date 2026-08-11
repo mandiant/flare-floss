@@ -12,21 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 import sys
 import logging
-import pathlib
 import argparse
 
+from floss.tags import data_root
 from floss.tags.gp import StringGlobalPrevalence, StringGlobalPrevalenceDatabase
 
 logger = logging.getLogger(__name__)
 
 
 def load_db_gp():
-    gpfile = os.path.join(os.path.dirname(__file__), "..", "..", "floss", "qs", "db", "data", "gp", "gp.jsonl.gz")
-    compress = gpfile.endswith(".gz")
-    return StringGlobalPrevalenceDatabase.from_file(pathlib.Path(gpfile), compress=compress)
+    gpfile = data_root() / "gp" / "gp.jsonl.gz"
+    compress = gpfile.suffix == ".gz"
+    return StringGlobalPrevalenceDatabase.from_file(gpfile, compress=compress)
 
 
 def query_string(string) -> StringGlobalPrevalence:

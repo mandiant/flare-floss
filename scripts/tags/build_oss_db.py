@@ -1099,7 +1099,7 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     parser.add_argument(
         "--output-dir",
         type=pathlib.Path,
-        default=pathlib.Path(__file__).resolve().parents[2] / "floss" / "qs" / "db" / "data" / "oss",
+        default=pathlib.Path(__file__).resolve().parents[2] / "floss" / "tags" / "data" / "oss",
         help="directory for generated .jsonl.gz files and metrics",
     )
     parser.add_argument(

@@ -18,9 +18,7 @@ Since FLOSS also extracts static strings (like `strings.exe`),
 Here's a summary of the command line flags and options you
  can provide to FLOSS to modify its behavior.
 
-See `floss -h` for all supported arguments and usage examples. This displays the most used arguments only.
-
-To see all supported arguments run `floss -H`.
+See `floss -h` for all supported arguments and usage examples.
 
 ### Extract static, obfuscated, and stack strings (default mode)
 
@@ -42,33 +40,33 @@ FLOSS can identify programs compiled from selected programming languages and ext
 
 By default, this process is automatic. However, you can use the `--language` argument to manually select or disable this feature.
 
-### Disable string type extraction (`--no {static,decoded,stack,tight}`)
+### Disable string type extraction (`--no-string-type {static,decoded,stack,tight,all}`)
 
 When FLOSS searches for static strings, it looks for
  human-readable ASCII and UTF-16 strings across the
  entire binary contents of the file.
 This means you may be able to replace `strings.exe` with
  FLOSS in your analysis workflow. However, you may disable
- the extraction of static strings via the `--no static` switch.
+ the extraction of static strings via the `--no-string-type static` switch.
 
-    floss.exe --no static -- malware.exe
+    floss.exe --no-string-type static -- malware.exe
 
-Since `--no` supports multiple arguments, end the command options with a double dash `--`.
+Since `--no-string-type` supports multiple arguments, end the command options with a double dash `--`.
 
 Analogous, you can disable the extraction of obfuscated strings, stackstrings or any combination.
 
-    floss.exe --no decoded -- malware.exe
-    floss.exe --no stack tight -- malware.exe
+    floss.exe --no-string-type decoded -- malware.exe
+    floss.exe --no-string-type stack tight -- malware.exe
 
 
-### Enable string type extraction (`--only {static,decoded,stack,tight}`)
+### Enable string type extraction (`--string-type {static,decoded,stack,tight,all}`)
 
 Sometimes it's easier to specify only the string type(s) you want to extract.
-Use the `--only` option for that.
+Use the `--string-type` option for that.
 
-    floss.exe --only decoded -- malware.exe
+    floss.exe --string-type decoded -- malware.exe
 
-Please note that `--no` and `--only` cannot be used at the same time.
+Please note that `--string-type` and `--no-string-type` cannot be used at the same time.
 
 ### Write output as JSON (`-j/--json`)
 
@@ -76,11 +74,12 @@ Write FLOSS results to `stdout` structured in JSON to make it easy to ingest by 
 
     floss.exe -j malware.exe > malware_strings.json
 
-### Load FLOSS results (`-l/--load`)
+### Load FLOSS results (automatic)
 
-Load a FLOSS results JSON document. This allows to explore FLOSS results without re-running the analysis.
+Loading a saved FLOSS results JSON document is automatic and detected from the file
+content, so you can explore results without re-running the analysis.
 
-    floss.exe -l malware_floss_results.json
+    floss.exe malware_floss_results.json
 
 
 ### Verbose results (`-v`)
@@ -120,10 +119,10 @@ Supplying a larger minimum length reduces the chances
     floss.exe -n 10 malware.exe
 
 
-### Decoding function specification (`--functions`)
+### Decoding function specification (`--analyze-functions`)
 
 You can instruct FLOSS to decode the strings provided
- to specific functions by using the `--functions`
+ to specific functions by using the `--analyze-functions`
  option.
 By default, FLOSS uses heuristics to identify decoding
  routines in malware.
@@ -137,7 +136,7 @@ This can improve performance as FLOSS by perhaps one-third
   to always manually identify decoding routines).
 Specify functions by using their hex-encoded virtual address.
 
-    floss.exe --functions 0x401000 0x402000 malware.exe
+    floss.exe --analyze-functions 0x401000 0x402000 malware.exe
 
 
 ### Install/Uninstall right click menu option for Windows (`--install-right-click-menu/--uninstall-right-click-menu`)
