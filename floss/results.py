@@ -17,7 +17,7 @@ import re
 import json
 import datetime
 from enum import Enum
-from typing import Dict, List
+from typing import TYPE_CHECKING, Dict, List, Optional
 from pathlib import Path
 from dataclasses import field
 
@@ -36,6 +36,9 @@ import floss.logging_
 from floss.render import Verbosity
 from floss.version import __version__
 from floss.render.sanitize import sanitize
+
+if TYPE_CHECKING:
+    from floss.layout.base import Layout
 
 logger = floss.logging_.getLogger(__name__)
 
@@ -58,10 +61,10 @@ class StringEncoding(str, Enum):
 class StackString:
     """
     here's what the following members represent:
-        
-        
+
+
         [smaller addresses]
-       
+
         +---------------+  <- stack_pointer (top of stack)
         |               | \
         +---------------+  | offset
@@ -75,7 +78,7 @@ class StackString:
         +---------------+  |
         |               | /
         +---------------+  <- original_stack_pointer (bottom of stack, probably bp)
-        
+
         [bigger addresses]
 
 
@@ -141,11 +144,17 @@ class StaticString:
         string: the string
         offset: the offset into the input where the string is found
         encoding: the string encoding, like ASCII or unicode
+        tags: classification tags (layout/content), when enriched
+        section: containing layout node name, when known
+        structure: PE/ELF/Mach-O structure name, when known
     """
 
     string: str
     offset: int
     encoding: StringEncoding
+    tags: List[str] = field(default_factory=list)
+    section: str = ""
+    structure: str = ""
 
     @classmethod
     def from_utf8(cls, buf, addr, min_length):
@@ -163,16 +172,82 @@ class StaticString:
 
 
 @dataclass
+class ResultString:
+    """Serializable layout-tree string (used for section-aware static render)."""
+
+    string: str
+    offset: int
+    size: int
+    encoding: str
+    tags: List[str] = field(default_factory=list)
+    structure: str = ""
+
+
+@dataclass
+class ResultLayout:
+    """Serializable binary layout tree for static string context."""
+
+    name: str
+    offset: int
+    length: int
+    strings: List[ResultString] = field(default_factory=list)
+    children: List["ResultLayout"] = field(default_factory=list)
+
+    @property
+    def end(self) -> int:
+        return self.offset + self.length
+
+    @classmethod
+    def from_layout(cls, layout: "Layout") -> "ResultLayout":
+        """Recursively convert a live Layout tree to the serializable form."""
+        from floss.layout.types import TaggedString, ExtractedString
+
+        result_strings: List[ResultString] = []
+        for s in layout.strings:
+            # after tagging, strings are TaggedString; before, ExtractedString
+            if isinstance(s, TaggedString):
+                extracted: ExtractedString = s.string
+                tags = sorted(list(s.tags))
+                structure = s.structure or ""
+            else:
+                assert isinstance(s, ExtractedString)
+                extracted = s
+                tags = []
+                structure = ""
+
+            result_strings.append(
+                ResultString(
+                    string=extracted.string,
+                    offset=extracted.slice.range.offset,
+                    size=extracted.slice.range.length,
+                    encoding=extracted.encoding,
+                    tags=tags,
+                    structure=structure,
+                )
+            )
+
+        result_children = [cls.from_layout(child) for child in (layout.children or [])]
+
+        return cls(
+            name=layout.name,
+            offset=layout.slice.range.offset,
+            length=layout.slice.range.length,
+            strings=result_strings,
+            children=result_children,
+        )
+
+
+@dataclass
 class Runtime:
-    start_date: datetime.datetime = datetime.datetime.now()
-    total: float = 0
-    vivisect: float = 0
-    find_features: float = 0
-    static_strings: float = 0
-    language_strings: float = 0
-    stack_strings: float = 0
-    decoded_strings: float = 0
-    tight_strings: float = 0
+    start_date: datetime.datetime = field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc))
+    total: float = 0.0
+    vivisect: float = 0.0
+    find_features: float = 0.0
+    static_strings: float = 0.0
+    language_strings: float = 0.0
+    stack_strings: float = 0.0
+    decoded_strings: float = 0.0
+    tight_strings: float = 0.0
 
 
 @dataclass
@@ -191,15 +266,27 @@ class Analysis:
     enable_stack_strings: bool = True
     enable_tight_strings: bool = True
     enable_decoded_strings: bool = True
+    enable_layout: bool = True
+    enable_tags: bool = True
     functions: Functions = field(default_factory=Functions)
 
 
-STRING_TYPE_FIELDS = set([field for field in Analysis.__annotations__ if field.startswith("enable_")])
+# string-type enable flags only (layout/tags are separate product toggles)
+STRING_TYPE_FIELDS = {
+    "enable_static_strings",
+    "enable_stack_strings",
+    "enable_tight_strings",
+    "enable_decoded_strings",
+}
 
 
 @dataclass
 class Metadata:
     file_path: str
+    # sample identity for consumers (path + content hashes); hashes empty when unknown (e.g. --load of old JSON)
+    md5: str = ""
+    sha1: str = ""
+    sha256: str = ""
     version: str = __version__
     imagebase: int = 0
     min_length: int = 0
@@ -224,6 +311,7 @@ class ResultDocument:
     metadata: Metadata
     analysis: Analysis = field(default_factory=Analysis)
     strings: Strings = field(default_factory=Strings)
+    layout: Optional[ResultLayout] = None
 
     @classmethod
     def parse_file(cls, path: Path) -> "ResultDocument":
@@ -259,6 +347,10 @@ def load(sample: Path, analysis: Analysis, functions: List[int], min_length: int
     logger.debug("loading results document: %s", str(sample))
     results = read(sample)
     results.metadata.file_path = f"{sample}\n{results.metadata.file_path}"
+    # TODO(#1348): apply enable_layout / enable_tags from ``analysis`` on load.
+    # Today only string-type flags are applied (check_set_string_types). A JSON
+    # saved with a layout tree still renders layout UI under ``floss --load``
+    # even when the user passes --no-layout (results.layout is not cleared).
     check_set_string_types(results, analysis)
     if functions:
         filter_functions(results, functions)

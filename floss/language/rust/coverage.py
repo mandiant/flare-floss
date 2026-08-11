@@ -23,6 +23,7 @@ import pefile
 
 from floss.strings import extract_ascii_unicode_strings
 from floss.language.utils import get_extract_stats
+from floss.language.cli_common import add_common_args, configure_logging
 from floss.language.rust.extract import extract_rust_strings
 
 logger = logging.getLogger(__name__)
@@ -32,31 +33,10 @@ MIN_STR_LEN = 4
 
 def main():
     parser = argparse.ArgumentParser(description="Get Rust strings")
-    parser.add_argument("path", help="file or path to analyze")
-    parser.add_argument(
-        "-n",
-        "--minimum-length",
-        dest="min_length",
-        type=int,
-        default=MIN_STR_LEN,
-        help="minimum string length",
-    )
-    logging_group = parser.add_argument_group("logging arguments")
-    logging_group.add_argument("-d", "--debug", action="store_true", help="enable debugging output on STDERR")
-    logging_group.add_argument(
-        "-q",
-        "--quiet",
-        action="store_true",
-        help="disable all status output except fatal errors",
-    )
+    add_common_args(parser, MIN_STR_LEN)
     args = parser.parse_args()
 
-    if args.debug:
-        logging.basicConfig(level=logging.DEBUG)
-        logging.getLogger().setLevel(logging.DEBUG)
-    else:
-        logging.basicConfig(level=logging.INFO)
-        logging.getLogger().setLevel(logging.INFO)
+    configure_logging(args)
 
     try:
         pe = pefile.PE(args.path)

@@ -393,7 +393,7 @@ def get_struct_string_candidates(pe: pefile.PE) -> Iterable[StructString]:
     low, high = get_image_range(pe)
 
     # cache the section data so that we can avoid pefile overhead
-    section_datas: List[Tuple[VA, VA, bytes]] = []
+    section_datas: List[Tuple[VA, VA, memoryview]] = []
     for section in pe.sections:
         if not section.IMAGE_SCN_MEM_READ:
             continue
