@@ -20,13 +20,22 @@ from fixtures import exefile
 import floss.main
 
 
-def test_main_help():
+def test_main_help(capsys):
     for help_str in ("-h", "--help"):
         # via https://medium.com/python-pandemonium/testing-sys-exit-with-pytest-10c6e5f7726f
         with pytest.raises(SystemExit) as pytest_wrapped_e:
             floss.main.main([help_str])
         assert pytest_wrapped_e.type == SystemExit
         assert pytest_wrapped_e.value.code == 0
+        out = capsys.readouterr().out
+        assert "usage:" in out
+        assert "--analyze-functions" in out
+
+    # running without arguments prints the same help and exits with code 1
+    assert floss.main.main([]) == 1
+    out = capsys.readouterr().out
+    assert "usage:" in out
+    assert "--analyze-functions" in out
 
 
 def test_main_version():
@@ -34,13 +43,6 @@ def test_main_version():
         floss.main.main(["--version"])
     assert pytest_wrapped_e.type == SystemExit
     assert pytest_wrapped_e.value.code == 0
-
-
-def test_main_no_args_prints_help_and_exits_1(capsys):
-    assert floss.main.main([]) == 1
-    out = capsys.readouterr().out
-    assert "usage:" in out
-    assert "--analyze-functions" in out
 
 
 def test_main(exefile):
