@@ -54,15 +54,6 @@ def test_args_analysis_type(exefile, analysis, type_):
     )
 
 
-def test_args_string_type_all(exefile):
-    assert floss.main.main([exefile, "--string-type", "all"]) == 0
-
-
-def test_args_no_string_type_all(exefile):
-    # excluding every string type leaves nothing to extract; exits cleanly
-    assert floss.main.main([exefile, "--no-string-type", "all", "-q"]) == 0
-
-
 def test_args_analysis_type_conflict(exefile):
     assert floss.main.main([exefile, "--string-type", "stack", "--no-string-type", "tight"]) == -1
 

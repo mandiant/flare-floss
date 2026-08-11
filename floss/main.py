@@ -14,7 +14,6 @@
 # limitations under the License.
 
 import sys
-from typing import List
 from pathlib import Path
 
 import rich.traceback
@@ -61,23 +60,6 @@ def is_results_document(sample: Path) -> bool:
     except OSError:
         return False
     return False
-
-
-def expand_all_types(types) -> List[str]:
-    """
-    Expand the "all" pseudo-type in --string-type/--no-string-type values
-    into every concrete string type, preserving order and de-duplicating.
-    """
-    expanded = []
-    for t in types:
-        if t == "all":
-            candidates = [st.value for st in StringType]
-        else:
-            candidates = [t]
-        for c in candidates:
-            if c not in expanded:
-                expanded.append(c)
-    return expanded
 
 
 def get_default_root() -> Path:
@@ -139,8 +121,8 @@ def main(argv=None) -> int:
     sample = Path(args.sample.name)
     args.sample.close()
 
-    disabled = expand_all_types(list(args.disabled_types or []))
-    enabled = expand_all_types(list(args.enabled_types or []))
+    disabled = list(args.disabled_types or [])
+    enabled = list(args.enabled_types or [])
 
     if args.functions:
         if is_string_type_enabled(StringType.STATIC, disabled, enabled):

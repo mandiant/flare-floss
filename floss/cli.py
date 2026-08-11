@@ -53,9 +53,8 @@ class StringType(str, Enum):
     DECODED = "decoded"
 
 
-# string types selectable via --string-type / --no-string-type; "all" is a convenience
-# for every type at once (the default).
-STRING_TYPE_CHOICES = [t.value for t in StringType] + ["all"]
+# string types selectable via --string-type / --no-string-type
+STRING_TYPE_CHOICES = [t.value for t in StringType]
 
 
 class WorkspaceLoadError(ValueError):

@@ -40,7 +40,7 @@ FLOSS can identify programs compiled from selected programming languages and ext
 
 By default, this process is automatic. However, you can use the `--language` argument to manually select or disable this feature.
 
-### Disable string type extraction (`--no-string-type {static,decoded,stack,tight,all}`)
+### Disable string type extraction (`--no-string-type {static,decoded,stack,tight}`)
 
 When FLOSS searches for static strings, it looks for
  human-readable ASCII and UTF-16 strings across the
@@ -59,7 +59,7 @@ Analogous, you can disable the extraction of obfuscated strings, stackstrings or
     floss.exe --no-string-type stack tight -- malware.exe
 
 
-### Enable string type extraction (`--string-type {static,decoded,stack,tight,all}`)
+### Enable string type extraction (`--string-type {static,decoded,stack,tight}`)
 
 Sometimes it's easier to specify only the string type(s) you want to extract.
 Use the `--string-type` option for that.
