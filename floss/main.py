@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import sys
+import json
 from pathlib import Path
 
 import rich.traceback
@@ -46,20 +47,33 @@ def is_running_standalone() -> bool:
 
 def is_results_document(sample: Path) -> bool:
     """
-    Heuristically detect a saved FLOSS results document from its content.
+    Detect a saved FLOSS results document from its content.
 
-    A results document is JSON, so the first non-whitespace byte is ``{``.
-    Binary samples (PE/ELF/Mach-O/shellcode) start with other magic bytes.
+    A results document is a JSON object with the top-level ResultDocument
+    fields metadata, analysis, and strings. The top-level schema is stable
+    across the migration iterations, so this check does not need a version.
+
+    Binary samples are rejected cheaply by peeking the first non-whitespace
+    byte. The full file is loaded and parsed only when the content looks
+    like JSON, so large binaries are not read for the check.
     """
     try:
         with sample.open("rb") as f:
             for byte in iter(lambda: f.read(1), b""):
                 if not byte.strip():
                     continue
-                return byte == b"{"
+                if byte != b"{":
+                    return False
+                break
     except OSError:
         return False
-    return False
+
+    try:
+        data = json.loads(sample.read_bytes())
+    except (OSError, ValueError):
+        return False
+
+    return isinstance(data, dict) and {"metadata", "analysis", "strings"} <= set(data)
 
 
 def get_default_root() -> Path:
