@@ -23,9 +23,8 @@ from __future__ import annotations
 import os
 import sys
 import hashlib
-import contextlib
 from time import time
-from typing import Set, List, Iterator, Optional
+from typing import Set, List, Optional
 from pathlib import Path
 from dataclasses import dataclass
 
@@ -251,18 +250,6 @@ def tag_layout(
         remove_false_positive_lib_strings(layout)
 
 
-@contextlib.contextmanager
-def measure_runtime(runtime: Runtime, field: str) -> Iterator[None]:
-    """
-    Record the elapsed time of the wrapped block into the given runtime field.
-    """
-    t0 = time()
-    try:
-        yield
-    finally:
-        setattr(runtime, field, get_runtime_diff(t0))
-
-
 def try_layout_static(
     buf: bytes,
     min_length: int,
@@ -280,12 +267,12 @@ def try_layout_static(
     statics. Default-on layout must not crash the whole run.
     """
     try:
-        with measure_runtime(runtime, "layout"):
+        with runtime.measure("layout"):
             layout = compute_layout(buf, min_length)
             if layout is None:
                 return None
 
-            with measure_runtime(runtime, "tags"):
+            with runtime.measure("tags"):
                 tag_layout(layout, enable_tags)
 
             return ResultLayout.from_layout(layout)

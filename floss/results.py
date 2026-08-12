@@ -15,9 +15,11 @@
 
 import re
 import json
+import time
 import datetime
+import contextlib
 from enum import Enum
-from typing import TYPE_CHECKING, Dict, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Iterator, Optional
 from pathlib import Path
 from dataclasses import field
 
@@ -250,6 +252,17 @@ class Runtime:
     stack_strings: float = 0.0
     decoded_strings: float = 0.0
     tight_strings: float = 0.0
+
+    @contextlib.contextmanager
+    def measure(self, field: str) -> Iterator[None]:
+        """
+        Record the elapsed time of the wrapped block into the given runtime field.
+        """
+        t0 = time.time()
+        try:
+            yield
+        finally:
+            setattr(self, field, round(time.time() - t0, 4))
 
 
 @dataclass
