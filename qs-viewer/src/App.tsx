@@ -2,7 +2,7 @@ import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import { useDropzone } from 'react-dropzone';
 import './App.css';
 import { type ResultDocument, type ResultLayout, type ResultString } from './types';
-import previewData from './pma0303_qs.json';
+import previewData from './pma_0303.json';
 
 interface DisplayOptions {
   showTags: boolean;
@@ -136,7 +136,7 @@ const App: React.FC = () => {
     setSearchTerm('');
     setShowUntagged(true);
     setShowStringsWithoutStructure(true);
-    setMinStringLength(jsonData.meta.min_str_len);
+    setMinStringLength(jsonData.metadata.min_length);
 
     const allTags = new Set<string>();
     const allStructures = new Set<string>();
@@ -149,7 +149,9 @@ const App: React.FC = () => {
       });
       layout.children.forEach(collect);
     };
-    collect(jsonData.layout);
+    if (jsonData.layout) {
+      collect(jsonData.layout);
+    }
 
     const defaultTags = Array.from(allTags).filter(
       tag => tag !== '#code' && tag !== '#reloc'
@@ -229,7 +231,9 @@ const App: React.FC = () => {
         collect(child);
       }
     };
-    collect(data.layout);
+    if (data.layout) {
+      collect(data.layout);
+    }
 
     return {
       availableTags: Object.keys(counts).sort(),
@@ -256,7 +260,9 @@ const App: React.FC = () => {
         collect(child);
       }
     };
-    collect(data.layout);
+    if (data.layout) {
+      collect(data.layout);
+    }
 
     return {
       availableStructures: Object.keys(counts).sort(),
@@ -293,6 +299,7 @@ const App: React.FC = () => {
 
   const filteredLayout = useMemo(() => {
     if (!data) return null;
+    if (!data.layout) return null;
 
     const filter = (layout: ResultLayout): ResultLayout | null => {
       const lowerCaseSearchTerm = searchTerm.toLowerCase();
@@ -387,23 +394,23 @@ const App: React.FC = () => {
               <div className="metadata">
                 <div className="meta-row">
                   <span className="meta-label">File</span>
-                  <span className="meta-value" title={data.meta.sample.path}>{getFilename(data.meta.sample.path)}</span>
+                  <span className="meta-value" title={data.metadata.file_path}>{getFilename(data.metadata.file_path)}</span>
                 </div>
                 <div className="meta-row">
                   <span className="meta-label">MD5</span>
-                  <span className="meta-value meta-hash">{chunkHash(data.meta.sample.md5).map((line, i) => <div key={i}>{line}</div>)}</span>
+                  <span className="meta-value meta-hash">{chunkHash(data.metadata.md5).map((line, i) => <div key={i}>{line}</div>)}</span>
                 </div>
                 <div className="meta-row">
                   <span className="meta-label">SHA256</span>
-                  <span className="meta-value meta-hash">{chunkHash(data.meta.sample.sha256).map((line, i) => <div key={i}>{line}</div>)}</span>
+                  <span className="meta-value meta-hash">{chunkHash(data.metadata.sha256).map((line, i) => <div key={i}>{line}</div>)}</span>
                 </div>
                 <div className="meta-row">
                   <span className="meta-label">Time</span>
-                  <span className="meta-value">{new Date(data.meta.timestamp).toLocaleString()}</span>
+                  <span className="meta-value">{new Date(data.metadata.runtime.start_date).toLocaleString()}</span>
                 </div>
                 <div className="meta-row">
                   <span className="meta-label">Ver</span>
-                  <span className="meta-value">{data.meta.version}</span>
+                  <span className="meta-value">{data.metadata.version}</span>
                 </div>
               </div>
 
