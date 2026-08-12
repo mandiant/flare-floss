@@ -96,6 +96,18 @@ const App: React.FC = () => {
   });
   const [copyFeedback, setCopyFeedback] = useState('');
 
+  // Theme
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    const saved = localStorage.getItem('qs-viewer-theme');
+    if (saved === 'light' || saved === 'dark') return saved;
+    return window.matchMedia?.('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+  });
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('qs-viewer-theme', theme);
+  }, [theme]);
+
   // Resizable sidebar
   const [sidebarWidth, setSidebarWidth] = useState(360);
   const isDragging = useRef(false);
@@ -379,6 +391,9 @@ const App: React.FC = () => {
         <div className="sidebar-header">
           <h1 className="app-title">FLOSS</h1>
           <div className="sidebar-header-buttons">
+            <button className="btn-ghost" onClick={() => setTheme(t => t === 'light' ? 'dark' : 'light')} title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}>
+              {theme === 'light' ? 'Dark' : 'Light'}
+            </button>
             <button className="btn-ghost" onClick={handlePreview}>Preview</button>
             <label htmlFor="file-upload" className="btn-ghost" style={{ cursor: 'pointer' }}>
               Upload

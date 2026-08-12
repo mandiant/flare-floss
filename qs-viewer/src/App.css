@@ -15,13 +15,32 @@
   --text-dim: #4a4a4a;
   --accent: #ffffff;
   --highlight: #f0f0f0;
+  --overlay: rgba(255, 255, 255, 0.02);
+  --overlay-row: rgba(255, 255, 255, 0.015);
   --font-mono: 'Geist Mono', 'JetBrains Mono', 'SF Mono', 'Menlo', monospace;
   --radius: 3px;
   --transition: 150ms ease;
 }
 
+:root[data-theme="light"] {
+  --bg: #ffffff;
+  --surface: #f6f6f6;
+  --surface-raised: #efefef;
+  --surface-hover: #e8e8e8;
+  --border: #e2e2e2;
+  --border-strong: #d4d4d4;
+  --text: #161616;
+  --text-secondary: #4d4d4d;
+  --text-muted: #777777;
+  --text-dim: #a3a3a3;
+  --accent: #000000;
+  --highlight: #0f0f0f;
+  --overlay: rgba(0, 0, 0, 0.02);
+  --overlay-row: rgba(0, 0, 0, 0.02);
+}
+
 @media (prefers-color-scheme: light) {
-  :root {
+  :root:not([data-theme]) {
     --bg: #ffffff;
     --surface: #f6f6f6;
     --surface-raised: #efefef;
@@ -34,15 +53,8 @@
     --text-dim: #a3a3a3;
     --accent: #000000;
     --highlight: #0f0f0f;
-  }
-
-  .resize-handle:hover,
-  .resize-handle.dragging {
-    background: rgba(0, 0, 0, 0.02);
-  }
-
-  .string-view:nth-child(odd) {
-    background: rgba(0, 0, 0, 0.02);
+    --overlay: rgba(0, 0, 0, 0.02);
+    --overlay-row: rgba(0, 0, 0, 0.02);
   }
 }
 
@@ -164,7 +176,7 @@ body {
 
 .resize-handle:hover,
 .resize-handle.dragging {
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--overlay);
 }
 
 /* ---- Sidebar Scrollable Body ---- */
@@ -560,7 +572,7 @@ body {
 }
 
 .string-view:nth-child(odd) {
-  background: rgba(255, 255, 255, 0.015);
+  background: var(--overlay-row);
 }
 
 .string-view:hover {
