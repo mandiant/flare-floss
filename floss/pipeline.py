@@ -298,7 +298,6 @@ def analyze(options: Options) -> Optional[ResultDocument]:
         logger.warning("file is very large, strings listings may be truncated")
 
     time0 = time()
-    interim = time0
 
     # one read for classic statics + layout (layout is default and needs a full buffer)
     # TODO: mmap-only classic path if layout is ever optional-only again
@@ -315,7 +314,7 @@ def analyze(options: Options) -> Optional[ResultDocument]:
     if not static_strings:
         return None
 
-    static_runtime = get_runtime_diff(interim)
+    static_runtime = get_runtime_diff(time0)
 
     # set language configurations
     selected_lang = Language(options.language)
@@ -399,18 +398,18 @@ def analyze(options: Options) -> Optional[ResultDocument]:
     if results.analysis.enable_static_strings:
         logger.info("extracting static strings")
         layout_doc: Optional[ResultLayout] = None
-        # only layout/tag work for static_strings runtime — not language ID or the TTY prompt above
-        layout_t0 = time()
         if analysis.enable_layout:
-            layout_doc = try_layout_static(
-                sample_buf, options.min_length, analysis.enable_tags, results.metadata.runtime
-            )
+            # only layout/tag work for static_strings runtime — not language ID or the TTY prompt above
+            with results.metadata.runtime.measure("static_strings"):
+                layout_doc = try_layout_static(
+                    sample_buf, options.min_length, analysis.enable_tags, results.metadata.runtime
+                )
 
         if layout_doc is not None:
             results.layout = layout_doc
             results.strings.static_strings = static_strings_from_layout(layout_doc)
-            # classic extraction + layout/tag work (excludes language ID / deobfuscation prompt)
-            results.metadata.runtime.static_strings = static_runtime + get_runtime_diff(layout_t0)
+            # add the classic extraction time (done above for language ID)
+            results.metadata.runtime.static_strings += static_runtime
         else:
             results.strings.static_strings = static_strings
             results.metadata.runtime.static_strings = static_runtime
@@ -422,9 +421,10 @@ def analyze(options: Options) -> Optional[ResultDocument]:
 
         if results.metadata.language == Language.GO.value:
             logger.info("extracting language-specific Go strings")
-            interim = time()
-            results.strings.language_strings = floss.language.go.extract.extract_go_strings(sample, options.min_length)
-            results.metadata.runtime.language_strings = get_runtime_diff(interim)
+            with results.metadata.runtime.measure("language_strings"):
+                results.strings.language_strings = floss.language.go.extract.extract_go_strings(
+                    sample, options.min_length
+                )
 
             # missed strings only includes non-identified strings in searched range
             # here currently only focus on strings in string blob range
@@ -443,11 +443,10 @@ def analyze(options: Options) -> Optional[ResultDocument]:
 
         elif results.metadata.language == Language.RUST.value:
             logger.info("extracting language-specific Rust strings")
-            interim = time()
-            results.strings.language_strings = floss.language.rust.extract.extract_rust_strings(
-                sample, options.min_length
-            )
-            results.metadata.runtime.language_strings = get_runtime_diff(interim)
+            with results.metadata.runtime.measure("language_strings"):
+                results.strings.language_strings = floss.language.rust.extract.extract_rust_strings(
+                    sample, options.min_length
+                )
 
             # currently Rust strings are only extracted from the .rdata section
             base_statics = results.strings.static_strings if layout_doc is not None else static_strings
@@ -493,92 +492,90 @@ def analyze(options: Options) -> Optional[ResultDocument]:
                 stream=sys.stderr,
                 enabled=not (options.quiet or options.disable_progress),
             ):
-                interim = time()
-                vw = load_vw(sample, options.format, sigpaths, should_save_workspace)
-                results.metadata.runtime.vivisect = get_runtime_diff(interim)
-                interim = time()
+                with results.metadata.runtime.measure("vivisect"):
+                    vw = load_vw(sample, options.format, sigpaths, should_save_workspace)
         except WorkspaceLoadError as e:
             raise PipelineError("failed to analyze sample: %s" % e, exit_code=-1)
 
         results.metadata.imagebase = get_imagebase(vw)
 
-        try:
-            selected_functions = select_functions(vw, options.functions)
-            results.analysis.functions.discovered = len(vw.getFunctions())
-        except ValueError as e:
-            # failed to find functions in workspace
-            raise PipelineError(e.args[0], exit_code=-1)
+        with results.metadata.runtime.measure("find_features"):
+            try:
+                selected_functions = select_functions(vw, options.functions)
+                results.analysis.functions.discovered = len(vw.getFunctions())
+            except ValueError as e:
+                # failed to find functions in workspace
+                raise PipelineError(e.args[0], exit_code=-1)
 
-        decoding_function_features, library_functions = find_decoding_function_features(
-            vw, selected_functions, disable_progress=options.quiet or options.disable_progress
-        )
-        results.analysis.functions.library = len(library_functions)
-        results.metadata.runtime.find_features = get_runtime_diff(interim)
-        interim = time()
+            decoding_function_features, library_functions = find_decoding_function_features(
+                vw, selected_functions, disable_progress=options.quiet or options.disable_progress
+            )
+            results.analysis.functions.library = len(library_functions)
 
         logger.trace("analysis summary:")
         for k, v in get_vivisect_meta_info(vw, selected_functions, decoding_function_features).items():
             logger.trace("  %s: %s", k, v or "N/A")
 
         if results.analysis.enable_stack_strings:
-            funcs = selected_functions
-            if results.analysis.enable_tight_strings:
-                # don't run stack-string extraction on functions with tight loops as this will likely
-                # result in FPs and should be caught by the tightstrings extraction below
-                funcs = get_functions_without_tightloops(decoding_function_features)
+            with results.metadata.runtime.measure("stack_strings"):
+                funcs = selected_functions
+                if results.analysis.enable_tight_strings:
+                    # don't run stack-string extraction on functions with tight loops as this will likely
+                    # result in FPs and should be caught by the tightstrings extraction below
+                    funcs = get_functions_without_tightloops(decoding_function_features)
 
-            results.strings.stack_strings = extract_stackstrings(
-                vw,
-                funcs,
-                options.min_length,
-                verbosity=options.verbose,
-                disable_progress=options.quiet or options.disable_progress,
-            )
-            results.analysis.functions.analyzed_stack_strings = len(funcs)
-            results.metadata.runtime.stack_strings = get_runtime_diff(interim)
-            interim = time()
+                results.strings.stack_strings = extract_stackstrings(
+                    vw,
+                    funcs,
+                    options.min_length,
+                    verbosity=options.verbose,
+                    disable_progress=options.quiet or options.disable_progress,
+                )
+                results.analysis.functions.analyzed_stack_strings = len(funcs)
 
         if results.analysis.enable_tight_strings:
-            tightloop_functions = get_functions_with_tightloops(decoding_function_features)
-            results.strings.tight_strings = extract_tightstrings(
-                vw,
-                tightloop_functions,
-                min_length=options.min_length,
-                verbosity=options.verbose,
-                disable_progress=options.quiet or options.disable_progress,
-            )
-            results.analysis.functions.analyzed_tight_strings = len(tightloop_functions)
-            results.metadata.runtime.tight_strings = get_runtime_diff(interim)
-            interim = time()
+            with results.metadata.runtime.measure("tight_strings"):
+                tightloop_functions = get_functions_with_tightloops(decoding_function_features)
+                results.strings.tight_strings = extract_tightstrings(
+                    vw,
+                    tightloop_functions,
+                    min_length=options.min_length,
+                    verbosity=options.verbose,
+                    disable_progress=options.quiet or options.disable_progress,
+                )
+                results.analysis.functions.analyzed_tight_strings = len(tightloop_functions)
 
         if results.analysis.enable_decoded_strings:
-            # TODO select more based on score rather than absolute count?!
-            top_functions = get_top_functions(decoding_function_features, 20)
+            with results.metadata.runtime.measure("decoded_strings"):
+                # TODO select more based on score rather than absolute count?!
+                top_functions = get_top_functions(decoding_function_features, 20)
 
-            fvas_to_emulate = get_function_fvas(top_functions)
-            fvas_tight_functions = get_tight_function_fvas(decoding_function_features)
-            fvas_to_emulate = append_unique(fvas_to_emulate, fvas_tight_functions)
+                fvas_to_emulate = get_function_fvas(top_functions)
+                fvas_tight_functions = get_tight_function_fvas(decoding_function_features)
+                fvas_to_emulate = append_unique(fvas_to_emulate, fvas_tight_functions)
 
-            if len(fvas_to_emulate) == 0:
-                logger.info("no candidate decoding functions found.")
-            else:
-                logger.debug("identified %d candidate decoding functions", len(fvas_to_emulate))
-                for fva in fvas_to_emulate:
-                    score = decoding_function_features[fva]["score"]
-                    xrefs_to = decoding_function_features[fva]["xrefs_to"]
-                    results.analysis.functions.decoding_function_scores[fva] = {"score": score, "xrefs_to": xrefs_to}
-                    logger.debug("  - 0x%x: score: %.3f, xrefs to: %d", fva, score, xrefs_to)
+                if len(fvas_to_emulate) == 0:
+                    logger.info("no candidate decoding functions found.")
+                else:
+                    logger.debug("identified %d candidate decoding functions", len(fvas_to_emulate))
+                    for fva in fvas_to_emulate:
+                        score = decoding_function_features[fva]["score"]
+                        xrefs_to = decoding_function_features[fva]["xrefs_to"]
+                        results.analysis.functions.decoding_function_scores[fva] = {
+                            "score": score,
+                            "xrefs_to": xrefs_to,
+                        }
+                        logger.debug("  - 0x%x: score: %.3f, xrefs to: %d", fva, score, xrefs_to)
 
-            # TODO filter out strings decoded in library function or function only called by library function(s)
-            results.strings.decoded_strings = decode_strings(
-                vw,
-                fvas_to_emulate,
-                options.min_length,
-                verbosity=options.verbose,
-                disable_progress=options.quiet or options.disable_progress,
-            )
-            results.analysis.functions.analyzed_decoded_strings = len(fvas_to_emulate)
-            results.metadata.runtime.decoded_strings = get_runtime_diff(interim)
+                # TODO filter out strings decoded in library function or function only called by library function(s)
+                results.strings.decoded_strings = decode_strings(
+                    vw,
+                    fvas_to_emulate,
+                    options.min_length,
+                    verbosity=options.verbose,
+                    disable_progress=options.quiet or options.disable_progress,
+                )
+                results.analysis.functions.analyzed_decoded_strings = len(fvas_to_emulate)
 
     results.metadata.runtime.total = get_runtime_diff(time0)
     logger.info("finished execution after %.2f seconds", results.metadata.runtime.total)
