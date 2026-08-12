@@ -389,7 +389,7 @@ const App: React.FC = () => {
       {/* ---- Sidebar ---- */}
       <div className="sidebar" style={{ width: sidebarWidth }}>
         <div className="sidebar-header">
-          <h1 className="app-title">FLOSS</h1>
+          <img className="app-logo" src="/floss-logo.png" alt="FLOSS" />
           <div className="sidebar-header-buttons">
             <button
               className="btn-ghost"

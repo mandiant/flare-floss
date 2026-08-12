@@ -100,12 +100,11 @@ body {
   flex-shrink: 0;
 }
 
-.app-title {
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--accent);
+.app-logo {
+  display: block;
+  width: 100%;
+  max-width: 240px;
+  height: auto;
   margin: 0 0 14px 0;
 }
 
