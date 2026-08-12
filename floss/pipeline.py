@@ -136,7 +136,7 @@ def select_functions(vw, asked_functions: Optional[List[int]]) -> Set[int]:
     return asked_functions_
 
 
-def get_file_type(sample_file_path: Path) -> bytes:
+def _get_file_type(sample_file_path: Path) -> bytes:
     with sample_file_path.open("rb") as f:
         magic = f.read(4)
 
@@ -148,13 +148,13 @@ def get_file_type(sample_file_path: Path) -> bytes:
         return UNSUPPORTED_FILE_MAGIC
 
 
-def load_vw(
+def _load_vw(
     sample_path: Path,
     format: str,
     sigpaths: List[Path],
     should_save_workspace: bool = False,
 ) -> VivWorkspace:
-    file_type = get_file_type(sample_path)
+    file_type = _get_file_type(sample_path)
     if format not in ("sc32", "sc64"):
         if file_type is UNSUPPORTED_FILE_MAGIC:
             raise WorkspaceLoadError(
@@ -191,7 +191,7 @@ def load_vw(
     return vw
 
 
-def get_signatures(sigs_path: Path) -> List[Path]:
+def _get_signatures(sigs_path: Path) -> List[Path]:
     if not sigs_path.exists():
         raise IOError("signatures path %s does not exist or cannot be accessed" % str(sigs_path))
 
@@ -500,7 +500,7 @@ def analyze(options: Options) -> Optional[ResultDocument]:
         if options.signatures is None:
             raise PipelineError("signatures path required for deobfuscation", exit_code=-1)
 
-        sigpaths = get_signatures(options.signatures)
+        sigpaths = _get_signatures(options.signatures)
 
         should_save_workspace = os.environ.get("FLOSS_SAVE_WORKSPACE") not in ("0", "no", "NO", "n", None)
         try:
@@ -511,7 +511,7 @@ def analyze(options: Options) -> Optional[ResultDocument]:
                 enabled=not (options.quiet or options.disable_progress),
             ):
                 interim = time()
-                vw = load_vw(sample, options.format, sigpaths, should_save_workspace)
+                vw = _load_vw(sample, options.format, sigpaths, should_save_workspace)
                 results.metadata.runtime.vivisect = get_runtime_diff(interim)
                 interim = time()
         except WorkspaceLoadError as e:
