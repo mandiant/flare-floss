@@ -29,13 +29,13 @@ def test_main_help(capsys):
         assert pytest_wrapped_e.value.code == 0
         out = capsys.readouterr().out
         assert "usage:" in out
-        assert "--analyze-functions" in out
+        assert "--json" in out
 
     # running without arguments prints the same help and exits with code 1
     assert floss.main.main([]) == 1
     out = capsys.readouterr().out
     assert "usage:" in out
-    assert "--analyze-functions" in out
+    assert "--json" in out
 
 
 def test_main_version():
