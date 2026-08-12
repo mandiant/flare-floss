@@ -221,14 +221,13 @@ def compute_layout(
 
     try:
         file_slice = Slice.from_bytes(buf=buf)
-        parsed = layout_compute(file_slice)
+        parsed_layout = layout_compute(file_slice)
 
-        if not is_structured_layout(parsed.name):
-            logger.debug("no structured layout (got %r); using classic static strings", parsed.name)
+        if not is_structured_layout(parsed_layout.name):
+            logger.debug("no structured layout (got %r); using classic static strings", parsed_layout.name)
             return None
 
-        layout = extract_layout_strings(parsed, min_length)
-        return layout
+        return extract_layout_strings(parsed_layout, min_length)
     except Exception as e:
         logger.warning("layout-aware static analysis failed; using classic statics: %s", e)
         return None
