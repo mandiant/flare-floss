@@ -14,7 +14,6 @@
 # limitations under the License.
 
 import sys
-import json
 from pathlib import Path
 
 import rich.traceback
@@ -30,7 +29,7 @@ from floss.cli import (
     make_parser,
     set_log_config,
 )
-from floss.utils import is_string_type_enabled
+from floss.utils import is_results_document, is_string_type_enabled
 from floss.results import Analysis, load
 from floss.pipeline import Options, PipelineError, analyze
 
@@ -43,37 +42,6 @@ def is_running_standalone() -> bool:
     if so, then we'll be able to access `sys._MEIPASS` for the packaged resources.
     """
     return hasattr(sys, "frozen") and hasattr(sys, "_MEIPASS")
-
-
-def is_results_document(sample: Path) -> bool:
-    """
-    Detect a saved FLOSS results document from its content.
-
-    A results document is a JSON object with the top-level ResultDocument
-    fields metadata, analysis, and strings. The top-level schema is stable
-    across the migration iterations, so this check does not need a version.
-
-    Binary samples are rejected cheaply by peeking the first non-whitespace
-    byte. The full file is loaded and parsed only when the content looks
-    like JSON, so large binaries are not read for the check.
-    """
-    try:
-        with sample.open("rb") as f:
-            for byte in iter(lambda: f.read(1), b""):
-                if not byte.strip():
-                    continue
-                if byte != b"{":
-                    return False
-                break
-    except OSError:
-        return False
-
-    try:
-        data = json.loads(sample.read_bytes())
-    except (OSError, ValueError):
-        return False
-
-    return isinstance(data, dict) and all(k in data for k in ("metadata", "analysis", "strings"))
 
 
 def get_default_root() -> Path:

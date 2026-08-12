@@ -15,6 +15,7 @@
 import os
 import re
 import sys
+import json
 import mmap
 import time
 import inspect
@@ -37,7 +38,14 @@ from envi import Emulator
 import floss.strings
 import floss.logging_
 
-from .const import MEGABYTE, MOD_NAME, MAX_STRING_LENGTH
+from .const import (
+    MEGABYTE,
+    MOD_NAME,
+    MAX_STRING_LENGTH,
+    UNSUPPORTED_FILE_MAGIC,
+    SUPPORTED_FILE_MAGIC_PE,
+    SUPPORTED_FILE_MAGIC_ELF,
+)
 from .results import StaticString
 from .strings import extract_ascii_unicode_strings
 from .api_hooks import ENABLED_VIV_DEFAULT_HOOKS
@@ -45,6 +53,49 @@ from .api_hooks import ENABLED_VIV_DEFAULT_HOOKS
 STACK_MEM_NAME = "[stack]"
 
 logger = floss.logging_.getLogger(__name__)
+
+
+def get_file_type(sample_file_path: Path) -> bytes:
+    with sample_file_path.open("rb") as f:
+        magic = f.read(4)
+
+    if magic == SUPPORTED_FILE_MAGIC_ELF:
+        return SUPPORTED_FILE_MAGIC_ELF
+    elif magic[:2] == SUPPORTED_FILE_MAGIC_PE:
+        return SUPPORTED_FILE_MAGIC_PE
+    else:
+        return UNSUPPORTED_FILE_MAGIC
+
+
+def is_results_document(sample: Path) -> bool:
+    """
+    Detect a saved FLOSS results document from its content.
+
+    A results document is a JSON object with the top-level ResultDocument
+    fields metadata, analysis, and strings. The top-level schema is stable
+    across the migration iterations, so this check does not need a version.
+
+    Binary samples are rejected cheaply by peeking the first non-whitespace
+    byte. The full file is loaded and parsed only when the content looks
+    like JSON, so large binaries are not read for the check.
+    """
+    try:
+        with sample.open("rb") as f:
+            for byte in iter(lambda: f.read(1), b""):
+                if not byte.strip():
+                    continue
+                if byte != b"{":
+                    return False
+                break
+    except OSError:
+        return False
+
+    try:
+        data = json.loads(sample.read_bytes())
+    except (OSError, ValueError):
+        return False
+
+    return isinstance(data, dict) and all(k in data for k in ("metadata", "analysis", "strings"))
 
 
 class InstallContextMenu(argparse.Action):

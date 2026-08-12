@@ -49,6 +49,7 @@ from floss.const import (
 )
 from floss.utils import (
     hex,
+    get_file_type,
     get_imagebase,
     get_runtime_diff,
     get_vivisect_meta_info,
@@ -135,18 +136,6 @@ def select_functions(vw, asked_functions: Optional[List[int]]) -> Set[int]:
     logger.trace("selected the following functions: %s", ", ".join(map(hex, sorted(asked_functions_))))
 
     return asked_functions_
-
-
-def get_file_type(sample_file_path: Path) -> bytes:
-    with sample_file_path.open("rb") as f:
-        magic = f.read(4)
-
-    if magic == SUPPORTED_FILE_MAGIC_ELF:
-        return SUPPORTED_FILE_MAGIC_ELF
-    elif magic[:2] == SUPPORTED_FILE_MAGIC_PE:
-        return SUPPORTED_FILE_MAGIC_PE
-    else:
-        return UNSUPPORTED_FILE_MAGIC
 
 
 def load_vw(

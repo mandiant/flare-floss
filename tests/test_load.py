@@ -5,6 +5,7 @@ from pathlib import Path
 from fixtures import exefile
 
 import floss.main
+import floss.utils
 
 # floss --no-string-type static -j tests/data/src/decode-in-place/bin/test-decode-in-place.exe
 RESULTS = textwrap.dedent("""
@@ -108,20 +109,20 @@ def test_load(tmp_path):
 def test_is_results_document_true_for_results_json(tmp_path):
     p = tmp_path / "results.json"
     p.write_text(RESULTS)
-    assert floss.main.is_results_document(p)
+    assert floss.utils.is_results_document(p)
 
 
 def test_is_results_document_false_for_binary(exefile):
-    assert not floss.main.is_results_document(Path(exefile))
+    assert not floss.utils.is_results_document(Path(exefile))
 
 
 def test_is_results_document_false_for_invalid_json(tmp_path):
     p = tmp_path / "invalid.json"
     p.write_text("{not valid json")
-    assert not floss.main.is_results_document(p)
+    assert not floss.utils.is_results_document(p)
 
 
 def test_is_results_document_false_for_non_floss_json(tmp_path):
     p = tmp_path / "other.json"
     p.write_text(json.dumps({"hello": "world"}))
-    assert not floss.main.is_results_document(p)
+    assert not floss.utils.is_results_document(p)
