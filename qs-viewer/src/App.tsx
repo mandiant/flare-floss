@@ -293,7 +293,7 @@ const App: React.FC = () => {
     }
   }, []);
 
-  const { getRootProps, getInputProps } = useDropzone({
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     noClick: true,
     noKeyboard: true,
@@ -504,7 +504,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="App" {...getRootProps()}>
+    <div className={isDragActive ? 'App drag-active' : 'App'} {...getRootProps()}>
       {/* ---- Sidebar ---- */}
       <div className="sidebar" style={{ width: sidebarWidth }}>
         <div className="sidebar-header">
@@ -717,6 +717,15 @@ const App: React.FC = () => {
           </div>
         )}
       </div>
+
+      {isDragActive && (
+        <div className="drop-overlay">
+          <div className="drop-overlay-inner">
+            <p className="drop-overlay-title">Drop JSON file to load</p>
+            <p className="drop-overlay-sub">Drop to load a FLOSS JSON result</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

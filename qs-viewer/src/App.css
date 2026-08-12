@@ -676,6 +676,46 @@ body.resizing {
   cursor: col-resize;
 }
 
+/* ---- Drag & drop overlay ---- */
+
+.App.drag-active > *:not(.drop-overlay) {
+  filter: blur(6px);
+}
+
+.drop-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 24px;
+  pointer-events: none;
+}
+
+.drop-overlay-inner {
+  border: 1.5px dashed var(--border-strong);
+  background: var(--surface-raised);
+  border-radius: 8px;
+  padding: 28px 48px;
+  text-align: center;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.35);
+}
+
+.drop-overlay-title {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--text);
+  margin: 0 0 6px 0;
+}
+
+.drop-overlay-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 0;
+}
+
 /* ---- Responsive / Edge Cases ---- */
 
 @media (max-width: 800px) {
