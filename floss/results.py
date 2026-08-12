@@ -254,7 +254,7 @@ class Runtime:
     tight_strings: float = 0.0
 
     @contextlib.contextmanager
-    def measure(self, field: str) -> Iterator[None]:
+    def measure_and_set_time(self, field: str) -> Iterator[None]:
         """
         Record the elapsed time of the wrapped block into the given runtime field.
         """

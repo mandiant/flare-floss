@@ -266,12 +266,12 @@ def try_layout_static(
     statics. Default-on layout must not crash the whole run.
     """
     try:
-        with runtime.measure("layout"):
+        with runtime.measure_and_set_time("layout"):
             layout = compute_layout(buf, min_length)
             if layout is None:
                 return None
 
-            with runtime.measure("tags"):
+            with runtime.measure_and_set_time("tags"):
                 tag_layout(layout, enable_tags)
 
             return ResultLayout.from_layout(layout)
@@ -400,7 +400,7 @@ def analyze(options: Options) -> Optional[ResultDocument]:
         layout_doc: Optional[ResultLayout] = None
         if analysis.enable_layout:
             # only layout/tag work for static_strings runtime — not language ID or the TTY prompt above
-            with results.metadata.runtime.measure("static_strings"):
+            with results.metadata.runtime.measure_and_set_time("static_strings"):
                 layout_doc = try_layout_static(
                     sample_buf, options.min_length, analysis.enable_tags, results.metadata.runtime
                 )
@@ -421,7 +421,7 @@ def analyze(options: Options) -> Optional[ResultDocument]:
 
         if results.metadata.language == Language.GO.value:
             logger.info("extracting language-specific Go strings")
-            with results.metadata.runtime.measure("language_strings"):
+            with results.metadata.runtime.measure_and_set_time("language_strings"):
                 results.strings.language_strings = floss.language.go.extract.extract_go_strings(
                     sample, options.min_length
                 )
@@ -443,7 +443,7 @@ def analyze(options: Options) -> Optional[ResultDocument]:
 
         elif results.metadata.language == Language.RUST.value:
             logger.info("extracting language-specific Rust strings")
-            with results.metadata.runtime.measure("language_strings"):
+            with results.metadata.runtime.measure_and_set_time("language_strings"):
                 results.strings.language_strings = floss.language.rust.extract.extract_rust_strings(
                     sample, options.min_length
                 )
@@ -492,14 +492,14 @@ def analyze(options: Options) -> Optional[ResultDocument]:
                 stream=sys.stderr,
                 enabled=not (options.quiet or options.disable_progress),
             ):
-                with results.metadata.runtime.measure("vivisect"):
+                with results.metadata.runtime.measure_and_set_time("vivisect"):
                     vw = load_vw(sample, options.format, sigpaths, should_save_workspace)
         except WorkspaceLoadError as e:
             raise PipelineError("failed to analyze sample: %s" % e, exit_code=-1)
 
         results.metadata.imagebase = get_imagebase(vw)
 
-        with results.metadata.runtime.measure("find_features"):
+        with results.metadata.runtime.measure_and_set_time("find_features"):
             try:
                 selected_functions = select_functions(vw, options.functions)
                 results.analysis.functions.discovered = len(vw.getFunctions())
@@ -517,7 +517,7 @@ def analyze(options: Options) -> Optional[ResultDocument]:
             logger.trace("  %s: %s", k, v or "N/A")
 
         if results.analysis.enable_stack_strings:
-            with results.metadata.runtime.measure("stack_strings"):
+            with results.metadata.runtime.measure_and_set_time("stack_strings"):
                 funcs = selected_functions
                 if results.analysis.enable_tight_strings:
                     # don't run stack-string extraction on functions with tight loops as this will likely
@@ -534,7 +534,7 @@ def analyze(options: Options) -> Optional[ResultDocument]:
                 results.analysis.functions.analyzed_stack_strings = len(funcs)
 
         if results.analysis.enable_tight_strings:
-            with results.metadata.runtime.measure("tight_strings"):
+            with results.metadata.runtime.measure_and_set_time("tight_strings"):
                 tightloop_functions = get_functions_with_tightloops(decoding_function_features)
                 results.strings.tight_strings = extract_tightstrings(
                     vw,
@@ -546,7 +546,7 @@ def analyze(options: Options) -> Optional[ResultDocument]:
                 results.analysis.functions.analyzed_tight_strings = len(tightloop_functions)
 
         if results.analysis.enable_decoded_strings:
-            with results.metadata.runtime.measure("decoded_strings"):
+            with results.metadata.runtime.measure_and_set_time("decoded_strings"):
                 # TODO select more based on score rather than absolute count?!
                 top_functions = get_top_functions(decoding_function_features, 20)
 
