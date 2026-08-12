@@ -24,7 +24,7 @@ from floss.enrich import static_strings_from_layout
 from floss.layout import compute_layout
 from floss.ranges import Slice
 from floss.results import Strings, Analysis, Metadata, ResultLayout, ResultDocument
-from floss.layout.extract import collect_strings, extract_layout_strings
+from floss.layout.extract import collect_strings
 
 CD = Path(__file__).resolve().parent
 MIN_STR_LEN = 6
@@ -40,7 +40,7 @@ def analyzed_layout(pma_binary_path):
     slice_buf = pma_binary_path.read_bytes()
     file_slice = Slice.from_bytes(slice_buf)
     parsed = compute_layout(file_slice)
-    extract_layout_strings(parsed, 6)
+    parsed.extract_strings(6)
     taggers = load_databases()
     parsed.tag_strings(taggers)
     parsed.mark_structures()
@@ -112,7 +112,7 @@ def test_analysis_pipeline(pma_binary_path):
     slice_buf = pma_binary_path.read_bytes()
     file_slice = Slice.from_bytes(slice_buf)
     parsed = compute_layout(file_slice)
-    extract_layout_strings(parsed, 6)
+    parsed.extract_strings(6)
 
     # Check that the layout has been computed correctly
     assert parsed.name == "pe"

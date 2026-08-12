@@ -216,7 +216,6 @@ def compute_layout(
     """
     from floss.layout import compute_layout as layout_compute
     from floss.ranges import Slice
-    from floss.layout.extract import extract_layout_strings
 
     try:
         file_slice = Slice.from_bytes(buf=buf)
@@ -226,7 +225,7 @@ def compute_layout(
             logger.debug("no structured layout (got %r); using classic static strings", parsed_layout.name)
             return None
 
-        extract_layout_strings(parsed_layout, min_length)
+        parsed_layout.extract_strings(min_length)
         return parsed_layout
     except Exception as e:
         logger.warning("layout-aware static analysis failed; using classic statics: %s", e)

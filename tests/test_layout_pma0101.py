@@ -19,7 +19,7 @@ import pytest
 from floss.tags import load_databases
 from floss.layout import compute_layout
 from floss.ranges import Slice
-from floss.layout.extract import collect_strings, extract_layout_strings
+from floss.layout.extract import collect_strings
 
 
 @pytest.fixture(scope="module")
@@ -33,7 +33,7 @@ def pma0101_layout():
     slice_buf = binary_path.read_bytes()
     file_slice = Slice.from_bytes(slice_buf)
     parsed = compute_layout(file_slice)
-    extract_layout_strings(parsed, 6)
+    parsed.extract_strings(6)
     taggers = load_databases()
     parsed.tag_strings(taggers)
     parsed.mark_structures()
