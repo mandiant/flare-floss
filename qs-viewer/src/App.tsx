@@ -10,6 +10,16 @@ interface DisplayOptions {
   showOffsetAndStructure: boolean;
 }
 
+const subsequenceMatch = (query: string, target: string): boolean => {
+  const qlen = query.length;
+  if (qlen === 0) return true;
+  let qi = 0;
+  for (let ti = 0; ti < target.length && qi < qlen; ti++) {
+    if (query.charCodeAt(qi) === target.charCodeAt(ti)) qi++;
+  }
+  return qi === qlen;
+};
+
 const StringItem: React.FC<{ str: ResultString; displayOptions: DisplayOptions }> = ({ str, displayOptions }) => {
   const getStyleClass = () => {
     const { tags } = str;
@@ -309,6 +319,16 @@ const App: React.FC = () => {
     processData(previewData as ResultDocument);
   };
 
+  const lowercaseMap = useMemo(() => {
+    const map = new Map<ResultString, string>();
+    const walk = (layout: ResultLayout) => {
+      layout.strings.forEach(s => map.set(s, s.string.toLowerCase()));
+      layout.children.forEach(walk);
+    };
+    if (data?.layout) walk(data.layout);
+    return map;
+  }, [data]);
+
   const filteredLayout = useMemo(() => {
     if (!data) return null;
     if (!data.layout) return null;
@@ -319,7 +339,9 @@ const App: React.FC = () => {
       const filteredStrings = layout.strings.filter(s => {
         if (s.string.length < minStringLength) return false;
 
-        const searchMatch = s.string.toLowerCase().includes(lowerCaseSearchTerm);
+        const searchMatch = searchTerm === ''
+          ? true
+          : subsequenceMatch(lowerCaseSearchTerm, lowercaseMap.get(s) ?? s.string.toLowerCase());
         if (!searchMatch) return false;
 
         const tagMatch = s.tags.length === 0
@@ -351,7 +373,7 @@ const App: React.FC = () => {
     };
 
     return filter(data.layout);
-  }, [data, searchTerm, selectedTags, showUntagged, minStringLength, selectedStructures, showStringsWithoutStructure]);
+  }, [data, lowercaseMap, searchTerm, selectedTags, showUntagged, minStringLength, selectedStructures, showStringsWithoutStructure]);
 
   const visibleStringCount = useMemo(() => {
     if (!filteredLayout) return 0;
