@@ -143,7 +143,7 @@ def make_parser():
     analysis_group.add_argument(
         "--string-type",
         action="extend",
-        dest="string_types",
+        dest="enabled_string_types",
         nargs="+",
         choices=STRING_TYPE_CHOICES,
         default=[],
@@ -152,7 +152,7 @@ def make_parser():
     analysis_group.add_argument(
         "--no-string-type",
         action="extend",
-        dest="no_string_types",
+        dest="disabled_string_types",
         nargs="+",
         choices=STRING_TYPE_CHOICES,
         default=[],
