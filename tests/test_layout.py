@@ -39,8 +39,8 @@ def pma_binary_path():
 def analyzed_layout(pma_binary_path):
     slice_buf = pma_binary_path.read_bytes()
     file_slice = Slice.from_bytes(slice_buf)
-    layout = compute_layout(file_slice)
-    extract_layout_strings(layout, 6)
+    parsed = compute_layout(file_slice)
+    layout = extract_layout_strings(parsed, 6)
     taggers = load_databases()
     layout.tag_strings(taggers)
     layout.mark_structures()
@@ -111,8 +111,8 @@ def test_analysis_pipeline(pma_binary_path):
     # Run the analysis pipeline
     slice_buf = pma_binary_path.read_bytes()
     file_slice = Slice.from_bytes(slice_buf)
-    layout = compute_layout(file_slice)
-    extract_layout_strings(layout, 6)
+    parsed = compute_layout(file_slice)
+    layout = extract_layout_strings(parsed, 6)
 
     # Check that the layout has been computed correctly
     assert layout.name == "pe"

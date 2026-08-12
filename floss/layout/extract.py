@@ -68,14 +68,14 @@ def extract_strings(slice: Slice, n: int = MIN_STR_LEN) -> Iterable[ExtractedStr
     )
 
 
-def extract_layout_strings(layout: Layout, min_len: int):
+def extract_layout_strings(layout: Layout, min_len: int) -> Layout:
     if not layout.children:
         # all the strings are found in this slice directly.
 
         # at this moment, layout.strings contains only ExtractedStrings
         # after layout.tag_strings, it will contain TaggedStrings.
         layout.strings = extract_strings(layout.slice, min_len)  # type: ignore
-        return
+        return layout
 
     else:
         # we have children, so we need to recurse to find their strings,
@@ -130,6 +130,8 @@ def extract_layout_strings(layout: Layout, min_len: int):
                     continue
                 filtered.append(string)
             layout.strings = filtered
+
+    return layout
 
 
 def collect_strings(layout: Layout) -> List[TaggedString]:

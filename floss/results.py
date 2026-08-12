@@ -199,7 +199,7 @@ class ResultLayout:
 
     @classmethod
     def from_layout(cls, layout: "Layout") -> "ResultLayout":
-        """Recursively convert a live Layout tree to the serializable form."""
+        """Recursively convert a layout tree to the serializable form."""
         from floss.layout.types import TaggedString, ExtractedString
 
         result_strings: List[ResultString] = []

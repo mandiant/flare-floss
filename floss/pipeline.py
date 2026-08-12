@@ -223,7 +223,7 @@ def _compute_layout(
     """
     Compute a structured layout and extract static strings.
 
-    Returns the live layout, or None to fall back to classic statics when
+    Returns the populated layout tree, or None to fall back to classic statics when
     the layout does not parse or any step fails. Default-on layout must not
     crash the whole run.
     """
@@ -233,21 +233,21 @@ def _compute_layout(
 
     try:
         file_slice = Slice.from_bytes(buf=buf)
-        live = compute_layout(file_slice)
+        parsed = compute_layout(file_slice)
 
-        if not is_structured_layout(live.name):
-            logger.debug("no structured layout (got %r); using classic static strings", live.name)
+        if not is_structured_layout(parsed.name):
+            logger.debug("no structured layout (got %r); using classic static strings", parsed.name)
             return None
 
-        extract_layout_strings(live, min_length)
-        return live
+        layout = extract_layout_strings(parsed, min_length)
+        return layout
     except Exception as e:
         logger.warning("layout-aware static analysis failed; using classic statics: %s", e)
         return None
 
 
 def _tag_layout(
-    live: Layout,
+    layout: Layout,
     enable_tags: bool,
 ) -> None:
     """
@@ -257,10 +257,10 @@ def _tag_layout(
 
     # tag_strings always converts ExtractedString → TaggedString (needed for mark_structures)
     taggers = load_databases() if enable_tags else []
-    live.tag_strings(taggers)
-    live.mark_structures()
+    layout.tag_strings(taggers)
+    layout.mark_structures()
     if enable_tags:
-        remove_false_positive_lib_strings(live)
+        remove_false_positive_lib_strings(layout)
 
 
 def _try_layout_static(
@@ -281,15 +281,15 @@ def _try_layout_static(
     """
     layout_t0 = time()
     try:
-        live = _compute_layout(buf, min_length)
-        if live is None:
+        layout = _compute_layout(buf, min_length)
+        if layout is None:
             return None
 
         tags_t0 = time()
-        _tag_layout(live, enable_tags)
+        _tag_layout(layout, enable_tags)
         runtime.tags = get_runtime_diff(tags_t0)
 
-        return ResultLayout.from_layout(live)
+        return ResultLayout.from_layout(layout)
     except Exception as e:
         logger.warning("layout-aware static analysis failed; using classic statics: %s", e)
         return None
