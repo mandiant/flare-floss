@@ -227,7 +227,8 @@ def compute_layout(
             logger.debug("no structured layout (got %r); using classic static strings", parsed_layout.name)
             return None
 
-        return extract_layout_strings(parsed_layout, min_length)
+        extract_layout_strings(parsed_layout, min_length)
+        return parsed_layout
     except Exception as e:
         logger.warning("layout-aware static analysis failed; using classic statics: %s", e)
         return None

@@ -40,11 +40,11 @@ def analyzed_layout(pma_binary_path):
     slice_buf = pma_binary_path.read_bytes()
     file_slice = Slice.from_bytes(slice_buf)
     parsed = compute_layout(file_slice)
-    layout = extract_layout_strings(parsed, 6)
+    extract_layout_strings(parsed, 6)
     taggers = load_databases()
-    layout.tag_strings(taggers)
-    layout.mark_structures()
-    return layout
+    parsed.tag_strings(taggers)
+    parsed.mark_structures()
+    return parsed
 
 
 def test_round_trip(analyzed_layout, pma_binary_path):
@@ -112,7 +112,7 @@ def test_analysis_pipeline(pma_binary_path):
     slice_buf = pma_binary_path.read_bytes()
     file_slice = Slice.from_bytes(slice_buf)
     parsed = compute_layout(file_slice)
-    layout = extract_layout_strings(parsed, 6)
+    extract_layout_strings(parsed, 6)
 
     # Check that the layout has been computed correctly
-    assert layout.name == "pe"
+    assert parsed.name == "pe"
