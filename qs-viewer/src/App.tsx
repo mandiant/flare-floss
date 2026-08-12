@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useMemo, useRef, useEffect, useDeferredValue } from 'react';
 import { useDropzone } from 'react-dropzone';
 import './App.css';
-import { type ResultDocument, type ResultLayout, type ResultString } from './types';
+import { type ResultDocument, type ResultLayout, type ResultString, type Analysis, type Strings } from './types';
 import previewData from './pma_0303.json';
 
 interface DisplayOptions {
@@ -184,6 +184,108 @@ const chunkHash = (hash: string, charsPerLine = 32): string[] => {
   return lines;
 };
 
+const toNum = (v: unknown, d = 0): number => (typeof v === 'number' && Number.isFinite(v) ? v : d);
+const toStr = (v: unknown, d = ''): string => (typeof v === 'string' ? v : d);
+
+const normalizeString = (raw: unknown): ResultString | null => {
+  if (typeof raw !== 'object' || raw === null) return null;
+  const o = raw as Record<string, unknown>;
+  if (typeof o.string !== 'string') return null;
+  return {
+    string: o.string,
+    offset: toNum(o.offset),
+    size: toNum(o.size),
+    encoding: toStr(o.encoding),
+    tags: Array.isArray(o.tags) ? o.tags.filter((t): t is string => typeof t === 'string') : [],
+    structure: toStr(o.structure),
+  };
+};
+
+const normalizeLayout = (raw: unknown): ResultLayout | null => {
+  if (typeof raw !== 'object' || raw === null) return null;
+  const o = raw as Record<string, unknown>;
+  const strings = (Array.isArray(o.strings) ? o.strings.map(normalizeString) : []).filter(
+    (s): s is ResultString => s !== null
+  );
+  const children = (Array.isArray(o.children) ? o.children.map(normalizeLayout) : []).filter(
+    (c): c is ResultLayout => c !== null
+  );
+  return {
+    name: toStr(o.name, 'section'),
+    offset: toNum(o.offset),
+    length: toNum(o.length),
+    strings,
+    children,
+  };
+};
+
+const normalizeDocument = (raw: unknown): ResultDocument | null => {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return null;
+  const o = raw as Record<string, unknown>;
+  if (!o.layout && !o.metadata) return null;
+
+  const metaRaw = (typeof o.metadata === 'object' && o.metadata !== null ? o.metadata : {}) as Record<string, unknown>;
+  const runRaw = (typeof metaRaw.runtime === 'object' && metaRaw.runtime !== null ? metaRaw.runtime : {}) as Record<string, unknown>;
+
+  return {
+    metadata: {
+      file_path: toStr(metaRaw.file_path, 'unknown'),
+      md5: toStr(metaRaw.md5),
+      sha1: toStr(metaRaw.sha1),
+      sha256: toStr(metaRaw.sha256),
+      version: toStr(metaRaw.version),
+      imagebase: toNum(metaRaw.imagebase),
+      min_length: toNum(metaRaw.min_length),
+      runtime: {
+        start_date: toStr(runRaw.start_date),
+        total: toNum(runRaw.total),
+        vivisect: toNum(runRaw.vivisect),
+        find_features: toNum(runRaw.find_features),
+        static_strings: toNum(runRaw.static_strings),
+        layout: toNum(runRaw.layout),
+        tags: toNum(runRaw.tags),
+        language_strings: toNum(runRaw.language_strings),
+        stack_strings: toNum(runRaw.stack_strings),
+        decoded_strings: toNum(runRaw.decoded_strings),
+        tight_strings: toNum(runRaw.tight_strings),
+      },
+      language: toStr(metaRaw.language),
+      language_version: toStr(metaRaw.language_version),
+      language_selected: toStr(metaRaw.language_selected),
+    },
+    analysis: (typeof o.analysis === 'object' && o.analysis !== null ? o.analysis : {}) as Analysis,
+    strings: (typeof o.strings === 'object' && o.strings !== null ? o.strings : {}) as Strings,
+    layout: normalizeLayout(o.layout),
+  };
+};
+
+export class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { error: Error | null }> {
+  state = { error: null as Error | null };
+
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+
+  componentDidCatch(error: Error) {
+    console.error(error);
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="crash-state">
+          <div className="crash-inner">
+            <p className="crash-title">Something went wrong</p>
+            <p className="crash-sub">{String(this.state.error)}</p>
+            <button className="btn-ghost" onClick={() => window.location.reload()}>Reload the viewer</button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 const App: React.FC = () => {
   const [data, setData] = useState<ResultDocument | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -277,20 +379,27 @@ const App: React.FC = () => {
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const content = e.target?.result as string;
-          const jsonData: ResultDocument = JSON.parse(content);
-          processData(jsonData);
-        } catch (error) {
-          console.error("Error parsing JSON:", error);
-          alert("Failed to parse JSON file.");
-        }
-      };
-      reader.readAsText(file);
-    }
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const content = e.target?.result as string;
+      let normalized: ResultDocument | null = null;
+      try {
+        normalized = normalizeDocument(JSON.parse(content));
+      } catch (error) {
+        console.error("Error parsing JSON:", error);
+      }
+      if (!normalized) {
+        alert("Failed to parse JSON file. Expected a FLOSS result document.");
+        return;
+      }
+      processData(normalized);
+    };
+    reader.onerror = () => {
+      console.error("Error reading file:", file.name);
+      alert("Failed to read the file.");
+    };
+    reader.readAsText(file);
   }, []);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
