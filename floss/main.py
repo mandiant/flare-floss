@@ -150,8 +150,6 @@ def main(argv=None) -> int:
         enable_stack_strings=is_string_type_enabled(StringType.STACK, disabled_string_types, enabled_string_types),
         enable_tight_strings=is_string_type_enabled(StringType.TIGHT, disabled_string_types, enabled_string_types),
         enable_decoded_strings=is_string_type_enabled(StringType.DECODED, disabled_string_types, enabled_string_types),
-        enable_layout=True,
-        enable_tags=True,
     )
 
     if is_results_document(sample):
