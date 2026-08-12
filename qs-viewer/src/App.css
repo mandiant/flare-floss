@@ -440,6 +440,10 @@ body {
   font-weight: 500;
 }
 
+.string-count-ignored {
+  color: var(--text-dim);
+}
+
 .btn-copy {
   display: inline-flex;
   align-items: center;

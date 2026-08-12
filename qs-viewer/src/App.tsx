@@ -364,6 +364,8 @@ const App: React.FC = () => {
     return count;
   }, [filteredLayout]);
 
+  const ignoredStringCount = tagInfo.totalStringCount - visibleStringCount;
+
   const handleCopyStrings = () => {
     if (!filteredLayout) return;
 
@@ -557,6 +559,11 @@ const App: React.FC = () => {
           <div className="sidebar-footer">
             <span className="string-count">
               <strong>{visibleStringCount}</strong>&nbsp;/&nbsp;{tagInfo.totalStringCount}
+              {ignoredStringCount > 0 && (
+                <>
+                  &nbsp;·&nbsp;<span className="string-count-ignored">{ignoredStringCount} ignored</span>
+                </>
+              )}
             </span>
             <div style={{ display: 'flex', alignItems: 'center' }}>
               <button className="btn-copy" onClick={handleCopyStrings}>Copy</button>
