@@ -137,7 +137,7 @@ def select_functions(vw, asked_functions: Optional[List[int]]) -> Set[int]:
     return asked_functions_
 
 
-def _get_file_type(sample_file_path: Path) -> bytes:
+def get_file_type(sample_file_path: Path) -> bytes:
     with sample_file_path.open("rb") as f:
         magic = f.read(4)
 
@@ -149,13 +149,13 @@ def _get_file_type(sample_file_path: Path) -> bytes:
         return UNSUPPORTED_FILE_MAGIC
 
 
-def _load_vw(
+def load_vw(
     sample_path: Path,
     format: str,
     sigpaths: List[Path],
     should_save_workspace: bool = False,
 ) -> VivWorkspace:
-    file_type = _get_file_type(sample_path)
+    file_type = get_file_type(sample_path)
     if format not in ("sc32", "sc64"):
         if file_type is UNSUPPORTED_FILE_MAGIC:
             raise WorkspaceLoadError(
@@ -192,7 +192,7 @@ def _load_vw(
     return vw
 
 
-def _get_signatures(sigs_path: Path) -> List[Path]:
+def get_signatures(sigs_path: Path) -> List[Path]:
     if not sigs_path.exists():
         raise IOError("signatures path %s does not exist or cannot be accessed" % str(sigs_path))
 
@@ -217,7 +217,7 @@ def _get_signatures(sigs_path: Path) -> List[Path]:
     return paths
 
 
-def _compute_layout(
+def compute_layout(
     buf: bytes,
     min_length: int,
 ) -> Optional[Layout]:
@@ -228,13 +228,13 @@ def _compute_layout(
     the layout does not parse or any step fails. Default-on layout must not
     crash the whole run.
     """
-    from floss.layout import compute_layout
+    from floss.layout import compute_layout as layout_compute
     from floss.ranges import Slice
     from floss.layout.extract import extract_layout_strings
 
     try:
         file_slice = Slice.from_bytes(buf=buf)
-        parsed = compute_layout(file_slice)
+        parsed = layout_compute(file_slice)
 
         if not is_structured_layout(parsed.name):
             logger.debug("no structured layout (got %r); using classic static strings", parsed.name)
@@ -247,7 +247,7 @@ def _compute_layout(
         return None
 
 
-def _tag_layout(
+def tag_layout(
     layout: Layout,
     enable_tags: bool,
 ) -> None:
@@ -265,7 +265,7 @@ def _tag_layout(
 
 
 @contextlib.contextmanager
-def _measure_runtime(runtime: Runtime, field: str) -> Iterator[None]:
+def measure_runtime(runtime: Runtime, field: str) -> Iterator[None]:
     """
     Record the elapsed time of the wrapped block into the given runtime field.
     """
@@ -276,7 +276,7 @@ def _measure_runtime(runtime: Runtime, field: str) -> Iterator[None]:
         setattr(runtime, field, get_runtime_diff(t0))
 
 
-def _try_layout_static(
+def try_layout_static(
     buf: bytes,
     min_length: int,
     enable_tags: bool,
@@ -293,13 +293,13 @@ def _try_layout_static(
     statics. Default-on layout must not crash the whole run.
     """
     try:
-        with _measure_runtime(runtime, "layout"):
-            layout = _compute_layout(buf, min_length)
+        with measure_runtime(runtime, "layout"):
+            layout = compute_layout(buf, min_length)
             if layout is None:
                 return None
 
-            with _measure_runtime(runtime, "tags"):
-                _tag_layout(layout, enable_tags)
+            with measure_runtime(runtime, "tags"):
+                tag_layout(layout, enable_tags)
 
             return ResultLayout.from_layout(layout)
     except Exception as e:
@@ -429,7 +429,7 @@ def analyze(options: Options) -> Optional[ResultDocument]:
         # only layout/tag work for static_strings runtime — not language ID or the TTY prompt above
         layout_t0 = time()
         if analysis.enable_layout:
-            layout_doc = _try_layout_static(
+            layout_doc = try_layout_static(
                 sample_buf, options.min_length, analysis.enable_tags, results.metadata.runtime
             )
 
@@ -510,7 +510,7 @@ def analyze(options: Options) -> Optional[ResultDocument]:
         if options.signatures is None:
             raise PipelineError("signatures path required for deobfuscation", exit_code=-1)
 
-        sigpaths = _get_signatures(options.signatures)
+        sigpaths = get_signatures(options.signatures)
 
         should_save_workspace = os.environ.get("FLOSS_SAVE_WORKSPACE") not in ("0", "no", "NO", "n", None)
         try:
@@ -521,7 +521,7 @@ def analyze(options: Options) -> Optional[ResultDocument]:
                 enabled=not (options.quiet or options.disable_progress),
             ):
                 interim = time()
-                vw = _load_vw(sample, options.format, sigpaths, should_save_workspace)
+                vw = load_vw(sample, options.format, sigpaths, should_save_workspace)
                 results.metadata.runtime.vivisect = get_runtime_diff(interim)
                 interim = time()
         except WorkspaceLoadError as e:
