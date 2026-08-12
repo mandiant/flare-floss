@@ -542,7 +542,7 @@ const App: React.FC = () => {
           <div className="welcome-state">
             <div className="welcome-inner">
               <p className="welcome-title">FLOSS Viewer</p>
-              <p className="welcome-sub">Drop a JSON file or use the upload button</p>
+              <p className="welcome-sub">Drag a JSON file or use the upload button</p>
             </div>
           </div>
         ) : filteredLayout ? (
