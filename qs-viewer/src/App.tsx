@@ -377,7 +377,7 @@ const App: React.FC = () => {
       {/* ---- Sidebar ---- */}
       <div className="sidebar" style={{ width: sidebarWidth }}>
         <div className="sidebar-header">
-          <h1 className="app-title">Quantumstrand</h1>
+          <h1 className="app-title">FLOSS</h1>
           <div className="sidebar-header-buttons">
             <button className="btn-ghost" onClick={handlePreview}>Preview</button>
             <label htmlFor="file-upload" className="btn-ghost" style={{ cursor: 'pointer' }}>
@@ -541,7 +541,7 @@ const App: React.FC = () => {
         {!data ? (
           <div className="welcome-state">
             <div className="welcome-inner">
-              <p className="welcome-title">Quantumstrand Viewer</p>
+              <p className="welcome-title">FLOSS Viewer</p>
               <p className="welcome-sub">Drop a JSON file or use the upload button</p>
             </div>
           </div>
