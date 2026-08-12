@@ -20,6 +20,32 @@
   --transition: 150ms ease;
 }
 
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #ffffff;
+    --surface: #f6f6f6;
+    --surface-raised: #efefef;
+    --surface-hover: #e8e8e8;
+    --border: #e2e2e2;
+    --border-strong: #d4d4d4;
+    --text: #161616;
+    --text-secondary: #4d4d4d;
+    --text-muted: #777777;
+    --text-dim: #a3a3a3;
+    --accent: #000000;
+    --highlight: #0f0f0f;
+  }
+
+  .resize-handle:hover,
+  .resize-handle.dragging {
+    background: rgba(0, 0, 0, 0.02);
+  }
+
+  .string-view:nth-child(odd) {
+    background: rgba(0, 0, 0, 0.02);
+  }
+}
+
 * {
   box-sizing: border-box;
 }
