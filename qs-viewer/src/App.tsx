@@ -541,7 +541,7 @@ const App: React.FC = () => {
         {!data ? (
           <div className="welcome-state">
             <div className="welcome-inner">
-              <p className="welcome-title">FLOSS Viewer</p>
+              <p className="welcome-title">FLOSS Graphical Viewer</p>
               <p className="welcome-sub">Drag a JSON file or use the upload button</p>
             </div>
           </div>
