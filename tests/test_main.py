@@ -18,6 +18,7 @@ import fixtures
 from fixtures import exefile
 
 import floss.main
+from floss.version import __version__
 
 
 def test_main_help(capsys):
@@ -38,11 +39,13 @@ def test_main_help(capsys):
     assert "--json" in out
 
 
-def test_main_version():
+def test_main_version(capsys):
     with pytest.raises(SystemExit) as pytest_wrapped_e:
         floss.main.main(["--version"])
     assert pytest_wrapped_e.type == SystemExit
     assert pytest_wrapped_e.value.code == 0
+    out = capsys.readouterr().out
+    assert __version__ in out
 
 
 def test_main(exefile):
