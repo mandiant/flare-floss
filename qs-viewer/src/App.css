@@ -546,21 +546,45 @@ body {
 }
 
 .layout-header {
+  height: 35px;
+  line-height: 35px;
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--text-dim);
-  padding: 10px 20px;
+  padding: 0 20px;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
-  position: sticky;
-  top: 0;
-  z-index: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .layout-content {
   padding: 0;
+}
+
+/* ---- Virtual list scroller ---- */
+
+.virtual-list {
+  height: 100%;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+.virtual-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.virtual-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.virtual-list::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 3px;
 }
 
 /* ---- String Items ---- */
@@ -568,13 +592,14 @@ body {
 .string-view {
   display: flex;
   align-items: baseline;
-  padding: 3px 20px;
+  height: 26px;
+  padding: 0 20px;
+  overflow: hidden;
   transition: background var(--transition);
   border-bottom: 1px solid transparent;
-  min-height: 26px;
 }
 
-.string-view:nth-child(odd) {
+.string-view--alt {
   background: var(--overlay-row);
 }
 
@@ -585,8 +610,9 @@ body {
 .string-content {
   flex-grow: 1;
   padding-right: 16px;
-  white-space: pre-wrap;
-  word-break: break-all;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   color: var(--text);
   font-size: 13px;
 }

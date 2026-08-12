@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useRef, useEffect, useDeferredValue } from 'react';
 import { useDropzone } from 'react-dropzone';
 import './App.css';
 import { type ResultDocument, type ResultLayout, type ResultString } from './types';
@@ -20,7 +20,20 @@ const subsequenceMatch = (query: string, target: string): boolean => {
   return qi === qlen;
 };
 
-const StringItem: React.FC<{ str: ResultString; displayOptions: DisplayOptions }> = ({ str, displayOptions }) => {
+const ROW_HEIGHT = 26;
+const HEADER_HEIGHT = 35;
+const OVERSCAN = 10;
+
+type VirtualRow =
+  | { kind: 'header'; name: string }
+  | { kind: 'string'; str: ResultString; alt: boolean };
+
+const StringItem: React.FC<{
+  str: ResultString;
+  displayOptions: DisplayOptions;
+  alt?: boolean;
+  style?: React.CSSProperties;
+}> = React.memo(({ str, displayOptions, alt, style }) => {
   const getStyleClass = () => {
     const { tags } = str;
     if (tags.includes('#capa')) return 'highlight';
@@ -36,7 +49,11 @@ const StringItem: React.FC<{ str: ResultString; displayOptions: DisplayOptions }
   const digitPart = firstDigitIndex === -1 ? '' : offsetHex.substring(firstDigitIndex);
 
   return (
-    <div className="string-view">
+    <div
+      className={`string-view ${alt ? 'string-view--alt' : ''}`}
+      style={style}
+      title={str.string}
+    >
       <span className={`string-content ${styleClass}`}>{str.string}</span>
       {displayOptions.showTags && <span className={`string-tags ${styleClass}`}>{str.tags.join(' ')}</span>}
       {displayOptions.showEncoding && <span className="string-encoding">{str.encoding === 'unicode' ? 'U' : ''}</span>}
@@ -49,20 +66,96 @@ const StringItem: React.FC<{ str: ResultString; displayOptions: DisplayOptions }
       )}
     </div>
   );
-};
+});
 
-const Layout: React.FC<{ layout: ResultLayout; displayOptions: DisplayOptions }> = ({ layout, displayOptions }) => {
+const VirtualList: React.FC<{ layout: ResultLayout; displayOptions: DisplayOptions }> = ({ layout, displayOptions }) => {
+  const { rows, prefixes, totalHeight } = useMemo(() => {
+    const rows: VirtualRow[] = [];
+    const prefixes: number[] = [0];
+    let alt = true;
+    let total = 0;
+
+    const push = (row: VirtualRow, height: number) => {
+      rows.push(row);
+      total += height;
+      prefixes.push(total);
+    };
+
+    const walk = (l: ResultLayout) => {
+      push({ kind: 'header', name: l.name }, HEADER_HEIGHT);
+      for (const s of l.strings) {
+        push({ kind: 'string', str: s, alt }, ROW_HEIGHT);
+        alt = !alt;
+      }
+      for (const c of l.children) walk(c);
+    };
+
+    walk(layout);
+    return { rows, prefixes, totalHeight: total };
+  }, [layout]);
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [scrollTop, setScrollTop] = useState(0);
+  const [viewportH, setViewportH] = useState(0);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const update = () => {
+      setScrollTop(el.scrollTop);
+      setViewportH(el.clientHeight);
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    el.addEventListener('scroll', update, { passive: true });
+    return () => {
+      ro.disconnect();
+      el.removeEventListener('scroll', update);
+    };
+  }, []);
+
+  const n = rows.length;
+  let startIdx = 0;
+  let lo = 0;
+  let hi = n;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1;
+    if (prefixes[mid] <= scrollTop) lo = mid;
+    else hi = mid - 1;
+  }
+  startIdx = lo;
+
+  const endBottom = scrollTop + viewportH;
+  let endIdx = startIdx;
+  while (endIdx < n && prefixes[endIdx] < endBottom + OVERSCAN * ROW_HEIGHT) endIdx++;
+
+  const visible: React.ReactNode[] = [];
+  for (let i = Math.max(0, startIdx - OVERSCAN); i < endIdx; i++) {
+    const row = rows[i];
+    const top = prefixes[i];
+    if (row.kind === 'header') {
+      visible.push(
+        <div key={i} className="layout-header" style={{ position: 'absolute', top, left: 0, right: 0 }}>
+          {row.name}
+        </div>
+      );
+    } else {
+      visible.push(
+        <StringItem
+          key={i}
+          str={row.str}
+          displayOptions={displayOptions}
+          alt={row.alt}
+          style={{ position: 'absolute', top, left: 0, right: 0 }}
+        />
+      );
+    }
+  }
+
   return (
-    <div className="layout">
-      <div className="layout-header">{layout.name}</div>
-      <div className="layout-content">
-        {layout.strings.map((str, index) => (
-          <StringItem key={index} str={str} displayOptions={displayOptions} />
-        ))}
-        {layout.children.map((child, index) => (
-          <Layout key={index} layout={child} displayOptions={displayOptions} />
-        ))}
-      </div>
+    <div className="virtual-list" ref={containerRef}>
+      <div style={{ height: totalHeight, position: 'relative' }}>{visible}</div>
     </div>
   );
 };
@@ -329,17 +422,19 @@ const App: React.FC = () => {
     return map;
   }, [data]);
 
+  const deferredSearchTerm = useDeferredValue(searchTerm);
+
   const filteredLayout = useMemo(() => {
     if (!data) return null;
     if (!data.layout) return null;
 
     const filter = (layout: ResultLayout): ResultLayout | null => {
-      const lowerCaseSearchTerm = searchTerm.toLowerCase();
+      const lowerCaseSearchTerm = deferredSearchTerm.toLowerCase();
 
       const filteredStrings = layout.strings.filter(s => {
         if (s.string.length < minStringLength) return false;
 
-        const searchMatch = searchTerm === ''
+        const searchMatch = deferredSearchTerm === ''
           ? true
           : subsequenceMatch(lowerCaseSearchTerm, lowercaseMap.get(s) ?? s.string.toLowerCase());
         if (!searchMatch) return false;
@@ -373,7 +468,7 @@ const App: React.FC = () => {
     };
 
     return filter(data.layout);
-  }, [data, lowercaseMap, searchTerm, selectedTags, showUntagged, minStringLength, selectedStructures, showStringsWithoutStructure]);
+  }, [data, lowercaseMap, deferredSearchTerm, selectedTags, showUntagged, minStringLength, selectedStructures, showStringsWithoutStructure]);
 
   const visibleStringCount = useMemo(() => {
     if (!filteredLayout) return 0;
@@ -612,7 +707,7 @@ const App: React.FC = () => {
             </div>
           </div>
         ) : filteredLayout ? (
-          <Layout layout={filteredLayout} displayOptions={displayOptions} />
+          <VirtualList layout={filteredLayout} displayOptions={displayOptions} />
         ) : (
           <div className="welcome-state">
             <div className="welcome-inner">
