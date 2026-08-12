@@ -43,14 +43,12 @@ import floss.language.rust.extract
 from floss.cli import WorkspaceLoadError
 from floss.const import (
     MAX_FILE_SIZE,
-    UNSUPPORTED_FILE_MAGIC,
-    SUPPORTED_FILE_MAGIC_PE,
-    SUPPORTED_FILE_MAGIC_ELF,
 )
 from floss.utils import (
+    FileType,
     hex,
-    get_file_type,
     get_imagebase,
+    detect_file_type,
     get_runtime_diff,
     get_vivisect_meta_info,
 )
@@ -144,9 +142,9 @@ def load_vw(
     sigpaths: List[Path],
     should_save_workspace: bool = False,
 ) -> VivWorkspace:
-    file_type = get_file_type(sample_path)
+    file_type = detect_file_type(sample_path)
     if format not in ("sc32", "sc64"):
-        if file_type is UNSUPPORTED_FILE_MAGIC:
+        if file_type is FileType.UNSUPPORTED:
             raise WorkspaceLoadError(
                 "FLOSS currently supports the following formats for string decoding and stackstrings: PE and ELF\n"
                 "You can analyze shellcode using the --format sc32|sc64 switch. See the help (-h) for more information."
@@ -164,7 +162,7 @@ def load_vw(
     else:
         vw = viv_utils.getWorkspace(str(sample_path), analyze=False, should_save=False)
 
-    if file_type == SUPPORTED_FILE_MAGIC_PE:
+    if file_type is FileType.PE:
         viv_utils.flirt.register_flirt_signature_analyzers(vw, list(map(str, sigpaths)))
 
     vw.analyze()

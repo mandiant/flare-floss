@@ -23,6 +23,7 @@ import logging
 import argparse
 import builtins
 import contextlib
+from enum import Enum
 from typing import Set, Tuple, Iterable, Optional
 from pathlib import Path
 from collections import OrderedDict
@@ -55,47 +56,58 @@ STACK_MEM_NAME = "[stack]"
 logger = floss.logging_.getLogger(__name__)
 
 
-def get_file_type(sample_file_path: Path) -> bytes:
-    with sample_file_path.open("rb") as f:
-        magic = f.read(4)
-
-    if magic == SUPPORTED_FILE_MAGIC_ELF:
-        return SUPPORTED_FILE_MAGIC_ELF
-    elif magic[:2] == SUPPORTED_FILE_MAGIC_PE:
-        return SUPPORTED_FILE_MAGIC_PE
-    else:
-        return UNSUPPORTED_FILE_MAGIC
-
-
-def is_results_document(sample: Path) -> bool:
+class FileType(str, Enum):
     """
-    Detect a saved FLOSS results document from its content.
+    The kind of a file, detected from its content.
+    """
 
-    A results document is a JSON object with the top-level ResultDocument
-    fields metadata, analysis, and strings. The top-level schema is stable
-    across the migration iterations, so this check does not need a version.
+    PE = "pe"
+    ELF = "elf"
+    UNSUPPORTED = "unsupported"
+    RESULTS = "results"  # a saved FLOSS results document
+
+
+def detect_file_type(sample: Path) -> FileType:
+    """
+    Detect the kind of a file from its content.
+
+    A saved FLOSS results document is a JSON object with the top-level
+    ResultDocument fields metadata, analysis, and strings. The top-level
+    schema is stable across the migration iterations, so this check does not
+    need a version.
 
     Binary samples are rejected cheaply by peeking the first non-whitespace
     byte. The full file is loaded and parsed only when the content looks
     like JSON, so large binaries are not read for the check.
     """
+    with sample.open("rb") as f:
+        magic = f.read(4)
+
+    if magic == SUPPORTED_FILE_MAGIC_ELF:
+        return FileType.ELF
+    elif magic[:2] == SUPPORTED_FILE_MAGIC_PE:
+        return FileType.PE
+
     try:
         with sample.open("rb") as f:
             for byte in iter(lambda: f.read(1), b""):
                 if not byte.strip():
                     continue
                 if byte != b"{":
-                    return False
+                    return FileType.UNSUPPORTED
                 break
     except OSError:
-        return False
+        return FileType.UNSUPPORTED
 
     try:
         data = json.loads(sample.read_bytes())
     except (OSError, ValueError):
-        return False
+        return FileType.UNSUPPORTED
 
-    return isinstance(data, dict) and all(k in data for k in ("metadata", "analysis", "strings"))
+    if isinstance(data, dict) and all(k in data for k in ("metadata", "analysis", "strings")):
+        return FileType.RESULTS
+
+    return FileType.UNSUPPORTED
 
 
 class InstallContextMenu(argparse.Action):

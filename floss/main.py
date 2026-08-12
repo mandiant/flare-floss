@@ -29,7 +29,7 @@ from floss.cli import (
     make_parser,
     set_log_config,
 )
-from floss.utils import is_results_document, is_string_type_enabled
+from floss.utils import FileType, detect_file_type, is_string_type_enabled
 from floss.results import Analysis, load
 from floss.pipeline import Options, PipelineError, analyze
 
@@ -120,7 +120,7 @@ def main(argv=None) -> int:
         enable_decoded_strings=is_string_type_enabled(StringType.DECODED, disabled_string_types, enabled_string_types),
     )
 
-    if is_results_document(sample):
+    if detect_file_type(sample) is FileType.RESULTS:
         try:
             results = load(sample, analysis, args.functions, args.min_length)
         except floss.results.InvalidResultsFile as e:
