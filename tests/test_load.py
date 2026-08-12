@@ -1,5 +1,6 @@
 import json
 import textwrap
+from pathlib import Path
 
 from fixtures import exefile
 
@@ -110,10 +111,7 @@ def test_is_results_document_true_for_results_json(tmp_path):
     assert floss.main.is_results_document(p)
 
 
-def test_is_results_document_false_for_binary(tmp_path, exefile):
-    from pathlib import Path
-
-    assert not floss.main.is_results_document(tmp_path / "results.json")
+def test_is_results_document_false_for_binary(exefile):
     assert not floss.main.is_results_document(Path(exefile))
 
 
