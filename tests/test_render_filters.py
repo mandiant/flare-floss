@@ -668,7 +668,7 @@ def _render_layout(layout):
 
     console = Console(file=io.StringIO(), width=80)
     render_strings(console, layout, {})
-    return console.file.getvalue()
+    return console.file.getvalue()  # type: ignore [attr-defined]
 
 
 def test_render_offset_not_truncated_by_depth():
