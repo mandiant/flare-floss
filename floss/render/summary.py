@@ -50,6 +50,9 @@ def analyze_layout(layout: ResultLayout):
     """walk the layout tree once, returning the derived summary values.
 
     returns a 3-tuple of (section_counts, tag_histogram, high_value_strings).
+    The section of a string is its containing top-level section: children of
+    the root are the sections, and deeper nodes inherit their section (so
+    strings under a nested ``import table`` node are counted under ``.rdata``).
     """
     section_counts: Dict[str, int] = Counter()
     tag_histogram: Counter = Counter()
@@ -62,10 +65,13 @@ def analyze_layout(layout: ResultLayout):
             if any(tag not in NOISY_TAGS for tag in s.tags):
                 high_value.append(s)
         for child in node.children:
-            walk(child, child.name)
+            # children of the root are sections; deeper nodes inherit the section
+            walk(child, child.name if node is layout else section)
 
-    for child in layout.children:
-        walk(child, child.name)
+    # walk the whole tree from the root: children of the root become sections,
+    # deeper nodes inherit their containing section, and strings attached
+    # directly to the root are counted under the root name
+    walk(layout, layout.name)
 
     hist = sorted(tag_histogram.items(), key=lambda kv: (-kv[1], kv[0]))
     high_value.sort(key=lambda s: (-len(s.tags), s.offset))

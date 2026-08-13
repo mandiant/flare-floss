@@ -376,6 +376,33 @@ def test_summary_output():
     assert "#winapi" in out
 
 
+def test_summary_section_counts_thread_top_level():
+    """nested structure nodes count under their containing top-level section."""
+    root_s = ResultString(string="root", offset=1, size=4, encoding="ascii")
+    sec_s = ResultString(string="sec", offset=2, size=3, encoding="ascii")
+    nested_s = ResultString(string="nested", offset=3, size=6, encoding="ascii")
+    layout = ResultLayout(
+        name="pe",
+        offset=0,
+        length=20,
+        strings=[root_s],
+        children=[
+            ResultLayout(
+                name=".rdata",
+                offset=0,
+                length=10,
+                strings=[sec_s],
+                children=[
+                    ResultLayout(name="import table", offset=0, length=10, strings=[nested_s]),
+                ],
+            )
+        ],
+    )
+    counts, _, _ = floss.render.summary.analyze_layout(layout)
+    assert counts == {"pe": 1, ".rdata": 2}
+    assert sum(counts.values()) == 3
+
+
 def test_main_summary_flag(exefile, capsys):
     assert floss.main.main([exefile, "--summary", "--no-string-type", "stack", "tight", "decoded"]) == 0
     out = capsys.readouterr().out
