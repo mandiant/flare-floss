@@ -160,6 +160,7 @@ def test_filter_string_len_filters_language_and_layout():
         layout=ResultLayout(name="pe", offset=0, length=10, strings=[short, long]),
     )
     filter_string_len(doc, 4)
+    assert doc.layout is not None
     assert [s.string for s in doc.layout.strings] == ["abcdef"]
     assert doc.strings.language_strings == []
 
