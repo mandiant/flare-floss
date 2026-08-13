@@ -262,6 +262,15 @@ def test_filter_by_structure_slug_variants():
         assert strings == ["CreateFileA"], slug
 
 
+def test_filter_no_structure():
+    """--no-structure drops strings in the given structure and keeps the rest."""
+    f = floss.render.filter.LayoutFilter(exclude_structures=["import-table"])
+    filtered = f.apply(make_layout())
+    strings = collect_layout_strings(filtered)
+    assert "CreateFileA" not in strings
+    assert "hello world" in strings
+
+
 def test_filter_by_tag():
     f = floss.render.filter.LayoutFilter(include_tags=["winapi"])
     filtered = f.apply(make_layout())
@@ -404,6 +413,21 @@ def test_columns_hide_tags():
 def test_columns_show_structure():
     out = render(make_results(), True, False, "auto", columns=["offset", "structure"])
     assert "import table" in out
+
+
+def test_columns_encoding():
+    """--columns encoding renders U for unicode strings and nothing for ascii."""
+    unicode_s = ResultString(string="héllo", offset=1, size=6, encoding="unicode")
+    ascii_s = ResultString(string="ascii", offset=2, size=5, encoding="ascii")
+    doc = ResultDocument(
+        metadata=Metadata(file_path="x", min_length=4),
+        analysis=Analysis(enable_stack_strings=False, enable_tight_strings=False, enable_decoded_strings=False),
+        strings=Strings(),
+        layout=ResultLayout(name="pe", offset=0, length=10, strings=[unicode_s, ascii_s]),
+    )
+    out = render(doc, True, False, "auto", columns=["encoding"])
+    # unicode marker rendered, ascii marker absent (rich trims the trailing space)
+    assert "U" in out
 
 
 def test_filter_all_removed_renders_empty():
