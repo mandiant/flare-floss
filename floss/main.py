@@ -68,7 +68,7 @@ def emit_json_error(message: str, code: int = 1) -> None:
     sys.stderr.write(json.dumps({"error": message, "code": code}) + "\n")
 
 
-JSON_SHORT_FLAG = re.compile(r"^-[a-z]*j")
+JSON_SHORT_FLAG = re.compile(r"^-[a-zA-Z]*j")
 
 
 def json_requested(argv) -> bool:
@@ -145,7 +145,7 @@ def main(argv=None) -> int:
         if json_requested(argv):
             emit_json_error(str(e))
         else:
-            print(e)
+            print(e, file=sys.stderr)
         return -1
 
     set_log_config(args.debug, args.quiet)
@@ -190,7 +190,7 @@ def main(argv=None) -> int:
             if json_requested(argv):
                 emit_json_error(str(e))
             else:
-                print(e)
+                print(e, file=sys.stderr)
             return -1
         if static_was_enabled:
             logger.warning("analyzing specified functions, not showing static strings")

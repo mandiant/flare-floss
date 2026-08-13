@@ -516,8 +516,8 @@ def test_main_invalid_query_regex_json_error(capsys, exefile):
 def test_main_invalid_query_regex_text_error(capsys, exefile):
     assert floss.main.main([exefile, "--query", "["]) == -1
     captured = capsys.readouterr()
-    # the error message goes to stdout; stderr only carries the usage text
-    assert "invalid --query regular expression" in captured.out
+    # the error message and usage both go to stderr in text mode
+    assert "invalid --query regular expression" in captured.err
     assert "usage:" in captured.err
 
 
