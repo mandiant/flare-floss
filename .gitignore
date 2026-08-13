@@ -31,3 +31,4 @@ flare_floss.egg-info
 .direnv/
 .env/
 .envrc
+bun.lock
