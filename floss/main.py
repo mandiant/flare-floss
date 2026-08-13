@@ -108,12 +108,21 @@ def main(argv=None) -> int:
 
     if args.functions:
         static_was_enabled = is_string_type_enabled(StringType.STATIC, disabled_string_types, enabled_string_types)
-        if enabled_string_types and StringType.STATIC.value in enabled_string_types:
-            # --string-type explicitly selected static, but --analyze-functions cannot show it:
-            # drop it from the include list instead of forcing the exclude list.
-            enabled_string_types.remove(StringType.STATIC.value)
-        elif not enabled_string_types and StringType.STATIC.value not in disabled_string_types:
-            disabled_string_types.append(StringType.STATIC.value)
+        try:
+            if enabled_string_types and StringType.STATIC.value in enabled_string_types:
+                # --string-type explicitly selected static, but --analyze-functions cannot show it:
+                # drop it from the include list instead of forcing the exclude list.
+                enabled_string_types.remove(StringType.STATIC.value)
+                if not enabled_string_types:
+                    parser.error(
+                        "--string-type static cannot be combined with --analyze-functions, "
+                        "which does not show static strings"
+                    )
+            elif not enabled_string_types and StringType.STATIC.value not in disabled_string_types:
+                disabled_string_types.append(StringType.STATIC.value)
+        except ArgumentValueError as e:
+            print(e)
+            return -1
         if static_was_enabled:
             logger.warning("analyzing specified functions, not showing static strings")
 

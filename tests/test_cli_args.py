@@ -28,6 +28,9 @@ def test_functions(exefile):
     assert floss.main.main([exefile, "--analyze-functions", "0x401560"]) == 0
     assert floss.main.main([exefile, "--analyze-functions", "0x401560", "0x401000"]) == 0
 
+    # --string-type static only cannot be combined with --analyze-functions
+    assert floss.main.main([exefile, "--analyze-functions", "0x401560", "--string-type", "static"]) == -1
+
 
 def test_shellcode(scfile):
     # ok
