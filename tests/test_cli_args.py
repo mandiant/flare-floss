@@ -60,6 +60,14 @@ def test_args_analysis_type_conflict(exefile):
     assert floss.main.main([exefile, "--string-type", "stack", "--no-string-type", "tight"]) == -1
 
 
+def test_language_auto_accepted(exefile, capsys):
+    """--language auto is the default and is accepted by the parser."""
+    assert floss.main.main([exefile, "--language", "auto"]) == 0
+    capsys.readouterr()
+    assert floss.main.main([exefile]) == 0
+    capsys.readouterr()
+
+
 def test_filter_flags_sample_last_parses(exefile, capsys):
     """multi-value filter flags need a -- terminator before the sample."""
     for args in (

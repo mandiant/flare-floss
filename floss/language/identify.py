@@ -32,6 +32,7 @@ VERSION_UNKNOWN_OR_NA = "version unknown"
 
 
 class Language(Enum):
+    AUTO = "auto"
     GO = "go"
     RUST = "rust"
     DOTNET = "dotnet"

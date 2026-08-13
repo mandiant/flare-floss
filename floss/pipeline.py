@@ -326,7 +326,7 @@ def analyze(options: Options) -> Optional[ResultDocument]:
     else:
         lang_id, lang_version = identify_language_and_version(sample, static_strings)
 
-        if selected_lang == Language.UNKNOWN:
+        if selected_lang in (Language.UNKNOWN, Language.AUTO):
             pass
         elif selected_lang != lang_id:
             logger.warning(

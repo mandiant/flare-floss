@@ -284,8 +284,8 @@ def make_parser():
     advanced_group.add_argument(
         "--language",
         type=str,
-        choices=[l.value for l in Language if l != Language.UNKNOWN],
-        default=Language.UNKNOWN.value,
+        choices=[l.value for l in Language if l not in (Language.UNKNOWN, Language.AUTO)] + [Language.AUTO.value],
+        default=Language.AUTO.value,
         help="use language-specific string extraction, auto-detect language by default, disable using 'none'",
     )
     advanced_group.add_argument(
