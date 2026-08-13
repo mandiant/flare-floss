@@ -33,6 +33,7 @@ from floss.const import (
 )
 from floss.utils import set_vivisect_log_level
 from floss.render import Verbosity
+from floss.render.default import COLUMN_CHOICES, DEFAULT_COLUMNS
 from floss.version import __version__
 from floss.logging_ import TRACE, DebugLevel
 from floss.language.identify import Language
@@ -338,8 +339,8 @@ def make_parser():
         "--columns",
         dest="columns",
         nargs="+",
-        choices=("tags", "offset", "structure", "encoding"),
-        default=["tags", "offset"],
+        choices=COLUMN_CHOICES,
+        default=list(DEFAULT_COLUMNS),
         help="columns to show in the layout view; valid values: tags, offset, structure, encoding. Default: tags, offset.",
     )
 

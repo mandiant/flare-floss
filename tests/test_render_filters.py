@@ -215,6 +215,7 @@ def test_filter_interesting_keeps_strings_with_non_noisy_tag():
     )
     f = floss.render.filter.LayoutFilter(interesting=True)
     filtered = f.apply(layout)
+    assert filtered is not None
     assert [s.string for s in filtered.strings] == ["CreateFileA"]
 
 

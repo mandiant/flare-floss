@@ -70,7 +70,6 @@ DEFAULT_STYLE = Style()
 HIGHLIGHT_STYLE = Style(color="yellow")
 
 PADDING_WIDTH = 2
-OFFSET_WIDTH = 8
 STRUCTURE_WIDTH = 20
 
 
@@ -136,13 +135,11 @@ def get_visible_tags(s: ResultString) -> tuple:
 def render_string_tags(s: ResultString, tag_rules: TagRules, is_group_start: bool = False):
     ret = Text()
 
-    tags = list(s.tags)
-    if len(tags) != 1 and "#common" in tags:
-        # don't show #common if there are other tags,
-        # because the other tags will be more specific (like library names).
-        tags.remove("#common")
+    # don't show #common if there are other tags,
+    # because the other tags will be more specific (like library names).
+    tags = list(get_visible_tags(s))
 
-    for i, tag in enumerate(sorted(tags)):
+    for i, tag in enumerate(tags):
         tag_style = DEFAULT_STYLE
         rule = tag_rules.get(tag, "mute")
         if rule == "highlight":
@@ -286,13 +283,9 @@ def render_string(
     return line
 
 
-def has_visible_children(layout: ResultLayout) -> bool:
-    return any(map(is_visible, layout.children))
-
-
 def is_visible(layout: ResultLayout) -> bool:
     "a layout is visible if it has any strings (or its children do)"
-    return bool(layout.strings) or has_visible_children(layout)
+    return bool(layout.strings) or any(map(is_visible, layout.children))
 
 
 def has_visible_predecessors(parent: ResultLayout | None, child_index: int | None) -> bool:
@@ -353,13 +346,11 @@ def render_strings(
             columns=columns,
         )
 
-    BORDER_STYLE = MUTED_STYLE
-
     name = layout.name
     if name_hint:
         name = f"{name_hint} ({name})"
 
-    header = make_span(name, style=BORDER_STYLE)
+    header = make_span(name, style=MUTED_STYLE)
     header.pad(1)
     header.align("center", width=console.width, character="─")
 
@@ -374,8 +365,8 @@ def render_strings(
         header_shape = "┤"
 
     header.remove_suffix("─" * (depth + 1))
-    header.append_text(make_span(header_shape, style=BORDER_STYLE))
-    header.append_text(make_span("│" * depth, style=BORDER_STYLE))
+    header.append_text(make_span(header_shape, style=MUTED_STYLE))
+    header.append_text(make_span("│" * depth, style=MUTED_STYLE))
 
     console.print(header)
 
@@ -417,7 +408,7 @@ def render_strings(
             )
             # TODO: this truncates the structure column
             line = line[: -depth - 1]
-            line.append_text(make_span("│" * (depth + 1), style=BORDER_STYLE))
+            line.append_text(make_span("│" * (depth + 1), style=MUTED_STYLE))
             console.print(line)
 
             # track for next iteration
@@ -431,7 +422,6 @@ def render_strings(
                 )
 
     if not layout.children:
-        # for string in layout.strings[:4]:
         render_string_lines(console, tag_rules, layout.strings, depth)
 
     else:
@@ -444,23 +434,21 @@ def render_strings(
                 last_child = layout.children[i - 1]
                 strings_before_child = list(filter(lambda s: last_child.end < s.offset < child.offset, layout.strings))
 
-            # for string in strings_before_child[:4]:
             render_string_lines(console, tag_rules, strings_before_child, depth)
 
             render_strings(console, child, tag_rules, depth + 1, parent=layout, child_index=i, columns=columns)
 
         # render strings after last child
         strings_after_children = list(filter(lambda s: child.end < s.offset < layout.end, layout.strings))
-        # for string in strings_after_children[:4]:
         render_string_lines(console, tag_rules, strings_after_children, depth)
 
     if not has_visible_successors(parent, child_index):
-        footer = make_span("", style=BORDER_STYLE)
+        footer = make_span("", style=MUTED_STYLE)
         footer.align("center", width=console.width, character="─")
 
         footer.remove_suffix("─" * (depth + 1))
-        footer.append_text(make_span("┘", style=BORDER_STYLE))
-        footer.append_text(make_span("│" * depth, style=BORDER_STYLE))
+        footer.append_text(make_span("┘", style=MUTED_STYLE))
+        footer.append_text(make_span("│" * depth, style=MUTED_STYLE))
 
         console.print(footer)
 
