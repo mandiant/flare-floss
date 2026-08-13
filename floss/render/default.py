@@ -454,16 +454,9 @@ def render(
 
     # recovered strings always after static/language (classic blocks).
     # show the section whenever the mode is enabled, including count 0.
-    def render_recovered(
-        renderer: Callable,
-        strings,
-        console: Console,
-        verbose,
-        disable_headers,
-    ) -> None:
-        renderer(strings, console, verbose, disable_headers)
-
-    for name, enabled, strings, renderer in (
+    recovered_sections: Tuple[
+        Tuple[str, bool, Union[List[StackString], List[TightString], List[DecodedString]], Callable], ...
+    ] = (
         ("stack strings", results.analysis.enable_stack_strings, results.strings.stack_strings, render_stackstrings),
         ("tight strings", results.analysis.enable_tight_strings, results.strings.tight_strings, render_stackstrings),
         (
@@ -472,11 +465,12 @@ def render(
             results.strings.decoded_strings,
             render_decoded_strings,
         ),
-    ):
+    )
+    for name, enabled, strings, renderer in recovered_sections:
         if not enabled:
             continue
-        render_section_heading(f"{name} ({len(strings)})", console, verbose, disable_headers)
-        render_recovered(renderer, strings, console, verbose, disable_headers)
+        render_section_heading(name, console, verbose, disable_headers)
+        renderer(strings, console, verbose, disable_headers)
         console.print("\n")
 
     console.file.seek(0)

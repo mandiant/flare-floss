@@ -68,13 +68,13 @@ def emit_json_error(message: str, code: int = 1) -> None:
     sys.stderr.write(json.dumps({"error": message, "code": code}) + "\n")
 
 
-_JSON_SHORT_FLAG = re.compile(r"^-[a-z]*j")
+JSON_SHORT_FLAG = re.compile(r"^-[a-z]*j")
 
 
 def json_requested(argv) -> bool:
     """best-effort detection of a JSON output mode before argument parsing completes."""
     argv = argv or []
-    return "--json" in argv or any(_JSON_SHORT_FLAG.match(arg) for arg in argv)
+    return "--json" in argv or any(JSON_SHORT_FLAG.match(arg) for arg in argv)
 
 
 def build_layout_filter(args) -> LayoutFilter:

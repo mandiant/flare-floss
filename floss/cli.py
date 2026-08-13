@@ -262,7 +262,8 @@ def make_parser():
         type=int,
         default=None,
         metavar="N",
-        help="cap the emitted strings per section to the top N by relevance",
+        help="cap the emitted strings per section to the top N by relevance (highlighted, then "
+        "untagged, then tagged, ascending by offset)",
     )
 
     advanced_group = parser.add_argument_group("advanced arguments")

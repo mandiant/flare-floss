@@ -14,8 +14,6 @@
 
 """Render-time filters, columns, and summary output for the layout view."""
 
-import io
-import sys
 import json
 
 from fixtures import exefile
@@ -509,13 +507,16 @@ def test_main_filter_mutual_exclusion(capsys, exefile):
 
 def test_main_repeated_tags_accumulate(exefile, capsys):
     """repeated --tag flags accumulate (OR semantics)."""
-    assert floss.main.main([exefile, "--tag", "winapi", "--tag", "oss"]) == 0
-    capsys.readouterr()
+    assert floss.main.main([exefile, "--tag", "winapi", "--no-string-type", "stack", "tight", "decoded"]) == 0
+    out = capsys.readouterr().out
+    assert "KERNEL32.dll" in out
 
 
-def test_main_max_strings_invalid(exefile):
+def test_main_max_strings_invalid(exefile, capsys):
     for value in ("0", "-1"):
         assert floss.main.main([exefile, "--max-strings", value]) == -1
+        captured = capsys.readouterr()
+        assert "positive integer" in captured.out + captured.err
 
 
 def test_main_max_strings_larger_than_section(exefile, capsys):
