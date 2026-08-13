@@ -75,8 +75,15 @@ class ArgumentParser(argparse.ArgumentParser):
     this strategy is originally described here: https://stackoverflow.com/a/16942165/87207
     """
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # when a JSON output mode is active, parsing errors emit a single JSON
+        # object on STDERR, without the usage text (see spec section 3.3)
+        self.json_mode = False
+
     def error(self, message):
-        self.print_usage(sys.stderr)
+        if not self.json_mode:
+            self.print_usage(sys.stderr)
         args = {"prog": self.prog, "message": message}
         raise ArgumentValueError("%(prog)s: error: %(message)s" % args)
 

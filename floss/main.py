@@ -120,6 +120,7 @@ def main(argv=None) -> int:
         argv = sys.argv[1:]
 
     parser = make_parser()
+    parser.json_mode = json_requested(argv)
     try:
         if not argv:
             # no arguments: print the full option list and exit with code 1

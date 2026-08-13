@@ -395,8 +395,8 @@ def test_summary_no_layout_ok():
 def test_main_json_error(capsys, exefile):
     assert floss.main.main([exefile, "-j", "--section", ".text", "--no-section", ".data"]) == -1
     err = capsys.readouterr().err
-    last_line = [line for line in err.splitlines() if line.strip()][-1]
-    obj = json.loads(last_line)
+    # in JSON mode the whole STDERR output is a single JSON object, no usage text
+    obj = json.loads(err)
     assert "error" in obj
     assert obj["code"] == 1
 
@@ -404,16 +404,17 @@ def test_main_json_error(capsys, exefile):
 def test_main_invalid_query_regex_json_error(capsys, exefile):
     assert floss.main.main([exefile, "-j", "--query", "["]) == -1
     err = capsys.readouterr().err
-    last_line = [line for line in err.splitlines() if line.strip()][-1]
-    obj = json.loads(last_line)
+    obj = json.loads(err)
     assert "query" in obj["error"]
     assert obj["code"] == 1
 
 
 def test_main_invalid_query_regex_text_error(capsys, exefile):
     assert floss.main.main([exefile, "--query", "["]) == -1
-    out = capsys.readouterr().err
-    assert "query" in out
+    captured = capsys.readouterr()
+    # the error message goes to stdout; stderr only carries the usage text
+    assert "invalid --query regular expression" in captured.out
+    assert "usage:" in captured.err
 
 
 def test_main_columns_flag(exefile, capsys):
