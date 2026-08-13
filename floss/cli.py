@@ -129,13 +129,13 @@ def make_parser():
             floss --analyze-functions 0x401000 0x401100 -- suspicious.exe
 
           only show static strings from the .rdata section
-            floss --section .rdata suspicious.exe
+            floss --section .rdata -- suspicious.exe
 
           only show strings tagged winapi or openssl
-            floss --tag winapi openssl suspicious.exe
+            floss --tag winapi openssl -- suspicious.exe
 
           hide noisy strings and search for a pattern in the layout tree
-            floss --interesting --query "http://" suspicious.exe
+            floss --interesting --query "http://" -- suspicious.exe
 
           emit a concise summary instead of the full listing
             floss --summary suspicious.exe
