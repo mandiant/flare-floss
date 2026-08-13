@@ -40,6 +40,7 @@ from floss.render.default import (
     width,
     strtime,
     get_color,
+    language_value,
 )
 
 HIGH_VALUE_MAX_STRINGS = 25
@@ -83,12 +84,7 @@ def metadata_rows(results: ResultDocument) -> List[Tuple[str, str]]:
     if meta.sha256:
         rows.append(("sha256", meta.sha256))
     if meta.language:
-        language_value = f"{meta.language}"
-        if meta.language_version:
-            language_value += f" ({meta.language_version})"
-        if meta.language_selected:
-            language_value += f" - selected: {meta.language_selected}"
-        rows.append(("identified language", language_value))
+        rows.append(("identified language", language_value(results)))
     rows.extend(
         [
             ("runtime", strtime(meta.runtime.total)),

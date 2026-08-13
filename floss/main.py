@@ -92,6 +92,23 @@ def build_layout_filter(args) -> LayoutFilter:
     )
 
 
+def render_text(args, results: floss.results.ResultDocument) -> str:
+    """render results as text, honoring --plain, --summary, --columns, and the filters."""
+    if args.plain:
+        # --plain: classic flat list, no layout or tags
+        results.layout = None
+    if args.summary:
+        return floss.render.summary.render_summary(results, args.color)
+    return floss.render.default.render(
+        results,
+        args.verbose,
+        args.quiet,
+        args.color,
+        columns=args.columns,
+        layout_filter=build_layout_filter(args),
+    )
+
+
 def main(argv=None) -> int:
     """
     arguments:
@@ -203,19 +220,7 @@ def main(argv=None) -> int:
         if args.json:
             r = floss.render.json.render(results)
         else:
-            if args.plain:
-                results.layout = None
-            if args.summary:
-                r = floss.render.summary.render_summary(results, args.color)
-            else:
-                r = floss.render.default.render(
-                    results,
-                    args.verbose,
-                    args.quiet,
-                    args.color,
-                    columns=args.columns,
-                    layout_filter=build_layout_filter(args),
-                )
+            r = render_text(args, results)
 
         print(r)
         return 0
@@ -255,20 +260,7 @@ def main(argv=None) -> int:
     else:
         # this may be slow when there's many strings, so informing users what's happening
         logger.info("rendering results")
-        if args.plain:
-            # --plain: classic flat list, no layout or tags
-            analysis_results.layout = None
-        if args.summary:
-            r = floss.render.summary.render_summary(analysis_results, args.color)
-        else:
-            r = floss.render.default.render(
-                analysis_results,
-                args.verbose,
-                args.quiet,
-                args.color,
-                columns=args.columns,
-                layout_filter=build_layout_filter(args),
-            )
+        r = render_text(args, analysis_results)
 
     print(r)
     return 0

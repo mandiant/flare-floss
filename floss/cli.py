@@ -35,7 +35,7 @@ from floss.utils import set_vivisect_log_level
 from floss.render import Verbosity
 from floss.version import __version__
 from floss.logging_ import TRACE, DebugLevel
-from floss.render.default import COLUMN_CHOICES, DEFAULT_COLUMNS
+from floss.render.layout import COLUMN_CHOICES, DEFAULT_COLUMNS
 from floss.language.identify import Language
 
 logger = floss.logging_.getLogger("floss")
@@ -173,61 +173,61 @@ def make_parser():
     )
 
     filter_group = parser.add_argument_group("filtering arguments")
-    filter_group.add_argument(
-        "--section",
-        action="extend",
-        dest="include_sections",
-        nargs="+",
-        metavar="NAME",
-        default=[],
-        help="only show static strings in the given binary section(s), e.g. .rdata",
-    )
-    filter_group.add_argument(
-        "--no-section",
-        action="extend",
-        dest="exclude_sections",
-        nargs="+",
-        metavar="NAME",
-        default=[],
-        help="do not show static strings in the given binary section(s)",
-    )
-    filter_group.add_argument(
-        "--structure",
-        action="extend",
-        dest="include_structures",
-        nargs="+",
-        metavar="NAME",
-        default=[],
-        help="only show static strings in the given binary structure(s), e.g. import-table, section-header, "
-        "pe-header; names are slugs and match regardless of separators",
-    )
-    filter_group.add_argument(
-        "--no-structure",
-        action="extend",
-        dest="exclude_structures",
-        nargs="+",
-        metavar="NAME",
-        default=[],
-        help="do not show static strings in the given binary structure(s)",
-    )
-    filter_group.add_argument(
-        "--tag",
-        action="extend",
-        dest="include_tags",
-        nargs="+",
-        metavar="TAG",
-        default=[],
-        help="only show strings with the given semantic tag(s), e.g. winapi, crypto, or oss",
-    )
-    filter_group.add_argument(
-        "--no-tag",
-        action="extend",
-        dest="exclude_tags",
-        nargs="+",
-        metavar="TAG",
-        default=[],
-        help="do not show strings with the given semantic tag(s)",
-    )
+    for flag, dest, metavar, example, help_ in (
+        (
+            "--section",
+            "include_sections",
+            "NAME",
+            ".rdata",
+            "only show static strings in the given binary section(s)",
+        ),
+        (
+            "--no-section",
+            "exclude_sections",
+            "NAME",
+            None,
+            "do not show static strings in the given binary section(s)",
+        ),
+        (
+            "--structure",
+            "include_structures",
+            "NAME",
+            "import-table",
+            "only show static strings in the given binary structure(s); names are slugs and match regardless of "
+            "separators, e.g. import-table, section-header",
+        ),
+        (
+            "--no-structure",
+            "exclude_structures",
+            "NAME",
+            None,
+            "do not show static strings in the given binary structure(s)",
+        ),
+        (
+            "--tag",
+            "include_tags",
+            "TAG",
+            "winapi",
+            "only show strings with the given semantic tag(s); e.g. winapi, crypto, or the oss meta tag",
+        ),
+        (
+            "--no-tag",
+            "exclude_tags",
+            "TAG",
+            None,
+            "do not show strings with the given semantic tag(s)",
+        ),
+    ):
+        help_text = help_ + (f", e.g. {example}" if example else "")
+        filter_group.add_argument(
+            flag,
+            action="extend",
+            dest=dest,
+            nargs="+",
+            metavar=metavar,
+            default=[],
+            help=help_text,
+        )
     filter_group.add_argument(
         "--interesting",
         action="store_true",
