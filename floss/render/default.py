@@ -15,7 +15,6 @@
 
 import io
 import sys
-import json
 import textwrap
 import collections
 from typing import Dict, List, Tuple, Union, Callable, Optional, Sequence
