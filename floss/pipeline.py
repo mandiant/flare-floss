@@ -14,7 +14,7 @@
 
 """Full FLOSS analysis orchestration.
 
-Unified pipeline: static/language strings, optional layout+tags (quantum-style),
+Unified pipeline: static/language strings, optional layout+tags,
 then vivisect deobfuscation (stack/tight/decoded) when enabled.
 """
 
