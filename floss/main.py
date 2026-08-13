@@ -71,7 +71,7 @@ def emit_json_error(message: str, code: int = 1) -> None:
 _JSON_SHORT_FLAG = re.compile(r"^-[a-z]*j")
 
 
-def _json_requested(argv) -> bool:
+def json_requested(argv) -> bool:
     """best-effort detection of a JSON output mode before argument parsing completes."""
     argv = argv or []
     return "--json" in argv or any(_JSON_SHORT_FLAG.match(arg) for arg in argv)
@@ -123,7 +123,7 @@ def main(argv=None) -> int:
             except re.error as e:
                 parser.error("invalid --query regular expression %r: %s" % (pattern, e))
     except ArgumentValueError as e:
-        if _json_requested(argv):
+        if json_requested(argv):
             emit_json_error(str(e))
         else:
             print(e)
@@ -168,7 +168,7 @@ def main(argv=None) -> int:
             elif not enabled_string_types and StringType.STATIC.value not in disabled_string_types:
                 disabled_string_types.append(StringType.STATIC.value)
         except ArgumentValueError as e:
-            if _json_requested(argv):
+            if json_requested(argv):
                 emit_json_error(str(e))
             else:
                 print(e)
@@ -206,7 +206,7 @@ def main(argv=None) -> int:
             if args.plain:
                 results.layout = None
             if args.summary:
-                r = floss.render.summary.render(results, args.color)
+                r = floss.render.summary.render_summary(results, args.color)
             else:
                 r = floss.render.default.render(
                     results,
@@ -259,7 +259,7 @@ def main(argv=None) -> int:
             # --plain: classic flat list, no layout or tags
             analysis_results.layout = None
         if args.summary:
-            r = floss.render.summary.render(analysis_results, args.color)
+            r = floss.render.summary.render_summary(analysis_results, args.color)
         else:
             r = floss.render.default.render(
                 analysis_results,

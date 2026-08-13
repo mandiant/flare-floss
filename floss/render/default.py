@@ -74,13 +74,13 @@ OFFSET_WIDTH = 8
 STRUCTURE_WIDTH = 20
 
 
-def Span(text: str, style: Style = DEFAULT_STYLE) -> Text:
+def make_span(text: str, style: Style = DEFAULT_STYLE) -> Text:
     """convenience function for single-line, styled text region"""
     return Text(text, style=style, no_wrap=True, overflow="ellipsis", end="")
 
 
 def render_string_padding():
-    return Span(" " * PADDING_WIDTH)
+    return make_span(" " * PADDING_WIDTH)
 
 
 def compute_string_style(s: ResultString, tag_rules: TagRules) -> Optional[Style]:
@@ -117,7 +117,7 @@ def render_string_string(s: ResultString, tag_rules: TagRules) -> Text:
     rendered_string = json.dumps(s.string)[1:-1]
     if "\\t" in rendered_string:
         rendered_string = rendered_string.replace("\\t", "    ")
-    return Span(rendered_string, style=string_style)
+    return make_span(rendered_string, style=string_style)
 
 
 def get_visible_tags(s: ResultString) -> tuple:
@@ -154,15 +154,15 @@ def render_string_tags(s: ResultString, tag_rules: TagRules, is_group_start: boo
         else:
             raise ValueError(f"unknown tag rule: {rule}")
 
-        ret.append_text(Span(tag, style=tag_style))
+        ret.append_text(make_span(tag, style=tag_style))
         if i < len(tags) - 1:
-            ret.append_text(Span(" "))
+            ret.append_text(make_span(" "))
 
     if is_group_start:
-        ret.append_text(Span(" ┓", style=MUTED_STYLE))
+        ret.append_text(make_span(" ┓", style=MUTED_STYLE))
     else:
         # reserve same width as " ┓" so tags stay aligned
-        ret.append_text(Span("  "))
+        ret.append_text(make_span("  "))
 
     return ret
 
@@ -174,13 +174,13 @@ def render_string_tags_continuation(tags_width: int, is_group_end: bool = False)
     on the last line of a group, render ┛ as a terminator.
     """
     if tags_width == 0:
-        return Span("")
+        return make_span("")
     if is_group_end:
         left_pad = tags_width - 1
-        bar = Span(" " * left_pad + "┛", style=MUTED_STYLE)
+        bar = make_span(" " * left_pad + "┛", style=MUTED_STYLE)
     else:
         left_pad = tags_width - 1
-        bar = Span(" " * left_pad + "┃", style=MUTED_STYLE)
+        bar = make_span(" " * left_pad + "┃", style=MUTED_STYLE)
     return bar
 
 
@@ -191,9 +191,9 @@ def render_string_offset(s: ResultString):
     unpadded = offset_chars.lstrip("0")
     padding_width = len(offset_chars) - len(unpadded)
 
-    offset = Span("")
-    offset.append_text(Span("0" * padding_width, style=MUTED_STYLE))
-    offset.append_text(Span(unpadded, style=DEFAULT_STYLE))
+    offset = make_span("")
+    offset.append_text(make_span("0" * padding_width, style=MUTED_STYLE))
+    offset.append_text(make_span(unpadded, style=DEFAULT_STYLE))
 
     return offset
 
@@ -202,18 +202,18 @@ def render_string_structure(s: ResultString):
     ret = Text()
 
     if s.structure:
-        structure = Span(s.structure, style=Style(color="blue"))
+        structure = make_span(s.structure, style=Style(color="blue"))
         structure.align("left", STRUCTURE_WIDTH - 1)
-        ret.append(Span("/", style=MUTED_STYLE))
+        ret.append(make_span("/", style=MUTED_STYLE))
         ret.append(structure)
     else:
-        ret.append_text(Span(" " * STRUCTURE_WIDTH))
+        ret.append_text(make_span(" " * STRUCTURE_WIDTH))
 
     return ret
 
 
 def render_string(
-    width: int,
+    line_width: int,
     s: ResultString,
     tag_rules: TagRules,
     columns: Sequence[str] = DEFAULT_COLUMNS,
@@ -256,7 +256,7 @@ def render_string(
         "tags" in columns and prev_tags is not None and visible_tags == prev_tags and len(visible_tags) > 0
     )
 
-    right = Span("")
+    right = make_span("")
     if "tags" in columns:
         right.append_text(render_string_padding())
         if use_continuation:
@@ -269,7 +269,7 @@ def render_string(
     if "encoding" in columns:
         right.append_text(render_string_padding())
         # indicate encoding: ascii is the implicit default
-        right.append_text(Span("U " if s.encoding == "unicode" else "  "))
+        right.append_text(make_span("U " if s.encoding == "unicode" else "  "))
     if "structure" in columns:
         right.append_text(render_string_structure(s))
 
@@ -277,7 +277,7 @@ def render_string(
     # leaving an ellipsis at the end when it would collide with a tag/offset.
     # this is bad for showing all data verbatim,
     # but is good for the common case of triage analysis.
-    left.align("left", width - len(right))
+    left.align("left", line_width - len(right))
 
     line = Text()
     line.append_text(left)
@@ -359,7 +359,7 @@ def render_strings(
     if name_hint:
         name = f"{name_hint} ({name})"
 
-    header = Span(name, style=BORDER_STYLE)
+    header = make_span(name, style=BORDER_STYLE)
     header.pad(1)
     header.align("center", width=console.width, character="─")
 
@@ -374,8 +374,8 @@ def render_strings(
         header_shape = "┤"
 
     header.remove_suffix("─" * (depth + 1))
-    header.append_text(Span(header_shape, style=BORDER_STYLE))
-    header.append_text(Span("│" * depth, style=BORDER_STYLE))
+    header.append_text(make_span(header_shape, style=BORDER_STYLE))
+    header.append_text(make_span("│" * depth, style=BORDER_STYLE))
 
     console.print(header)
 
@@ -417,7 +417,7 @@ def render_strings(
             )
             # TODO: this truncates the structure column
             line = line[: -depth - 1]
-            line.append_text(Span("│" * (depth + 1), style=BORDER_STYLE))
+            line.append_text(make_span("│" * (depth + 1), style=BORDER_STYLE))
             console.print(line)
 
             # track for next iteration
@@ -455,12 +455,12 @@ def render_strings(
         render_string_lines(console, tag_rules, strings_after_children, depth)
 
     if not has_visible_successors(parent, child_index):
-        footer = Span("", style=BORDER_STYLE)
+        footer = make_span("", style=BORDER_STYLE)
         footer.align("center", width=console.width, character="─")
 
         footer.remove_suffix("─" * (depth + 1))
-        footer.append_text(Span("┘", style=BORDER_STYLE))
-        footer.append_text(Span("│" * depth, style=BORDER_STYLE))
+        footer.append_text(make_span("┘", style=BORDER_STYLE))
+        footer.append_text(make_span("│" * depth, style=BORDER_STYLE))
 
         console.print(footer)
 

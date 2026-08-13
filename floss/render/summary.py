@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import io
 import sys
-from typing import Dict, List, Tuple, Sequence
+from typing import Dict, List, Tuple
 from collections import Counter
 
 from rich import box
@@ -45,39 +45,39 @@ from floss.render.default import (
 HIGH_VALUE_MAX_STRINGS = 25
 
 
-def _collect_layout_strings(layout: ResultLayout) -> List[ResultString]:
+def collect_layout_strings(layout: ResultLayout) -> List[ResultString]:
     """flatten all strings in a layout tree, in render order."""
     strings = list(layout.strings)
     for child in layout.children:
-        strings.extend(_collect_layout_strings(child))
+        strings.extend(collect_layout_strings(child))
     return strings
 
 
-def _section_counts(layout: ResultLayout) -> Dict[str, int]:
+def section_counts(layout: ResultLayout) -> Dict[str, int]:
     """count strings per top-level layout node (binary section)."""
     counts: Dict[str, int] = Counter()
     if layout is None:
         return counts
     for child in layout.children:
-        counts[child.name] += len(_collect_layout_strings(child))
+        counts[child.name] += len(collect_layout_strings(child))
     return dict(counts)
 
 
-def _tag_histogram(layout: ResultLayout) -> List[Tuple[str, int]]:
+def tag_histogram(layout: ResultLayout) -> List[Tuple[str, int]]:
     tags: Counter = Counter()
-    for s in _collect_layout_strings(layout):
+    for s in collect_layout_strings(layout):
         tags.update(s.tags)
     return sorted(tags.items(), key=lambda kv: (-kv[1], kv[0]))
 
 
-def _high_value_strings(layout: ResultLayout) -> List[ResultString]:
+def high_value_strings(layout: ResultLayout) -> List[ResultString]:
     """strings carrying at least one non-noisy tag, sorted by tag count then offset."""
-    strings = [s for s in _collect_layout_strings(layout) if any(tag not in NOISY_TAGS for tag in s.tags)]
+    strings = [s for s in collect_layout_strings(layout) if any(tag not in NOISY_TAGS for tag in s.tags)]
     strings.sort(key=lambda s: (-len(s.tags), s.offset))
     return strings
 
 
-def _metadata_rows(results: ResultDocument) -> List[Tuple[str, str]]:
+def metadata_rows(results: ResultDocument) -> List[Tuple[str, str]]:
     meta = results.metadata
     rows: List[Tuple[str, str]] = [
         (width("file path", MIN_WIDTH_LEFT_COL), width(meta.file_path, MIN_WIDTH_RIGHT_COL)),
@@ -106,7 +106,7 @@ def _metadata_rows(results: ResultDocument) -> List[Tuple[str, str]]:
     return rows
 
 
-def _counts_rows(results: ResultDocument) -> List[Tuple[str, int]]:
+def counts_rows(results: ResultDocument) -> List[Tuple[str, int]]:
     strings = results.strings
     return [
         ("static strings", len(strings.static_strings)),
@@ -117,7 +117,7 @@ def _counts_rows(results: ResultDocument) -> List[Tuple[str, int]]:
     ]
 
 
-def render(results: ResultDocument, color: str = "auto") -> str:
+def render_summary(results: ResultDocument, color: str = "auto") -> str:
     """render a concise summary of ``results`` as text.
 
     The summary is a human- and agent-consumable view over the same
@@ -130,14 +130,14 @@ def render(results: ResultDocument, color: str = "auto") -> str:
 
     console.print("[cyan]sample[/cyan]")
     meta_table = Table(box=box.ASCII2, show_header=False)
-    for left, right in _metadata_rows(results):
+    for left, right in metadata_rows(results):
         meta_table.add_row(left, right)
     console.print(meta_table)
     console.print()
 
     console.print("[cyan]string counts[/cyan]")
     counts_table = Table(box=box.ASCII2, show_header=False)
-    for label, count in _counts_rows(results):
+    for label, count in counts_rows(results):
         counts_table.add_row(width(label, MIN_WIDTH_LEFT_COL), str(count))
     console.print(counts_table)
     console.print()
@@ -145,12 +145,12 @@ def render(results: ResultDocument, color: str = "auto") -> str:
     if results.layout is not None:
         console.print("[cyan]section counts[/cyan]")
         section_table = Table(box=box.ASCII2, show_header=False)
-        for section, count in _section_counts(results.layout).items():
+        for section, count in section_counts(results.layout).items():
             section_table.add_row(width(section, MIN_WIDTH_LEFT_COL), str(count))
         console.print(section_table)
         console.print()
 
-        tags = _tag_histogram(results.layout)
+        tags = tag_histogram(results.layout)
         if tags:
             console.print("[cyan]tag histogram[/cyan]")
             tag_table = Table(box=box.ASCII2, show_header=False)
@@ -159,7 +159,7 @@ def render(results: ResultDocument, color: str = "auto") -> str:
             console.print(tag_table)
             console.print()
 
-        high_value = _high_value_strings(results.layout)
+        high_value = high_value_strings(results.layout)
         if high_value:
             console.print("[cyan]high-value strings[/cyan]")
             high_table = Table("tag", "offset", "string", show_header=True, box=box.ASCII2, show_edge=False)

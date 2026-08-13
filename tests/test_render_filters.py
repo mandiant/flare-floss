@@ -312,7 +312,7 @@ def test_filter_all_removed_renders_empty(exefile):
 
 
 def test_summary_output(exefile):
-    out = floss.render.summary.render(make_results())
+    out = floss.render.summary.render_summary(make_results())
     assert "FLOSS SUMMARY" in out
     assert "CreateFileA" in out
     assert "#winapi" in out
