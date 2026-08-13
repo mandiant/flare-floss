@@ -110,10 +110,15 @@ def main(argv=None) -> int:
     enabled_string_types = list(args.enabled_string_types or [])
 
     if args.functions:
-        if is_string_type_enabled(StringType.STATIC, disabled_string_types, enabled_string_types):
-            logger.warning("analyzing specified functions, not showing static strings")
-        if StringType.STATIC.value not in disabled_string_types:
+        static_was_enabled = is_string_type_enabled(StringType.STATIC, disabled_string_types, enabled_string_types)
+        if enabled_string_types and StringType.STATIC.value in enabled_string_types:
+            # --string-type explicitly selected static, but --analyze-functions cannot show it:
+            # drop it from the include list instead of forcing the exclude list.
+            enabled_string_types.remove(StringType.STATIC.value)
+        elif not enabled_string_types and StringType.STATIC.value not in disabled_string_types:
             disabled_string_types.append(StringType.STATIC.value)
+        if static_was_enabled:
+            logger.warning("analyzing specified functions, not showing static strings")
 
     # layout/tags are always on: automatic and detected from the sample content
     analysis = Analysis(
