@@ -539,6 +539,19 @@ def test_plain_render_applies_filters():
     assert "junk" not in out
 
 
+def test_summary_escapes_rich_markup():
+    """summary must render strings containing Rich markup literally, not crash."""
+    s = ResultString(string="[bold red]X[/bold]", offset=1, size=12, encoding="ascii", tags=["#winapi"])
+    doc = ResultDocument(
+        metadata=Metadata(file_path="x", min_length=4),
+        analysis=Analysis(enable_stack_strings=False, enable_tight_strings=False, enable_decoded_strings=False),
+        strings=Strings(),
+        layout=ResultLayout(name="pe", offset=0, length=10, strings=[s]),
+    )
+    out = floss.render.summary.render_summary(doc)
+    assert "[bold red]X[/bold]" in out
+
+
 def test_summary_ignores_plain(exefile, capsys):
     """--summary with --plain still renders the layout-backed summary."""
     assert floss.main.main([exefile, "--summary", "--plain", "--no-string-type", "stack", "tight", "decoded"]) == 0

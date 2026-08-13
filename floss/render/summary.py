@@ -29,11 +29,13 @@ from typing import Dict, List, Tuple
 from collections import Counter
 
 from rich import box
+from rich.markup import escape
 from rich.table import Table
 from rich.console import Console
 
 from floss.results import ResultLayout, ResultString, ResultDocument
 from floss.render.filter import NOISY_TAGS, is_arch_wrapper
+from floss.render.sanitize import sanitize
 from floss.render.default import (
     MIN_WIDTH_LEFT_COL,
     MIN_WIDTH_RIGHT_COL,
@@ -168,7 +170,9 @@ def render_summary(results: ResultDocument, color: str = "auto") -> str:
             console.print("[cyan]high-value strings[/cyan]")
             high_table = Table("tag", "offset", "string", show_header=True, box=box.ASCII2, show_edge=False)
             for s in high_value[:HIGH_VALUE_MAX_STRINGS]:
-                high_table.add_row(", ".join(sorted(s.tags)), f"0x{s.offset:x}", s.string)
+                # escape Rich markup and control chars so binary strings render
+                # as literal text instead of crashing or breaking the table
+                high_table.add_row(", ".join(sorted(s.tags)), f"0x{s.offset:x}", escape(sanitize(s.string)))
             console.print(high_table)
             if len(high_value) > HIGH_VALUE_MAX_STRINGS:
                 console.print(f"... and {len(high_value) - HIGH_VALUE_MAX_STRINGS} more high-value strings")
