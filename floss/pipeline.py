@@ -413,7 +413,9 @@ def analyze(options: Options) -> Optional[ResultDocument]:
             results.metadata.runtime.static_strings += static_runtime
         else:
             results.strings.static_strings = static_strings
-            results.metadata.runtime.static_strings = static_runtime
+            # add the elapsed time of the failed/skipped layout attempt, which
+            # measure_and_set_time("static_strings") already recorded above
+            results.metadata.runtime.static_strings += static_runtime
 
         # one offset index for both language_strings and language_strings_missed
         layout_offset_index = None
