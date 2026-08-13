@@ -28,6 +28,7 @@ from rich.console import Console
 import floss.utils as util
 import floss.logging_
 import floss.language.identify
+from floss.enrich import static_strings_from_layout
 from floss.render import Verbosity
 from floss.results import (
     AddressType,
@@ -39,7 +40,6 @@ from floss.results import (
     StringEncoding,
 )
 from floss.tags.filter import TagRules, hide_strings_by_rules
-from floss.enrich import static_strings_from_layout
 from floss.render.filter import LayoutFilter
 from floss.render.layout import DEFAULT_COLUMNS, render_strings
 from floss.render.sanitize import sanitize
