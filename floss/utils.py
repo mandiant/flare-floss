@@ -15,7 +15,6 @@
 import os
 import re
 import sys
-import json
 import mmap
 import time
 import inspect
@@ -77,8 +76,10 @@ def detect_file_type(sample: Path) -> FileType:
     need a version.
 
     Binary samples are rejected cheaply by peeking the first non-whitespace
-    byte. The full file is loaded and parsed only when the content looks
-    like JSON, so large binaries are not read for the check.
+    byte. Results documents are recognized by a fast byte-sequence check over
+    the leading chunk for the top-level keys, so large binaries that happen to
+    start with '{' are not read or parsed in full. Strict validation of the
+    document structure happens when the file is loaded.
     """
     try:
         with sample.open("rb") as f:
@@ -95,12 +96,7 @@ def detect_file_type(sample: Path) -> FileType:
     if not stripped or stripped[:1] != b"{":
         return FileType.UNSUPPORTED
 
-    try:
-        data = json.loads(sample.read_bytes())
-    except (OSError, ValueError):
-        return FileType.UNSUPPORTED
-
-    if isinstance(data, dict) and all(k in data for k in ("metadata", "analysis", "strings")):
+    if all(key in chunk for key in (b'"metadata"', b'"analysis"', b'"strings"')):
         return FileType.RESULTS
 
     return FileType.UNSUPPORTED
