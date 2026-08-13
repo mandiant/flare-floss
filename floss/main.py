@@ -84,9 +84,6 @@ def main(argv=None) -> int:
 
     set_log_config(args.debug, args.quiet)
 
-    if args.plain:
-        logger.warning("--plain is not implemented yet; rendering with the default view")
-
     if hasattr(args, "signatures"):
         if args.signatures == SIGNATURES_PATH_DEFAULT_STRING:
             logger.debug("-" * 80)
@@ -141,6 +138,8 @@ def main(argv=None) -> int:
         if args.json:
             r = floss.render.json.render(results)
         else:
+            if args.plain:
+                results.layout = None
             r = floss.render.default.render(results, args.verbose, args.quiet, args.color)
 
         print(r)
@@ -179,6 +178,9 @@ def main(argv=None) -> int:
     else:
         # this may be slow when there's many strings, so informing users what's happening
         logger.info("rendering results")
+        if args.plain:
+            # --plain: classic flat list, no layout or tags
+            analysis_results.layout = None
         r = floss.render.default.render(analysis_results, args.verbose, args.quiet, args.color)
 
     print(r)
