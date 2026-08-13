@@ -33,7 +33,7 @@ from rich.table import Table
 from rich.console import Console
 
 from floss.results import ResultLayout, ResultString, ResultDocument
-from floss.render.filter import NOISY_TAGS
+from floss.render.filter import NOISY_TAGS, is_arch_wrapper
 from floss.render.default import (
     MIN_WIDTH_LEFT_COL,
     MIN_WIDTH_RIGHT_COL,
@@ -51,27 +51,32 @@ def analyze_layout(layout: ResultLayout):
 
     returns a 3-tuple of (section_counts, tag_histogram, high_value_strings).
     The section of a string is its containing top-level section: children of
-    the root are the sections, and deeper nodes inherit their section (so
-    strings under a nested ``import table`` node are counted under ``.rdata``).
+    the root (or of a Mach-O fat-arch wrapper) are the sections, and deeper
+    nodes inherit their section (so strings under a nested ``import table``
+    node are counted under ``.rdata``).
     """
     section_counts: Dict[str, int] = Counter()
     tag_histogram: Counter = Counter()
     high_value: List[ResultString] = []
 
-    def walk(node: ResultLayout, section: str) -> None:
+    def walk(node: ResultLayout, section: str, depth: int) -> None:
         section_counts[section] += len(node.strings)
         for s in node.strings:
             tag_histogram.update(s.tags)
             if any(tag not in NOISY_TAGS for tag in s.tags):
                 high_value.append(s)
         for child in node.children:
-            # children of the root are sections; deeper nodes inherit the section
-            walk(child, child.name if node is layout else section)
+            # a child becomes a section when it's not a format wrapper and its
+            # parent is the root or an arch wrapper; otherwise it inherits
+            if not is_arch_wrapper(child) and (depth == 0 or is_arch_wrapper(node)):
+                child_section = child.name
+            else:
+                child_section = section
+            walk(child, child_section, depth + 1)
 
-    # walk the whole tree from the root: children of the root become sections,
-    # deeper nodes inherit their containing section, and strings attached
-    # directly to the root are counted under the root name
-    walk(layout, layout.name)
+    # walk the whole tree from the root: root-attached strings count under the
+    # root name, children of the root (or of an arch wrapper) are sections
+    walk(layout, layout.name, 0)
 
     hist = sorted(tag_histogram.items(), key=lambda kv: (-kv[1], kv[0]))
     high_value.sort(key=lambda s: (-len(s.tags), s.offset))

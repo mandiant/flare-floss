@@ -64,6 +64,17 @@ def tag_matches(user_tag: str, string_tags: Sequence[str]) -> bool:
     return any(normalize_tag(tag) == normalized for tag in string_tags)
 
 
+def is_arch_wrapper(layout: ResultLayout) -> bool:
+    """true when a node is a Mach-O fat-arch wrapper rather than a section.
+
+    On a fat Mach-O the root's children are arch wrappers (``macho: x86_64``);
+    the binary segments (``__TEXT``) live one level deeper. Section filters
+    must descend through this layer so ``--section __TEXT`` works on a
+    universal binary.
+    """
+    return layout.name.startswith("macho:")
+
+
 class LayoutFilter:
     """Build and apply render-time filters to a ``ResultLayout`` tree.
 
@@ -192,8 +203,13 @@ class LayoutFilter:
 
         children: List[ResultLayout] = []
         for child in layout.children:
-            # children of the root are the sections themselves; deeper nodes inherit
-            child_section = child.name if depth == 0 else section
+            # a child becomes a section when it's not a format wrapper (e.g. a
+            # Mach-O fat-arch layer) and its parent is the root or an arch
+            # wrapper; otherwise it inherits its containing section
+            if not is_arch_wrapper(child) and (depth == 0 or is_arch_wrapper(layout)):
+                child_section = child.name
+            else:
+                child_section = section
             filtered = self.apply_node(child, child_section, depth + 1)
             if filtered is not None:
                 children.append(filtered)

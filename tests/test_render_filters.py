@@ -167,6 +167,44 @@ def test_filter_by_section_matches_nested_nodes():
     assert strings == ["CloseHandle"]
 
 
+def test_filter_by_section_fat_macho_descends_arch_wrappers():
+    """--section must descend through Mach-O fat-arch wrapper layers."""
+    layout = ResultLayout(
+        name="macho (fat)",
+        offset=0,
+        length=0x2000,
+        children=[
+            ResultLayout(
+                name="macho: x86_64",
+                offset=0,
+                length=0x1000,
+                children=[
+                    ResultLayout(
+                        name="__TEXT",
+                        offset=0,
+                        length=0x800,
+                        strings=[
+                            ResultString(string="in text", offset=1, size=7, encoding="ascii"),
+                        ],
+                    ),
+                    ResultLayout(
+                        name="__DATA",
+                        offset=0x800,
+                        length=0x800,
+                        strings=[
+                            ResultString(string="in data", offset=2, size=7, encoding="ascii"),
+                        ],
+                    ),
+                ],
+            ),
+        ],
+    )
+    f = floss.render.filter.LayoutFilter(include_sections=["__TEXT"])
+    filtered = f.apply(layout)
+    strings = collect_layout_strings(filtered)
+    assert strings == ["in text"]
+
+
 def test_filter_by_structure_slug():
     f = floss.render.filter.LayoutFilter(include_structures=["import-table"])
     filtered = f.apply(make_layout())
