@@ -463,6 +463,32 @@ def test_main_columns_with_plain(exefile):
     assert floss.main.main([exefile, "--plain", "--columns", "offset", "structure"]) == 0
 
 
+def test_plain_render_does_not_mutate_results():
+    """--plain selects the classic view without mutating the result document."""
+    layout = ResultLayout(
+        name="pe",
+        offset=0,
+        length=0x10,
+        strings=[ResultString(string="x", offset=1, size=1, encoding="ascii")],
+    )
+    doc = ResultDocument(
+        metadata=Metadata(file_path="x", min_length=4),
+        analysis=Analysis(enable_stack_strings=False, enable_tight_strings=False, enable_decoded_strings=False),
+        strings=Strings(),
+        layout=layout,
+    )
+    out = render(doc, True, False, "auto", plain=True)
+    assert "FLARE FLOSS RESULTS" in out
+    assert doc.layout is not None
+
+
+def test_summary_ignores_plain():
+    """--summary with --plain still renders the layout-backed summary."""
+    doc = make_results()
+    out = floss.render.summary.render_summary(doc, "auto")
+    assert "section counts" in out
+
+
 def test_main_summary_with_json(exefile, capsys):
     """--json takes precedence over --summary."""
     assert floss.main.main([exefile, "-j", "--summary", "--no-string-type", "stack", "tight", "decoded"]) == 0

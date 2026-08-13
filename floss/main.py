@@ -93,11 +93,9 @@ def build_layout_filter(args) -> LayoutFilter:
 
 
 def render_text(args, results: floss.results.ResultDocument) -> str:
-    """render results as text, honoring --plain, --summary, --columns, and the filters."""
-    if args.plain:
-        # --plain: classic flat list, no layout or tags
-        results.layout = None
+    """render results as text, honoring --summary, --plain, --columns, and the filters."""
     if args.summary:
+        # --summary is its own output; it needs the layout tree intact
         return floss.render.summary.render_summary(results, args.color)
     return floss.render.default.render(
         results,
@@ -106,6 +104,7 @@ def render_text(args, results: floss.results.ResultDocument) -> str:
         args.color,
         columns=args.columns,
         layout_filter=build_layout_filter(args),
+        plain=args.plain,
     )
 
 

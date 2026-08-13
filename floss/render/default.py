@@ -397,12 +397,13 @@ def render(
     color,
     columns: Sequence[str] = DEFAULT_COLUMNS,
     layout_filter: Optional[LayoutFilter] = None,
+    plain: bool = False,
 ):
     sys.__stdout__.reconfigure(encoding="utf-8")  # type: ignore [union-attr]
     console = Console(file=io.StringIO(), color_system=get_color(color), highlight=False, soft_wrap=True)
 
     # layout-aware path: no classic meta table
-    if results.layout is not None and results.analysis.enable_static_strings:
+    if not plain and results.layout is not None and results.analysis.enable_static_strings:
         layout = results.layout
         if layout_filter is not None and layout_filter.active:
             filtered = layout_filter.apply(layout)
