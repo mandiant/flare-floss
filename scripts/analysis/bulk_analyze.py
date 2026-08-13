@@ -88,7 +88,7 @@ def main():
                 "-m",
                 "floss.main",
                 str(file_path),
-                "--no",
+                "--no-string-type",
                 "stack",
                 "tight",
                 "decoded",
