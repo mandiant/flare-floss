@@ -539,6 +539,25 @@ def test_plain_render_applies_filters():
     assert "junk" not in out
 
 
+def test_no_classic_meta_when_layout_present_but_static_disabled():
+    """with a layout present but static strings disabled, neither the classic
+    meta table nor the layout tree is shown (spec 1.2/2.4)."""
+    doc = ResultDocument(
+        metadata=Metadata(file_path="x", min_length=4),
+        analysis=Analysis(
+            enable_static_strings=False,
+            enable_stack_strings=False,
+            enable_tight_strings=False,
+            enable_decoded_strings=False,
+        ),
+        strings=Strings(),
+        layout=ResultLayout(name="pe", offset=0, length=10),
+    )
+    out = render(doc, True, False, "auto")
+    assert "FLARE FLOSS RESULTS" not in out
+    assert "pe" not in out
+
+
 def test_summary_escapes_rich_markup():
     """summary must render strings containing Rich markup literally, not crash."""
     s = ResultString(string="[bold red]X[/bold]", offset=1, size=12, encoding="ascii", tags=["#winapi"])
