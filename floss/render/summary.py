@@ -45,36 +45,30 @@ from floss.render.default import (
 HIGH_VALUE_MAX_STRINGS = 25
 
 
-def collect_layout_strings(layout: ResultLayout) -> List[ResultString]:
-    """flatten all strings in a layout tree, in render order."""
-    strings = list(layout.strings)
+def analyze_layout(layout: ResultLayout):
+    """walk the layout tree once, returning the derived summary values.
+
+    returns a 3-tuple of (section_counts, tag_histogram, high_value_strings).
+    """
+    section_counts: Dict[str, int] = Counter()
+    tag_histogram: Counter = Counter()
+    high_value: List[ResultString] = []
+
+    def walk(node: ResultLayout, section: str) -> None:
+        section_counts[section] += len(node.strings)
+        for s in node.strings:
+            tag_histogram.update(s.tags)
+            if any(tag not in NOISY_TAGS for tag in s.tags):
+                high_value.append(s)
+        for child in node.children:
+            walk(child, child.name)
+
     for child in layout.children:
-        strings.extend(collect_layout_strings(child))
-    return strings
+        walk(child, child.name)
 
-
-def section_counts(layout: ResultLayout) -> Dict[str, int]:
-    """count strings per top-level layout node (binary section)."""
-    counts: Dict[str, int] = Counter()
-    if layout is None:
-        return counts
-    for child in layout.children:
-        counts[child.name] += len(collect_layout_strings(child))
-    return dict(counts)
-
-
-def tag_histogram(layout: ResultLayout) -> List[Tuple[str, int]]:
-    tags: Counter = Counter()
-    for s in collect_layout_strings(layout):
-        tags.update(s.tags)
-    return sorted(tags.items(), key=lambda kv: (-kv[1], kv[0]))
-
-
-def high_value_strings(layout: ResultLayout) -> List[ResultString]:
-    """strings carrying at least one non-noisy tag, sorted by tag count then offset."""
-    strings = [s for s in collect_layout_strings(layout) if any(tag not in NOISY_TAGS for tag in s.tags)]
-    strings.sort(key=lambda s: (-len(s.tags), s.offset))
-    return strings
+    hist = sorted(tag_histogram.items(), key=lambda kv: (-kv[1], kv[0]))
+    high_value.sort(key=lambda s: (-len(s.tags), s.offset))
+    return dict(section_counts), hist, high_value
 
 
 def metadata_rows(results: ResultDocument) -> List[Tuple[str, str]]:
@@ -143,23 +137,23 @@ def render_summary(results: ResultDocument, color: str = "auto") -> str:
     console.print()
 
     if results.layout is not None:
+        section_counts, tag_hist, high_value = analyze_layout(results.layout)
+
         console.print("[cyan]section counts[/cyan]")
         section_table = Table(box=box.ASCII2, show_header=False)
-        for section, count in section_counts(results.layout).items():
+        for section, count in section_counts.items():
             section_table.add_row(width(section, MIN_WIDTH_LEFT_COL), str(count))
         console.print(section_table)
         console.print()
 
-        tags = tag_histogram(results.layout)
-        if tags:
+        if tag_hist:
             console.print("[cyan]tag histogram[/cyan]")
             tag_table = Table(box=box.ASCII2, show_header=False)
-            for tag, count in tags:
+            for tag, count in tag_hist:
                 tag_table.add_row(width(tag, MIN_WIDTH_LEFT_COL), str(count))
             console.print(tag_table)
             console.print()
 
-        high_value = high_value_strings(results.layout)
         if high_value:
             console.print("[cyan]high-value strings[/cyan]")
             high_table = Table("tag", "offset", "string", show_header=True, box=box.ASCII2, show_edge=False)

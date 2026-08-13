@@ -372,29 +372,25 @@ def render_strings(
 
     def render_string_lines(console: Console, tag_rules: TagRules, strings: list, depth: int):
         """render a batch of strings, grouping consecutive strings with the same tags."""
+        visible_tags_by_index = [get_visible_tags(string) for string in strings]
         prev_tags = None
         prev_tags_width = 0
         for idx, string in enumerate(strings):
-            visible_tags = get_visible_tags(string)
+            visible_tags = visible_tags_by_index[idx]
+            next_tags = visible_tags_by_index[idx + 1] if idx + 1 < len(strings) else None
 
             # lookahead: is this the last line in a continuation group?
             is_group_end = False
             if prev_tags is not None and visible_tags == prev_tags and len(visible_tags) > 0:
                 # we are in a continuation — check if the next string breaks the group
-                if idx + 1 >= len(strings):
+                if next_tags is None or next_tags != visible_tags:
                     is_group_end = True
-                else:
-                    next_tags = get_visible_tags(strings[idx + 1])
-                    if next_tags != visible_tags:
-                        is_group_end = True
 
             # lookahead: is this the first line of a continuation group?
             is_group_start = False
             if (prev_tags is None or visible_tags != prev_tags) and len(visible_tags) > 0:
-                if idx + 1 < len(strings):
-                    next_tags = get_visible_tags(strings[idx + 1])
-                    if next_tags == visible_tags:
-                        is_group_start = True
+                if next_tags is not None and next_tags == visible_tags:
+                    is_group_start = True
 
             line = render_string(
                 console.width,

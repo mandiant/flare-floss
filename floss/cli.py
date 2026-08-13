@@ -33,9 +33,9 @@ from floss.const import (
 )
 from floss.utils import set_vivisect_log_level
 from floss.render import Verbosity
-from floss.render.default import COLUMN_CHOICES, DEFAULT_COLUMNS
 from floss.version import __version__
 from floss.logging_ import TRACE, DebugLevel
+from floss.render.default import COLUMN_CHOICES, DEFAULT_COLUMNS
 from floss.language.identify import Language
 
 logger = floss.logging_.getLogger("floss")

@@ -33,7 +33,7 @@ from floss.tags.filter import TagRules
 NOISY_TAGS: Set[str] = {"#common", "#duplicate", "#code", "#reloc", "#code-junk"}
 
 # tag names produced by the OSS string database, e.g. #openssl, #zlib
-OSS_TAG_NAMES: Set[str] = {f"#{name.partition('.')[0]}" for name in DEFAULT_FILENAMES}
+OSS_TAG_NAMES_NORMALIZED: Set[str] = {name.partition(".")[0] for name in DEFAULT_FILENAMES}
 
 
 def normalize_tag(tag: str) -> str:
@@ -54,15 +54,14 @@ def normalize_structure(name: str) -> str:
 
 
 def tag_matches(user_tag: str, string_tags: Sequence[str]) -> bool:
-    """true if ``user_tag`` matches any of ``string_tags``.
+    """true if ``user_tag`` (already normalized) matches any of ``string_tags``.
 
     ``oss`` is a meta tag that matches any OSS library tag.
     """
-    normalized = normalize_tag(user_tag)
+    normalized = user_tag
     if normalized == "oss":
-        return any(tag in OSS_TAG_NAMES for tag in string_tags)
-    wanted = f"#{normalized}"
-    return any(normalize_tag(tag) == normalized or tag == wanted for tag in string_tags)
+        return any(normalize_tag(tag) in OSS_TAG_NAMES_NORMALIZED for tag in string_tags)
+    return any(normalize_tag(tag) == normalized for tag in string_tags)
 
 
 class LayoutFilter:
@@ -101,10 +100,10 @@ class LayoutFilter:
     ):
         self.include_sections = list(include_sections or [])
         self.exclude_sections = list(exclude_sections or [])
-        self.include_structures = list(include_structures or [])
-        self.exclude_structures = list(exclude_structures or [])
-        self.include_tags = list(include_tags or [])
-        self.exclude_tags = list(exclude_tags or [])
+        self.include_structures = {normalize_structure(name) for name in (include_structures or [])}
+        self.exclude_structures = {normalize_structure(name) for name in (exclude_structures or [])}
+        self.include_tags = [normalize_tag(tag) for tag in (include_tags or [])]
+        self.exclude_tags = [normalize_tag(tag) for tag in (exclude_tags or [])]
         self.interesting = interesting
         self.queries = [re.compile(q) for q in (queries or [])]
         self.max_strings = max_strings
@@ -131,9 +130,9 @@ class LayoutFilter:
             return False
 
         structure = normalize_structure(s.structure)
-        if self.include_structures and structure not in {normalize_structure(x) for x in self.include_structures}:
+        if self.include_structures and structure not in self.include_structures:
             return False
-        if self.exclude_structures and structure in {normalize_structure(x) for x in self.exclude_structures}:
+        if self.exclude_structures and structure in self.exclude_structures:
             return False
 
         if self.include_tags and not any(tag_matches(t, s.tags) for t in self.include_tags):
