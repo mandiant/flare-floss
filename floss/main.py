@@ -84,6 +84,9 @@ def main(argv=None) -> int:
 
     set_log_config(args.debug, args.quiet)
 
+    if args.plain:
+        logger.warning("--plain is not implemented yet; rendering with the default view")
+
     if hasattr(args, "signatures"):
         if args.signatures == SIGNATURES_PATH_DEFAULT_STRING:
             logger.debug("-" * 80)

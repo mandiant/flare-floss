@@ -229,6 +229,12 @@ def make_parser():
         default=Verbosity.DEFAULT,
         help="enable verbose results, e.g. including function offsets (does not affect JSON output)",
     )
+    output_group.add_argument(
+        "--plain",
+        action="store_true",
+        default=False,
+        help="render the classic flat list of strings without layout and tags",
+    )
 
     logging_group = parser.add_argument_group("logging arguments")
     logging_group.add_argument(
