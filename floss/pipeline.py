@@ -396,9 +396,9 @@ def analyze(options: Options) -> Optional[ResultDocument]:
     # 3. tight strings
     # 4. decoded strings
 
+    layout_doc: Optional[ResultLayout] = None
     if results.analysis.enable_static_strings:
         logger.info("extracting static strings")
-        layout_doc: Optional[ResultLayout] = None
         if analysis.enable_layout:
             # only layout/tag work for static_strings runtime — not language ID or the TTY prompt above
             with results.metadata.runtime.measure_and_set_time("static_strings"):
@@ -417,16 +417,16 @@ def analyze(options: Options) -> Optional[ResultDocument]:
             # measure_and_set_time("static_strings") already recorded above
             results.metadata.runtime.static_strings += static_runtime
 
+    # language-specific strings are independent of static strings: extract them
+    # whenever enabled, reusing the classic extraction buffer (and layout, when
+    # static+layout actually ran) for missed-string/enrichment.
+    if analysis.enable_language_strings and results.metadata.language in (Language.GO.value, Language.RUST.value):
         # one offset index for both language_strings and language_strings_missed
         layout_offset_index = None
-        if (
-            analysis.enable_language_strings
-            and layout_doc is not None
-            and results.metadata.language in (Language.GO.value, Language.RUST.value)
-        ):
+        if layout_doc is not None:
             layout_offset_index = build_offset_index(layout_doc)
 
-        if analysis.enable_language_strings and results.metadata.language == Language.GO.value:
+        if results.metadata.language == Language.GO.value:
             logger.info("extracting language-specific Go strings")
             with results.metadata.runtime.measure_and_set_time("language_strings"):
                 results.strings.language_strings = floss.language.go.extract.extract_go_strings(
@@ -448,7 +448,7 @@ def analyze(options: Options) -> Optional[ResultDocument]:
                     results.strings.language_strings_missed, offset_index=layout_offset_index
                 )
 
-        elif analysis.enable_language_strings and results.metadata.language == Language.RUST.value:
+        elif results.metadata.language == Language.RUST.value:
             logger.info("extracting language-specific Rust strings")
             with results.metadata.runtime.measure_and_set_time("language_strings"):
                 results.strings.language_strings = floss.language.rust.extract.extract_rust_strings(

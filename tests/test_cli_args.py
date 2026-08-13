@@ -74,6 +74,35 @@ def test_args_string_type_language(exefile, capsys):
     capsys.readouterr()
 
 
+def test_language_extraction_independent_of_static():
+    """language strings are extracted even when static strings are disabled."""
+    from pathlib import Path
+
+    from floss.results import Analysis
+    from floss.pipeline import Options, analyze
+
+    sample = Path(__file__).parent / "data" / "language" / "go" / "go-hello" / "bin" / "go-hello64.exe"
+
+    results = analyze(
+        Options(
+            sample=sample,
+            min_length=6,
+            analysis=Analysis(
+                enable_static_strings=False,
+                enable_stack_strings=False,
+                enable_tight_strings=False,
+                enable_decoded_strings=False,
+                enable_language_strings=True,
+            ),
+            prompt_deobfuscation=False,
+        )
+    )
+    assert results is not None
+    assert results.metadata.language == "go"
+    assert len(results.strings.language_strings) > 0
+    assert len(results.strings.static_strings) == 0
+
+
 def test_args_no_string_type_language(exefile, capsys):
     assert floss.main.main([exefile, "--no-string-type", "language"]) == 0
     capsys.readouterr()
