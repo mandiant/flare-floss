@@ -80,23 +80,19 @@ def detect_file_type(sample: Path) -> FileType:
     byte. The full file is loaded and parsed only when the content looks
     like JSON, so large binaries are not read for the check.
     """
-    with sample.open("rb") as f:
-        magic = f.read(4)
-
-    if magic == SUPPORTED_FILE_MAGIC_ELF:
-        return FileType.ELF
-    elif magic[:2] == SUPPORTED_FILE_MAGIC_PE:
-        return FileType.PE
-
     try:
         with sample.open("rb") as f:
-            for byte in iter(lambda: f.read(1), b""):
-                if not byte.strip():
-                    continue
-                if byte != b"{":
-                    return FileType.UNSUPPORTED
-                break
+            chunk = f.read(4096)
     except OSError:
+        return FileType.UNSUPPORTED
+
+    if chunk[:4] == SUPPORTED_FILE_MAGIC_ELF:
+        return FileType.ELF
+    elif chunk[:2] == SUPPORTED_FILE_MAGIC_PE:
+        return FileType.PE
+
+    stripped = chunk.lstrip()
+    if not stripped or stripped[:1] != b"{":
         return FileType.UNSUPPORTED
 
     try:
