@@ -66,6 +66,10 @@ class FileType(str, Enum):
     RESULTS = "results"  # a saved FLOSS results document
 
 
+# how many leading bytes to sniff when detecting a results document
+_RESULTS_SNIFF_SIZE = 8192
+
+
 def detect_file_type(sample: Path) -> FileType:
     """
     Detect the kind of a file from its content.
@@ -83,7 +87,7 @@ def detect_file_type(sample: Path) -> FileType:
     """
     try:
         with sample.open("rb") as f:
-            chunk = f.read(4096)
+            chunk = f.read(_RESULTS_SNIFF_SIZE)
     except OSError:
         return FileType.UNSUPPORTED
 
