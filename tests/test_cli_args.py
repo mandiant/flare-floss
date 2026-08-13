@@ -60,6 +60,32 @@ def test_args_analysis_type_conflict(exefile):
     assert floss.main.main([exefile, "--string-type", "stack", "--no-string-type", "tight"]) == -1
 
 
+def test_args_string_type_all(exefile, capsys):
+    """--string-type all is the default behavior and runs successfully."""
+    assert floss.main.main([exefile, "--string-type", "all"]) == 0
+    capsys.readouterr()
+
+
+def test_args_string_type_language(exefile, capsys):
+    """--string-type language selects only language strings; still runs."""
+    assert floss.main.main([exefile, "--string-type", "language", "--no-string-type", "static"]) == -1
+    capsys.readouterr()
+    assert floss.main.main([exefile, "--string-type", "language", "static"]) == 0
+    capsys.readouterr()
+
+
+def test_args_no_string_type_language(exefile, capsys):
+    assert floss.main.main([exefile, "--no-string-type", "language"]) == 0
+    capsys.readouterr()
+
+
+def test_expand_string_types():
+    from floss.utils import expand_string_types
+
+    assert set(expand_string_types(["all"])) == {"static", "stack", "tight", "decoded", "language"}
+    assert expand_string_types(["static", "stack"]) == ["static", "stack"]
+
+
 def test_no_layout_yields_classic_static(exefile):
     """enable_layout=False: no layout tree; classic static strings still present."""
     from pathlib import Path

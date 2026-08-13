@@ -52,7 +52,12 @@ class StringType(str, Enum):
     STACK = "stack"
     TIGHT = "tight"
     DECODED = "decoded"
+    LANGUAGE = "language"
+    ALL = "all"
 
+
+# concrete string types; `all` is a convenience alias for the full set
+CONCRETE_STRING_TYPES = (StringType.STATIC, StringType.STACK, StringType.TIGHT, StringType.DECODED, StringType.LANGUAGE)
 
 # string types selectable via --string-type / --no-string-type
 STRING_TYPE_CHOICES = [t.value for t in StringType]

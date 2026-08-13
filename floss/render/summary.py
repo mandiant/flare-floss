@@ -100,7 +100,10 @@ def counts_rows(results: ResultDocument) -> List[Tuple[str, int]]:
     strings = results.strings
     return [
         ("static strings", len(strings.static_strings)),
-        ("language strings", len(strings.language_strings)),
+        (
+            "language strings",
+            len(strings.language_strings) if results.analysis.enable_language_strings else 0,
+        ),
         ("stack strings", len(strings.stack_strings)),
         ("tight strings", len(strings.tight_strings)),
         ("decoded strings", len(strings.decoded_strings)),

@@ -152,7 +152,7 @@ def render_string_type_rows(results: ResultDocument) -> List[Tuple[str, str]]:
             "  language strings",
             (
                 f"{len_ls:>{len(str(len_ss))}} ({len_chars_ls:>{len(str(len_chars_ss))}d} characters)"
-                if results.metadata.language
+                if results.analysis.enable_language_strings and results.metadata.language
                 else DISABLED
             ),
         ),
@@ -437,7 +437,7 @@ def render(
             render_staticstrings(results.strings.static_strings, console, verbose, disable_headers)
             console.print("\n")
 
-    if results.metadata.language in (
+    if results.analysis.enable_language_strings and results.metadata.language in (
         floss.language.identify.Language.GO.value,
         floss.language.identify.Language.RUST.value,
     ):

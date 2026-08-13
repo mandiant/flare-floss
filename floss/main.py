@@ -32,7 +32,7 @@ from floss.cli import (
     make_parser,
     set_log_config,
 )
-from floss.utils import FileType, detect_file_type, is_string_type_enabled
+from floss.utils import FileType, detect_file_type, expand_string_types, is_string_type_enabled
 from floss.results import Analysis, load
 from floss.pipeline import Options, PipelineError, analyze
 from floss.render.filter import LayoutFilter
@@ -170,8 +170,8 @@ def main(argv=None) -> int:
     sample = Path(args.sample.name)
     args.sample.close()
 
-    disabled_string_types = list(args.disabled_string_types or [])
-    enabled_string_types = list(args.enabled_string_types or [])
+    disabled_string_types = expand_string_types(list(args.disabled_string_types or []))
+    enabled_string_types = expand_string_types(list(args.enabled_string_types or []))
 
     if args.functions:
         static_was_enabled = is_string_type_enabled(StringType.STATIC, disabled_string_types, enabled_string_types)
@@ -202,6 +202,9 @@ def main(argv=None) -> int:
         enable_stack_strings=is_string_type_enabled(StringType.STACK, disabled_string_types, enabled_string_types),
         enable_tight_strings=is_string_type_enabled(StringType.TIGHT, disabled_string_types, enabled_string_types),
         enable_decoded_strings=is_string_type_enabled(StringType.DECODED, disabled_string_types, enabled_string_types),
+        enable_language_strings=is_string_type_enabled(
+            StringType.LANGUAGE, disabled_string_types, enabled_string_types
+        ),
     )
 
     if detect_file_type(sample) is FileType.RESULTS:

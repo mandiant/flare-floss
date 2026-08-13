@@ -283,6 +283,7 @@ class Analysis:
     enable_stack_strings: bool = True
     enable_tight_strings: bool = True
     enable_decoded_strings: bool = True
+    enable_language_strings: bool = True
     enable_layout: bool = True
     enable_tags: bool = True
     functions: Functions = field(default_factory=Functions)
@@ -294,6 +295,7 @@ STRING_TYPE_FIELDS = {
     "enable_stack_strings",
     "enable_tight_strings",
     "enable_decoded_strings",
+    "enable_language_strings",
 }
 
 
