@@ -143,7 +143,7 @@ def load_vw(
 ) -> VivWorkspace:
     file_type = detect_file_type(sample_path)
     if format not in ("sc32", "sc64"):
-        if file_type is FileType.UNSUPPORTED:
+        if file_type in (FileType.UNSUPPORTED, FileType.RESULTS):
             raise WorkspaceLoadError(
                 "FLOSS currently supports the following formats for string decoding and stackstrings: PE and ELF\n"
                 "You can analyze shellcode using the --format sc32|sc64 switch. See the help (-h) for more information."
