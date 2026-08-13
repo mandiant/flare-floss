@@ -33,6 +33,7 @@ from floss.results import (
 )
 from floss.tags.filter import TagRules
 from floss.render.default import render
+from floss.render.layout import render_strings
 
 
 def make_layout() -> ResultLayout:
@@ -586,3 +587,43 @@ def test_main_max_strings_larger_than_section(exefile, capsys):
     assert floss.main.main([exefile, "--max-strings", "100000", "--no-string-type", "stack", "tight", "decoded"]) == 0
     out = capsys.readouterr().out
     assert "KERNEL32.dll" in out
+
+
+def _render_layout(layout):
+    from rich.console import Console
+
+    import io
+
+    console = Console(file=io.StringIO(), width=80)
+    render_strings(console, layout, {})
+    return console.file.getvalue()
+
+
+def test_render_offset_not_truncated_by_depth():
+    """rendering at depth must not chop characters off the offset column."""
+    s = ResultString(string="hello", offset=0x810, size=5, encoding="ascii", tags=["#winapi"])
+    layout = ResultLayout(name=".rdata", offset=0, length=0x900, strings=[s])
+    out = _render_layout(layout)
+    assert "00000810" in out
+
+
+def test_render_boundary_string_not_omitted():
+    """a string starting exactly at a child boundary must be rendered."""
+    s = ResultString(string="boundary", offset=0xA0, size=8, encoding="ascii")
+    child = ResultLayout(name=".child", offset=0x50, length=0x50)
+    layout = ResultLayout(name="pe", offset=0, length=0x150, strings=[s], children=[child])
+    out = _render_layout(layout)
+    assert "boundary" in out
+
+
+def test_render_single_child_collapse_keeps_own_strings():
+    """collapsing a node into its sole dominating child must not drop the
+    parent's own strings."""
+    own = ResultString(string="ownstring", offset=0x250, size=9, encoding="ascii")
+    child_s = ResultString(string="childstr", offset=0x100, size=8, encoding="ascii")
+    child = ResultLayout(name="inner", offset=0, length=0x200, strings=[child_s])
+    # child spans [0, 0x200); parent's own string sits in the gap after it
+    layout = ResultLayout(name="outer", offset=0, length=0x300, strings=[own], children=[child])
+    out = _render_layout(layout)
+    assert "ownstring" in out
+    assert "childstr" in out

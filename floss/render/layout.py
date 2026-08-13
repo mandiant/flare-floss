@@ -295,6 +295,7 @@ def render_strings(
 
     if (
         len(layout.children) == 1
+        and not layout.strings
         and layout.offset == layout.children[0].offset
         and layout.length == layout.children[0].length
     ):
@@ -363,7 +364,7 @@ def render_strings(
                     is_group_start = True
 
             line = render_string(
-                console.width,
+                console.width - (depth + 1),
                 string,
                 tag_rules,
                 columns=columns,
@@ -372,8 +373,6 @@ def render_strings(
                 is_group_end=is_group_end,
                 is_group_start=is_group_start,
             )
-            # TODO: this truncates the structure column
-            line = line[: -depth - 1]
             line.append_text(make_span("│" * (depth + 1), style=MUTED_STYLE))
             console.print(line)
 
@@ -398,14 +397,14 @@ def render_strings(
             else:
                 # render strings between children
                 last_child = layout.children[i - 1]
-                strings_before_child = list(filter(lambda s: last_child.end < s.offset < child.offset, layout.strings))
+                strings_before_child = list(filter(lambda s: last_child.end <= s.offset < child.offset, layout.strings))
 
             render_string_lines(console, tag_rules, strings_before_child, depth)
 
             render_strings(console, child, tag_rules, depth + 1, parent=layout, child_index=i, columns=columns)
 
         # render strings after last child
-        strings_after_children = list(filter(lambda s: child.end < s.offset < layout.end, layout.strings))
+        strings_after_children = list(filter(lambda s: child.end <= s.offset < layout.end, layout.strings))
         render_string_lines(console, tag_rules, strings_after_children, depth)
 
     if not has_visible_successors(parent, child_index):
