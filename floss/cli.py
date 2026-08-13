@@ -190,7 +190,7 @@ def make_parser():
             "--section",
             "include_sections",
             "NAME",
-            ".rdata",
+            "e.g. .rdata",
             "only show static strings in the given binary section(s)",
         ),
         (
@@ -204,9 +204,9 @@ def make_parser():
             "--structure",
             "include_structures",
             "NAME",
-            "import-table",
-            "only show static strings in the given binary structure(s); names are slugs and match regardless of "
-            "separators, e.g. import-table, section-header",
+            "e.g. import-table, export-table, rich-header, elf-header, macho-header; names are slugs and "
+            "match regardless of separators",
+            "only show static strings in the given binary structure(s)",
         ),
         (
             "--no-structure",
@@ -219,8 +219,8 @@ def make_parser():
             "--tag",
             "include_tags",
             "TAG",
-            "winapi",
-            "only show strings with the given semantic tag(s); e.g. winapi, crypto, or the oss meta tag",
+            "e.g. winapi, crypto, or the oss meta tag",
+            "only show strings with the given semantic tag(s)",
         ),
         (
             "--no-tag",
@@ -230,7 +230,7 @@ def make_parser():
             "do not show strings with the given semantic tag(s)",
         ),
     ):
-        help_text = help_ + (f", e.g. {example}" if example else "")
+        help_text = help_ + (f"; {example}" if example else "")
         filter_group.add_argument(
             flag,
             action="extend",
