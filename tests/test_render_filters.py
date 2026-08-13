@@ -331,6 +331,21 @@ def test_main_json_error(capsys, exefile):
     assert obj["code"] == 1
 
 
+def test_main_invalid_query_regex_json_error(capsys, exefile):
+    assert floss.main.main([exefile, "-j", "--query", "["]) == -1
+    err = capsys.readouterr().err
+    last_line = [line for line in err.splitlines() if line.strip()][-1]
+    obj = json.loads(last_line)
+    assert "query" in obj["error"]
+    assert obj["code"] == 1
+
+
+def test_main_invalid_query_regex_text_error(capsys, exefile):
+    assert floss.main.main([exefile, "--query", "["]) == -1
+    out = capsys.readouterr().err
+    assert "query" in out
+
+
 def test_main_columns_flag(exefile):
     assert (
         floss.main.main([exefile, "--columns", "offset", "structure", "--no-string-type", "stack", "tight", "decoded"])

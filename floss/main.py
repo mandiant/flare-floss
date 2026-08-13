@@ -117,6 +117,11 @@ def main(argv=None) -> int:
             parser.error("--structure and --no-structure arguments are not allowed together")
         if args.include_tags and args.exclude_tags:
             parser.error("--tag and --no-tag arguments are not allowed together")
+        for pattern in args.queries:
+            try:
+                re.compile(pattern)
+            except re.error as e:
+                parser.error("invalid --query regular expression %r: %s" % (pattern, e))
     except ArgumentValueError as e:
         if _json_requested(argv):
             emit_json_error(str(e))
