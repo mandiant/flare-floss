@@ -259,8 +259,9 @@ def try_layout_static(
     Layout-aware static extraction with timing.
 
     Runs the layout computation and the tag matching steps, and records
-    the elapsed time of the layout and tag step in ``runtime.layout`` and
-    the tag database matching step in ``runtime.tags``.
+    the elapsed time of each phase separately: ``runtime.layout`` covers
+    the layout computation only, ``runtime.tags`` covers the tag matching
+    step only.
 
     Returns a serializable ResultLayout, or None to fall back to classic
     statics. Default-on layout must not crash the whole run.
@@ -271,10 +272,10 @@ def try_layout_static(
             if layout is None:
                 return None
 
-            with runtime.measure_and_set_time("tags"):
-                tag_layout(layout, enable_tags)
+        with runtime.measure_and_set_time("tags"):
+            tag_layout(layout, enable_tags)
 
-            return ResultLayout.from_layout(layout)
+        return ResultLayout.from_layout(layout)
     except Exception as e:
         logger.warning("layout-aware static analysis failed; using classic statics: %s", e)
         return None
