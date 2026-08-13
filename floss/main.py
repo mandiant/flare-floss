@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import sys
+import json
 from pathlib import Path
 
 import rich.traceback
@@ -22,6 +23,7 @@ import floss.results
 import floss.logging_
 import floss.render.json
 import floss.render.default
+import floss.render.summary
 from floss.cli import (
     SIGNATURES_PATH_DEFAULT_STRING,
     StringType,
@@ -32,6 +34,7 @@ from floss.cli import (
 from floss.utils import FileType, detect_file_type, is_string_type_enabled
 from floss.results import Analysis, load
 from floss.pipeline import Options, PipelineError, analyze
+from floss.render.filter import LayoutFilter
 
 logger = floss.logging_.getLogger("floss")
 
@@ -59,6 +62,31 @@ def get_default_root() -> Path:
         return Path(__file__).resolve().parent
 
 
+def emit_json_error(message: str, code: int = 1) -> None:
+    """emit a structured JSON error on STDERR for the JSON output modes."""
+    sys.stderr.write(json.dumps({"error": message, "code": code}) + "\n")
+
+
+def _json_requested(argv) -> bool:
+    """best-effort detection of a JSON output mode before argument parsing completes."""
+    return "--json" in argv or "-j" in argv
+
+
+def build_layout_filter(args) -> LayoutFilter:
+    return LayoutFilter(
+        include_sections=args.include_sections,
+        exclude_sections=args.exclude_sections,
+        include_structures=args.include_structures,
+        exclude_structures=args.exclude_structures,
+        include_tags=args.include_tags,
+        exclude_tags=args.exclude_tags,
+        interesting=args.interesting,
+        queries=args.queries,
+        max_strings=args.max_strings,
+        tag_rules=floss.render.default.DEFAULT_TAG_RULES,
+    )
+
+
 def main(argv=None) -> int:
     """
     arguments:
@@ -78,8 +106,17 @@ def main(argv=None) -> int:
         args = parser.parse_args(args=argv)
         if args.enabled_string_types and args.disabled_string_types:
             parser.error("--string-type and --no-string-type arguments are not allowed together")
+        if args.include_sections and args.exclude_sections:
+            parser.error("--section and --no-section arguments are not allowed together")
+        if args.include_structures and args.exclude_structures:
+            parser.error("--structure and --no-structure arguments are not allowed together")
+        if args.include_tags and args.exclude_tags:
+            parser.error("--tag and --no-tag arguments are not allowed together")
     except ArgumentValueError as e:
-        print(e)
+        if _json_requested(argv):
+            emit_json_error(str(e))
+        else:
+            print(e)
         return -1
 
     set_log_config(args.debug, args.quiet)
@@ -121,7 +158,10 @@ def main(argv=None) -> int:
             elif not enabled_string_types and StringType.STATIC.value not in disabled_string_types:
                 disabled_string_types.append(StringType.STATIC.value)
         except ArgumentValueError as e:
-            print(e)
+            if _json_requested(argv):
+                emit_json_error(str(e))
+            else:
+                print(e)
             return -1
         if static_was_enabled:
             logger.warning("analyzing specified functions, not showing static strings")
@@ -138,10 +178,16 @@ def main(argv=None) -> int:
         try:
             results = load(sample, analysis, args.functions, args.min_length)
         except floss.results.InvalidResultsFile as e:
-            logger.error("cannot load JSON results file: %s", e)
+            if args.json:
+                emit_json_error(f"cannot load JSON results file: {e}")
+            else:
+                logger.error("cannot load JSON results file: %s", e)
             return -1
         except floss.results.InvalidLoadConfig as e:
-            logger.error("%s", e)
+            if args.json:
+                emit_json_error(str(e))
+            else:
+                logger.error("%s", e)
             return -1
 
         if args.json:
@@ -149,7 +195,17 @@ def main(argv=None) -> int:
         else:
             if args.plain:
                 results.layout = None
-            r = floss.render.default.render(results, args.verbose, args.quiet, args.color)
+            if args.summary:
+                r = floss.render.summary.render(results, args.color)
+            else:
+                r = floss.render.default.render(
+                    results,
+                    args.verbose,
+                    args.quiet,
+                    args.color,
+                    columns=args.columns,
+                    layout_filter=build_layout_filter(args),
+                )
 
         print(r)
         return 0
@@ -173,7 +229,9 @@ def main(argv=None) -> int:
     try:
         analysis_results = analyze(options)
     except PipelineError as e:
-        if e.exit_code in (1, 130):
+        if args.json:
+            emit_json_error(str(e), code=e.exit_code if e.exit_code >= 0 else 1)
+        elif e.exit_code in (1, 130):
             logger.info("%s", e)
         else:
             logger.error("%s", e)
@@ -190,7 +248,17 @@ def main(argv=None) -> int:
         if args.plain:
             # --plain: classic flat list, no layout or tags
             analysis_results.layout = None
-        r = floss.render.default.render(analysis_results, args.verbose, args.quiet, args.color)
+        if args.summary:
+            r = floss.render.summary.render(analysis_results, args.color)
+        else:
+            r = floss.render.default.render(
+                analysis_results,
+                args.verbose,
+                args.quiet,
+                args.color,
+                columns=args.columns,
+                layout_filter=build_layout_filter(args),
+            )
 
     print(r)
     return 0

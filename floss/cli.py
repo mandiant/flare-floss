@@ -115,6 +115,18 @@ def make_parser():
           only decode strings from the specified functions
             floss --analyze-functions 0x401000 0x401100 -- suspicious.exe
 
+          only show static strings from the .rdata section
+            floss --section .rdata suspicious.exe
+
+          only show strings tagged winapi or openssl
+            floss --tag winapi openssl suspicious.exe
+
+          hide noisy strings and search for a pattern in the layout tree
+            floss --interesting --query "http://" suspicious.exe
+
+          emit a concise summary instead of the full listing
+            floss --summary suspicious.exe
+
           extract strings from a binary written in Go (if automatic language identification fails)
             floss --language go program.exe
         """)
@@ -157,6 +169,87 @@ def make_parser():
         choices=STRING_TYPE_CHOICES,
         default=[],
         help="do not extract specified string type(s); valid values: %s" % ", ".join(STRING_TYPE_CHOICES),
+    )
+
+    filter_group = parser.add_argument_group("filtering arguments")
+    filter_group.add_argument(
+        "--section",
+        action="extend",
+        dest="include_sections",
+        nargs="+",
+        metavar="NAME",
+        default=[],
+        help="only show static strings in the given binary section(s), e.g. .rdata",
+    )
+    filter_group.add_argument(
+        "--no-section",
+        action="extend",
+        dest="exclude_sections",
+        nargs="+",
+        metavar="NAME",
+        default=[],
+        help="do not show static strings in the given binary section(s)",
+    )
+    filter_group.add_argument(
+        "--structure",
+        action="extend",
+        dest="include_structures",
+        nargs="+",
+        metavar="NAME",
+        default=[],
+        help="only show static strings in the given binary structure(s), e.g. import-table, section-header, "
+        "pe-header; names are slugs and match regardless of separators",
+    )
+    filter_group.add_argument(
+        "--no-structure",
+        action="extend",
+        dest="exclude_structures",
+        nargs="+",
+        metavar="NAME",
+        default=[],
+        help="do not show static strings in the given binary structure(s)",
+    )
+    filter_group.add_argument(
+        "--tag",
+        action="extend",
+        dest="include_tags",
+        nargs="+",
+        metavar="TAG",
+        default=[],
+        help="only show strings with the given semantic tag(s), e.g. winapi, crypto, or oss",
+    )
+    filter_group.add_argument(
+        "--no-tag",
+        action="extend",
+        dest="exclude_tags",
+        nargs="+",
+        metavar="TAG",
+        default=[],
+        help="do not show strings with the given semantic tag(s)",
+    )
+    filter_group.add_argument(
+        "--interesting",
+        action="store_true",
+        dest="interesting",
+        default=False,
+        help="exclude strings with only noisy tags: #common, #duplicate, #code, #reloc, #code-junk",
+    )
+    filter_group.add_argument(
+        "--query",
+        action="extend",
+        dest="queries",
+        nargs="+",
+        metavar="REGEX",
+        default=[],
+        help="only show strings matching the given regular expression(s); repeatable, patterns are ORed",
+    )
+    filter_group.add_argument(
+        "--max-strings",
+        dest="max_strings",
+        type=int,
+        default=None,
+        metavar="N",
+        help="cap the emitted strings per section to the top N by relevance",
     )
 
     advanced_group = parser.add_argument_group("advanced arguments")
@@ -223,6 +316,12 @@ def make_parser():
     output_group = parser.add_argument_group("rendering arguments")
     output_group.add_argument("-j", "--json", action="store_true", help="emit JSON instead of text")
     output_group.add_argument(
+        "--summary",
+        action="store_true",
+        default=False,
+        help="emit a concise summary (metadata, counts, tag histogram, high-value strings)",
+    )
+    output_group.add_argument(
         "-v",
         "--verbose",
         action="count",
@@ -234,6 +333,14 @@ def make_parser():
         action="store_true",
         default=False,
         help="render the classic flat list of strings without layout and tags",
+    )
+    output_group.add_argument(
+        "--columns",
+        dest="columns",
+        nargs="+",
+        choices=("tags", "offset", "structure", "encoding"),
+        default=["tags", "offset"],
+        help="columns to show in the layout view; valid values: tags, offset, structure, encoding. Default: tags, offset.",
     )
 
     logging_group = parser.add_argument_group("logging arguments")

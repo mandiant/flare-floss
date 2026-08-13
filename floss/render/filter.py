@@ -1,0 +1,203 @@
+# Copyright 2026 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""Render-time filters for layout-aware static strings.
+
+Implements the ``--section``/``--no-section``, ``--structure``/``--no-structure``,
+``--tag``/``--no-tag``, ``--interesting``, ``--query``, and ``--max-strings``
+options. Filters operate on the serializable ``ResultLayout`` tree and return a
+new pruned tree, so the original result document is never mutated.
+"""
+
+from __future__ import annotations
+
+import re
+from typing import Set, List, Tuple, Optional, Sequence
+
+from floss.results import ResultLayout, ResultString
+from floss.tags.oss import DEFAULT_FILENAMES
+from floss.tags.filter import TagRules
+
+# noisy tags that the --interesting shortcut excludes
+NOISY_TAGS: Set[str] = {"#common", "#duplicate", "#code", "#reloc", "#code-junk"}
+
+# tag names produced by the OSS string database, e.g. #openssl, #zlib
+OSS_TAG_NAMES: Set[str] = {f"#{name.partition('.')[0]}" for name in DEFAULT_FILENAMES}
+
+
+def normalize_tag(tag: str) -> str:
+    """normalize a user-supplied tag so it can be compared with stored tags.
+
+    strips a leading ``#`` and lowercases, so ``winapi`` and ``#WinAPI`` both
+    match the stored tag ``#winapi``.
+    """
+    return tag.lstrip("#").lower()
+
+
+def normalize_structure(name: str) -> str:
+    """normalize a structure name so slugs match the stored names.
+
+    ``import-table``, ``import_table``, and ``import table`` all compare equal.
+    """
+    return name.strip().lower().replace("_", "-").replace(" ", "-")
+
+
+def tag_matches(user_tag: str, string_tags: Sequence[str]) -> bool:
+    """true if ``user_tag`` matches any of ``string_tags``.
+
+    ``oss`` is a meta tag that matches any OSS library tag.
+    """
+    normalized = normalize_tag(user_tag)
+    if normalized == "oss":
+        return any(tag in OSS_TAG_NAMES for tag in string_tags)
+    wanted = f"#{normalized}"
+    return any(normalize_tag(tag) == normalized or tag == wanted for tag in string_tags)
+
+
+class LayoutFilter:
+    """Build and apply render-time filters to a ``ResultLayout`` tree.
+
+    Attributes:
+        include_sections: keep strings whose containing layout node name is in
+            this list. Empty list means no section include filter.
+        exclude_sections: drop strings whose containing layout node name is in
+            this list. Empty list means no section exclude filter.
+        include_structures: keep strings whose structure field is in this list.
+        exclude_structures: drop strings whose structure field is in this list.
+        include_tags: keep strings with any matching tag.
+        exclude_tags: drop strings with any matching tag.
+        interesting: shortcut that excludes the noisy tag set.
+        queries: regex patterns ORed against string content.
+        max_strings: cap emitted strings per layout node to the top N by
+            relevance.
+        tag_rules: tag rules used to compute the relevance order.
+    """
+
+    def __init__(
+        self,
+        *,
+        include_sections: Optional[Sequence[str]] = None,
+        exclude_sections: Optional[Sequence[str]] = None,
+        include_structures: Optional[Sequence[str]] = None,
+        exclude_structures: Optional[Sequence[str]] = None,
+        include_tags: Optional[Sequence[str]] = None,
+        exclude_tags: Optional[Sequence[str]] = None,
+        interesting: bool = False,
+        queries: Optional[Sequence[str]] = None,
+        max_strings: Optional[int] = None,
+        tag_rules: Optional[TagRules] = None,
+    ):
+        self.include_sections = list(include_sections or [])
+        self.exclude_sections = list(exclude_sections or [])
+        self.include_structures = list(include_structures or [])
+        self.exclude_structures = list(exclude_structures or [])
+        self.include_tags = list(include_tags or [])
+        self.exclude_tags = list(exclude_tags or [])
+        if interesting:
+            self.exclude_tags = list(dict.fromkeys(self.exclude_tags + list(NOISY_TAGS)))
+        self.queries = [re.compile(q) for q in (queries or [])]
+        self.max_strings = max_strings
+        self.tag_rules = tag_rules or {}
+
+    @property
+    def active(self) -> bool:
+        return bool(
+            self.include_sections
+            or self.exclude_sections
+            or self.include_structures
+            or self.exclude_structures
+            or self.include_tags
+            or self.exclude_tags
+            or self.queries
+            or self.max_strings is not None
+        )
+
+    def _string_matches(self, section: str, s: ResultString) -> bool:
+        if self.include_sections and section not in self.include_sections:
+            return False
+        if self.exclude_sections and section in self.exclude_sections:
+            return False
+
+        structure = normalize_structure(s.structure)
+        if self.include_structures and structure not in {normalize_structure(x) for x in self.include_structures}:
+            return False
+        if self.exclude_structures and structure in {normalize_structure(x) for x in self.exclude_structures}:
+            return False
+
+        if self.include_tags and not any(tag_matches(t, s.tags) for t in self.include_tags):
+            return False
+        if self.exclude_tags and any(tag_matches(t, s.tags) for t in self.exclude_tags):
+            return False
+
+        if self.queries and not any(pattern.search(s.string) for pattern in self.queries):
+            return False
+
+        return True
+
+    @staticmethod
+    def _relevance_key(s: ResultString, tag_rules: TagRules) -> Tuple[int, int]:
+        """sort key for --max-strings.
+
+        relevance order within a section:
+          1. strings with a highlighted tag first
+          2. then untagged strings
+          3. then strings with any non-noisy tag
+          4. then the rest (only noisy tags)
+        within each group, ascending by offset.
+        """
+        has_highlight = any(tag_rules.get(tag) == "highlight" for tag in s.tags)
+        has_non_noisy = any(tag not in NOISY_TAGS for tag in s.tags)
+        if has_highlight:
+            group = 0
+        elif not s.tags:
+            group = 1
+        elif has_non_noisy:
+            group = 2
+        else:
+            group = 3
+        return (group, s.offset)
+
+    def _apply_node(self, layout: ResultLayout) -> Optional[ResultLayout]:
+        """filter one layout node, recursing into children.
+
+        returns None when the node has no matching strings and no matching
+        children, so empty branches are pruned but headers that still contain
+        matches are kept.
+        """
+        section = layout.name
+
+        strings = [s for s in layout.strings if self._string_matches(section, s)]
+        if self.max_strings is not None:
+            strings = sorted(strings, key=lambda s: self._relevance_key(s, self.tag_rules))[: self.max_strings]
+
+        children: List[ResultLayout] = []
+        for child in layout.children:
+            filtered = self._apply_node(child)
+            if filtered is not None:
+                children.append(filtered)
+
+        if not strings and not children:
+            return None
+
+        return ResultLayout(
+            name=layout.name,
+            offset=layout.offset,
+            length=layout.length,
+            strings=strings,
+            children=children,
+        )
+
+    def apply(self, layout: ResultLayout) -> Optional[ResultLayout]:
+        """return a filtered copy of ``layout``, or None when nothing matches."""
+        return self._apply_node(layout)
