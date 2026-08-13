@@ -137,6 +137,9 @@ class StringHashDatabase:
 
         buf = path.read_bytes()
 
+        if buf.startswith(b"version https://git-lfs.github.com/"):
+            raise ValueError(f"Git LFS pointer detected in {path.name}; please run `git lfs pull`")
+
         for i in range(0, len(buf), 8):
             string_hashes.add(buf[i : i + 8])
 
@@ -159,11 +162,17 @@ DEFAULT_PATHS = (
 
 
 def get_default_databases() -> Sequence[StringGlobalPrevalenceDatabase | StringHashDatabase]:
-    return [
-        (
-            StringGlobalPrevalenceDatabase.from_file(path)
-            if path.name.endswith(".jsonl.gz")
-            else StringHashDatabase.from_file(path)
-        )
-        for path in DEFAULT_PATHS
-    ]
+    merged_hash_db = StringHashDatabase(string_hashes=set())
+    results: List[StringGlobalPrevalenceDatabase | StringHashDatabase] = []
+
+    for path in DEFAULT_PATHS:
+        if path.name.endswith(".jsonl.gz"):
+            results.append(StringGlobalPrevalenceDatabase.from_file(path))
+        else:
+            db = StringHashDatabase.from_file(path)
+            merged_hash_db.string_hashes.update(db.string_hashes)
+
+    if merged_hash_db.string_hashes:
+        results.append(merged_hash_db)
+
+    return results
