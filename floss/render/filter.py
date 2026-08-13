@@ -190,8 +190,6 @@ class LayoutFilter:
             section = layout.name
 
         strings = [s for s in layout.strings if self._string_matches(section, s)]
-        if self.max_strings is not None:
-            strings = sorted(strings, key=lambda s: self._relevance_key(s, self.tag_rules))[: self.max_strings]
 
         children: List[ResultLayout] = []
         for child in layout.children:
@@ -212,6 +210,70 @@ class LayoutFilter:
             children=children,
         )
 
+    def _collect_strings(self, layout: ResultLayout) -> List[ResultString]:
+        """flatten all strings in a layout subtree, in render order."""
+        strings = list(layout.strings)
+        for child in layout.children:
+            strings.extend(self._collect_strings(child))
+        return strings
+
+    def _prune(self, layout: ResultLayout, keep: set) -> Optional[ResultLayout]:
+        """rebuild a layout subtree keeping only strings in ``keep`` (by id).
+
+        kept strings within a node are emitted in relevance order.
+        """
+        strings = [s for s in layout.strings if id(s) in keep]
+        strings.sort(key=lambda s: self._relevance_key(s, self.tag_rules))
+        children: List[ResultLayout] = []
+        for child in layout.children:
+            pruned = self._prune(child, keep)
+            if pruned is not None:
+                children.append(pruned)
+        if not strings and not children:
+            return None
+        return ResultLayout(
+            name=layout.name,
+            offset=layout.offset,
+            length=layout.length,
+            strings=strings,
+            children=children,
+        )
+
+    def _cap_node(self, layout: ResultLayout) -> Optional[ResultLayout]:
+        """cap a top-level section subtree to the top N strings by relevance."""
+        all_strings = self._collect_strings(layout)
+        if self.max_strings is None or len(all_strings) <= self.max_strings:
+            return layout
+        ranked = sorted(all_strings, key=lambda s: self._relevance_key(s, self.tag_rules))
+        keep = {id(s) for s in ranked[: self.max_strings]}
+        return self._prune(layout, keep)
+
     def apply(self, layout: ResultLayout) -> Optional[ResultLayout]:
         """return a filtered copy of ``layout``, or None when nothing matches."""
-        return self._apply_node(layout, "", 0)
+        filtered = self._apply_node(layout, "", 0)
+        if filtered is None:
+            return None
+
+        if self.max_strings is None:
+            return filtered
+
+        # cap each top-level section (child of the root) as a unit, plus the
+        # root's own strings, so a section never emits more than N strings.
+        children: List[ResultLayout] = []
+        for child in filtered.children:
+            capped = self._cap_node(child)
+            if capped is not None:
+                children.append(capped)
+        ranked_root = sorted(filtered.strings, key=lambda s: self._relevance_key(s, self.tag_rules))
+        strings = ranked_root[: self.max_strings]
+
+        if not strings and not children:
+            return None
+
+        return ResultLayout(
+            name=filtered.name,
+            offset=filtered.offset,
+            length=filtered.length,
+            strings=strings,
+            children=children,
+        )

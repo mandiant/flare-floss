@@ -255,6 +255,42 @@ def test_filter_max_strings_relevance():
     assert [s.string for s in filtered.strings] == ["c-highlighted", "a-untagged", "b-untagged"]
 
 
+def test_filter_max_strings_caps_per_section():
+    """--max-strings caps each top-level section, not each nested node."""
+    s1 = ResultString(string="one", offset=1, size=3, encoding="ascii", tags=["#winapi"])
+    s2 = ResultString(string="two", offset=2, size=3, encoding="ascii", tags=["#winapi"])
+    s3 = ResultString(string="three", offset=3, size=5, encoding="ascii", tags=["#winapi"])
+    s4 = ResultString(string="four", offset=4, size=4, encoding="ascii", tags=["#winapi"])
+    layout = ResultLayout(
+        name="pe",
+        offset=0,
+        length=0x100,
+        children=[
+            ResultLayout(
+                name=".rdata",
+                offset=0,
+                length=0x80,
+                children=[
+                    ResultLayout(name="import table", offset=0, length=0x40, strings=[s1, s2]),
+                    ResultLayout(name="export table", offset=0x40, length=0x40, strings=[s3, s4]),
+                ],
+            ),
+            ResultLayout(
+                name=".text",
+                offset=0x80,
+                length=0x80,
+                strings=[ResultString(string="five", offset=0x90, size=4, encoding="ascii", tags=["#winapi"])],
+            ),
+        ],
+    )
+    f = floss.render.filter.LayoutFilter(max_strings=1, tag_rules={"#winapi": "default"})
+    filtered = f.apply(layout)
+    assert filtered is not None
+    strings = collect_layout_strings(filtered)
+    # one per top-level section (.rdata and .text)
+    assert len(strings) == 2
+
+
 def test_columns_hide_tags(exefile):
     out = render(make_results(), True, False, "auto", columns=["offset"])
     assert "CreateFileA" in out
