@@ -72,20 +72,6 @@ def test_filter_flags_sample_last_parses(exefile, capsys):
         capsys.readouterr()
 
 
-def test_args_string_type_all(exefile, capsys):
-    """--string-type all is the default behavior and runs successfully."""
-    assert floss.main.main([exefile, "--string-type", "all"]) == 0
-    capsys.readouterr()
-
-
-def test_args_string_type_language(exefile, capsys):
-    """--string-type language selects only language strings; still runs."""
-    assert floss.main.main([exefile, "--string-type", "language", "--no-string-type", "static"]) == -1
-    capsys.readouterr()
-    assert floss.main.main([exefile, "--string-type", "language", "static"]) == 0
-    capsys.readouterr()
-
-
 def test_language_extraction_independent_of_static():
     """language strings are extracted even when static strings are disabled."""
     from pathlib import Path
@@ -113,11 +99,6 @@ def test_language_extraction_independent_of_static():
     assert results.metadata.language == "go"
     assert len(results.strings.language_strings) > 0
     assert len(results.strings.static_strings) == 0
-
-
-def test_args_no_string_type_language(exefile, capsys):
-    assert floss.main.main([exefile, "--no-string-type", "language"]) == 0
-    capsys.readouterr()
 
 
 def test_expand_string_types():

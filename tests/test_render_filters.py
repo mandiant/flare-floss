@@ -538,10 +538,11 @@ def test_plain_render_applies_filters():
     assert "junk" not in out
 
 
-def test_summary_ignores_plain():
+def test_summary_ignores_plain(exefile, capsys):
     """--summary with --plain still renders the layout-backed summary."""
-    doc = make_results()
-    out = floss.render.summary.render_summary(doc, "auto")
+    assert floss.main.main([exefile, "--summary", "--plain", "--no-string-type", "stack", "tight", "decoded"]) == 0
+    out = capsys.readouterr().out
+    assert "FLOSS SUMMARY" in out
     assert "section counts" in out
 
 
@@ -565,7 +566,10 @@ def test_main_filter_mutual_exclusion(capsys, exefile):
 
 def test_main_repeated_tags_accumulate(exefile, capsys):
     """repeated --tag flags accumulate (OR semantics)."""
-    assert floss.main.main([exefile, "--tag", "winapi", "--no-string-type", "stack", "tight", "decoded"]) == 0
+    assert (
+        floss.main.main([exefile, "--tag", "winapi", "--tag", "msvc", "--no-string-type", "stack", "tight", "decoded"])
+        == 0
+    )
     out = capsys.readouterr().out
     assert "KERNEL32.dll" in out
 
