@@ -26,7 +26,6 @@ def test_functions(exefile):
 
     # ok
     assert floss.main.main([exefile, "--analyze-functions", "0x401560"]) == 0
-    assert floss.main.main([exefile, "--analyze-functions", "0x401560"]) == 0
     assert floss.main.main([exefile, "--analyze-functions", "0x401560", "0x401000"]) == 0
 
 
