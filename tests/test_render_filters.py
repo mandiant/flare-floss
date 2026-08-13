@@ -206,6 +206,46 @@ def test_filter_by_section_fat_macho_descends_arch_wrappers():
     assert strings == ["in text"]
 
 
+def test_filter_max_strings_fat_macho_caps_per_section():
+    """--max-strings caps each fat Mach-O segment, not the whole architecture."""
+    layout = ResultLayout(
+        name="macho (fat)",
+        offset=0,
+        length=0x300,
+        children=[
+            ResultLayout(
+                name="macho: x86_64",
+                offset=0,
+                length=0x200,
+                children=[
+                    ResultLayout(
+                        name="__TEXT",
+                        offset=0,
+                        length=0x100,
+                        strings=[
+                            ResultString(string="a", offset=1, size=1, encoding="ascii", tags=["#winapi"]),
+                            ResultString(string="b", offset=2, size=1, encoding="ascii", tags=["#winapi"]),
+                        ],
+                    ),
+                    ResultLayout(
+                        name="__DATA",
+                        offset=0x100,
+                        length=0x100,
+                        strings=[
+                            ResultString(string="c", offset=3, size=1, encoding="ascii", tags=["#winapi"]),
+                        ],
+                    ),
+                ],
+            ),
+        ],
+    )
+    f = floss.render.filter.LayoutFilter(max_strings=1, tag_rules={"#winapi": "default"})
+    filtered = f.apply(layout)
+    strings = collect_layout_strings(filtered)
+    # one string per segment: a from __TEXT and c from __DATA
+    assert strings == ["a", "c"]
+
+
 def test_filter_by_structure_slug():
     f = floss.render.filter.LayoutFilter(include_structures=["import-table"])
     filtered = f.apply(make_layout())

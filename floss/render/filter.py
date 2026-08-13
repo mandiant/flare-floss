@@ -274,11 +274,29 @@ class LayoutFilter:
 
         # cap each top-level section (child of the root) as a unit, plus the
         # root's own strings, so a section never emits more than N strings.
+        # descend through Mach-O fat-arch wrappers so each segment is capped
+        # independently rather than the whole architecture.
         children: List[ResultLayout] = []
         for child in filtered.children:
-            capped = self.cap_node(child)
-            if capped is not None:
-                children.append(capped)
+            if is_arch_wrapper(child):
+                arch_children = []
+                for section in child.children:
+                    capped = self.cap_node(section)
+                    if capped is not None:
+                        arch_children.append(capped)
+                children.append(
+                    ResultLayout(
+                        name=child.name,
+                        offset=child.offset,
+                        length=child.length,
+                        strings=child.strings[: self.max_strings],
+                        children=arch_children,
+                    )
+                )
+            else:
+                capped = self.cap_node(child)
+                if capped is not None:
+                    children.append(capped)
         ranked_root = sorted(filtered.strings, key=lambda s: self.relevance_key(s, self.tag_rules))
         strings = ranked_root[: self.max_strings]
 
