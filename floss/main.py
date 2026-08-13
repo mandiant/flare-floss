@@ -29,7 +29,7 @@ from floss.cli import (
     make_parser,
     set_log_config,
 )
-from floss.utils import is_string_type_enabled
+from floss.utils import FileType, detect_file_type, is_string_type_enabled
 from floss.results import Analysis, load
 from floss.pipeline import Options, PipelineError, analyze
 
@@ -69,11 +69,15 @@ def main(argv=None) -> int:
     if argv is None:
         argv = sys.argv[1:]
 
-    parser = make_parser(argv)
+    parser = make_parser()
     try:
+        if not argv:
+            # no arguments: print the full option list and exit with code 1
+            parser.print_help()
+            return 1
         args = parser.parse_args(args=argv)
-        if args.enabled_types and args.disabled_types:
-            parser.error("--no and --only arguments are not allowed together")
+        if args.enabled_string_types and args.disabled_string_types:
+            parser.error("--string-type and --no-string-type arguments are not allowed together")
     except ArgumentValueError as e:
         print(e)
         return -1
@@ -99,26 +103,38 @@ def main(argv=None) -> int:
     sample = Path(args.sample.name)
     args.sample.close()
 
-    disabled = list(args.disabled_types or [])
-    enabled = list(args.enabled_types or [])
+    disabled_string_types = list(args.disabled_string_types or [])
+    enabled_string_types = list(args.enabled_string_types or [])
 
     if args.functions:
-        if is_string_type_enabled(StringType.STATIC, disabled, enabled):
+        static_was_enabled = is_string_type_enabled(StringType.STATIC, disabled_string_types, enabled_string_types)
+        try:
+            if enabled_string_types and StringType.STATIC.value in enabled_string_types:
+                # --string-type explicitly selected static, but --analyze-functions cannot show it:
+                # drop it from the include list instead of forcing the exclude list.
+                enabled_string_types.remove(StringType.STATIC.value)
+                if not enabled_string_types:
+                    parser.error(
+                        "--string-type static cannot be combined with --analyze-functions, "
+                        "which does not show static strings"
+                    )
+            elif not enabled_string_types and StringType.STATIC.value not in disabled_string_types:
+                disabled_string_types.append(StringType.STATIC.value)
+        except ArgumentValueError as e:
+            print(e)
+            return -1
+        if static_was_enabled:
             logger.warning("analyzing specified functions, not showing static strings")
-        if StringType.STATIC.value not in disabled:
-            disabled.append(StringType.STATIC.value)
 
-    # layout/tags: temporary dedicated flags (not --no string types); see issue #1348
+    # layout/tags are always on: automatic and detected from the sample content
     analysis = Analysis(
-        enable_static_strings=is_string_type_enabled(StringType.STATIC, disabled, enabled),
-        enable_stack_strings=is_string_type_enabled(StringType.STACK, disabled, enabled),
-        enable_tight_strings=is_string_type_enabled(StringType.TIGHT, disabled, enabled),
-        enable_decoded_strings=is_string_type_enabled(StringType.DECODED, disabled, enabled),
-        enable_layout=not args.no_layout,
-        enable_tags=not args.no_tags,
+        enable_static_strings=is_string_type_enabled(StringType.STATIC, disabled_string_types, enabled_string_types),
+        enable_stack_strings=is_string_type_enabled(StringType.STACK, disabled_string_types, enabled_string_types),
+        enable_tight_strings=is_string_type_enabled(StringType.TIGHT, disabled_string_types, enabled_string_types),
+        enable_decoded_strings=is_string_type_enabled(StringType.DECODED, disabled_string_types, enabled_string_types),
     )
 
-    if args.load:
+    if detect_file_type(sample) is FileType.RESULTS:
         try:
             results = load(sample, analysis, args.functions, args.min_length)
         except floss.results.InvalidResultsFile as e:
@@ -131,6 +147,8 @@ def main(argv=None) -> int:
         if args.json:
             r = floss.render.json.render(results)
         else:
+            if args.plain:
+                results.layout = None
             r = floss.render.default.render(results, args.verbose, args.quiet, args.color)
 
         print(r)
@@ -142,13 +160,12 @@ def main(argv=None) -> int:
         analysis=analysis,
         format=args.format,
         language=args.language,
-        enabled_types=enabled,
-        disabled_types=disabled,
+        enabled_string_types=enabled_string_types,
+        disabled_string_types=disabled_string_types,
         functions=args.functions,
         signatures=args.signatures,
         large_file=args.large_file,
         quiet=args.quiet,
-        disable_progress=args.disable_progress,
         verbose=args.verbose,
         prompt_deobfuscation=True,
     )
@@ -170,6 +187,9 @@ def main(argv=None) -> int:
     else:
         # this may be slow when there's many strings, so informing users what's happening
         logger.info("rendering results")
+        if args.plain:
+            # --plain: classic flat list, no layout or tags
+            analysis_results.layout = None
         r = floss.render.default.render(analysis_results, args.verbose, args.quiet, args.color)
 
     print(r)

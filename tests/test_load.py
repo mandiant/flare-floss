@@ -1,8 +1,13 @@
+import json
 import textwrap
+from pathlib import Path
+
+from fixtures import exefile
 
 import floss.main
+import floss.utils
 
-# floss --no static -j tests/data/src/decode-in-place/bin/test-decode-in-place.exe
+# floss --no-string-type static -j tests/data/src/decode-in-place/bin/test-decode-in-place.exe
 RESULTS = textwrap.dedent("""
 {
     "analysis": {
@@ -94,9 +99,30 @@ def test_load(tmp_path):
     assert (
         floss.main.main(
             [
-                "-l",
                 str(d.joinpath(p)),
             ]
         )
         == 0
     )
+
+
+def test_detect_file_type_returns_results_for_results_json(tmp_path):
+    p = tmp_path / "results.json"
+    p.write_text(RESULTS)
+    assert floss.utils.detect_file_type(p) is floss.utils.FileType.RESULTS
+
+
+def test_detect_file_type_not_results_for_binary(exefile):
+    assert floss.utils.detect_file_type(Path(exefile)) is not floss.utils.FileType.RESULTS
+
+
+def test_detect_file_type_not_results_for_invalid_json(tmp_path):
+    p = tmp_path / "invalid.json"
+    p.write_text("{not valid json")
+    assert floss.utils.detect_file_type(p) is not floss.utils.FileType.RESULTS
+
+
+def test_detect_file_type_not_results_for_non_floss_json(tmp_path):
+    p = tmp_path / "other.json"
+    p.write_text(json.dumps({"hello": "world"}))
+    assert floss.utils.detect_file_type(p) is not floss.utils.FileType.RESULTS

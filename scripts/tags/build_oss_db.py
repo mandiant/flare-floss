@@ -49,6 +49,8 @@ import subprocess
 from typing import Set, Dict, List, Tuple, Callable, Optional
 from dataclasses import dataclass
 
+from floss.tags import data_root
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
@@ -1099,7 +1101,7 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     parser.add_argument(
         "--output-dir",
         type=pathlib.Path,
-        default=pathlib.Path(__file__).resolve().parents[2] / "floss" / "qs" / "db" / "data" / "oss",
+        default=data_root() / "oss",
         help="directory for generated .jsonl.gz files and metrics",
     )
     parser.add_argument(

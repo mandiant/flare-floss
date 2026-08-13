@@ -19,7 +19,7 @@ import pytest
 from floss.tags import load_databases
 from floss.layout import compute_layout
 from floss.ranges import Slice
-from floss.layout.extract import collect_strings, extract_layout_strings
+from floss.layout.extract import collect_strings
 
 
 @pytest.fixture(scope="module")
@@ -32,12 +32,12 @@ def pma0101_layout():
     binary_path = Path("tests") / Path("data") / Path("pma") / Path("Practical Malware Analysis Lab 01-01.dll_")
     slice_buf = binary_path.read_bytes()
     file_slice = Slice.from_bytes(slice_buf)
-    layout = compute_layout(file_slice)
-    extract_layout_strings(layout, 6)
+    parsed = compute_layout(file_slice)
+    parsed.extract_strings(6)
     taggers = load_databases()
-    layout.tag_strings(taggers)
-    layout.mark_structures()
-    return layout
+    parsed.tag_strings(taggers)
+    parsed.mark_structures()
+    return parsed
 
 
 def find_string(layout, text):

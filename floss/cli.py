@@ -53,6 +53,10 @@ class StringType(str, Enum):
     DECODED = "decoded"
 
 
+# string types selectable via --string-type / --no-string-type
+STRING_TYPE_CHOICES = [t.value for t in StringType]
+
+
 class WorkspaceLoadError(ValueError):
     pass
 
@@ -76,7 +80,7 @@ class ArgumentParser(argparse.ArgumentParser):
         raise ArgumentValueError("%(prog)s: error: %(message)s" % args)
 
 
-def make_parser(argv):
+def make_parser():
     desc = (
         "The FLARE team's open-source tool to extract ALL strings from malware.\n"
         f"  %(prog)s {__version__} - https://github.com/mandiant/flare-floss/\n\n"
@@ -89,46 +93,37 @@ def make_parser(argv):
         " 1. Go:   strings from binaries written in Go\n"
         " 2. Rust: strings from binaries written in Rust\n\n"
         "By default, static strings are layout-aware with tags for PE/ELF/Mach-O\n"
-        "(section context, prevalence/library/expert tags). Disable with:\n"
-        "  --no-layout   or   --no-tags\n"
-        "(temporary flags; CLI cleanup tracked in github.com/mandiant/flare-floss/issues/1348)\n"
+        "(section context, prevalence/library/expert tags).\n"
     )
     epilog = textwrap.dedent("""
-        only displaying core arguments, run `floss -H` to see all supported options
-
         examples:
           extract all strings from an executable
             floss suspicious.exe
 
+          classic flat list of strings without layout and tags
+            floss --plain suspicious.exe
+
           do not extract static strings
-            floss --no static -- suspicious.exe
+            floss --no-string-type static -- suspicious.exe
 
           only extract stack and tight strings
-            floss --only stack tight -- suspicious.exe
+            floss --string-type stack tight -- suspicious.exe
 
-          classic static strings without layout/tags
-            floss --no-layout -- suspicious.exe
-        """)
-    epilog_advanced = textwrap.dedent("""
-        examples:
-          extract all strings from 32-bit shellcode
+          extract strings from 32-bit shellcode
             floss -f sc32 shellcode.bin
 
           only decode strings from the specified functions
-            floss --functions 0x401000 0x401100 suspicious.exe
+            floss --analyze-functions 0x401000 0x401100 -- suspicious.exe
 
           extract strings from a binary written in Go (if automatic language identification fails)
             floss --language go program.exe
         """)
 
-    show_all_options = "-H" in argv
-
     parser = ArgumentParser(
         description=desc,
-        epilog=epilog_advanced if show_all_options else epilog,
+        epilog=epilog,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("-H", action="help", help="show advanced options and exit")
     parser.add_argument(
         "-n",
         "--minimum-length",
@@ -146,33 +141,22 @@ def make_parser(argv):
 
     analysis_group = parser.add_argument_group("analysis arguments")
     analysis_group.add_argument(
-        "--no",
+        "--string-type",
         action="extend",
-        dest="disabled_types",
+        dest="enabled_string_types",
         nargs="+",
-        choices=[t.value for t in StringType],
+        choices=STRING_TYPE_CHOICES,
         default=[],
-        help="do not extract specified string type(s)",
+        help="only extract specified string type(s); valid values: %s" % ", ".join(STRING_TYPE_CHOICES),
     )
     analysis_group.add_argument(
-        "--only",
+        "--no-string-type",
         action="extend",
-        dest="enabled_types",
+        dest="disabled_string_types",
         nargs="+",
-        choices=[t.value for t in StringType],
+        choices=STRING_TYPE_CHOICES,
         default=[],
-        help="only extract specified string type(s)",
-    )
-    # temporary product toggles (not string types); see issue #1348 for CLI cleanup
-    analysis_group.add_argument(
-        "--no-layout",
-        action="store_true",
-        help="disable layout-aware static analysis (classic flat static listing)",
-    )
-    analysis_group.add_argument(
-        "--no-tags",
-        action="store_true",
-        help="disable tag databases (layout sections without prevalence/library tags)",
+        help="do not extract specified string type(s); valid values: %s" % ", ".join(STRING_TYPE_CHOICES),
     )
 
     advanced_group = parser.add_argument_group("advanced arguments")
@@ -188,86 +172,52 @@ def make_parser(argv):
         "--format",
         choices=[f[0] for f in formats],
         default="auto",
-        help="select sample format, %s" % format_help if show_all_options else argparse.SUPPRESS,
+        help="select sample format, %s" % format_help,
     )
     advanced_group.add_argument(
         "--language",
         type=str,
         choices=[l.value for l in Language if l != Language.UNKNOWN],
         default=Language.UNKNOWN.value,
-        help=(
-            "use language-specific string extraction, auto-detect language by default, disable using 'none'"
-            if show_all_options
-            else argparse.SUPPRESS
-        ),
+        help="use language-specific string extraction, auto-detect language by default, disable using 'none'",
     )
     advanced_group.add_argument(
-        "-l",
-        "--load",
-        action="store_true",
-        help="load from existing FLOSS results document" if show_all_options else argparse.SUPPRESS,
-    )
-    advanced_group.add_argument(
-        "--functions",
+        "--analyze-functions",
+        dest="functions",
         type=lambda x: int(x, 0x10),
         default=None,
         nargs="+",
-        help=(
-            "only analyze the specified functions, hex-encoded like 0x401000, space-separate multiple functions"
-            if show_all_options
-            else argparse.SUPPRESS
-        ),
-    )
-    advanced_group.add_argument(
-        "--disable-progress",
-        action="store_true",
-        help="disable all progress bars" if show_all_options else argparse.SUPPRESS,
+        help="only analyze the specified functions, hex-encoded like 0x401000, space-separate multiple functions",
     )
     advanced_group.add_argument(
         "--signatures",
         type=str,
         default=SIGNATURES_PATH_DEFAULT_STRING,
-        help=(
-            "path to .sig/.pat file or directory used to identify library functions, use embedded signatures by default"
-            if show_all_options
-            else argparse.SUPPRESS
-        ),
+        help="path to .sig/.pat file or directory used to identify library functions, use embedded signatures by default",
     )
     advanced_group.add_argument(
         "-L",
         "--large-file",
         action="store_true",
-        help=(
-            "allow processing files larger than {} MB".format(int(MAX_FILE_SIZE / MEGABYTE))
-            if show_all_options
-            else argparse.SUPPRESS
-        ),
+        help="allow processing files larger than {} MB".format(int(MAX_FILE_SIZE / MEGABYTE)),
     )
     advanced_group.add_argument(
         "--version",
         action="version",
         version="%(prog)s {:s}".format(__version__),
-        help="show program's version number and exit" if show_all_options else argparse.SUPPRESS,
+        help="show program's version number and exit",
     )
     if sys.platform == "win32":
         advanced_group.add_argument(
             "--install-right-click-menu",
             action=floss.utils.InstallContextMenu,
-            help=(
-                "install FLOSS to the right-click context menu for Windows Explorer and exit"
-                if show_all_options
-                else argparse.SUPPRESS
-            ),
+            help="install FLOSS to the right-click context menu for Windows Explorer and exit",
         )
 
         advanced_group.add_argument(
             "--uninstall-right-click-menu",
             action=floss.utils.UninstallContextMenu,
-            help=(
-                "uninstall FLOSS from the right-click context menu for Windows Explorer and exit"
-                if show_all_options
-                else argparse.SUPPRESS
-            ),
+            help="uninstall FLOSS from the right-click context menu for Windows Explorer and exit",
         )
 
     output_group = parser.add_argument_group("rendering arguments")
@@ -278,6 +228,12 @@ def make_parser(argv):
         action="count",
         default=Verbosity.DEFAULT,
         help="enable verbose results, e.g. including function offsets (does not affect JSON output)",
+    )
+    output_group.add_argument(
+        "--plain",
+        action="store_true",
+        default=False,
+        help="render the classic flat list of strings without layout and tags",
     )
 
     logging_group = parser.add_argument_group("logging arguments")

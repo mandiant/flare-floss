@@ -22,6 +22,7 @@ import logging
 import argparse
 import builtins
 import contextlib
+from enum import Enum
 from typing import Set, Tuple, Iterable, Optional
 from pathlib import Path
 from collections import OrderedDict
@@ -37,7 +38,14 @@ from envi import Emulator
 import floss.strings
 import floss.logging_
 
-from .const import MEGABYTE, MOD_NAME, MAX_STRING_LENGTH
+from .const import (
+    MEGABYTE,
+    MOD_NAME,
+    MAX_STRING_LENGTH,
+    UNSUPPORTED_FILE_MAGIC,
+    SUPPORTED_FILE_MAGIC_PE,
+    SUPPORTED_FILE_MAGIC_ELF,
+)
 from .results import StaticString
 from .strings import extract_ascii_unicode_strings
 from .api_hooks import ENABLED_VIV_DEFAULT_HOOKS
@@ -45,6 +53,57 @@ from .api_hooks import ENABLED_VIV_DEFAULT_HOOKS
 STACK_MEM_NAME = "[stack]"
 
 logger = floss.logging_.getLogger(__name__)
+
+
+class FileType(str, Enum):
+    """
+    The kind of a file, detected from its content.
+    """
+
+    PE = "pe"
+    ELF = "elf"
+    UNSUPPORTED = "unsupported"
+    RESULTS = "results"  # a saved FLOSS results document
+
+
+# how many leading bytes to sniff when detecting a results document
+_RESULTS_SNIFF_SIZE = 8192
+
+
+def detect_file_type(sample: Path) -> FileType:
+    """
+    Detect the kind of a file from its content.
+
+    A saved FLOSS results document is a JSON object with the top-level
+    ResultDocument fields metadata, analysis, and strings. The top-level
+    schema is stable across the migration iterations, so this check does not
+    need a version.
+
+    Binary samples are rejected cheaply by peeking the first non-whitespace
+    byte. Results documents are recognized by a fast byte-sequence check over
+    the leading chunk for the top-level keys, so large binaries that happen to
+    start with '{' are not read or parsed in full. Strict validation of the
+    document structure happens when the file is loaded.
+    """
+    try:
+        with sample.open("rb") as f:
+            chunk = f.read(_RESULTS_SNIFF_SIZE)
+    except OSError:
+        return FileType.UNSUPPORTED
+
+    if chunk[:4] == SUPPORTED_FILE_MAGIC_ELF:
+        return FileType.ELF
+    elif chunk[:2] == SUPPORTED_FILE_MAGIC_PE:
+        return FileType.PE
+
+    stripped = chunk.lstrip()
+    if not stripped or stripped[:1] != b"{":
+        return FileType.UNSUPPORTED
+
+    if all(key in chunk for key in (b'"metadata"', b'"analysis"', b'"strings"')):
+        return FileType.RESULTS
+
+    return FileType.UNSUPPORTED
 
 
 class InstallContextMenu(argparse.Action):
@@ -471,11 +530,11 @@ def get_call_funcname(api):
     return api[3]
 
 
-def is_string_type_enabled(type_, disabled_types, enabled_types):
-    if disabled_types:
-        return type_ not in disabled_types
-    elif enabled_types:
-        return type_ in enabled_types
+def is_string_type_enabled(type_, disabled_string_types, enabled_string_types):
+    if disabled_string_types:
+        return type_ not in disabled_string_types
+    elif enabled_string_types:
+        return type_ in enabled_string_types
     else:
         return True
 
