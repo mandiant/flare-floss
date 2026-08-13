@@ -411,8 +411,16 @@ def render(
                 layout = ResultLayout(name=layout.name, offset=layout.offset, length=layout.length)
             else:
                 layout = filtered
-        layout_view = hide_strings_by_rules(layout, DEFAULT_TAG_RULES)
-        render_strings(console, layout_view, DEFAULT_TAG_RULES, columns=columns)
+
+        # when the user expressed tag intent (--tag or --interesting), don't let
+        # the default hide rules (e.g. #code, #reloc) drop strings the filter
+        # deliberately kept. tag-aware filtering already narrowed the set.
+        tag_rules = DEFAULT_TAG_RULES
+        if layout_filter is not None and (layout_filter.include_tags or layout_filter.interesting):
+            tag_rules = {tag: "default" if rule == "hide" else rule for tag, rule in DEFAULT_TAG_RULES.items()}
+
+        layout_view = hide_strings_by_rules(layout, tag_rules)
+        render_strings(console, layout_view, tag_rules, columns=columns)
         console.print()
     else:
         if not disable_headers:

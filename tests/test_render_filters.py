@@ -338,6 +338,37 @@ def test_filter_all_removed_renders_empty():
     assert "kcp://url" not in out
 
 
+def test_tag_filter_overrides_default_hide_rules():
+    """--tag code / --tag winapi / --interesting must show strings that carry a
+    hide-rule tag (#code/#reloc) which the default render would suppress."""
+    layout = ResultLayout(
+        name=".rdata",
+        offset=0,
+        length=0x10,
+        strings=[
+            ResultString(string="junk code", offset=1, size=9, encoding="ascii", tags=["#code", "#winapi"]),
+        ],
+    )
+    doc = ResultDocument(
+        metadata=Metadata(file_path="x", min_length=4),
+        analysis=Analysis(enable_stack_strings=False, enable_tight_strings=False, enable_decoded_strings=False),
+        strings=Strings(),
+        layout=layout,
+    )
+
+    for kwargs in (
+        {"include_tags": ["code"]},
+        {"include_tags": ["winapi"]},
+        {"interesting": True},
+    ):
+        out = render(doc, True, False, "auto", layout_filter=floss.render.filter.LayoutFilter(**kwargs))
+        assert "junk code" in out, kwargs
+
+    # without a tag filter, the default hide rules still suppress #code strings
+    out = render(doc, True, False, "auto")
+    assert "junk code" not in out
+
+
 def test_summary_output():
     out = floss.render.summary.render_summary(make_results())
     assert "FLOSS SUMMARY" in out
