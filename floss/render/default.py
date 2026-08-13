@@ -265,10 +265,11 @@ def render_string(
             right.append_text(render_string_tags(s, tag_rules, is_group_start=is_group_start))
     if "offset" in columns:
         right.append_text(render_string_padding())
-        # indicate encoding: ascii implicit default
-        if "encoding" in columns:
-            right.append_text(Span("U " if s.encoding == "unicode" else "  "))
         right.append_text(render_string_offset(s))
+    if "encoding" in columns:
+        right.append_text(render_string_padding())
+        # indicate encoding: ascii is the implicit default
+        right.append_text(Span("U " if s.encoding == "unicode" else "  "))
     if "structure" in columns:
         right.append_text(render_string_structure(s))
 
