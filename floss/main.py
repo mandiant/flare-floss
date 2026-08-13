@@ -134,6 +134,8 @@ def main(argv=None) -> int:
             parser.error("--structure and --no-structure arguments are not allowed together")
         if args.include_tags and args.exclude_tags:
             parser.error("--tag and --no-tag arguments are not allowed together")
+        if args.max_strings is not None and args.max_strings <= 0:
+            parser.error("--max-strings must be a positive integer")
         for pattern in args.queries:
             try:
                 re.compile(pattern)

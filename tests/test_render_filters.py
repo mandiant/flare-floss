@@ -176,6 +176,15 @@ def test_filter_by_structure_slug():
     assert strings == ["CreateFileA"]
 
 
+def test_filter_by_structure_slug_variants():
+    """import-table, import_table, and import table all match the same structure."""
+    for slug in ("import-table", "import_table", "import table"):
+        f = floss.render.filter.LayoutFilter(include_structures=[slug])
+        filtered = f.apply(make_layout())
+        strings = collect_layout_strings(filtered)
+        assert strings == ["CreateFileA"], slug
+
+
 def test_filter_by_tag():
     f = floss.render.filter.LayoutFilter(include_tags=["winapi"])
     filtered = f.apply(make_layout())
@@ -189,6 +198,23 @@ def test_filter_exclude_tag():
     strings = collect_layout_strings(filtered)
     assert "CreateFileA" in strings
     assert "hello world" not in strings
+
+
+def test_filter_repeated_tags_accumulate():
+    """repeated --tag values are ORed."""
+    f = floss.render.filter.LayoutFilter(include_tags=["winapi", "kcp"])
+    filtered = f.apply(make_layout())
+    strings = collect_layout_strings(filtered)
+    assert "CreateFileA" in strings
+    assert "kcp://url" in strings
+
+
+def test_filter_oss_meta_tag():
+    """the oss meta tag matches any OSS library tag."""
+    f = floss.render.filter.LayoutFilter(include_tags=["oss"])
+    filtered = f.apply(make_layout())
+    strings = collect_layout_strings(filtered)
+    assert strings == ["kcp://url"]
 
 
 def test_filter_interesting():
@@ -292,18 +318,18 @@ def test_filter_max_strings_caps_per_section():
     assert len(strings) == 2
 
 
-def test_columns_hide_tags(exefile):
+def test_columns_hide_tags():
     out = render(make_results(), True, False, "auto", columns=["offset"])
     assert "CreateFileA" in out
     assert "#winapi" not in out
 
 
-def test_columns_show_structure(exefile):
+def test_columns_show_structure():
     out = render(make_results(), True, False, "auto", columns=["offset", "structure"])
     assert "import table" in out
 
 
-def test_filter_all_removed_renders_empty(exefile):
+def test_filter_all_removed_renders_empty():
     """a filter that matches nothing must not fall back to the unfiltered layout."""
     f = floss.render.filter.LayoutFilter(include_tags=["#nonexistent"])
     out = render(make_results(), True, False, "auto", layout_filter=f)
@@ -312,15 +338,27 @@ def test_filter_all_removed_renders_empty(exefile):
     assert "kcp://url" not in out
 
 
-def test_summary_output(exefile):
+def test_summary_output():
     out = floss.render.summary.render_summary(make_results())
     assert "FLOSS SUMMARY" in out
     assert "CreateFileA" in out
     assert "#winapi" in out
 
 
-def test_main_summary_flag(exefile):
+def test_main_summary_flag(exefile, capsys):
     assert floss.main.main([exefile, "--summary", "--no-string-type", "stack", "tight", "decoded"]) == 0
+    out = capsys.readouterr().out
+    assert "FLOSS SUMMARY" in out
+    assert "string counts" in out
+
+
+def test_summary_no_layout_ok():
+    """--summary must not crash when there is no layout tree."""
+    results = make_results()
+    results.layout = None
+    out = floss.render.summary.render_summary(results, "auto")
+    assert "FLOSS SUMMARY" in out
+    assert "string counts" in out
 
 
 def test_main_json_error(capsys, exefile):
@@ -347,8 +385,56 @@ def test_main_invalid_query_regex_text_error(capsys, exefile):
     assert "query" in out
 
 
-def test_main_columns_flag(exefile):
+def test_main_columns_flag(exefile, capsys):
     assert (
         floss.main.main([exefile, "--columns", "offset", "structure", "--no-string-type", "stack", "tight", "decoded"])
         == 0
     )
+    out = capsys.readouterr().out
+    assert "KERNEL32.dll" in out
+    assert "import table" in out
+
+
+def test_main_columns_invalid_value(exefile):
+    assert floss.main.main([exefile, "--columns", "bogus"]) == -1
+
+
+def test_main_columns_with_plain(exefile):
+    """--columns is irrelevant with --plain (no layout), but must not crash."""
+    assert floss.main.main([exefile, "--plain", "--columns", "offset", "structure"]) == 0
+
+
+def test_main_summary_with_json(exefile, capsys):
+    """--json takes precedence over --summary."""
+    assert floss.main.main([exefile, "-j", "--summary", "--no-string-type", "stack", "tight", "decoded"]) == 0
+    out = capsys.readouterr().out
+    assert "FLOSS SUMMARY" not in out
+    json.loads(out)
+
+
+def test_main_filter_mutual_exclusion(capsys, exefile):
+    for args in (
+        ["--structure", "import-table", "--no-structure", "export-table"],
+        ["--tag", "winapi", "--no-tag", "crypto"],
+    ):
+        assert floss.main.main([exefile] + args) == -1
+        captured = capsys.readouterr()
+        assert "not allowed together" in captured.out + captured.err
+
+
+def test_main_repeated_tags_accumulate(exefile, capsys):
+    """repeated --tag flags accumulate (OR semantics)."""
+    assert floss.main.main([exefile, "--tag", "winapi", "--tag", "oss"]) == 0
+    capsys.readouterr()
+
+
+def test_main_max_strings_invalid(exefile):
+    for value in ("0", "-1"):
+        assert floss.main.main([exefile, "--max-strings", value]) == -1
+
+
+def test_main_max_strings_larger_than_section(exefile, capsys):
+    """a max larger than the section size is fine and returns everything."""
+    assert floss.main.main([exefile, "--max-strings", "100000", "--no-string-type", "stack", "tight", "decoded"]) == 0
+    out = capsys.readouterr().out
+    assert "KERNEL32.dll" in out
