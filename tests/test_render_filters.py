@@ -202,6 +202,22 @@ def test_filter_interesting():
     assert "kcp://url" in strings
 
 
+def test_filter_interesting_keeps_strings_with_non_noisy_tag():
+    """a string with both a noisy and a non-noisy tag is kept."""
+    layout = ResultLayout(
+        name=".rdata",
+        offset=0,
+        length=0x10,
+        strings=[
+            ResultString(string="CreateFileA", offset=1, size=11, encoding="ascii", tags=["#winapi", "#common"]),
+            ResultString(string="only noisen", offset=2, size=11, encoding="ascii", tags=["#common", "#code"]),
+        ],
+    )
+    f = floss.render.filter.LayoutFilter(interesting=True)
+    filtered = f.apply(layout)
+    assert [s.string for s in filtered.strings] == ["CreateFileA"]
+
+
 def test_filter_query():
     f = floss.render.filter.LayoutFilter(queries=["CreateFile"])
     filtered = f.apply(make_layout())

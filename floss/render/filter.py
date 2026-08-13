@@ -77,7 +77,8 @@ class LayoutFilter:
         exclude_structures: drop strings whose structure field is in this list.
         include_tags: keep strings with any matching tag.
         exclude_tags: drop strings with any matching tag.
-        interesting: shortcut that excludes the noisy tag set.
+        interesting: drop strings that carry only noisy tags; strings with at
+            least one non-noisy tag are kept.
         queries: regex patterns ORed against string content.
         max_strings: cap emitted strings per layout node to the top N by
             relevance.
@@ -104,8 +105,7 @@ class LayoutFilter:
         self.exclude_structures = list(exclude_structures or [])
         self.include_tags = list(include_tags or [])
         self.exclude_tags = list(exclude_tags or [])
-        if interesting:
-            self.exclude_tags = list(dict.fromkeys(self.exclude_tags + list(NOISY_TAGS)))
+        self.interesting = interesting
         self.queries = [re.compile(q) for q in (queries or [])]
         self.max_strings = max_strings
         self.tag_rules = tag_rules or {}
@@ -119,6 +119,7 @@ class LayoutFilter:
             or self.exclude_structures
             or self.include_tags
             or self.exclude_tags
+            or self.interesting
             or self.queries
             or self.max_strings is not None
         )
@@ -138,6 +139,10 @@ class LayoutFilter:
         if self.include_tags and not any(tag_matches(t, s.tags) for t in self.include_tags):
             return False
         if self.exclude_tags and any(tag_matches(t, s.tags) for t in self.exclude_tags):
+            return False
+        if self.interesting and s.tags and not any(tag not in NOISY_TAGS for tag in s.tags):
+            # drop strings that carry only noisy tags; keep strings that have
+            # at least one non-noisy tag (e.g. #winapi #common)
             return False
 
         if self.queries and not any(pattern.search(s.string) for pattern in self.queries):
