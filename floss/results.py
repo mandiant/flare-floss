@@ -399,12 +399,23 @@ def check_set_string_types(results: ResultDocument, wanted_analysis: Analysis) -
 
 
 def filter_functions(results: ResultDocument, functions: List[int]) -> None:
-    filtered_scores = dict()
+    # a function is valid if it appears in any string category; decoding
+    # functions additionally have a score. don't require a decoding score for
+    # stack/tight-only functions.
+    stack_fvas = {f.function for f in results.strings.stack_strings}
+    tight_fvas = {f.function for f in results.strings.tight_strings}
+    decoded_fvas = {f.decoding_routine for f in results.strings.decoded_strings}
+    known_fvas = stack_fvas | tight_fvas | decoded_fvas | set(results.analysis.functions.decoding_function_scores)
+
     for fva in functions:
-        try:
-            filtered_scores[fva] = results.analysis.functions.decoding_function_scores[fva]
-        except KeyError:
+        if fva not in known_fvas:
             raise InvalidLoadConfig(f"function 0x{fva:x} not found in loaded data")
+
+    filtered_scores = {
+        fva: results.analysis.functions.decoding_function_scores[fva]
+        for fva in functions
+        if fva in results.analysis.functions.decoding_function_scores
+    }
     results.analysis.functions.decoding_function_scores = filtered_scores
 
     results.strings.stack_strings = list(filter(lambda f: f.function in functions, results.strings.stack_strings))
@@ -424,4 +435,25 @@ def filter_string_len(results: ResultDocument, min_length: int) -> None:
     results.strings.tight_strings = list(filter(lambda s: len(s.string) >= min_length, results.strings.tight_strings))
     results.strings.decoded_strings = list(
         filter(lambda s: len(s.string) >= min_length, results.strings.decoded_strings)
+    )
+    results.strings.language_strings = list(
+        filter(lambda s: len(s.string) >= min_length, results.strings.language_strings)
+    )
+    results.strings.language_strings_missed = list(
+        filter(lambda s: len(s.string) >= min_length, results.strings.language_strings_missed)
+    )
+    if results.layout is not None:
+        results.layout = _filter_layout_string_len(results.layout, min_length)
+
+
+def _filter_layout_string_len(layout: ResultLayout, min_length: int) -> ResultLayout:
+    """recursively drop layout-tree strings shorter than min_length."""
+    strings = [s for s in layout.strings if len(s.string) >= min_length]
+    children = [_filter_layout_string_len(child, min_length) for child in layout.children]
+    return ResultLayout(
+        name=layout.name,
+        offset=layout.offset,
+        length=layout.length,
+        strings=strings,
+        children=children,
     )
