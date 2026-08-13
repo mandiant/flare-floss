@@ -258,6 +258,8 @@ class Runtime:
         """
         Record the elapsed time of the wrapped block into the given runtime field.
         """
+        if not hasattr(self, field):
+            raise AttributeError(f"Runtime has no field {field!r}")
         t0 = time.time()
         try:
             yield
