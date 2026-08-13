@@ -518,6 +518,26 @@ def test_plain_render_does_not_mutate_results():
     assert doc.layout is not None
 
 
+def test_plain_render_applies_filters():
+    """--plain is filter-aware: --query/--tag narrow the flat listing."""
+    s = ResultString(string="http://evil", offset=1, size=11, encoding="ascii", tags=["#winapi"])
+    s2 = ResultString(string="junk", offset=2, size=4, encoding="ascii", tags=["#common"])
+    doc = ResultDocument(
+        metadata=Metadata(file_path="x", min_length=4),
+        analysis=Analysis(enable_stack_strings=False, enable_tight_strings=False, enable_decoded_strings=False),
+        strings=Strings(
+            static_strings=[
+                StaticString(string="http://evil", offset=1, encoding=StringEncoding.ASCII, tags=["#winapi"]),
+                StaticString(string="junk", offset=2, encoding=StringEncoding.ASCII, tags=["#common"]),
+            ]
+        ),
+        layout=ResultLayout(name="pe", offset=0, length=10, strings=[s, s2]),
+    )
+    out = render(doc, True, False, "auto", plain=True, layout_filter=floss.render.filter.LayoutFilter(queries=["http"]))
+    assert "http://evil" in out
+    assert "junk" not in out
+
+
 def test_summary_ignores_plain():
     """--summary with --plain still renders the layout-backed summary."""
     doc = make_results()

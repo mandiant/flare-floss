@@ -39,6 +39,7 @@ from floss.results import (
     StringEncoding,
 )
 from floss.tags.filter import TagRules, hide_strings_by_rules
+from floss.enrich import static_strings_from_layout
 from floss.render.filter import LayoutFilter
 from floss.render.layout import DEFAULT_COLUMNS, render_strings
 from floss.render.sanitize import sanitize
@@ -434,7 +435,16 @@ def render(
             console.print("\n")
 
         if results.analysis.enable_static_strings:
-            render_staticstrings(results.strings.static_strings, console, verbose, disable_headers)
+            static_strings = results.strings.static_strings
+            # --plain is filter-aware: apply the render-time filters to the
+            # layout tree (when present) and flatten the filtered result
+            if plain and layout_filter is not None and layout_filter.active and results.layout is not None:
+                filtered = layout_filter.apply(results.layout)
+                if filtered is not None:
+                    static_strings = static_strings_from_layout(filtered)
+                else:
+                    static_strings = []
+            render_staticstrings(static_strings, console, verbose, disable_headers)
             console.print("\n")
 
     if results.analysis.enable_language_strings and results.metadata.language in (
