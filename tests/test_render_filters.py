@@ -132,6 +132,43 @@ def test_filter_exclude_section():
     assert "CreateFileA" in strings
 
 
+def test_filter_by_section_matches_nested_nodes():
+    """--section must match strings living in nested nodes under the section."""
+    layout = ResultLayout(
+        name="pe",
+        offset=0,
+        length=0x1000,
+        children=[
+            ResultLayout(
+                name=".rdata",
+                offset=0x800,
+                length=0x800,
+                children=[
+                    ResultLayout(
+                        name="import table",
+                        offset=0x810,
+                        length=0x10,
+                        strings=[
+                            ResultString(
+                                string="CloseHandle",
+                                offset=0x812,
+                                size=11,
+                                encoding="ascii",
+                                tags=["#winapi"],
+                                structure="import table",
+                            )
+                        ],
+                    )
+                ],
+            )
+        ],
+    )
+    f = floss.render.filter.LayoutFilter(include_sections=[".rdata"])
+    filtered = f.apply(layout)
+    strings = collect_layout_strings(filtered)
+    assert strings == ["CloseHandle"]
+
+
 def test_filter_by_structure_slug():
     f = floss.render.filter.LayoutFilter(include_structures=["import-table"])
     filtered = f.apply(make_layout())

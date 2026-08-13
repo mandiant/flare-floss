@@ -168,14 +168,21 @@ class LayoutFilter:
             group = 3
         return (group, s.offset)
 
-    def _apply_node(self, layout: ResultLayout) -> Optional[ResultLayout]:
+    def _apply_node(self, layout: ResultLayout, section: str, depth: int) -> Optional[ResultLayout]:
         """filter one layout node, recursing into children.
+
+        The ``section`` name is threaded down the tree: the root node is the
+        file itself (its own strings carry the root name), each child of the
+        root is a binary section, and deeper nodes inherit their containing
+        section. This way ``--section .rdata`` also matches strings that live
+        in nested structure nodes under ``.rdata``.
 
         returns None when the node has no matching strings and no matching
         children, so empty branches are pruned but headers that still contain
         matches are kept.
         """
-        section = layout.name
+        if depth == 0:
+            section = layout.name
 
         strings = [s for s in layout.strings if self._string_matches(section, s)]
         if self.max_strings is not None:
@@ -183,7 +190,9 @@ class LayoutFilter:
 
         children: List[ResultLayout] = []
         for child in layout.children:
-            filtered = self._apply_node(child)
+            # children of the root are the sections themselves; deeper nodes inherit
+            child_section = child.name if depth == 0 else section
+            filtered = self._apply_node(child, child_section, depth + 1)
             if filtered is not None:
                 children.append(filtered)
 
@@ -200,4 +209,4 @@ class LayoutFilter:
 
     def apply(self, layout: ResultLayout) -> Optional[ResultLayout]:
         """return a filtered copy of ``layout``, or None when nothing matches."""
-        return self._apply_node(layout)
+        return self._apply_node(layout, "", 0)
