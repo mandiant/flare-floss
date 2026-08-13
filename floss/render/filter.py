@@ -90,7 +90,7 @@ class LayoutFilter:
         interesting: drop strings that carry only noisy tags; strings with at
             least one non-noisy tag are kept.
         queries: regex patterns ORed against string content.
-        max_strings: cap emitted strings per layout node to the top N by
+        max_strings: cap emitted strings per top-level section to the top N by
             relevance.
         tag_rules: tag rules used to compute the relevance order.
     """

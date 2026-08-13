@@ -16,7 +16,7 @@
 
 This module renders the serializable ``ResultLayout`` tree produced by the
 layout-aware static analysis, including tags, offsets, structures, and the
-tree headers/footers. It is imported by the default renderer.
+tree headers/footers.
 """
 
 from __future__ import annotations

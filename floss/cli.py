@@ -83,7 +83,7 @@ class ArgumentParser(argparse.ArgumentParser):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # when a JSON output mode is active, parsing errors emit a single JSON
-        # object on STDERR, without the usage text (see spec section 3.3)
+        # object on STDERR, without the usage text
         self.json_mode = False
 
     def error(self, message):

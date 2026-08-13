@@ -408,7 +408,6 @@ def render(
         if layout_filter is not None and layout_filter.active:
             filtered = layout_filter.apply(layout)
             if filtered is None:
-                # filters removed every string; render nothing for statics
                 layout = ResultLayout(name=layout.name, offset=layout.offset, length=layout.length)
             else:
                 layout = filtered
