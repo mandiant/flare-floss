@@ -50,4 +50,43 @@ Hash databases:
 
   - xaa-hashes.bin: strings seen more than 100 times in 100,000 files uploaded to VirusTotal on May 1, 2023. There's probably a substantial bias in this collection. See issue #722 for the history.
   - yaa-hashes.bin: strings seen more than 100 times in 100,000 files uploaded to VirusTotal between May 18 and 24, 2023. The samples are randomly selected from more than 3 million total candidates in this time range. There's probably less bias in this collection (I hope). Also see issue #722 for the history.
+  - gp-2026-hashes.bin: Refined global prevalence database (82,269 hashes). Compiled from a 153k sample corpus (Sep 2023 - Jun 2026) to filter out common string noise.
+  - gp-go-specific.bin: Go-specific runtime noise (41,585 hashes). Contains Go-specific runtime and type descriptor strings.
+  - gp-rust-specific.bin: Rust-specific runtime noise (3,953 hashes). Contains Rust panic-handling and standard library strings.
+  - gp-pyinstaller-specific.bin: PyInstaller-specific noise (13,702 hashes). Contains PyInstaller bootloader and standard library Python bytecode strings.
+
+## Source Data (CSVs)
+
+For transparency and future reference, the raw string lists (with counts and locations) used to generate the 2026 databases are included as compressed CSV files in the `raw/` directory:
+
+  - raw/gp-2026-hashes.csv.gz: Raw strings and metadata for `gp-2026-hashes.bin`.
+  - raw/gp-go-specific.csv.gz: Raw strings and metadata for `gp-go-specific.bin`.
+  - raw/gp-rust-specific.csv.gz: Raw strings and metadata for `gp-rust-specific.bin`.
+  - raw/gp-pyinstaller-specific.csv.gz: Raw strings and metadata for `gp-pyinstaller-specific.bin`.
+
+## 2026 Database Generation
+
+The 2026 prevalence databases were generated from a temporally balanced corpus to represent the modern threat landscape while filtering out campaign-specific noise.
+
+### 1. Corpus Selection & Extraction
+*   **Source**: 247,485 unique PE binaries collected from VirusTotal (balanced at ~250/day over 1,000 days from Sep 2023 to Jun 2026).
+*   **Clustering**: Clustered by Vhash and TLSH to select at most 3 representatives per cluster, resulting in **153,913 representative samples** used for string extraction.
+
+### 2. Global Database (`gp-2026-hashes.bin`)
+To filter out general PE noise while avoiding malware campaign flooding:
+*   **Imphash Grouping**: Grouped the 153k files into **54,996 unique imphash groups** (counting only 1 file per group) to normalize the weight of malware families.
+*   **Section Filtering**: Restricted the database to strings from **14 standard PE sections** (e.g., `.text`, `.rdata`), removing packer and overlay noise.
+*   **Campaign Pruning**: Removed low-frequency campaign noise by requiring strings to appear in >= 11 groups (or >= 1,000 raw samples).
+*   *Result*: **82,269 unique hashes** (a clean, high-confidence global noise database).
+
+### 3. Specialized Sub-Databases (Go, Rust, PyInstaller)
+Statically linked runtimes share identical IATs and collapse into single imphash groups, hiding their runtime strings. To capture this noise:
+*   **Classification**: Identified Go (1,574 samples), Rust (1,038 samples), and PyInstaller (1,229 samples) subsets using metadata.
+*   **Raw Samples Approach**: Compiled strings using raw sample counts (no grouping) at a 5% threshold (10% for PyInstaller) to capture the runtime.
+*   **Global Subtraction**: Subtracted the Global DB from each subset to remove redundant common APIs and keep the sub-databases lightweight.
+*   *Results*:
+    *   **`gp-go-specific.bin`** (41,585 hashes)
+    *   **`gp-rust-specific.bin`** (3,953 hashes)
+    *   **`gp-pyinstaller-specific.bin`** (13,702 hashes)
+
 
