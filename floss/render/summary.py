@@ -29,13 +29,12 @@ from typing import Dict, List, Tuple
 from collections import Counter
 
 from rich import box
-from rich.markup import escape
 from rich.table import Table
+from rich.markup import escape
 from rich.console import Console
 
 from floss.results import ResultLayout, ResultString, ResultDocument
 from floss.render.filter import NOISY_TAGS, is_arch_wrapper
-from floss.render.sanitize import sanitize
 from floss.render.default import (
     MIN_WIDTH_LEFT_COL,
     MIN_WIDTH_RIGHT_COL,
@@ -44,6 +43,7 @@ from floss.render.default import (
     get_color,
     language_value,
 )
+from floss.render.sanitize import sanitize
 
 HIGH_VALUE_MAX_STRINGS = 25
 

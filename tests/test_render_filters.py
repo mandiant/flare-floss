@@ -32,8 +32,8 @@ from floss.results import (
     StringEncoding,
 )
 from floss.tags.filter import TagRules
-from floss.render.default import render
 from floss.render.layout import render_strings
+from floss.render.default import render
 
 
 def make_layout() -> ResultLayout:
@@ -686,9 +686,9 @@ def test_main_max_strings_larger_than_section(exefile, capsys):
 
 
 def _render_layout(layout):
-    from rich.console import Console
-
     import io
+
+    from rich.console import Console
 
     console = Console(file=io.StringIO(), width=80)
     render_strings(console, layout, {})

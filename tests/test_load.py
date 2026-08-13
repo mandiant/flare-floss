@@ -3,7 +3,6 @@ import textwrap
 from pathlib import Path
 
 import pytest
-
 from fixtures import exefile
 
 import floss.main
@@ -133,14 +132,14 @@ def test_detect_file_type_not_results_for_non_floss_json(tmp_path):
 def test_filter_string_len_filters_language_and_layout():
     """-n on a loaded document must prune language and layout strings too."""
     from floss.results import (
-        StringEncoding,
-        StaticString,
+        Strings,
+        Analysis,
+        Metadata,
         ResultLayout,
         ResultString,
+        StaticString,
         ResultDocument,
-        Metadata,
-        Analysis,
-        Strings,
+        StringEncoding,
         filter_string_len,
     )
 
@@ -168,14 +167,14 @@ def test_filter_string_len_filters_language_and_layout():
 def test_filter_functions_accepts_stack_only_function():
     """a function with only stack strings (no decoding score) is valid."""
     from floss.results import (
-        StringEncoding,
+        Strings,
+        Analysis,
+        Metadata,
         StackString,
         ResultDocument,
-        Metadata,
-        Analysis,
-        Strings,
-        filter_functions,
+        StringEncoding,
         InvalidLoadConfig,
+        filter_functions,
     )
 
     ss = StackString(
