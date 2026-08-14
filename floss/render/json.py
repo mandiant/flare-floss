@@ -59,7 +59,16 @@ def sort_nested(obj):
 TOP_LEVEL_KEYS = ("metadata", "analysis", "strings", "layout")
 
 
-def render(doc: ResultDocument) -> str:
-    data = dataclasses.asdict(doc)
-    top = {key: sort_nested(data[key]) for key in TOP_LEVEL_KEYS if key in data}
+def _render_dict(data: dict) -> str:
+    """serialize a results-document dict with fixed top-level ordering."""
+    # keep the fixed top-level ordering (metadata first so the document stays
+    # detectable from its leading bytes), then append any future/extra keys so
+    # they are never silently dropped
+    extra_keys = [key for key in data if key not in TOP_LEVEL_KEYS]
+    ordered_keys = list(TOP_LEVEL_KEYS) + extra_keys
+    top = {key: sort_nested(data[key]) for key in ordered_keys if key in data}
     return json.dumps(top, cls=FlossJSONEncoder, sort_keys=False)
+
+
+def render(doc: ResultDocument) -> str:
+    return _render_dict(dataclasses.asdict(doc))

@@ -113,6 +113,36 @@ def test_language_extraction_independent_of_static():
     assert len(results.strings.static_strings) == 0
 
 
+def test_manual_language_override_wins_over_auto_detect():
+    """--language go must be honored even when auto-detection returns unknown."""
+    from pathlib import Path
+
+    from floss.results import Analysis
+    from floss.pipeline import Options, analyze
+
+    # a C binary, so auto-detection yields unknown; forcing go must stick
+    sample = Path(__file__).parent / "data" / "src" / "decode-in-place" / "bin" / "test-decode-in-place.exe"
+
+    results = analyze(
+        Options(
+            sample=sample,
+            min_length=4,
+            language="go",
+            analysis=Analysis(
+                enable_static_strings=False,
+                enable_stack_strings=False,
+                enable_tight_strings=False,
+                enable_decoded_strings=False,
+                enable_language_strings=True,
+            ),
+            prompt_deobfuscation=False,
+        )
+    )
+    assert results is not None
+    assert results.metadata.language == "go"
+    assert results.metadata.language_selected == "go"
+
+
 def test_expand_string_types():
     from floss.utils import expand_string_types
 
