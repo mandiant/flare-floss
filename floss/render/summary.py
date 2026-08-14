@@ -26,11 +26,9 @@ from __future__ import annotations
 
 import io
 import sys
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Sequence
 from collections import Counter
 
-from rich import box
-from rich.table import Table
 from rich.markup import escape
 from rich.console import Console
 
@@ -125,6 +123,14 @@ def counts_rows(results: ResultDocument) -> List[Tuple[str, int]]:
     ]
 
 
+def render_pipe_table(rows: Sequence[Tuple[str, object]]) -> str:
+    """render a two-column table with markdown-style pipe separators.
+
+    agents can parse the output without rich box-drawing characters.
+    """
+    return "\n".join("| %s | %s |" % (left, right) for left, right in rows)
+
+
 def render_summary(results: ResultDocument, color: str = "auto") -> str:
     """render a concise summary of ``results`` as text.
 
@@ -137,17 +143,11 @@ def render_summary(results: ResultDocument, color: str = "auto") -> str:
     console.print(f"FLOSS SUMMARY (version {results.metadata.version})\n")
 
     console.print(heading_style("sample"))
-    meta_table = Table(box=box.ASCII2, show_header=False)
-    for left, right in metadata_rows(results):
-        meta_table.add_row(left, right)
-    console.print(meta_table)
+    console.print(render_pipe_table(metadata_rows(results)))
     console.print()
 
     console.print(heading_style("string counts"))
-    counts_table = Table(box=box.ASCII2, show_header=False)
-    for label, count in counts_rows(results):
-        counts_table.add_row(width(label, MIN_WIDTH_LEFT_COL), str(count))
-    console.print(counts_table)
+    console.print(render_pipe_table(counts_rows(results)))
     console.print()
 
     # the layout tree is the static-string view; only shown when statics are on
@@ -155,29 +155,23 @@ def render_summary(results: ResultDocument, color: str = "auto") -> str:
         section_counts, tag_hist, high_value = analyze_layout(results.layout)
 
         console.print(heading_style("section counts"))
-        section_table = Table(box=box.ASCII2, show_header=False)
-        for section, count in section_counts.items():
-            section_table.add_row(width(section, MIN_WIDTH_LEFT_COL), str(count))
-        console.print(section_table)
+        console.print(render_pipe_table(list(section_counts.items())))
         console.print()
 
         if tag_hist:
             console.print(heading_style("tag histogram"))
-            tag_table = Table(box=box.ASCII2, show_header=False)
-            for tag, count in tag_hist:
-                tag_table.add_row(width(tag, MIN_WIDTH_LEFT_COL), str(count))
-            console.print(tag_table)
+            console.print(render_pipe_table(tag_hist))
             console.print()
 
         if high_value:
             console.print(heading_style("high-value strings"))
-            high_table = Table("tag", "offset", "string", show_header=True, box=box.ASCII2, show_edge=False)
+            console.print("| tag | offset | string |")
+            console.print("|---|---|---|")
             for s in high_value[:HIGH_VALUE_MAX_STRINGS]:
                 # escape Rich markup and control chars so binary strings render
                 # as literal text instead of crashing or breaking the table
                 tags = ", ".join(get_visible_tags(s))
-                high_table.add_row(tags, f"0x{s.offset:x}", escape(sanitize(s.string)))
-            console.print(high_table)
+                console.print("| %s | 0x%x | %s |" % (tags, s.offset, escape(sanitize(s.string))))
             if len(high_value) > HIGH_VALUE_MAX_STRINGS:
                 console.print(f"... and {len(high_value) - HIGH_VALUE_MAX_STRINGS} more high-value strings")
 
