@@ -338,11 +338,11 @@ def analyze(options: Options) -> Optional[ResultDocument]:
             )
             results.metadata.language_selected = selected_lang.value
 
-        if selected_lang in (Language.GO, Language.RUST, Language.DOTNET) and lang_id == Language.UNKNOWN:
-            # a concrete manual selection wins over failed auto-detection, so
-            # the selected language drives extraction and rendering below
+        if selected_lang in (Language.GO, Language.RUST, Language.DOTNET):
+            # a concrete manual selection unilaterally wins over auto-detection,
+            # so the selected language drives extraction and rendering below
             results.metadata.language = selected_lang.value
-            results.metadata.language_version = ""
+            results.metadata.language_version = lang_version if lang_id == selected_lang else ""
         else:
             results.metadata.language = lang_id.value
             results.metadata.language_version = lang_version

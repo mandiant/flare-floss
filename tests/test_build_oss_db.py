@@ -293,8 +293,8 @@ def test_load_existing_entries_round_trips_make_db_entry(tmp_path):
     assert build_oss_db.load_existing_entries(path) == entries
 
 
-def test_load_existing_entries_missing_file_returns_empty():
-    path = pathlib.Path("/nonexistent/path/to/lib.jsonl.gz")
+def test_load_existing_entries_missing_file_returns_empty(tmp_path):
+    path = tmp_path / "missing_lib.jsonl.gz"
     assert build_oss_db.load_existing_entries(path) == []
 
 

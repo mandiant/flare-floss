@@ -143,6 +143,43 @@ def test_manual_language_override_wins_over_auto_detect():
     assert results.metadata.language_selected == "go"
 
 
+def test_manual_language_override_beats_wrong_auto_detect(monkeypatch):
+    """--language go must win even when auto-detection wrongly says rust."""
+    from pathlib import Path
+
+    import floss.language.identify
+    from floss.results import Analysis
+    from floss.pipeline import Options, analyze
+
+    def fake_identify(sample, static_strings):
+        from floss.language.identify import Language
+
+        return Language.RUST, "1.75.0"
+
+    monkeypatch.setattr(floss.language.identify, "identify_language_and_version", fake_identify)
+
+    sample = Path(__file__).parent / "data" / "src" / "decode-in-place" / "bin" / "test-decode-in-place.exe"
+    results = analyze(
+        Options(
+            sample=sample,
+            min_length=4,
+            language="go",
+            analysis=Analysis(
+                enable_static_strings=False,
+                enable_stack_strings=False,
+                enable_tight_strings=False,
+                enable_decoded_strings=False,
+                enable_language_strings=True,
+            ),
+            prompt_deobfuscation=False,
+        )
+    )
+    assert results is not None
+    assert results.metadata.language == "go"
+    assert results.metadata.language_version == ""
+    assert results.metadata.language_selected == "go"
+
+
 def test_expand_string_types():
     from floss.utils import expand_string_types
 
