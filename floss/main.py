@@ -80,7 +80,7 @@ def report_error(parser, message: str) -> None:
 def json_requested(argv) -> bool:
     """best-effort detection of a JSON output mode before argument parsing completes."""
     argv = argv or []
-    return "--json" in argv or "-j" in argv
+    return "--json" in argv or any(a == "-j" for a in argv)
 
 
 def build_layout_filter(args) -> LayoutFilter:
@@ -174,6 +174,13 @@ def main(argv=None) -> int:
 
     disabled_string_types = expand_string_types(list(args.disabled_string_types or []))
     enabled_string_types = expand_string_types(list(args.enabled_string_types or []))
+
+    if args.summary and not disabled_string_types and not enabled_string_types:
+        # the summary's layout-derived sections cover static strings only, so
+        # don't spin up the slow deobfuscation for stack/tight/decoded unless
+        # the user explicitly requested them
+        logger.info("--summary is static-only; skipping stack/tight/decoded extraction")
+        disabled_string_types.extend([StringType.STACK.value, StringType.TIGHT.value, StringType.DECODED.value])
 
     if args.functions:
         static_was_enabled = is_string_type_enabled(StringType.STATIC, disabled_string_types, enabled_string_types)
