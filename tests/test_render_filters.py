@@ -559,6 +559,19 @@ def test_main_columns_invalid_value(exefile):
     assert floss.main.main([exefile, "--columns", "bogus"]) == -1
 
 
+def test_main_columns_accumulate(exefile, capsys):
+    """repeated --columns flags accumulate like the other filter flags."""
+    assert (
+        floss.main.main(
+            [exefile, "--columns", "offset", "--columns", "structure", "--no-string-type", "stack", "tight", "decoded"]
+        )
+        == 0
+    )
+    out = capsys.readouterr().out
+    assert "KERNEL32.dll" in out
+    assert "import table" in out
+
+
 def test_main_columns_with_plain(exefile):
     """--columns is irrelevant with --plain (no layout), but must not crash."""
     assert floss.main.main([exefile, "--plain", "--columns", "offset", "structure"]) == 0

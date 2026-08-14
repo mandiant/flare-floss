@@ -353,9 +353,10 @@ def make_parser():
     output_group.add_argument(
         "--columns",
         dest="columns",
+        action="extend",
         nargs="+",
         choices=COLUMN_CHOICES,
-        default=list(DEFAULT_COLUMNS),
+        default=[],
         help="columns to show in the layout view; valid values: tags, offset, structure, encoding. Default: tags, offset.",
     )
 

@@ -409,6 +409,9 @@ def render(
     sys.__stdout__.reconfigure(encoding="utf-8")  # type: ignore [union-attr]
     console = Console(file=io.StringIO(), color_system=get_color(color), highlight=False, soft_wrap=True)
 
+    if not columns:
+        columns = DEFAULT_COLUMNS
+
     # layout-aware path: no classic meta table (spec 1.2/2.4). the layout tree
     # is the static string view, so it is only rendered when static strings are
     # enabled; when they are disabled, nothing is shown for statics.
