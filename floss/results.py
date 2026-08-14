@@ -430,6 +430,12 @@ def filter_functions(results: ResultDocument, functions: List[int]) -> None:
 
 
 def filter_string_len(results: ResultDocument, min_length: int) -> None:
+    """filter strings below min_length.
+
+    Applied when loading a saved results document (and future cache hits):
+    extraction already respects min_length, but a document loaded with a
+    different -n may contain shorter strings, so re-filter here.
+    """
     results.strings.static_strings = list(filter(lambda s: len(s.string) >= min_length, results.strings.static_strings))
     results.strings.stack_strings = list(filter(lambda s: len(s.string) >= min_length, results.strings.stack_strings))
     results.strings.tight_strings = list(filter(lambda s: len(s.string) >= min_length, results.strings.tight_strings))

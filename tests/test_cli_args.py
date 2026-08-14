@@ -81,7 +81,11 @@ def test_filter_flags_sample_last_parses(exefile, capsys):
 
 
 def test_language_extraction_independent_of_static():
-    """language strings are extracted even when static strings are disabled."""
+    """language strings are extracted even when static strings are disabled.
+
+    drives the pipeline directly (not via floss.main) to avoid the language
+    deobfuscation prompt/TTY path, on a Go sample whose language is detectable.
+    """
     from pathlib import Path
 
     from floss.results import Analysis

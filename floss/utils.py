@@ -541,15 +541,16 @@ def is_string_type_enabled(type_, disabled_string_types, enabled_string_types):
 
 def expand_string_types(string_types):
     """expand the `all` alias into the full set of concrete string types."""
+    from itertools import chain
+
     from floss.cli import CONCRETE_STRING_TYPES, StringType
 
-    expanded: List[str] = []
-    for t in string_types:
+    def expand_one(t):
         if t == StringType.ALL.value:
-            expanded.extend(s.value for s in CONCRETE_STRING_TYPES)
-        else:
-            expanded.append(t)
-    return expanded
+            return (s.value for s in CONCRETE_STRING_TYPES)
+        return (t,)
+
+    return list(chain.from_iterable(expand_one(t) for t in string_types))
 
 
 def get_max_size(size: int, max_: int, api: Optional[Tuple] = None, argv: Optional[Tuple] = None) -> int:
