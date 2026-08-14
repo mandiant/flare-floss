@@ -540,7 +540,11 @@ def is_string_type_enabled(type_, disabled_string_types, enabled_string_types):
 
 
 def expand_string_types(string_types):
-    """expand the `all` alias into the full set of concrete string types."""
+    """expand the `all` alias into the full set of concrete string types.
+
+    deduplicates so repeated or overlapping values (e.g. `static` plus `all`)
+    don't produce duplicate entries that defeat single-occurrence removal.
+    """
     from itertools import chain
 
     from floss.cli import CONCRETE_STRING_TYPES, StringType
@@ -550,7 +554,7 @@ def expand_string_types(string_types):
             return (s.value for s in CONCRETE_STRING_TYPES)
         return (t,)
 
-    return list(chain.from_iterable(expand_one(t) for t in string_types))
+    return list(dict.fromkeys(chain.from_iterable(expand_one(t) for t in string_types)))
 
 
 def get_max_size(size: int, max_: int, api: Optional[Tuple] = None, argv: Optional[Tuple] = None) -> int:
