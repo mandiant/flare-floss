@@ -17,8 +17,9 @@
 The summary is built from the same ``ResultDocument`` as the ``--json`` output,
 so it is programmatic and consistent. It reports sample metadata, per-type
 string counts, section counts, tag histograms, and the strings that carry
-high-value (non-noisy) tags. Meant for human consumers and agents, so it is
-pretty printed with tables.
+high-value (non-noisy) tags. Intended for human consumers: agents should use
+``-j/--json`` for machine-readable output instead of parsing the formatted
+tables.
 """
 
 from __future__ import annotations
@@ -34,13 +35,15 @@ from rich.markup import escape
 from rich.console import Console
 
 from floss.results import ResultLayout, ResultString, ResultDocument
-from floss.render.filter import NOISY_TAGS, is_arch_wrapper
+from floss.render.filter import NOISY_TAGS, relevance_key, is_macho_arch_wrapper
 from floss.render.default import (
+    DEFAULT_TAG_RULES,
     MIN_WIDTH_LEFT_COL,
     MIN_WIDTH_RIGHT_COL,
     width,
     strtime,
     get_color,
+    heading_style,
     language_value,
 )
 from floss.render.sanitize import sanitize
@@ -70,7 +73,7 @@ def analyze_layout(layout: ResultLayout):
         for child in node.children:
             # a child becomes a section when it's not a format wrapper and its
             # parent is the root or an arch wrapper; otherwise it inherits
-            if not is_arch_wrapper(child) and (depth == 0 or is_arch_wrapper(node)):
+            if not is_macho_arch_wrapper(child) and (depth == 0 or is_macho_arch_wrapper(node)):
                 child_section = child.name
             else:
                 child_section = section
@@ -81,7 +84,7 @@ def analyze_layout(layout: ResultLayout):
     walk(layout, layout.name, 0)
 
     hist = sorted(tag_histogram.items(), key=lambda kv: (-kv[1], kv[0]))
-    high_value.sort(key=lambda s: (-len(s.tags), s.offset))
+    high_value.sort(key=lambda s: relevance_key(s, DEFAULT_TAG_RULES))
     return dict(section_counts), hist, high_value
 
 
@@ -134,14 +137,14 @@ def render_summary(results: ResultDocument, color: str = "auto") -> str:
 
     console.print(f"FLOSS SUMMARY (version {results.metadata.version})\n")
 
-    console.print("[cyan]sample[/cyan]")
+    console.print(heading_style("sample"))
     meta_table = Table(box=box.ASCII2, show_header=False)
     for left, right in metadata_rows(results):
         meta_table.add_row(left, right)
     console.print(meta_table)
     console.print()
 
-    console.print("[cyan]string counts[/cyan]")
+    console.print(heading_style("string counts"))
     counts_table = Table(box=box.ASCII2, show_header=False)
     for label, count in counts_rows(results):
         counts_table.add_row(width(label, MIN_WIDTH_LEFT_COL), str(count))
@@ -151,7 +154,7 @@ def render_summary(results: ResultDocument, color: str = "auto") -> str:
     if results.layout is not None:
         section_counts, tag_hist, high_value = analyze_layout(results.layout)
 
-        console.print("[cyan]section counts[/cyan]")
+        console.print(heading_style("section counts"))
         section_table = Table(box=box.ASCII2, show_header=False)
         for section, count in section_counts.items():
             section_table.add_row(width(section, MIN_WIDTH_LEFT_COL), str(count))
@@ -159,7 +162,7 @@ def render_summary(results: ResultDocument, color: str = "auto") -> str:
         console.print()
 
         if tag_hist:
-            console.print("[cyan]tag histogram[/cyan]")
+            console.print(heading_style("tag histogram"))
             tag_table = Table(box=box.ASCII2, show_header=False)
             for tag, count in tag_hist:
                 tag_table.add_row(width(tag, MIN_WIDTH_LEFT_COL), str(count))
@@ -167,7 +170,7 @@ def render_summary(results: ResultDocument, color: str = "auto") -> str:
             console.print()
 
         if high_value:
-            console.print("[cyan]high-value strings[/cyan]")
+            console.print(heading_style("high-value strings"))
             high_table = Table("tag", "offset", "string", show_header=True, box=box.ASCII2, show_edge=False)
             for s in high_value[:HIGH_VALUE_MAX_STRINGS]:
                 # escape Rich markup and control chars so binary strings render
