@@ -328,11 +328,8 @@ def render_heading(heading, console, verbose, disable_headers):
     """
     if disable_headers:
         return
-    style = ""
-    if verbose != Verbosity.DEFAULT:
-        style = "cyan"
-    table = Table(box=box.HORIZONTALS, style=style, show_header=False)
-    table.add_row(heading, style=style)
+    table = Table(box=box.HORIZONTALS, show_header=False)
+    table.add_row(heading)
     console.print(table)
     console.print()
 
@@ -349,12 +346,9 @@ def render_section_heading(name, console, verbose, disable_headers):
     """
     if disable_headers:
         return
-    style = ""
-    if verbose != Verbosity.DEFAULT:
-        style = "cyan"
 
-    line = Text("─" * console.width, style=style)
-    heading = Text(name.center(console.width), style=style)
+    line = Text("─" * console.width)
+    heading = Text(name.center(console.width))
     console.print(line)
     console.print(heading)
     console.print(line)
@@ -390,6 +384,19 @@ def get_color(color):
     return color_system
 
 
+def effective_tag_rules(layout_filter: Optional[LayoutFilter]) -> TagRules:
+    """tag rules for the layout view.
+
+    When the user expressed tag intent (--tag or --interesting), the default
+    hide rules (e.g. #code, #reloc) must not drop strings the filter
+    deliberately kept — the filter already narrowed the set, so re-hiding would
+    undo it. Without a tag filter the default hide behavior is unchanged.
+    """
+    if layout_filter is not None and (layout_filter.include_tags or layout_filter.interesting):
+        return {tag: "default" if rule == "hide" else rule for tag, rule in DEFAULT_TAG_RULES.items()}
+    return DEFAULT_TAG_RULES
+
+
 def render(
     results: floss.results.ResultDocument,
     verbose,
@@ -418,9 +425,7 @@ def render(
             # when the user expressed tag intent (--tag or --interesting), don't let
             # the default hide rules (e.g. #code, #reloc) drop strings the filter
             # deliberately kept. tag-aware filtering already narrowed the set.
-            tag_rules = DEFAULT_TAG_RULES
-            if layout_filter is not None and (layout_filter.include_tags or layout_filter.interesting):
-                tag_rules = {tag: "default" if rule == "hide" else rule for tag, rule in DEFAULT_TAG_RULES.items()}
+            tag_rules = effective_tag_rules(layout_filter)
 
             layout_view = hide_strings_by_rules(layout, tag_rules)
             render_strings(console, layout_view, tag_rules, columns=columns)
