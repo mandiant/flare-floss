@@ -53,6 +53,22 @@ def normalize_structure(name: str) -> str:
     return name.strip().lower().replace("_", "-").replace(" ", "-")
 
 
+# known structure slugs, produced by the layout parsers (floss/layout/*.py)
+KNOWN_STRUCTURE_SLUGS = (
+    "import-table",
+    "export-table",
+    "rich-header",
+    "section-header",
+    "elf-header",
+    "program-header",
+    "string-table",
+    "symbol-table",
+    "macho-header",
+    "load-command",
+    "segment-header",
+)
+
+
 def tag_matches(user_tag: str, string_tags: Sequence[str]) -> bool:
     """true if ``user_tag`` (already normalized) matches any of ``string_tags``.
 
@@ -64,7 +80,30 @@ def tag_matches(user_tag: str, string_tags: Sequence[str]) -> bool:
     return any(normalize_tag(tag) == normalized for tag in string_tags)
 
 
-def is_arch_wrapper(layout: ResultLayout) -> bool:
+def relevance_key(s: ResultString, tag_rules: TagRules) -> Tuple[int, int]:
+    """sort key for --max-strings and high-value string ordering.
+
+    relevance order within a section:
+      1. strings with a highlighted tag first
+      2. then untagged strings
+      3. then strings with any non-noisy tag
+      4. then the rest (only noisy tags)
+    within each group, ascending by offset.
+    """
+    has_highlight = any(tag_rules.get(tag) == "highlight" for tag in s.tags)
+    has_non_noisy = any(tag not in NOISY_TAGS for tag in s.tags)
+    if has_highlight:
+        group = 0
+    elif not s.tags:
+        group = 1
+    elif has_non_noisy:
+        group = 2
+    else:
+        group = 3
+    return (group, s.offset)
+
+
+def is_macho_arch_wrapper(layout: ResultLayout) -> bool:
     """true when a node is a Mach-O fat-arch wrapper rather than a section.
 
     On a fat Mach-O the root's children are arch wrappers (``macho: x86_64``);
@@ -88,7 +127,10 @@ class LayoutFilter:
         include_tags: keep strings with any matching tag.
         exclude_tags: drop strings with any matching tag.
         interesting: drop strings that carry only noisy tags; strings with at
-            least one non-noisy tag are kept.
+            least one non-noisy tag are kept. kept as a distinct flag rather
+            than expanding into exclude_tags because the semantics differ:
+            --no-tag drops any string carrying the tag, while --interesting
+            keeps a string as long as it has at least one non-noisy tag.
         queries: regex patterns ORed against string content.
         max_strings: cap emitted strings per top-level section to the top N by
             relevance.
@@ -162,26 +204,8 @@ class LayoutFilter:
 
     @staticmethod
     def relevance_key(s: ResultString, tag_rules: TagRules) -> Tuple[int, int]:
-        """sort key for --max-strings.
-
-        relevance order within a section:
-          1. strings with a highlighted tag first
-          2. then untagged strings
-          3. then strings with any non-noisy tag
-          4. then the rest (only noisy tags)
-        within each group, ascending by offset.
-        """
-        has_highlight = any(tag_rules.get(tag) == "highlight" for tag in s.tags)
-        has_non_noisy = any(tag not in NOISY_TAGS for tag in s.tags)
-        if has_highlight:
-            group = 0
-        elif not s.tags:
-            group = 1
-        elif has_non_noisy:
-            group = 2
-        else:
-            group = 3
-        return (group, s.offset)
+        """sort key for --max-strings, see the module-level relevance_key."""
+        return relevance_key(s, tag_rules)
 
     def apply_node(self, layout: ResultLayout, section: str, depth: int) -> Optional[ResultLayout]:
         """filter one layout node, recursing into children.
@@ -206,7 +230,7 @@ class LayoutFilter:
             # a child becomes a section when it's not a format wrapper (e.g. a
             # Mach-O fat-arch layer) and its parent is the root or an arch
             # wrapper; otherwise it inherits its containing section
-            if not is_arch_wrapper(child) and (depth == 0 or is_arch_wrapper(layout)):
+            if not is_macho_arch_wrapper(child) and (depth == 0 or is_macho_arch_wrapper(layout)):
                 child_section = child.name
             else:
                 child_section = section
@@ -278,7 +302,7 @@ class LayoutFilter:
         # independently rather than the whole architecture.
         children: List[ResultLayout] = []
         for child in filtered.children:
-            if is_arch_wrapper(child):
+            if is_macho_arch_wrapper(child):
                 arch_children = []
                 for section in child.children:
                     capped = self.cap_node(section)
