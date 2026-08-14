@@ -335,7 +335,8 @@ def make_parser():
         "--summary",
         action="store_true",
         default=False,
-        help="emit a concise summary (metadata, counts, tag histogram, high-value strings)",
+        help="emit a concise summary (metadata, counts, tag histogram, high-value strings); "
+        "static-only by default unless string types are explicitly selected",
     )
     output_group.add_argument(
         "-v",

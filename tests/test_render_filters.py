@@ -511,6 +511,21 @@ def test_main_summary_flag(exefile, capsys):
     assert "string counts" in out
 
 
+def test_main_summary_is_static_only_by_default(exefile, capsys):
+    """--summary alone skips stack/tight/decoded extraction."""
+    assert floss.main.main([exefile, "--summary"]) == 0
+    out = capsys.readouterr().out
+    assert "FLOSS SUMMARY" in out
+    # counts show recovered strings as 0 because they were not extracted
+    assert "| stack strings | 0 |" in out
+
+
+def test_main_summary_with_explicit_string_type_still_extracts(exefile, capsys):
+    """explicit string-type selection overrides --summary's static-only default."""
+    assert floss.main.main([exefile, "--summary", "--string-type", "stack", "tight", "decoded"]) == 0
+    capsys.readouterr()
+
+
 def test_summary_no_layout_ok():
     """--summary must not crash when there is no layout tree."""
     results = make_results()
