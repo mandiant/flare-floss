@@ -151,8 +151,8 @@ class LayoutFilter:
         max_strings: Optional[int] = None,
         tag_rules: Optional[TagRules] = None,
     ):
-        self.include_sections = list(include_sections or [])
-        self.exclude_sections = list(exclude_sections or [])
+        self.include_sections = set(include_sections or [])
+        self.exclude_sections = set(exclude_sections or [])
         self.include_structures = {normalize_structure(name) for name in (include_structures or [])}
         self.exclude_structures = {normalize_structure(name) for name in (exclude_structures or [])}
         self.include_tags = [normalize_tag(tag) for tag in (include_tags or [])]
