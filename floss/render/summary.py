@@ -36,6 +36,7 @@ from rich.console import Console
 
 from floss.results import ResultLayout, ResultString, ResultDocument
 from floss.render.filter import NOISY_TAGS, relevance_key, is_macho_arch_wrapper
+from floss.render.layout import get_visible_tags
 from floss.render.default import (
     DEFAULT_TAG_RULES,
     MIN_WIDTH_LEFT_COL,
@@ -114,15 +115,13 @@ def metadata_rows(results: ResultDocument) -> List[Tuple[str, str]]:
 
 def counts_rows(results: ResultDocument) -> List[Tuple[str, int]]:
     strings = results.strings
+    a = results.analysis
     return [
-        ("static strings", len(strings.static_strings)),
-        (
-            "language strings",
-            len(strings.language_strings) if results.analysis.enable_language_strings else 0,
-        ),
-        ("stack strings", len(strings.stack_strings)),
-        ("tight strings", len(strings.tight_strings)),
-        ("decoded strings", len(strings.decoded_strings)),
+        ("static strings", len(strings.static_strings) if a.enable_static_strings else 0),
+        ("language strings", len(strings.language_strings) if a.enable_language_strings else 0),
+        ("stack strings", len(strings.stack_strings) if a.enable_stack_strings else 0),
+        ("tight strings", len(strings.tight_strings) if a.enable_tight_strings else 0),
+        ("decoded strings", len(strings.decoded_strings) if a.enable_decoded_strings else 0),
     ]
 
 
@@ -151,7 +150,8 @@ def render_summary(results: ResultDocument, color: str = "auto") -> str:
     console.print(counts_table)
     console.print()
 
-    if results.layout is not None:
+    # the layout tree is the static-string view; only shown when statics are on
+    if results.layout is not None and results.analysis.enable_static_strings:
         section_counts, tag_hist, high_value = analyze_layout(results.layout)
 
         console.print(heading_style("section counts"))
@@ -175,7 +175,8 @@ def render_summary(results: ResultDocument, color: str = "auto") -> str:
             for s in high_value[:HIGH_VALUE_MAX_STRINGS]:
                 # escape Rich markup and control chars so binary strings render
                 # as literal text instead of crashing or breaking the table
-                high_table.add_row(", ".join(sorted(s.tags)), f"0x{s.offset:x}", escape(sanitize(s.string)))
+                tags = ", ".join(get_visible_tags(s))
+                high_table.add_row(tags, f"0x{s.offset:x}", escape(sanitize(s.string)))
             console.print(high_table)
             if len(high_value) > HIGH_VALUE_MAX_STRINGS:
                 console.print(f"... and {len(high_value) - HIGH_VALUE_MAX_STRINGS} more high-value strings")
