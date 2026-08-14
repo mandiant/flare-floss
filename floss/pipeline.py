@@ -338,8 +338,14 @@ def analyze(options: Options) -> Optional[ResultDocument]:
             )
             results.metadata.language_selected = selected_lang.value
 
-        results.metadata.language = lang_id.value
-        results.metadata.language_version = lang_version
+        if selected_lang in (Language.GO, Language.RUST, Language.DOTNET) and lang_id == Language.UNKNOWN:
+            # a concrete manual selection wins over failed auto-detection, so
+            # the selected language drives extraction and rendering below
+            results.metadata.language = selected_lang.value
+            results.metadata.language_version = ""
+        else:
+            results.metadata.language = lang_id.value
+            results.metadata.language_version = lang_version
 
     if results.metadata.language == Language.GO.value:
         if analysis.enable_tight_strings or analysis.enable_stack_strings or analysis.enable_decoded_strings:
