@@ -68,13 +68,19 @@ def emit_json_error(message: str, code: int = 1) -> None:
     sys.stderr.write(json.dumps({"error": message, "code": code}) + "\n")
 
 
-JSON_SHORT_FLAG = re.compile(r"^-[a-zA-Z]*j")
+def report_error(parser, message: str) -> None:
+    """emit an error in the active output mode: JSON object on STDERR for
+    JSON modes, otherwise a plain message on STDERR."""
+    if parser.json_mode:
+        emit_json_error(message)
+    else:
+        print(message, file=sys.stderr)
 
 
 def json_requested(argv) -> bool:
     """best-effort detection of a JSON output mode before argument parsing completes."""
     argv = argv or []
-    return "--json" in argv or any(JSON_SHORT_FLAG.match(arg) for arg in argv)
+    return "--json" in argv or "-j" in argv
 
 
 def build_layout_filter(args) -> LayoutFilter:
@@ -142,10 +148,7 @@ def main(argv=None) -> int:
             except re.error as e:
                 parser.error("invalid --query regular expression %r: %s" % (pattern, e))
     except ArgumentValueError as e:
-        if json_requested(argv):
-            emit_json_error(str(e))
-        else:
-            print(e, file=sys.stderr)
+        report_error(parser, str(e))
         return -1
 
     set_log_config(args.debug, args.quiet)
@@ -187,10 +190,7 @@ def main(argv=None) -> int:
             elif not enabled_string_types and StringType.STATIC.value not in disabled_string_types:
                 disabled_string_types.append(StringType.STATIC.value)
         except ArgumentValueError as e:
-            if json_requested(argv):
-                emit_json_error(str(e))
-            else:
-                print(e, file=sys.stderr)
+            report_error(parser, str(e))
             return -1
         if static_was_enabled:
             logger.warning("analyzing specified functions, not showing static strings")
