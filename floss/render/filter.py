@@ -32,8 +32,16 @@ from floss.tags.filter import TagRules
 # noisy tags that the --interesting shortcut excludes
 NOISY_TAGS: Set[str] = {"#common", "#duplicate", "#code", "#reloc", "#code-junk"}
 
-# tag names produced by the OSS string database, e.g. #openssl, #zlib
-OSS_TAG_NAMES_NORMALIZED: Set[str] = {name.partition(".")[0] for name in DEFAULT_FILENAMES}
+# tag families, one per tag-source directory under floss/tags/data. a meta tag
+# matches any tag in its family, so --tag winapi / --tag oss / --tag gp etc.
+# work as selectors.
+TAG_FAMILIES: dict = {
+    "winapi": {"#winapi"},
+    "crt": {"#msvc"},
+    "expert": {"#capa"},
+    "gp": {"#common", "#code-junk"},
+    "oss": {f"#{name.partition('.')[0]}" for name in DEFAULT_FILENAMES},
+}
 
 
 def normalize_tag(tag: str) -> str:
@@ -43,6 +51,10 @@ def normalize_tag(tag: str) -> str:
     match the stored tag ``#winapi``.
     """
     return tag.lstrip("#").lower()
+
+
+# normalized (no leading #, lowercase) family names for lookup
+TAG_FAMILIES_NORMALIZED: dict = {name: {normalize_tag(t) for t in tags} for name, tags in TAG_FAMILIES.items()}
 
 
 def normalize_structure(name: str) -> str:
@@ -72,11 +84,13 @@ KNOWN_STRUCTURE_SLUGS = (
 def tag_matches(user_tag: str, string_tags: Sequence[str]) -> bool:
     """true if ``user_tag`` (already normalized) matches any of ``string_tags``.
 
-    ``oss`` is a meta tag that matches any OSS library tag.
+    a tag family (e.g. ``oss``, ``winapi``, ``gp``) matches any tag in that
+    family; otherwise the tag is compared directly.
     """
     normalized = user_tag
-    if normalized == "oss":
-        return any(normalize_tag(tag) in OSS_TAG_NAMES_NORMALIZED for tag in string_tags)
+    family = TAG_FAMILIES_NORMALIZED.get(normalized)
+    if family is not None:
+        return any(normalize_tag(tag) in family for tag in string_tags)
     return any(normalize_tag(tag) == normalized for tag in string_tags)
 
 
@@ -112,6 +126,16 @@ def is_macho_arch_wrapper(layout: ResultLayout) -> bool:
     universal binary.
     """
     return layout.name.startswith("macho:")
+
+
+def is_section_child(parent: ResultLayout, child: ResultLayout, depth: int) -> bool:
+    """true when ``child`` is a binary section of ``parent``.
+
+    a child becomes a section when it is not a format wrapper (e.g. a Mach-O
+    fat-arch layer) and its parent is the root or an arch wrapper; otherwise it
+    inherits its containing section.
+    """
+    return not is_macho_arch_wrapper(child) and (depth == 0 or is_macho_arch_wrapper(parent))
 
 
 class LayoutFilter:
@@ -224,10 +248,7 @@ class LayoutFilter:
 
         children: List[ResultLayout] = []
         for child in layout.children:
-            # a child becomes a section when it's not a format wrapper (e.g. a
-            # Mach-O fat-arch layer) and its parent is the root or an arch
-            # wrapper; otherwise it inherits its containing section
-            if not is_macho_arch_wrapper(child) and (depth == 0 or is_macho_arch_wrapper(layout)):
+            if is_section_child(layout, child, depth):
                 child_section = child.name
             else:
                 child_section = section
@@ -305,12 +326,13 @@ class LayoutFilter:
                     capped = self.cap_node(section)
                     if capped is not None:
                         arch_children.append(capped)
+                ranked_wrapper = sorted(child.strings, key=lambda s: self.relevance_key(s, self.tag_rules))
                 children.append(
                     ResultLayout(
                         name=child.name,
                         offset=child.offset,
                         length=child.length,
-                        strings=child.strings[: self.max_strings],
+                        strings=ranked_wrapper[: self.max_strings],
                         children=arch_children,
                     )
                 )
