@@ -132,14 +132,14 @@ def main(argv=None) -> int:
             parser.print_help()
             return 1
         args = parser.parse_args(args=argv)
-        if args.enabled_string_types and args.disabled_string_types:
-            parser.error("--string-type and --no-string-type arguments are not allowed together")
-        if args.include_sections and args.exclude_sections:
-            parser.error("--section and --no-section arguments are not allowed together")
-        if args.include_structures and args.exclude_structures:
-            parser.error("--structure and --no-structure arguments are not allowed together")
-        if args.include_tags and args.exclude_tags:
-            parser.error("--tag and --no-tag arguments are not allowed together")
+        for flag, include, exclude in (
+            ("--string-type", args.enabled_string_types, args.disabled_string_types),
+            ("--section", args.include_sections, args.exclude_sections),
+            ("--structure", args.include_structures, args.exclude_structures),
+            ("--tag", args.include_tags, args.exclude_tags),
+        ):
+            if include and exclude:
+                parser.error("%s and --no-%s arguments are not allowed together" % (flag, flag[2:]))
         if args.max_strings is not None and args.max_strings <= 0:
             parser.error("--max-strings must be a positive integer")
         for pattern in args.queries:
