@@ -126,11 +126,8 @@ class LayoutFilter:
         exclude_structures: drop strings whose structure field is in this list.
         include_tags: keep strings with any matching tag.
         exclude_tags: drop strings with any matching tag.
-        interesting: drop strings that carry only noisy tags; strings with at
-            least one non-noisy tag are kept. kept as a distinct flag rather
-            than expanding into exclude_tags because the semantics differ:
-            --no-tag drops any string carrying the tag, while --interesting
-            keeps a string as long as it has at least one non-noisy tag.
+        interesting: drop any string carrying a noisy tag, even when it also has
+            a non-noisy tag (e.g. #winapi #common is dropped).
         queries: regex patterns ORed against string content.
         max_strings: cap emitted strings per top-level section to the top N by
             relevance.
@@ -192,9 +189,9 @@ class LayoutFilter:
             return False
         if self.exclude_tags and any(tag_matches(t, s.tags) for t in self.exclude_tags):
             return False
-        if self.interesting and s.tags and not any(tag not in NOISY_TAGS for tag in s.tags):
-            # drop strings that carry only noisy tags; keep strings that have
-            # at least one non-noisy tag (e.g. #winapi #common)
+        if self.interesting and any(tag in NOISY_TAGS for tag in s.tags):
+            # --interesting excludes any string carrying a noisy tag, even when
+            # it also has a non-noisy tag (e.g. #winapi #common is dropped)
             return False
 
         if self.queries and not any(pattern.search(s.string) for pattern in self.queries):

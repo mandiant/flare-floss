@@ -314,21 +314,22 @@ def test_filter_interesting():
     assert "kcp://url" in strings
 
 
-def test_filter_interesting_keeps_strings_with_non_noisy_tag():
-    """a string with both a noisy and a non-noisy tag is kept."""
+def test_filter_interesting_drops_strings_with_any_noisy_tag():
+    """--interesting drops a string if it carries any noisy tag, even alongside
+    a non-noisy tag (e.g. #winapi #common is dropped)."""
     layout = ResultLayout(
         name=".rdata",
         offset=0,
         length=0x10,
         strings=[
             ResultString(string="CreateFileA", offset=1, size=11, encoding="ascii", tags=["#winapi", "#common"]),
-            ResultString(string="only noisen", offset=2, size=11, encoding="ascii", tags=["#common", "#code"]),
+            ResultString(string="only winapi", offset=2, size=11, encoding="ascii", tags=["#winapi"]),
         ],
     )
     f = floss.render.filter.LayoutFilter(interesting=True)
     filtered = f.apply(layout)
     assert filtered is not None
-    assert [s.string for s in filtered.strings] == ["CreateFileA"]
+    assert [s.string for s in filtered.strings] == ["only winapi"]
 
 
 def test_filter_query():
@@ -440,8 +441,8 @@ def test_filter_all_removed_renders_empty():
 
 
 def test_tag_filter_overrides_default_hide_rules():
-    """--tag code / --tag winapi / --interesting must show strings that carry a
-    hide-rule tag (#code/#reloc) which the default render would suppress."""
+    """--tag code / --tag winapi must show strings that carry a hide-rule tag
+    (#code/#reloc) which the default render would suppress."""
     layout = ResultLayout(
         name=".rdata",
         offset=0,
@@ -457,13 +458,19 @@ def test_tag_filter_overrides_default_hide_rules():
         layout=layout,
     )
 
-    for kwargs in (
-        {"include_tags": ["code"]},
-        {"include_tags": ["winapi"]},
-        {"interesting": True},
-    ):
-        out = render(doc, True, False, "auto", layout_filter=floss.render.filter.LayoutFilter(**kwargs))
-        assert "junk code" in out, kwargs
+    for include in ("code", "winapi"):
+        out = render(
+            doc,
+            True,
+            False,
+            "auto",
+            layout_filter=floss.render.filter.LayoutFilter(include_tags=[include]),
+        )
+        assert "junk code" in out, include
+
+    # --interesting drops any string carrying a noisy tag, including #code
+    out = render(doc, True, False, "auto", layout_filter=floss.render.filter.LayoutFilter(interesting=True))
+    assert "junk code" not in out
 
     # without a tag filter, the default hide rules still suppress #code strings
     out = render(doc, True, False, "auto")

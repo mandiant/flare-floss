@@ -247,7 +247,7 @@ def make_parser():
         action="store_true",
         dest="interesting",
         default=False,
-        help="exclude strings with only noisy tags: %s" % ", ".join(sorted(NOISY_TAGS)),
+        help="exclude strings with noisy tags: %s" % ", ".join(sorted(NOISY_TAGS)),
     )
     filter_group.add_argument(
         "--query",
@@ -286,7 +286,9 @@ def make_parser():
     advanced_group.add_argument(
         "--language",
         type=str,
-        choices=[l.value for l in Language if l not in (Language.UNKNOWN, Language.AUTO)] + [Language.AUTO.value],
+        # spec 3.4.7: auto, go, rust, none. dotnet is not offered because .NET
+        # string extraction is not implemented yet.
+        choices=[Language.AUTO.value, Language.GO.value, Language.RUST.value, Language.DISABLED.value],
         default=Language.AUTO.value,
         help="use language-specific string extraction, auto-detect language by default, disable using 'none'",
     )
