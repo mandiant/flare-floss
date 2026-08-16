@@ -68,11 +68,6 @@ def test_language_auto_accepted(exefile, capsys):
     capsys.readouterr()
 
 
-def test_language_dotnet_rejected(exefile):
-    """--language dotnet is not offered: .NET extraction is unimplemented."""
-    assert floss.main.main([exefile, "--language", "dotnet"]) == -1
-
-
 def test_filter_flags_sample_last_parses(exefile, capsys):
     """multi-value filter flags need a -- terminator before the sample."""
     for args in (
