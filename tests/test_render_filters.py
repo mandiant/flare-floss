@@ -303,6 +303,22 @@ def test_filter_oss_meta_tag():
     assert strings == ["kcp://url"]
 
 
+def test_filter_tag_family_winapi():
+    """the winapi tag family matches strings tagged #winapi."""
+    f = floss.render.filter.LayoutFilter(include_tags=["winapi"])
+    filtered = f.apply(make_layout())
+    strings = collect_layout_strings(filtered)
+    assert strings == ["CreateFileA"]
+
+
+def test_filter_tag_family_gp():
+    """the gp tag family matches global-prevalence tags like #common."""
+    f = floss.render.filter.LayoutFilter(include_tags=["gp"])
+    filtered = f.apply(make_layout())
+    strings = collect_layout_strings(filtered)
+    assert strings == ["hello world"]
+
+
 def test_filter_interesting():
     f = floss.render.filter.LayoutFilter(interesting=True)
     filtered = f.apply(make_layout())
@@ -638,9 +654,10 @@ def test_plain_render_applies_filters():
     assert "junk" not in out
 
 
-def test_no_classic_meta_when_layout_present_but_static_disabled():
-    """with a layout present but static strings disabled, neither the classic
-    meta table nor the layout tree is shown (spec 1.2/2.4)."""
+def test_classic_meta_fallback_when_layout_present_but_static_disabled():
+    """with a layout present but static strings disabled, the classic metadata
+    table renders as a fallback (file path, language, etc.) instead of dropping
+    all sample context."""
     doc = ResultDocument(
         metadata=Metadata(file_path="x", min_length=4),
         analysis=Analysis(
@@ -653,7 +670,9 @@ def test_no_classic_meta_when_layout_present_but_static_disabled():
         layout=ResultLayout(name="pe", offset=0, length=10),
     )
     out = render(doc, True, False, "auto")
-    assert "FLARE FLOSS RESULTS" not in out
+    assert "FLARE FLOSS RESULTS" in out
+    assert "file path" in out
+    # the layout tree itself is not shown when static strings are disabled
     assert "pe" not in out
 
 
