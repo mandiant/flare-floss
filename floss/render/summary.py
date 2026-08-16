@@ -33,7 +33,7 @@ from rich.markup import escape
 from rich.console import Console
 
 from floss.results import ResultLayout, ResultString, ResultDocument
-from floss.render.filter import NOISY_TAGS, relevance_key, is_macho_arch_wrapper
+from floss.render.filter import NOISY_TAGS, relevance_key, is_section_child
 from floss.render.layout import get_visible_tags
 from floss.render.default import (
     DEFAULT_TAG_RULES,
@@ -70,9 +70,7 @@ def analyze_layout(layout: ResultLayout):
             if any(tag not in NOISY_TAGS for tag in s.tags):
                 high_value.append(s)
         for child in node.children:
-            # a child becomes a section when it's not a format wrapper and its
-            # parent is the root or an arch wrapper; otherwise it inherits
-            if not is_macho_arch_wrapper(child) and (depth == 0 or is_macho_arch_wrapper(node)):
+            if is_section_child(node, child, depth):
                 child_section = child.name
             else:
                 child_section = section
