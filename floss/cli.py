@@ -35,7 +35,7 @@ from floss.utils import set_vivisect_log_level
 from floss.render import Verbosity
 from floss.version import __version__
 from floss.logging_ import TRACE, DebugLevel
-from floss.render.filter import NOISY_TAGS, KNOWN_STRUCTURE_SLUGS
+from floss.render.filter import NOISY_TAGS, TAG_FAMILIES, KNOWN_STRUCTURE_SLUGS
 from floss.render.layout import COLUMN_CHOICES, DEFAULT_COLUMNS
 from floss.language.identify import Language
 
@@ -221,7 +221,8 @@ def make_parser():
             "--tag",
             "include_tags",
             "TAG",
-            "e.g. winapi, crypto, or the oss meta tag; run --summary to see the tags present in a specific sample",
+            "e.g. winapi, crypto, or a tag family: %s; run --summary to see the tags present in a specific sample"
+            % ", ".join(sorted(TAG_FAMILIES)),
             "only show strings with the given semantic tag(s)",
         ),
         (
