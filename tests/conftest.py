@@ -46,10 +46,13 @@ def extract_strings(vw):
         yield s_decoded.string
 
     no_tightloop_functions = get_functions_without_tightloops(decoding_function_features)
-    for s_stack in stackstrings.extract_stackstrings(
+    stack_strings, global_strings = stackstrings.extract_stack_and_global_strings(
         vw, no_tightloop_functions, MIN_STRING_LENGTH, disable_progress=True
-    ):
+    )
+    for s_stack in stack_strings:
         yield s_stack.string
+    for s_global in global_strings:
+        yield s_global.string
 
     tightloop_functions = get_functions_with_tightloops(decoding_function_features)
     for s_tight in tightstrings.extract_tightstrings(vw, tightloop_functions, MIN_STRING_LENGTH, disable_progress=True):
