@@ -8,8 +8,13 @@ from floss.results import (
     Strings,
     Analysis,
     Metadata,
+    AddressType,
+    StackString,
+    TightString,
     ResultLayout,
+    ResultString,
     StaticString,
+    DecodedString,
     ResultDocument,
     StringEncoding,
 )
@@ -49,6 +54,67 @@ def make_doc(
         ),
         strings=Strings(
             static_strings=[StaticString(string="hello", offset=0, encoding=StringEncoding.ASCII)],
+        ),
+        layout=layout,
+    )
+
+
+def make_full_doc():
+    layout = ResultLayout(
+        name="pe",
+        offset=0,
+        length=8,
+        strings=[ResultString(string="layout", offset=0, size=6, encoding="ASCII", tags=["#winapi"])],
+    )
+    return ResultDocument(
+        metadata=Metadata(file_path="sample.exe", sha256="a" * 64, version=__version__, min_length=4),
+        analysis=Analysis(
+            enable_static_strings=True,
+            enable_stack_strings=True,
+            enable_tight_strings=True,
+            enable_decoded_strings=True,
+            enable_language_strings=True,
+            enable_layout=True,
+            enable_tags=True,
+        ),
+        strings=Strings(
+            static_strings=[StaticString(string="hello", offset=0, encoding=StringEncoding.ASCII, tags=["#common"])],
+            stack_strings=[
+                StackString(
+                    function=0,
+                    string="stack",
+                    encoding=StringEncoding.ASCII,
+                    program_counter=0,
+                    stack_pointer=0,
+                    original_stack_pointer=0,
+                    offset=0,
+                    frame_offset=0,
+                )
+            ],
+            tight_strings=[
+                TightString(
+                    function=0,
+                    string="tight",
+                    encoding=StringEncoding.ASCII,
+                    program_counter=0,
+                    stack_pointer=0,
+                    original_stack_pointer=0,
+                    offset=0,
+                    frame_offset=0,
+                )
+            ],
+            decoded_strings=[
+                DecodedString(
+                    address=0,
+                    address_type=AddressType.STACK,
+                    string="decoded",
+                    encoding=StringEncoding.ASCII,
+                    decoded_at=0,
+                    decoding_routine=0,
+                )
+            ],
+            language_strings=[StaticString(string="go", offset=0, encoding=StringEncoding.UTF8, tags=["#go"])],
+            language_strings_missed=[StaticString(string="missed", offset=0, encoding=StringEncoding.UTF8)],
         ),
         layout=layout,
     )
@@ -234,3 +300,43 @@ def test_materialize_drops_layout_when_disabled(tmp_path):
 
     mat = floss.cache.materialize(loaded, tmp_path / "sample.exe", wanted(enable_layout=False), 4)
     assert mat.layout is None
+
+
+def test_materialize_clears_disabled_string_types():
+    mat = floss.cache.materialize(make_full_doc(), Path("sample.exe"), wanted(), 4)
+    assert mat.analysis.enable_static_strings is True
+    assert mat.strings.static_strings
+
+    disabled = Analysis(
+        enable_static_strings=False,
+        enable_stack_strings=False,
+        enable_tight_strings=False,
+        enable_decoded_strings=False,
+        enable_language_strings=False,
+    )
+    mat = floss.cache.materialize(make_full_doc(), Path("sample.exe"), disabled, 4)
+    assert mat.strings.static_strings == []
+    assert mat.strings.stack_strings == []
+    assert mat.strings.tight_strings == []
+    assert mat.strings.decoded_strings == []
+    assert mat.strings.language_strings == []
+    assert mat.strings.language_strings_missed == []
+    # static strings are disabled, so the layout that holds them is gone too
+    assert mat.layout is None
+
+
+def test_materialize_clears_only_disabled_types():
+    disabled_stack = Analysis(enable_stack_strings=False)
+    mat = floss.cache.materialize(make_full_doc(), Path("sample.exe"), disabled_stack, 4)
+    assert mat.strings.stack_strings == []
+    assert mat.strings.static_strings
+    assert mat.strings.tight_strings
+    assert mat.strings.decoded_strings
+    assert mat.layout is not None
+
+
+def test_materialize_syncs_layout_and_tag_flags():
+    doc = make_full_doc()
+    mat = floss.cache.materialize(doc, Path("sample.exe"), Analysis(enable_layout=False, enable_tags=False), 4)
+    assert mat.analysis.enable_layout is False
+    assert mat.analysis.enable_tags is False

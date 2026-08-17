@@ -181,6 +181,22 @@ def materialize(doc: ResultDocument, sample: Path, analysis: Analysis, min_lengt
     """
     doc.metadata.file_path = str(sample)
     check_set_string_types(doc, analysis)
+    doc.analysis.enable_layout = analysis.enable_layout
+    doc.analysis.enable_tags = analysis.enable_tags
+    # mirror a fresh run: a disabled string type is absent from the document,
+    # not merely flagged. a cache hit must not emit data the user excluded.
+    if not analysis.enable_static_strings:
+        doc.strings.static_strings = []
+        doc.layout = None
+    if not analysis.enable_stack_strings:
+        doc.strings.stack_strings = []
+    if not analysis.enable_tight_strings:
+        doc.strings.tight_strings = []
+    if not analysis.enable_decoded_strings:
+        doc.strings.decoded_strings = []
+    if not analysis.enable_language_strings:
+        doc.strings.language_strings = []
+        doc.strings.language_strings_missed = []
     if not analysis.enable_layout:
         doc.layout = None
     filter_string_len(doc, min_length)
