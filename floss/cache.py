@@ -199,6 +199,11 @@ def _acquire_lock(lock_path: Path) -> Optional[int]:
         if sys.platform == "win32":
             import msvcrt
 
+            # msvcrt.locking cannot lock a byte range past EOF, so ensure the
+            # lock file has at least one byte before taking the lock.
+            if os.fstat(fd).st_size == 0:
+                os.write(fd, b"\0")
+            os.lseek(fd, 0, os.SEEK_SET)
             msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
         else:
             import fcntl

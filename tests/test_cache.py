@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 import pytest
 
@@ -90,8 +91,10 @@ def test_get_cache_dir_override(monkeypatch, tmp_path):
 
 
 def test_get_cache_dir_default(monkeypatch):
+    from platformdirs import user_cache_dir
+
     monkeypatch.delenv(floss.cache.ENV_CACHE_DIR, raising=False)
-    assert str(floss.cache.get_cache_dir()).endswith("floss")
+    assert floss.cache.get_cache_dir() == Path(user_cache_dir("floss"))
 
 
 def test_compute_key():
