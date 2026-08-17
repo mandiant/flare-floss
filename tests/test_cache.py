@@ -1,3 +1,4 @@
+import os
 import json
 from pathlib import Path
 
@@ -215,6 +216,43 @@ def test_load_drops_checksum_mismatch(tmp_path):
 
     assert floss.cache.load(tmp_path, key, "b" * 64, __version__) is None
     assert not (tmp_path / f"{key}.json").exists()
+
+
+def test_load_ignores_unlink_failure_on_invalid_entry(tmp_path, monkeypatch):
+    key = floss.cache.compute_key("a" * 64, __version__)
+    (tmp_path / f"{key}.json").write_text("{not json")
+
+    def raising_unlink(self, *args, **kwargs):
+        raise PermissionError("held open by another process")
+
+    monkeypatch.setattr(Path, "unlink", raising_unlink)
+    assert floss.cache.load(tmp_path, key, "a" * 64, __version__) is None
+
+
+def test_load_ignores_unlink_failure_on_stale_entry(tmp_path, monkeypatch):
+    doc = make_doc(sha256="a" * 64)
+    key = floss.cache.compute_key("a" * 64, __version__)
+    floss.cache.store(tmp_path, key, doc)
+
+    def raising_unlink(self, *args, **kwargs):
+        raise PermissionError("held open by another process")
+
+    monkeypatch.setattr(Path, "unlink", raising_unlink)
+    assert floss.cache.load(tmp_path, key, "b" * 64, __version__) is None
+
+
+def test_store_skips_when_replace_fails(tmp_path, monkeypatch):
+    doc = make_doc()
+    key = floss.cache.compute_key(doc.metadata.sha256, __version__)
+
+    def raising_replace(src, dst):
+        raise PermissionError("destination held open by antivirus")
+
+    monkeypatch.setattr(os, "replace", raising_replace)
+    assert floss.cache.store(tmp_path, key, doc) is False
+    assert not (tmp_path / f"{key}.json").exists()
+    # the temporary file is cleaned up
+    assert list(tmp_path.glob("*.tmp")) == []
 
 
 def test_load_drops_version_mismatch(tmp_path):

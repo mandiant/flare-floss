@@ -103,15 +103,28 @@ def load(cache_dir: Path, key: str, sha256: str, version: str) -> Optional[Resul
         doc = ResultDocument.parse_file(path)
     except (OSError, UnicodeDecodeError, ValueError) as e:
         logger.warning("dropping invalid cache entry %s: %s", path.name, e)
-        path.unlink(missing_ok=True)
+        _drop_cache_entry(path)
         return None
 
     if doc.metadata.sha256 != sha256 or doc.metadata.version != version:
         logger.warning("dropping stale cache entry %s (checksum/version mismatch)", path.name)
-        path.unlink(missing_ok=True)
+        _drop_cache_entry(path)
         return None
 
     return doc
+
+
+def _drop_cache_entry(path: Path) -> None:
+    """Best-effort removal of a stale cache entry; never raises.
+
+    The entry may be held open by another reader or an antivirus scanner (e.g.
+    on Windows), so removal can fail with a PermissionError. Leave it and let
+    the caller continue.
+    """
+    try:
+        path.unlink(missing_ok=True)
+    except OSError as e:
+        logger.warning("could not remove cache entry %s: %s", path.name, e)
 
 
 def store(cache_dir: Path, key: str, doc: ResultDocument) -> bool:
@@ -130,19 +143,33 @@ def store(cache_dir: Path, key: str, doc: ResultDocument) -> bool:
         return False
 
     try:
-        payload = floss.render.json.render(doc)
-        fd, tmp_name = tempfile.mkstemp(dir=str(cache_dir), prefix=f"{key}.", suffix=".tmp")
-        try:
-            with os.fdopen(fd, "w", encoding="utf-8") as f:
-                f.write(payload)
-            os.replace(tmp_name, cache_file_path(cache_dir, key))
-        finally:
-            if os.path.exists(tmp_name):
-                os.unlink(tmp_name)
+        return _write_atomic(cache_dir, key, floss.render.json.render(doc))
     finally:
         _release_lock(lock_fd, lock_path)
 
-    return True
+
+def _write_atomic(cache_dir: Path, key: str, payload: str) -> bool:
+    """Atomically write ``{key}.json`` into the cache, or False on any OS failure.
+
+    The payload is written to a temporary file in the cache directory and then
+    renamed into place. Cache writes are best-effort: a failure (disk full, the
+    destination held open by an antivirus scanner or another reader, etc.) must
+    not crash the analysis, so it is logged and caching is skipped.
+    """
+    fd, tmp_name = tempfile.mkstemp(dir=str(cache_dir), prefix=f"{key}.", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(payload)
+        os.replace(tmp_name, cache_file_path(cache_dir, key))
+        return True
+    except OSError as e:
+        logger.warning("could not store cache entry %s: %s; skipping cache write", key, e)
+        return False
+    finally:
+        try:
+            os.unlink(tmp_name)
+        except OSError:
+            pass
 
 
 def covers(cached: ResultDocument, wanted: Analysis, min_length: int) -> bool:
