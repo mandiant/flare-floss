@@ -164,13 +164,16 @@ def test_filter_string_len_filters_language_and_layout():
     assert doc.strings.language_strings == []
 
 
-def test_filter_string_len_warns_when_requested_below_stored(caplog):
-    """-n below the stored extraction min_length must warn: those strings are gone."""
+def test_filter_string_len_aborts_when_requested_below_stored():
+    """-n below the stored extraction min_length must abort: those strings are gone."""
+    import pytest
+
     from floss.results import (
         Strings,
         Analysis,
         Metadata,
         ResultDocument,
+        InvalidLoadConfig,
         filter_string_len,
     )
 
@@ -184,14 +187,12 @@ def test_filter_string_len_warns_when_requested_below_stored(caplog):
         ),
         strings=Strings(),
     )
-    with caplog.at_level("WARNING", logger="floss.results"):
+    with pytest.raises(InvalidLoadConfig, match="minimum-length 4"):
         filter_string_len(doc, 4)
-    assert "minimum-length 4" in caplog.text
-    assert "6" in caplog.text
 
 
-def test_filter_string_len_no_warning_when_at_or_above_stored(caplog):
-    """-n equal to or above the stored min_length is fine, no warning."""
+def test_filter_string_len_ok_when_at_or_above_stored():
+    """-n equal to or above the stored min_length is fine, no abort."""
     from floss.results import (
         Strings,
         Analysis,
@@ -210,9 +211,8 @@ def test_filter_string_len_no_warning_when_at_or_above_stored(caplog):
         ),
         strings=Strings(),
     )
-    with caplog.at_level("WARNING", logger="floss.results"):
-        filter_string_len(doc, 4)
-    assert "minimum-length" not in caplog.text
+    filter_string_len(doc, 4)
+    filter_string_len(doc, 6)
 
 
 def test_filter_functions_accepts_stack_only_function():

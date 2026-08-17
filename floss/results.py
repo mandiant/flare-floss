@@ -437,19 +437,15 @@ def filter_string_len(results: ResultDocument, min_length: int) -> None:
     different -n may contain shorter strings, so re-filter here.
 
     Strings shorter than the stored extraction min_length were dropped at
-    extraction time and cannot be recovered, so warn when the requested
+    extraction time and cannot be recovered, so abort when the requested
     threshold is lower than what the document was built with.
     """
     stored_min_length = results.metadata.min_length
     if min_length < stored_min_length:
-        logger.warning(
+        raise InvalidLoadConfig(
             "requested --minimum-length %d is below the %d used to build this "
             "document, so strings between %d and %d were already dropped and "
-            "cannot be recovered",
-            min_length,
-            stored_min_length,
-            min_length,
-            stored_min_length,
+            "cannot be recovered" % (min_length, stored_min_length, min_length, stored_min_length)
         )
     results.strings.static_strings = list(filter(lambda s: len(s.string) >= min_length, results.strings.static_strings))
     results.strings.stack_strings = list(filter(lambda s: len(s.string) >= min_length, results.strings.stack_strings))
