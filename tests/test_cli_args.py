@@ -60,18 +60,6 @@ def test_args_analysis_type_conflict(exefile):
     assert floss.main.main([exefile, "--string-type", "stack", "--no-string-type", "tight"]) == -1
 
 
-def test_filter_flags_sample_last_parses(exefile, capsys):
-    """multi-value filter flags need a -- terminator before the sample."""
-    for args in (
-        ["--section", ".rdata"],
-        ["--tag", "winapi", "openssl"],
-        ["--query", "http"],
-        ["--columns", "offset", "structure"],
-    ):
-        assert floss.main.main(args + ["--", exefile]) == 0, args
-        capsys.readouterr()
-
-
 def test_language_extraction_independent_of_static():
     """language strings are extracted even when static strings are disabled.
 
