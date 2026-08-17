@@ -13,6 +13,8 @@
 # limitations under the License.
 
 
+from pathlib import Path
+
 import pytest
 from fixtures import scfile, exefile
 
@@ -60,37 +62,21 @@ def test_args_analysis_type_conflict(exefile):
     assert floss.main.main([exefile, "--string-type", "stack", "--no-string-type", "tight"]) == -1
 
 
-def test_language_extraction_independent_of_static():
+def test_language_extraction_independent_of_static(capsys):
     """language strings are extracted even when static strings are disabled.
 
-    drives the pipeline directly (not via floss.main) to avoid the language
-    deobfuscation prompt/TTY path, on a Go sample whose language is detectable.
+    uses --string-type language (so only language extraction runs) and -y so the
+    deobfuscation prompt is skipped, on a Go sample whose language is detectable.
     """
-    from pathlib import Path
-
-    from floss.results import Analysis
-    from floss.pipeline import Options, analyze
+    import json
 
     sample = Path(__file__).parent / "data" / "language" / "go" / "go-hello" / "bin" / "go-hello64.exe"
 
-    results = analyze(
-        Options(
-            sample=sample,
-            min_length=6,
-            analysis=Analysis(
-                enable_static_strings=False,
-                enable_stack_strings=False,
-                enable_tight_strings=False,
-                enable_decoded_strings=False,
-                enable_language_strings=True,
-            ),
-            prompt_deobfuscation=False,
-        )
-    )
-    assert results is not None
-    assert results.metadata.language == "go"
-    assert len(results.strings.language_strings) > 0
-    assert len(results.strings.static_strings) == 0
+    assert floss.main.main([str(sample), "--string-type", "language", "-y", "-j"]) == 0
+    doc = json.loads(capsys.readouterr().out)
+    assert doc["metadata"]["language"] == "go"
+    assert len(doc["strings"]["language_strings"]) > 0
+    assert doc["strings"]["static_strings"] == []
 
 
 def test_manual_language_override_wins_over_auto_detect():
