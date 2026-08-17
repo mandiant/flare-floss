@@ -528,7 +528,7 @@ def test_summary_section_counts_thread_top_level():
 
 
 def test_main_summary_flag(exefile, capsys):
-    assert floss.main.main([exefile, "--summary", "--no-string-type", "stack", "tight", "decoded"]) == 0
+    assert floss.main.main([exefile, "--summary"]) == 0
     out = capsys.readouterr().out
     assert "FLOSS SUMMARY" in out
     assert "string counts" in out
@@ -543,10 +543,18 @@ def test_main_summary_is_static_only_by_default(exefile, capsys):
     assert "| stack strings | 0 |" in out
 
 
-def test_main_summary_with_explicit_string_type_still_extracts(exefile, capsys):
-    """explicit string-type selection overrides --summary's static-only default."""
-    assert floss.main.main([exefile, "--summary", "--string-type", "stack", "tight", "decoded"]) == 0
-    capsys.readouterr()
+def test_main_summary_rejects_non_static_string_type(exefile, capsys):
+    """--summary only covers static strings, so non-static types are rejected."""
+    assert floss.main.main([exefile, "--summary", "--string-type", "stack", "tight", "decoded"]) == -1
+    err = capsys.readouterr().err
+    assert "--summary" in err
+
+
+def test_main_summary_accepts_explicit_static(exefile, capsys):
+    """--summary with an explicit static selection is fine."""
+    assert floss.main.main([exefile, "--summary", "--string-type", "static"]) == 0
+    out = capsys.readouterr().out
+    assert "FLOSS SUMMARY" in out
 
 
 def test_summary_no_layout_ok():
@@ -691,7 +699,7 @@ def test_summary_escapes_rich_markup():
 
 def test_summary_ignores_plain(exefile, capsys):
     """--summary with --plain still renders the layout-backed summary."""
-    assert floss.main.main([exefile, "--summary", "--plain", "--no-string-type", "stack", "tight", "decoded"]) == 0
+    assert floss.main.main([exefile, "--summary", "--plain"]) == 0
     out = capsys.readouterr().out
     assert "FLOSS SUMMARY" in out
     assert "section counts" in out
@@ -699,7 +707,7 @@ def test_summary_ignores_plain(exefile, capsys):
 
 def test_main_summary_with_json(exefile, capsys):
     """--json takes precedence over --summary."""
-    assert floss.main.main([exefile, "-j", "--summary", "--no-string-type", "stack", "tight", "decoded"]) == 0
+    assert floss.main.main([exefile, "-j", "--summary"]) == 0
     out = capsys.readouterr().out
     assert "FLOSS SUMMARY" not in out
     json.loads(out)

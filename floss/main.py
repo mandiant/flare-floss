@@ -146,6 +146,17 @@ def main(argv=None) -> int:
         ):
             if len(values) > 1 and StringType.ALL.value in values:
                 parser.error("%s: 'all' cannot be combined with other string types" % flag)
+        if args.summary:
+            # the summary's layout-derived sections cover static strings only, so
+            # a non-static string-type selection is a shadow arg that does nothing.
+            # reject it instead of silently ignoring it.
+            for flag, values in (
+                ("--string-type", args.enabled_string_types),
+                ("--no-string-type", args.disabled_string_types),
+            ):
+                for value in values:
+                    if value != StringType.STATIC.value:
+                        parser.error("%s: '--summary' only covers static strings and does not take %s" % (flag, value))
         if args.max_strings is not None and args.max_strings <= 0:
             parser.error("--max-strings must be a positive integer")
         for pattern in args.queries:
@@ -183,8 +194,7 @@ def main(argv=None) -> int:
 
     if args.summary and not disabled_string_types and not enabled_string_types:
         # the summary's layout-derived sections cover static strings only, so
-        # don't spin up the slow deobfuscation for stack/tight/decoded unless
-        # the user explicitly requested them
+        # don't spin up the slow deobfuscation for stack/tight/decoded
         logger.info("--summary is static-only; skipping stack/tight/decoded extraction")
         disabled_string_types.extend([StringType.STACK.value, StringType.TIGHT.value, StringType.DECODED.value])
 
