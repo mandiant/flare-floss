@@ -33,6 +33,7 @@ import viv_utils
 import viv_utils.flirt
 from vivisect import VivWorkspace
 
+import floss.cache
 import floss.utils
 import floss.results
 import floss.logging_
@@ -61,6 +62,7 @@ from floss.layout import Layout
 from floss.render import Verbosity
 from floss.results import Runtime, Analysis, Metadata, ResultLayout, ResultDocument
 from floss.strings import extract_ascii_unicode_strings
+from floss.version import __version__
 from floss.identify import (
     append_unique,
     get_function_fvas,
@@ -106,6 +108,9 @@ class Options:
     verbose: int = Verbosity.DEFAULT
     # when True, prompt on TTY for deobfuscation on language binaries
     prompt_deobfuscation: bool = True
+    # analysis cache directory; None disables caching (default in the CLI is
+    # the platform cache directory via floss.cache.get_cache_dir())
+    cache_dir: Optional[Path] = None
 
 
 def select_functions(vw, asked_functions: Optional[List[int]]) -> Set[int]:
@@ -310,6 +315,17 @@ def analyze(options: Options) -> Optional[ResultDocument]:
     results.metadata.md5 = hashlib.md5(sample_buf).hexdigest()
     results.metadata.sha1 = hashlib.sha1(sample_buf).hexdigest()
     results.metadata.sha256 = hashlib.sha256(sample_buf).hexdigest()
+
+    # result caching: keyed on the sample bytes + FLOSS version. on a valid hit
+    # we skip extraction, layout, and tagging entirely and render from the cache.
+    # --analyze-functions changes which functions are analyzed, so it is a miss.
+    cache_key: Optional[str] = None
+    if options.cache_dir is not None and not options.functions and floss.cache.cache_enabled():
+        cache_key = floss.cache.compute_key(results.metadata.sha256, __version__)
+        cached = floss.cache.load(options.cache_dir, cache_key, results.metadata.sha256, __version__)
+        if cached is not None and floss.cache.covers(cached, analysis, options.min_length):
+            logger.debug("using cached results: %s", cache_key)
+            return floss.cache.materialize(cached, sample, analysis, options.min_length)
 
     static_strings = list(extract_ascii_unicode_strings(sample_buf, options.min_length))
     if not static_strings:
@@ -592,5 +608,9 @@ def analyze(options: Options) -> Optional[ResultDocument]:
 
     results.metadata.runtime.total = get_runtime_diff(time0)
     logger.info("finished execution after %.2f seconds", results.metadata.runtime.total)
+
+    if cache_key is not None and options.cache_dir is not None:
+        logger.debug("storing results in cache: %s", cache_key)
+        floss.cache.store(options.cache_dir, cache_key, results)
 
     return results
