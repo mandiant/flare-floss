@@ -149,9 +149,11 @@ def covers(cached: ResultDocument, wanted: Analysis, min_length: int) -> bool:
     """Whether a cached document satisfies the requested analysis.
 
     Every string type the user wants enabled must be present in the cached
-    document, the layout/tags preference must match, and the requested
+    document, the tags preference must match, and the requested
     ``--minimum-length`` must not be below what the document was built with
     (shorter strings were dropped at extraction time and cannot be recovered).
+    Layout is not part of the match: a cached layout can satisfy a no-layout
+    request because :func:`materialize` drops it when it is not wanted.
     """
     for field in STRING_TYPE_FIELDS:
         if getattr(wanted, field) and not getattr(cached.analysis, field):
@@ -159,8 +161,7 @@ def covers(cached: ResultDocument, wanted: Analysis, min_length: int) -> bool:
 
     if wanted.enable_layout and not cached.analysis.enable_layout:
         return False
-    if not wanted.enable_layout and cached.layout is not None:
-        return False
+    # a cached layout can satisfy a no-layout request: materialize() drops it later
     if wanted.enable_tags and not cached.analysis.enable_tags:
         return False
     if not wanted.enable_tags and cached.analysis.enable_tags:
@@ -180,6 +181,8 @@ def materialize(doc: ResultDocument, sample: Path, analysis: Analysis, min_lengt
     """
     doc.metadata.file_path = str(sample)
     check_set_string_types(doc, analysis)
+    if not analysis.enable_layout:
+        doc.layout = None
     filter_string_len(doc, min_length)
     return doc
 

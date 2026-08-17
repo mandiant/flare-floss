@@ -318,9 +318,10 @@ def analyze(options: Options) -> Optional[ResultDocument]:
 
     # result caching: keyed on the sample bytes + FLOSS version. on a valid hit
     # we skip extraction, layout, and tagging entirely and render from the cache.
-    # --analyze-functions changes which functions are analyzed, so it is a miss.
     cache_key: Optional[str] = None
     if options.cache_dir is not None and not options.functions and floss.cache.cache_enabled():
+        # --analyze-functions changes which functions are analyzed, so it is a miss:
+        # a hit would wrongly return a full-function document.
         cache_key = floss.cache.compute_key(results.metadata.sha256, __version__)
         cached = floss.cache.load(options.cache_dir, cache_key, results.metadata.sha256, __version__)
         if cached is not None and floss.cache.covers(cached, analysis, options.min_length):

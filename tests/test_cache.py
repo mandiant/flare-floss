@@ -194,9 +194,10 @@ def test_covers_layout_enabled_mismatch_is_miss():
     assert not floss.cache.covers(doc, wanted(enable_layout=True), 4)
 
 
-def test_covers_layout_disabled_mismatch_is_miss():
+def test_covers_layout_disabled_is_hit():
+    # a cached layout can satisfy a no-layout request: materialize() drops it
     doc = make_doc(enable_layout=True)
-    assert not floss.cache.covers(doc, wanted(enable_layout=False), 4)
+    assert floss.cache.covers(doc, wanted(enable_layout=False), 4)
 
 
 def test_covers_tags_enabled_mismatch_is_miss():
@@ -221,3 +222,15 @@ def test_materialize_sets_file_path_and_filters(tmp_path):
     assert mat.metadata.file_path == str(sample)
     # "hello" is 5 chars, below the requested -n 8
     assert mat.strings.static_strings == []
+
+
+def test_materialize_drops_layout_when_disabled(tmp_path):
+    doc = make_doc(enable_layout=True)
+    key = floss.cache.compute_key(doc.metadata.sha256, __version__)
+    floss.cache.store(tmp_path, key, doc)
+    loaded = floss.cache.load(tmp_path, key, doc.metadata.sha256, __version__)
+    assert loaded is not None
+    assert loaded.layout is not None
+
+    mat = floss.cache.materialize(loaded, tmp_path / "sample.exe", wanted(enable_layout=False), 4)
+    assert mat.layout is None
