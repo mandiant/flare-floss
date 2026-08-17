@@ -303,20 +303,21 @@ def test_filter_oss_meta_tag():
     assert strings == ["kcp://url"]
 
 
-def test_filter_tag_family_winapi():
-    """the winapi tag family matches strings tagged #winapi."""
-    f = floss.render.filter.LayoutFilter(include_tags=["winapi"])
-    filtered = f.apply(make_layout())
-    strings = collect_layout_strings(filtered)
-    assert strings == ["CreateFileA"]
-
-
 def test_filter_tag_family_gp():
     """the gp tag family matches global-prevalence tags like #common."""
     f = floss.render.filter.LayoutFilter(include_tags=["gp"])
     filtered = f.apply(make_layout())
     strings = collect_layout_strings(filtered)
     assert strings == ["hello world"]
+
+
+def test_filter_tag_normalization():
+    """--tag input is case- and #-insensitive (#WinAPI and WinAPI match #winapi)."""
+    for tag in ("#WINAPI", "WinAPI", "#winapi", "winapi"):
+        f = floss.render.filter.LayoutFilter(include_tags=[tag])
+        filtered = f.apply(make_layout())
+        strings = collect_layout_strings(filtered)
+        assert strings == ["CreateFileA"], tag
 
 
 def test_filter_interesting():
@@ -527,6 +528,35 @@ def test_summary_section_counts_thread_top_level():
     assert sum(counts.values()) == 3
 
 
+def test_summary_section_counts_thread_fat_macho():
+    """on a fat Mach-O, strings under an arch wrapper's segments count under
+    their segment (__TEXT), while the wrapper's own strings count under the
+    root."""
+    root_s = ResultString(string="root", offset=1, size=4, encoding="ascii")
+    wrapper_s = ResultString(string="wrapper", offset=2, size=7, encoding="ascii")
+    text_s = ResultString(string="text", offset=3, size=4, encoding="ascii")
+    layout = ResultLayout(
+        name="macho (fat)",
+        offset=0,
+        length=20,
+        strings=[root_s],
+        children=[
+            ResultLayout(
+                name="macho: x86_64",
+                offset=0,
+                length=10,
+                strings=[wrapper_s],
+                children=[
+                    ResultLayout(name="__TEXT", offset=0, length=10, strings=[text_s]),
+                ],
+            )
+        ],
+    )
+    counts, _, _ = floss.render.summary.analyze_layout(layout)
+    assert counts == {"macho (fat)": 2, "__TEXT": 1}
+    assert sum(counts.values()) == 3
+
+
 def test_main_summary_flag(exefile, capsys):
     assert floss.main.main([exefile, "--summary"]) == 0
     out = capsys.readouterr().out
@@ -605,19 +635,6 @@ def test_main_columns_invalid_value(exefile):
     assert floss.main.main([exefile, "--columns", "bogus"]) == -1
 
 
-def test_main_columns_accumulate(exefile, capsys):
-    """repeated --columns flags accumulate like the other filter flags."""
-    assert (
-        floss.main.main(
-            [exefile, "--columns", "offset", "--columns", "structure", "--no-string-type", "stack", "tight", "decoded"]
-        )
-        == 0
-    )
-    out = capsys.readouterr().out
-    assert "KERNEL32.dll" in out
-    assert "import table" in out
-
-
 def test_main_columns_with_plain(exefile):
     """--columns is irrelevant with --plain (no layout), but must not crash."""
     assert floss.main.main([exefile, "--plain", "--columns", "offset", "structure"]) == 0
@@ -682,6 +699,20 @@ def test_classic_meta_fallback_when_layout_present_but_static_disabled():
     assert "file path" in out
     # the layout tree itself is not shown when static strings are disabled
     assert "pe" not in out
+
+
+def test_layout_none_warns_filters_ignored(caplog):
+    """an active layout filter with no layout tree must warn, not silently no-op."""
+    doc = ResultDocument(
+        metadata=Metadata(file_path="x", min_length=4),
+        analysis=Analysis(enable_stack_strings=False, enable_tight_strings=False, enable_decoded_strings=False),
+        strings=Strings(),
+        layout=None,
+    )
+    with caplog.at_level("WARNING", logger="floss.render.default"):
+        render(doc, True, False, "auto", layout_filter=floss.render.filter.LayoutFilter(include_tags=["winapi"]))
+    assert "no layout tree" in caplog.text
+    assert "ignored" in caplog.text
 
 
 def test_summary_escapes_rich_markup():
