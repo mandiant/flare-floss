@@ -388,6 +388,7 @@ def test_materialize_clears_tags_when_disabled():
 
     # Analysis(enable_tags=False) keeps every string type enabled, tags off
     mat = floss.cache.materialize(doc, Path("sample.exe"), Analysis(enable_tags=False), 4)
+    assert mat.layout is not None
     assert mat.strings.static_strings[0].tags == []
     assert mat.strings.language_strings[0].tags == []
     assert mat.layout.strings[0].tags == []
@@ -395,5 +396,6 @@ def test_materialize_clears_tags_when_disabled():
 
 def test_materialize_keeps_tags_when_enabled():
     mat = floss.cache.materialize(make_full_doc(), Path("sample.exe"), wanted(), 4)
+    assert mat.layout is not None
     assert mat.strings.static_strings[0].tags == ["#common"]
     assert mat.layout.strings[0].tags == ["#winapi"]
