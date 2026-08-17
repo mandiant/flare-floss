@@ -13,6 +13,8 @@
 # limitations under the License.
 
 
+from pathlib import Path
+
 import pytest
 from fixtures import scfile, exefile
 
@@ -58,6 +60,64 @@ def test_args_analysis_type(exefile, analysis, type_):
 
 def test_args_analysis_type_conflict(exefile):
     assert floss.main.main([exefile, "--string-type", "stack", "--no-string-type", "tight"]) == -1
+
+
+def test_language_extraction_independent_of_static(capsys):
+    """language strings are extracted even when static strings are disabled.
+
+    uses --string-type language (so only language extraction runs) and -y so the
+    deobfuscation prompt is skipped, on a Go sample whose language is detectable.
+    """
+    import json
+
+    sample = Path(__file__).parent / "data" / "language" / "go" / "go-hello" / "bin" / "go-hello64.exe"
+
+    assert floss.main.main([str(sample), "--string-type", "language", "-y", "-j"]) == 0
+    doc = json.loads(capsys.readouterr().out)
+    assert doc["metadata"]["language"] == "go"
+    assert len(doc["strings"]["language_strings"]) > 0
+    assert doc["strings"]["static_strings"] == []
+
+
+def test_manual_language_override_wins_over_auto_detect(capsys):
+    """--language go must be honored even when auto-detection returns unknown."""
+    import json
+
+    # a C binary, so auto-detection yields unknown; forcing go must stick
+    sample = Path(__file__).parent / "data" / "src" / "decode-in-place" / "bin" / "test-decode-in-place.exe"
+
+    assert floss.main.main([str(sample), "--language", "go", "--string-type", "language", "-y", "-j"]) == 0
+    doc = json.loads(capsys.readouterr().out)
+    assert doc["metadata"]["language"] == "go"
+    assert doc["metadata"]["language_selected"] == "go"
+
+
+def test_manual_language_override_beats_wrong_auto_detect(monkeypatch, capsys):
+    """--language go must win even when auto-detection wrongly says rust."""
+    import json
+
+    import floss.language.identify
+
+    def fake_identify(sample, static_strings):
+        from floss.language.identify import Language
+
+        return Language.RUST, "1.75.0"
+
+    monkeypatch.setattr(floss.language.identify, "identify_language_and_version", fake_identify)
+
+    sample = Path(__file__).parent / "data" / "src" / "decode-in-place" / "bin" / "test-decode-in-place.exe"
+    assert floss.main.main([str(sample), "--language", "go", "--string-type", "language", "-y", "-j"]) == 0
+    doc = json.loads(capsys.readouterr().out)
+    assert doc["metadata"]["language"] == "go"
+    assert doc["metadata"]["language_version"] == ""
+    assert doc["metadata"]["language_selected"] == "go"
+
+
+def test_expand_string_types():
+    from floss.utils import expand_string_types
+
+    assert set(expand_string_types(["all"])) == {"static", "stack", "tight", "decoded", "language"}
+    assert expand_string_types(["static", "stack"]) == ["static", "stack"]
 
 
 def test_no_layout_yields_classic_static(exefile):

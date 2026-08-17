@@ -326,7 +326,7 @@ def analyze(options: Options) -> Optional[ResultDocument]:
     else:
         lang_id, lang_version = identify_language_and_version(sample, static_strings)
 
-        if selected_lang == Language.UNKNOWN:
+        if selected_lang in (Language.UNKNOWN, Language.AUTO):
             pass
         elif selected_lang != lang_id:
             logger.warning(
@@ -338,8 +338,14 @@ def analyze(options: Options) -> Optional[ResultDocument]:
             )
             results.metadata.language_selected = selected_lang.value
 
-        results.metadata.language = lang_id.value
-        results.metadata.language_version = lang_version
+        if selected_lang in (Language.GO, Language.RUST, Language.DOTNET):
+            # a concrete manual selection unilaterally wins over auto-detection,
+            # so the selected language drives extraction and rendering below
+            results.metadata.language = selected_lang.value
+            results.metadata.language_version = lang_version if lang_id == selected_lang else ""
+        else:
+            results.metadata.language = lang_id.value
+            results.metadata.language_version = lang_version
 
     if results.metadata.language == Language.GO.value:
         if analysis.enable_tight_strings or analysis.enable_stack_strings or analysis.enable_decoded_strings:
@@ -396,9 +402,9 @@ def analyze(options: Options) -> Optional[ResultDocument]:
     # 3. tight strings
     # 4. decoded strings
 
+    layout_doc: Optional[ResultLayout] = None
     if results.analysis.enable_static_strings:
         logger.info("extracting static strings")
-        layout_doc: Optional[ResultLayout] = None
         if analysis.enable_layout:
             # only layout/tag work for static_strings runtime — not language ID or the TTY prompt above
             with results.metadata.runtime.measure_and_set_time("static_strings"):
@@ -417,9 +423,13 @@ def analyze(options: Options) -> Optional[ResultDocument]:
             # measure_and_set_time("static_strings") already recorded above
             results.metadata.runtime.static_strings += static_runtime
 
+    # language-specific strings are independent of static strings: extract them
+    # whenever enabled, reusing the classic extraction buffer (and layout, when
+    # static+layout actually ran) for missed-string/enrichment.
+    if analysis.enable_language_strings and results.metadata.language in (Language.GO.value, Language.RUST.value):
         # one offset index for both language_strings and language_strings_missed
         layout_offset_index = None
-        if layout_doc is not None and results.metadata.language in (Language.GO.value, Language.RUST.value):
+        if layout_doc is not None:
             layout_offset_index = build_offset_index(layout_doc)
 
         if results.metadata.language == Language.GO.value:

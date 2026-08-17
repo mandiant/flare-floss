@@ -35,6 +35,8 @@ from floss.utils import set_vivisect_log_level
 from floss.render import Verbosity
 from floss.version import __version__
 from floss.logging_ import TRACE, DebugLevel
+from floss.render.filter import NOISY_TAGS, TAG_FAMILIES, KNOWN_STRUCTURE_SLUGS
+from floss.render.layout import COLUMN_CHOICES, DEFAULT_COLUMNS
 from floss.language.identify import Language
 
 logger = floss.logging_.getLogger("floss")
@@ -51,7 +53,12 @@ class StringType(str, Enum):
     STACK = "stack"
     TIGHT = "tight"
     DECODED = "decoded"
+    LANGUAGE = "language"
+    ALL = "all"
 
+
+# concrete string types; `all` is a convenience alias for the full set
+CONCRETE_STRING_TYPES = (StringType.STATIC, StringType.STACK, StringType.TIGHT, StringType.DECODED, StringType.LANGUAGE)
 
 # string types selectable via --string-type / --no-string-type
 STRING_TYPE_CHOICES = [t.value for t in StringType]
@@ -74,8 +81,15 @@ class ArgumentParser(argparse.ArgumentParser):
     this strategy is originally described here: https://stackoverflow.com/a/16942165/87207
     """
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # when a JSON output mode is active, parsing errors emit a single JSON
+        # object on STDERR, without the usage text
+        self.json_mode = False
+
     def error(self, message):
-        self.print_usage(sys.stderr)
+        if not self.json_mode:
+            self.print_usage(sys.stderr)
         args = {"prog": self.prog, "message": message}
         raise ArgumentValueError("%(prog)s: error: %(message)s" % args)
 
@@ -114,6 +128,18 @@ def make_parser():
 
           only decode strings from the specified functions
             floss --analyze-functions 0x401000 0x401100 -- suspicious.exe
+
+          only show static strings from the .rdata section
+            floss --section .rdata -- suspicious.exe
+
+          only show strings tagged winapi or openssl
+            floss --tag winapi openssl -- suspicious.exe
+
+          hide noisy strings and search for a pattern in the layout tree
+            floss --interesting --query "http://" -- suspicious.exe
+
+          emit a concise summary instead of the full listing
+            floss --summary suspicious.exe
 
           extract strings from a binary written in Go (if automatic language identification fails)
             floss --language go program.exe
@@ -159,6 +185,90 @@ def make_parser():
         help="do not extract specified string type(s); valid values: %s" % ", ".join(STRING_TYPE_CHOICES),
     )
 
+    filter_group = parser.add_argument_group("filtering arguments")
+    structure_examples = ", ".join(KNOWN_STRUCTURE_SLUGS)
+    for flag, dest, metavar, example, help_ in (
+        (
+            "--section",
+            "include_sections",
+            "NAME",
+            "e.g. .rdata",
+            "only show static strings in the given binary section(s)",
+        ),
+        (
+            "--no-section",
+            "exclude_sections",
+            "NAME",
+            None,
+            "do not show static strings in the given binary section(s)",
+        ),
+        (
+            "--structure",
+            "include_structures",
+            "NAME",
+            f"e.g. {structure_examples}; names are slugs and match regardless of separators; run --summary "
+            "to see the structures present in a specific sample",
+            "only show static strings in the given binary structure(s)",
+        ),
+        (
+            "--no-structure",
+            "exclude_structures",
+            "NAME",
+            None,
+            "do not show static strings in the given binary structure(s)",
+        ),
+        (
+            "--tag",
+            "include_tags",
+            "TAG",
+            "e.g. winapi, crypto, or a tag family: %s; run --summary to see the tags present in a specific sample"
+            % ", ".join(sorted(TAG_FAMILIES)),
+            "only show strings with the given semantic tag(s)",
+        ),
+        (
+            "--no-tag",
+            "exclude_tags",
+            "TAG",
+            None,
+            "do not show strings with the given semantic tag(s)",
+        ),
+    ):
+        help_text = help_ + (f"; {example}" if example else "")
+        filter_group.add_argument(
+            flag,
+            action="extend",
+            dest=dest,
+            nargs="+",
+            metavar=metavar,
+            default=[],
+            help=help_text,
+        )
+    filter_group.add_argument(
+        "--interesting",
+        action="store_true",
+        dest="interesting",
+        default=False,
+        help="exclude strings with noisy tags: %s" % ", ".join(sorted(NOISY_TAGS)),
+    )
+    filter_group.add_argument(
+        "--query",
+        action="extend",
+        dest="queries",
+        nargs="+",
+        metavar="REGEX",
+        default=[],
+        help="only show strings matching the given regular expression(s); repeatable, patterns are ORed",
+    )
+    filter_group.add_argument(
+        "--max-strings",
+        dest="max_strings",
+        type=int,
+        default=None,
+        metavar="N",
+        help="cap the emitted strings per section to the top N by relevance (highlighted, then "
+        "untagged, then tagged, ascending by offset)",
+    )
+
     advanced_group = parser.add_argument_group("advanced arguments")
     formats = [
         ("auto", "(default) detect file type automatically"),
@@ -177,8 +287,8 @@ def make_parser():
     advanced_group.add_argument(
         "--language",
         type=str,
-        choices=[l.value for l in Language if l != Language.UNKNOWN],
-        default=Language.UNKNOWN.value,
+        choices=[Language.AUTO.value, Language.GO.value, Language.RUST.value, Language.DISABLED.value],
+        default=Language.AUTO.value,
         help="use language-specific string extraction, auto-detect language by default, disable using 'none'",
     )
     advanced_group.add_argument(
@@ -223,6 +333,13 @@ def make_parser():
     output_group = parser.add_argument_group("rendering arguments")
     output_group.add_argument("-j", "--json", action="store_true", help="emit JSON instead of text")
     output_group.add_argument(
+        "--summary",
+        action="store_true",
+        default=False,
+        help="emit a concise summary (metadata, counts, tag histogram, high-value strings); "
+        "static-only by default unless string types are explicitly selected",
+    )
+    output_group.add_argument(
         "-v",
         "--verbose",
         action="count",
@@ -235,6 +352,15 @@ def make_parser():
         default=False,
         help="render the classic flat list of strings without layout and tags",
     )
+    output_group.add_argument(
+        "--columns",
+        dest="columns",
+        action="extend",
+        nargs="+",
+        choices=COLUMN_CHOICES,
+        default=[],
+        help="columns to show in the layout view; valid values: tags, offset, structure, encoding. Default: tags, offset.",
+    )
 
     logging_group = parser.add_argument_group("logging arguments")
     logging_group.add_argument(
@@ -246,6 +372,14 @@ def make_parser():
     )
     logging_group.add_argument(
         "-q", "--quiet", action="store_true", help="disable all status output on STDOUT except fatal errors"
+    )
+    logging_group.add_argument(
+        "-y",
+        "--yes",
+        dest="prompt_deobfuscation",
+        action="store_false",
+        default=True,
+        help="do not prompt to enable string deobfuscation (defaults to not running it)",
     )
     logging_group.add_argument(
         "--color",

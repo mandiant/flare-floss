@@ -24,7 +24,6 @@ layout_tags_hiddenimports = (
     collect_submodules("floss.layout")
     + collect_submodules("floss.tags")
     + [
-        "floss.render.layout_text",
         "floss.ranges",
         "elftools",
         "lancelot",

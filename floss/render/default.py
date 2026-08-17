@@ -17,9 +17,10 @@ import io
 import sys
 import textwrap
 import collections
-from typing import Dict, List, Tuple, Union
+from typing import Dict, List, Tuple, Union, Callable, Optional, Sequence
 
 from rich import box
+from rich.text import Text
 from rich.table import Table
 from rich.markup import escape
 from rich.console import Console
@@ -27,11 +28,21 @@ from rich.console import Console
 import floss.utils as util
 import floss.logging_
 import floss.language.identify
+from floss.enrich import static_strings_from_layout
 from floss.render import Verbosity
-from floss.results import AddressType, StackString, TightString, DecodedString, ResultDocument, StringEncoding
+from floss.results import (
+    AddressType,
+    StackString,
+    TightString,
+    ResultLayout,
+    DecodedString,
+    ResultDocument,
+    StringEncoding,
+)
 from floss.tags.filter import TagRules, hide_strings_by_rules
+from floss.render.filter import LayoutFilter
+from floss.render.layout import DEFAULT_COLUMNS, render_strings
 from floss.render.sanitize import sanitize
-from floss.render.layout_text import render_strings
 
 MIN_WIDTH_LEFT_COL = 22
 MIN_WIDTH_RIGHT_COL = 82
@@ -67,9 +78,8 @@ def width(s: str, character_count: int) -> str:
         return s
 
 
-def render_meta(results: ResultDocument, console, verbose):
-    rows: List[Tuple[str, str]] = list()
-
+def language_value(results: ResultDocument) -> str:
+    """compose the human-readable identified-language string."""
     lang = f"{results.metadata.language}" if results.metadata.language else ""
     lang_v = (
         f" ({results.metadata.language_version})"
@@ -77,13 +87,19 @@ def render_meta(results: ResultDocument, console, verbose):
         else ""
     )
     lang_s = f" - selected: {results.metadata.language_selected}" if results.metadata.language_selected else ""
-    language_value = f"{lang}{lang_v}{lang_s}"
+    return f"{lang}{lang_v}{lang_s}"
+
+
+def render_meta(results: ResultDocument, console, verbose):
+    rows: List[Tuple[str, str]] = list()
+
+    language_value_ = language_value(results)
 
     if verbose == Verbosity.DEFAULT:
         rows.append((width("file path", MIN_WIDTH_LEFT_COL), width(results.metadata.file_path, MIN_WIDTH_RIGHT_COL)))
         if results.metadata.sha256:
             rows.append(("sha256", results.metadata.sha256))
-        rows.append(("identified language", language_value))
+        rows.append(("identified language", language_value_))
     else:
         rows.extend(
             [
@@ -101,7 +117,7 @@ def render_meta(results: ResultDocument, console, verbose):
                 ("start date", results.metadata.runtime.start_date.strftime("%Y-%m-%d %H:%M:%S")),
                 ("runtime", strtime(results.metadata.runtime.total)),
                 ("version", results.metadata.version),
-                ("identified language", language_value),
+                ("identified language", language_value_),
                 ("imagebase", f"0x{results.metadata.imagebase:x}"),
                 ("min string length", f"{results.metadata.min_length}"),
             ]
@@ -136,7 +152,7 @@ def render_string_type_rows(results: ResultDocument) -> List[Tuple[str, str]]:
             "  language strings",
             (
                 f"{len_ls:>{len(str(len_ss))}} ({len_chars_ls:>{len(str(len_chars_ss))}d} characters)"
-                if results.metadata.language
+                if results.analysis.enable_language_strings and results.metadata.language
                 else DISABLED
             ),
         ),
@@ -312,15 +328,30 @@ def render_heading(heading, console, verbose, disable_headers):
     """
     if disable_headers:
         return
-    style = ""
-    if verbose != Verbosity.DEFAULT:
-        style = "cyan"
-    table = Table(box=box.HORIZONTALS, style=style, show_header=False)
-    table.add_row(heading, style=style)
-    if verbose == Verbosity.DEFAULT:
-        console.print(table)
-    else:
-        console.print(table)
+    table = Table(box=box.HORIZONTALS, show_header=False)
+    table.add_row(heading)
+    console.print(table)
+    console.print()
+
+
+def render_section_heading(name, console, verbose, disable_headers):
+    """centered lowercase heading for recovered-string sections, in the same
+    style as the layout section headings: a horizontal line above and below.
+
+    example::
+
+         ─────────────────────
+               stack strings
+         ─────────────────────
+    """
+    if disable_headers:
+        return
+
+    line = Text("─" * console.width)
+    heading = Text(name.center(console.width))
+    console.print(line)
+    console.print(heading)
+    console.print(line)
     console.print()
 
 
@@ -353,14 +384,59 @@ def get_color(color):
     return color_system
 
 
-def render(results: floss.results.ResultDocument, verbose, disable_headers, color):
+def effective_tag_rules(layout_filter: Optional[LayoutFilter]) -> TagRules:
+    """tag rules for the layout view.
+
+    When the user expressed tag intent (--tag or --interesting), the default
+    hide rules (e.g. #code, #reloc) must not drop strings the filter
+    deliberately kept — the filter already narrowed the set, so re-hiding would
+    undo it. Without a tag filter the default hide behavior is unchanged.
+    """
+    if layout_filter is not None and (layout_filter.include_tags or layout_filter.interesting):
+        return {tag: "default" if rule == "hide" else rule for tag, rule in DEFAULT_TAG_RULES.items()}
+    return DEFAULT_TAG_RULES
+
+
+def render(
+    results: floss.results.ResultDocument,
+    verbose,
+    disable_headers,
+    color,
+    columns: Sequence[str] = DEFAULT_COLUMNS,
+    layout_filter: Optional[LayoutFilter] = None,
+    plain: bool = False,
+):
     sys.__stdout__.reconfigure(encoding="utf-8")  # type: ignore [union-attr]
     console = Console(file=io.StringIO(), color_system=get_color(color), highlight=False, soft_wrap=True)
 
-    # layout-aware path: no classic meta table
-    if results.layout is not None and results.analysis.enable_static_strings:
-        layout_view = hide_strings_by_rules(results.layout, DEFAULT_TAG_RULES)
-        render_strings(console, layout_view, DEFAULT_TAG_RULES)
+    if not columns:
+        columns = DEFAULT_COLUMNS
+
+    if layout_filter is not None and layout_filter.active and results.layout is None:
+        logger.warning(
+            "layout-aware filters (--section, --structure, --tag, --query, --max-strings, --interesting) "
+            "have no layout tree to apply to and are ignored"
+        )
+
+    # layout-aware path: no classic meta table (spec 1.2/2.4). the layout tree
+    # is the static string view, so it is only rendered when static strings are
+    # enabled; otherwise fall back to the classic metadata view.
+    if not plain and results.layout is not None and results.analysis.enable_static_strings:
+        layout = results.layout
+        if layout_filter is not None and layout_filter.active:
+            filtered = layout_filter.apply(layout)
+            if filtered is None:
+                layout = ResultLayout(name=layout.name, offset=layout.offset, length=layout.length)
+            else:
+                layout = filtered
+
+        # when the user expressed tag intent (--tag or --interesting), don't let
+        # the default hide rules (e.g. #code, #reloc) drop strings the filter
+        # deliberately kept. tag-aware filtering already narrowed the set.
+        tag_rules = effective_tag_rules(layout_filter)
+
+        layout_view = hide_strings_by_rules(layout, tag_rules)
+        render_strings(console, layout_view, tag_rules, columns=columns)
         console.print()
     else:
         if not disable_headers:
@@ -374,10 +450,19 @@ def render(results: floss.results.ResultDocument, verbose, disable_headers, colo
             console.print("\n")
 
         if results.analysis.enable_static_strings:
-            render_staticstrings(results.strings.static_strings, console, verbose, disable_headers)
+            static_strings = results.strings.static_strings
+            # --plain is filter-aware: apply the render-time filters to the
+            # layout tree (when present) and flatten the filtered result
+            if plain and layout_filter is not None and layout_filter.active and results.layout is not None:
+                filtered = layout_filter.apply(results.layout)
+                if filtered is not None:
+                    static_strings = static_strings_from_layout(filtered)
+                else:
+                    static_strings = []
+            render_staticstrings(static_strings, console, verbose, disable_headers)
             console.print("\n")
 
-    if results.metadata.language in (
+    if results.analysis.enable_language_strings and results.metadata.language in (
         floss.language.identify.Language.GO.value,
         floss.language.identify.Language.RUST.value,
     ):
@@ -393,21 +478,24 @@ def render(results: floss.results.ResultDocument, verbose, disable_headers, colo
 
     # recovered strings always after static/language (classic blocks).
     # show the section whenever the mode is enabled, including count 0.
-    if results.analysis.enable_stack_strings:
-        render_heading(f"FLOSS STACK STRINGS ({len(results.strings.stack_strings)})", console, verbose, disable_headers)
-        render_stackstrings(results.strings.stack_strings, console, verbose, disable_headers)
+    recovered_sections: Tuple[
+        Tuple[str, bool, Union[List[StackString], List[TightString], List[DecodedString]], Callable], ...
+    ] = (
+        ("stack strings", results.analysis.enable_stack_strings, results.strings.stack_strings, render_stackstrings),
+        ("tight strings", results.analysis.enable_tight_strings, results.strings.tight_strings, render_stackstrings),
+        (
+            "decoded strings",
+            results.analysis.enable_decoded_strings,
+            results.strings.decoded_strings,
+            render_decoded_strings,
+        ),
+    )
+    for name, enabled, strings, renderer in recovered_sections:
+        if not enabled:
+            continue
+        render_section_heading(name, console, verbose, disable_headers)
+        renderer(strings, console, verbose, disable_headers)
         console.print("\n")
-
-    if results.analysis.enable_tight_strings:
-        render_heading(f"FLOSS TIGHT STRINGS ({len(results.strings.tight_strings)})", console, verbose, disable_headers)
-        render_stackstrings(results.strings.tight_strings, console, verbose, disable_headers)
-        console.print("\n")
-
-    if results.analysis.enable_decoded_strings:
-        render_heading(
-            f"FLOSS DECODED STRINGS ({len(results.strings.decoded_strings)})", console, verbose, disable_headers
-        )
-        render_decoded_strings(results.strings.decoded_strings, console, verbose, disable_headers)
 
     console.file.seek(0)
     return console.file.read()

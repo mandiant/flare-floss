@@ -16,8 +16,10 @@
 
 import json
 import tempfile
+import dataclasses
 from pathlib import Path
 
+import floss.utils
 import floss.render.json
 from floss.results import (
     Strings,
@@ -121,3 +123,57 @@ def test_layout_none_roundtrip():
     data = json.loads(raw)
     assert data["layout"] is None
     assert data["strings"]["static_strings"][0]["tags"] == []
+
+
+def test_top_level_key_order_metadata_first():
+    """the top-level keys must keep metadata near the start so results
+    documents are detectable from their leading bytes (see detect_file_type)."""
+    doc = ResultDocument(
+        metadata=Metadata(file_path="sample.exe", min_length=4),
+        analysis=Analysis(enable_layout=True, enable_tags=True),
+        strings=Strings(static_strings=[]),
+        layout=ResultLayout(name="pe", offset=0, length=0x1000),
+    )
+    raw = floss.render.json.render(doc)
+    # metadata must appear before the (potentially large) layout tree
+    assert raw.index('"metadata"') < raw.index('"layout"')
+    data = json.loads(raw)
+    # nested keys are still sorted
+    assert list(data["metadata"].keys()) == sorted(data["metadata"].keys())
+
+
+def test_rendered_document_is_detectable(tmp_path):
+    """a JSON document produced by the renderer must be recognized as a
+    results document by detect_file_type (sniffs the leading bytes)."""
+    doc = ResultDocument(
+        metadata=Metadata(file_path="sample.exe", min_length=4),
+        analysis=Analysis(enable_layout=True, enable_tags=True),
+        strings=Strings(static_strings=[]),
+        layout=ResultLayout(name="pe", offset=0, length=0x1000),
+    )
+    p = tmp_path / "results.json"
+    p.write_text(floss.render.json.render(doc))
+
+    assert floss.utils.detect_file_type(p) is floss.utils.FileType.RESULTS
+
+
+def test_json_render_keeps_extra_top_level_keys():
+    """future/extra top-level fields must not be silently dropped."""
+    from floss.render import json as render_json
+
+    doc = ResultDocument(
+        metadata=Metadata(file_path="sample.exe", min_length=4),
+        analysis=Analysis(),
+        strings=Strings(),
+        layout=None,
+    )
+    data = dataclasses.asdict(doc)
+    # simulate a future document gaining an extra top-level field
+    data["future_field"] = {"a": 1}
+
+    raw = render_json._render_dict(data)
+    obj = json.loads(raw)
+    assert obj["future_field"] == {"a": 1}
+    # ordering preserved: metadata first, extras appended after known keys
+    assert list(obj.keys())[0] == "metadata"
+    assert list(obj.keys())[-1] == "future_field"

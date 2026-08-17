@@ -13,7 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import re
 import sys
+import json
 from pathlib import Path
 
 import rich.traceback
@@ -22,6 +24,7 @@ import floss.results
 import floss.logging_
 import floss.render.json
 import floss.render.default
+import floss.render.summary
 from floss.cli import (
     SIGNATURES_PATH_DEFAULT_STRING,
     StringType,
@@ -29,9 +32,10 @@ from floss.cli import (
     make_parser,
     set_log_config,
 )
-from floss.utils import FileType, detect_file_type, is_string_type_enabled
+from floss.utils import FileType, detect_file_type, expand_string_types, is_string_type_enabled
 from floss.results import Analysis, load
 from floss.pipeline import Options, PipelineError, analyze
+from floss.render.filter import LayoutFilter
 
 logger = floss.logging_.getLogger("floss")
 
@@ -59,6 +63,57 @@ def get_default_root() -> Path:
         return Path(__file__).resolve().parent
 
 
+def emit_json_error(message: str, code: int = 1) -> None:
+    """emit a structured JSON error on STDERR for the JSON output modes."""
+    sys.stderr.write(json.dumps({"error": message, "code": code}) + "\n")
+
+
+def report_error(parser, message: str) -> None:
+    """emit an error in the active output mode: JSON object on STDERR for
+    JSON modes, otherwise a plain message on STDERR."""
+    if parser.json_mode:
+        emit_json_error(message)
+    else:
+        print(message, file=sys.stderr)
+
+
+def json_requested(argv) -> bool:
+    """best-effort detection of a JSON output mode before argument parsing completes."""
+    argv = argv or []
+    return "--json" in argv or any(a == "-j" for a in argv)
+
+
+def build_layout_filter(args) -> LayoutFilter:
+    return LayoutFilter(
+        include_sections=args.include_sections,
+        exclude_sections=args.exclude_sections,
+        include_structures=args.include_structures,
+        exclude_structures=args.exclude_structures,
+        include_tags=args.include_tags,
+        exclude_tags=args.exclude_tags,
+        interesting=args.interesting,
+        queries=args.queries,
+        max_strings=args.max_strings,
+        tag_rules=floss.render.default.DEFAULT_TAG_RULES,
+    )
+
+
+def render_text(args, results: floss.results.ResultDocument) -> str:
+    """render results as text, honoring --summary, --plain, --columns, and the filters."""
+    if args.summary:
+        # --summary is its own output; it needs the layout tree intact
+        return floss.render.summary.render_summary(results, args.color)
+    return floss.render.default.render(
+        results,
+        args.verbose,
+        args.quiet,
+        args.color,
+        columns=args.columns,
+        layout_filter=build_layout_filter(args),
+        plain=args.plain,
+    )
+
+
 def main(argv=None) -> int:
     """
     arguments:
@@ -70,16 +125,47 @@ def main(argv=None) -> int:
         argv = sys.argv[1:]
 
     parser = make_parser()
+    parser.json_mode = json_requested(argv)
     try:
         if not argv:
             # no arguments: print the full option list and exit with code 1
             parser.print_help()
             return 1
         args = parser.parse_args(args=argv)
-        if args.enabled_string_types and args.disabled_string_types:
-            parser.error("--string-type and --no-string-type arguments are not allowed together")
+        for flag, include, exclude in (
+            ("--string-type", args.enabled_string_types, args.disabled_string_types),
+            ("--section", args.include_sections, args.exclude_sections),
+            ("--structure", args.include_structures, args.exclude_structures),
+            ("--tag", args.include_tags, args.exclude_tags),
+        ):
+            if include and exclude:
+                parser.error("%s and --no-%s arguments are not allowed together" % (flag, flag[2:]))
+        for flag, values in (
+            ("--string-type", args.enabled_string_types),
+            ("--no-string-type", args.disabled_string_types),
+        ):
+            if len(values) > 1 and StringType.ALL.value in values:
+                parser.error("%s: 'all' cannot be combined with other string types" % flag)
+        if args.summary:
+            # the summary's layout-derived sections cover static strings only, so
+            # a non-static string-type selection is a shadow arg that does nothing.
+            # reject it instead of silently ignoring it.
+            for flag, values in (
+                ("--string-type", args.enabled_string_types),
+                ("--no-string-type", args.disabled_string_types),
+            ):
+                for value in values:
+                    if value != StringType.STATIC.value:
+                        parser.error("%s: '--summary' only covers static strings and does not take %s" % (flag, value))
+        if args.max_strings is not None and args.max_strings <= 0:
+            parser.error("--max-strings must be a positive integer")
+        for pattern in args.queries:
+            try:
+                re.compile(pattern)
+            except re.error as e:
+                parser.error("invalid --query regular expression %r: %s" % (pattern, e))
     except ArgumentValueError as e:
-        print(e)
+        report_error(parser, str(e))
         return -1
 
     set_log_config(args.debug, args.quiet)
@@ -103,8 +189,14 @@ def main(argv=None) -> int:
     sample = Path(args.sample.name)
     args.sample.close()
 
-    disabled_string_types = list(args.disabled_string_types or [])
-    enabled_string_types = list(args.enabled_string_types or [])
+    disabled_string_types = expand_string_types(list(args.disabled_string_types or []))
+    enabled_string_types = expand_string_types(list(args.enabled_string_types or []))
+
+    if args.summary and not disabled_string_types and not enabled_string_types:
+        # the summary's layout-derived sections cover static strings only, so
+        # don't spin up the slow deobfuscation for stack/tight/decoded
+        logger.info("--summary is static-only; skipping stack/tight/decoded extraction")
+        disabled_string_types.extend([StringType.STACK.value, StringType.TIGHT.value, StringType.DECODED.value])
 
     if args.functions:
         static_was_enabled = is_string_type_enabled(StringType.STATIC, disabled_string_types, enabled_string_types)
@@ -121,7 +213,7 @@ def main(argv=None) -> int:
             elif not enabled_string_types and StringType.STATIC.value not in disabled_string_types:
                 disabled_string_types.append(StringType.STATIC.value)
         except ArgumentValueError as e:
-            print(e)
+            report_error(parser, str(e))
             return -1
         if static_was_enabled:
             logger.warning("analyzing specified functions, not showing static strings")
@@ -132,24 +224,31 @@ def main(argv=None) -> int:
         enable_stack_strings=is_string_type_enabled(StringType.STACK, disabled_string_types, enabled_string_types),
         enable_tight_strings=is_string_type_enabled(StringType.TIGHT, disabled_string_types, enabled_string_types),
         enable_decoded_strings=is_string_type_enabled(StringType.DECODED, disabled_string_types, enabled_string_types),
+        enable_language_strings=is_string_type_enabled(
+            StringType.LANGUAGE, disabled_string_types, enabled_string_types
+        ),
     )
 
     if detect_file_type(sample) is FileType.RESULTS:
         try:
             results = load(sample, analysis, args.functions, args.min_length)
         except floss.results.InvalidResultsFile as e:
-            logger.error("cannot load JSON results file: %s", e)
+            if args.json:
+                emit_json_error(f"cannot load JSON results file: {e}")
+            else:
+                logger.error("cannot load JSON results file: %s", e)
             return -1
         except floss.results.InvalidLoadConfig as e:
-            logger.error("%s", e)
+            if args.json:
+                emit_json_error(str(e))
+            else:
+                logger.error("%s", e)
             return -1
 
         if args.json:
             r = floss.render.json.render(results)
         else:
-            if args.plain:
-                results.layout = None
-            r = floss.render.default.render(results, args.verbose, args.quiet, args.color)
+            r = render_text(args, results)
 
         print(r)
         return 0
@@ -167,13 +266,15 @@ def main(argv=None) -> int:
         large_file=args.large_file,
         quiet=args.quiet,
         verbose=args.verbose,
-        prompt_deobfuscation=True,
+        prompt_deobfuscation=args.prompt_deobfuscation,
     )
 
     try:
         analysis_results = analyze(options)
     except PipelineError as e:
-        if e.exit_code in (1, 130):
+        if args.json:
+            emit_json_error(str(e), code=e.exit_code if e.exit_code >= 0 else 1)
+        elif e.exit_code in (1, 130):
             logger.info("%s", e)
         else:
             logger.error("%s", e)
@@ -187,10 +288,7 @@ def main(argv=None) -> int:
     else:
         # this may be slow when there's many strings, so informing users what's happening
         logger.info("rendering results")
-        if args.plain:
-            # --plain: classic flat list, no layout or tags
-            analysis_results.layout = None
-        r = floss.render.default.render(analysis_results, args.verbose, args.quiet, args.color)
+        r = render_text(args, analysis_results)
 
     print(r)
     return 0

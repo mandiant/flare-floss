@@ -23,7 +23,7 @@ import argparse
 import builtins
 import contextlib
 from enum import Enum
-from typing import Set, Tuple, Iterable, Optional
+from typing import Set, List, Tuple, Iterable, Optional
 from pathlib import Path
 from collections import OrderedDict
 
@@ -537,6 +537,19 @@ def is_string_type_enabled(type_, disabled_string_types, enabled_string_types):
         return type_ in enabled_string_types
     else:
         return True
+
+
+def expand_string_types(string_types):
+    """expand the `all` alias into the full set of concrete string types.
+
+    `all` may only be used on its own (validated at argument-parse time), so a
+    single value never needs deduplicating.
+    """
+    from floss.cli import CONCRETE_STRING_TYPES, StringType
+
+    if string_types == [StringType.ALL.value]:
+        return [t.value for t in CONCRETE_STRING_TYPES]
+    return list(string_types)
 
 
 def get_max_size(size: int, max_: int, api: Optional[Tuple] = None, argv: Optional[Tuple] = None) -> int:
