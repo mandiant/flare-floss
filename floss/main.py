@@ -20,6 +20,7 @@ from pathlib import Path
 
 import rich.traceback
 
+import floss.cache
 import floss.results
 import floss.logging_
 import floss.render.json
@@ -36,6 +37,7 @@ from floss.utils import FileType, detect_file_type, expand_string_types, is_stri
 from floss.results import Analysis, load
 from floss.pipeline import Options, PipelineError, analyze
 from floss.render.filter import LayoutFilter
+from floss.language.identify import Language
 
 logger = floss.logging_.getLogger("floss")
 
@@ -170,6 +172,18 @@ def main(argv=None) -> int:
 
     set_log_config(args.debug, args.quiet)
 
+    # caching applies to the default analysis variant only: an explicit format,
+    # language, or custom signatures change the analysis, so the content-
+    # addressed cache could return a mismatched document. disable it for those.
+    cache_dir = None
+    if (
+        not args.functions
+        and args.format == "auto"
+        and args.language == Language.AUTO.value
+        and args.signatures == SIGNATURES_PATH_DEFAULT_STRING
+    ):
+        cache_dir = floss.cache.get_cache_dir()
+
     if hasattr(args, "signatures"):
         if args.signatures == SIGNATURES_PATH_DEFAULT_STRING:
             logger.debug("-" * 80)
@@ -267,6 +281,7 @@ def main(argv=None) -> int:
         quiet=args.quiet,
         verbose=args.verbose,
         prompt_deobfuscation=args.prompt_deobfuscation,
+        cache_dir=cache_dir,
     )
 
     try:

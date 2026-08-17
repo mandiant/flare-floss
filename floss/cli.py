@@ -143,6 +143,10 @@ def make_parser():
 
           extract strings from a binary written in Go (if automatic language identification fails)
             floss --language go program.exe
+
+        environment variables:
+          FLOSS_CACHE_DIR      directory for the analysis result cache (default: platform cache directory)
+          FLOSS_CACHE_ENABLE   set to 0 to disable result caching (default: enabled)
         """)
 
     parser = ArgumentParser(
