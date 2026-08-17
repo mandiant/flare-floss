@@ -42,6 +42,7 @@ import floss.render.json
 from floss.results import (
     STRING_TYPE_FIELDS,
     Analysis,
+    ResultLayout,
     ResultDocument,
     filter_string_len,
     check_set_string_types,
@@ -176,11 +177,13 @@ def covers(cached: ResultDocument, wanted: Analysis, min_length: int) -> bool:
     """Whether a cached document satisfies the requested analysis.
 
     Every string type the user wants enabled must be present in the cached
-    document, the tags preference must match, and the requested
-    ``--minimum-length`` must not be below what the document was built with
-    (shorter strings were dropped at extraction time and cannot be recovered).
-    Layout is not part of the match: a cached layout can satisfy a no-layout
-    request because :func:`materialize` drops it when it is not wanted.
+    document, and the requested ``--minimum-length`` must not be below what the
+    document was built with (shorter strings were dropped at extraction time
+    and cannot be recovered). Layout and tags are not part of the match: a
+    cached layout/tags document can satisfy a request without them because
+    :func:`materialize` drops the layout and redacts the tags when they are not
+    wanted. The reverse (requesting layout/tags the cache was not built with) is
+    a miss.
     """
     for field in STRING_TYPE_FIELDS:
         if getattr(wanted, field) and not getattr(cached.analysis, field):
@@ -188,10 +191,7 @@ def covers(cached: ResultDocument, wanted: Analysis, min_length: int) -> bool:
 
     if wanted.enable_layout and not cached.analysis.enable_layout:
         return False
-    # a cached layout can satisfy a no-layout request: materialize() drops it later
     if wanted.enable_tags and not cached.analysis.enable_tags:
-        return False
-    if not wanted.enable_tags and cached.analysis.enable_tags:
         return False
 
     if min_length < cached.metadata.min_length:
@@ -226,8 +226,30 @@ def materialize(doc: ResultDocument, sample: Path, analysis: Analysis, min_lengt
         doc.strings.language_strings_missed = []
     if not analysis.enable_layout:
         doc.layout = None
+    if not analysis.enable_tags:
+        _clear_tags(doc)
     filter_string_len(doc, min_length)
     return doc
+
+
+def _clear_tags(doc: ResultDocument) -> None:
+    """Redact tag classifications from a document (tags-off requests)."""
+    for s in doc.strings.static_strings:
+        s.tags.clear()
+    for s in doc.strings.language_strings:
+        s.tags.clear()
+    for s in doc.strings.language_strings_missed:
+        s.tags.clear()
+    _clear_layout_tags(doc.layout)
+
+
+def _clear_layout_tags(layout: Optional[ResultLayout]) -> None:
+    if layout is None:
+        return
+    for s in layout.strings:
+        s.tags.clear()
+    for child in layout.children:
+        _clear_layout_tags(child)
 
 
 def _acquire_lock(lock_path: Path) -> Optional[int]:

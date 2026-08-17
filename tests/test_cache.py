@@ -114,7 +114,7 @@ def make_full_doc():
                     decoding_routine=0,
                 )
             ],
-            language_strings=[StaticString(string="go", offset=0, encoding=StringEncoding.UTF8, tags=["#go"])],
+            language_strings=[StaticString(string="gostring", offset=0, encoding=StringEncoding.UTF8, tags=["#go"])],
             language_strings_missed=[StaticString(string="missed", offset=0, encoding=StringEncoding.UTF8)],
         ),
         layout=layout,
@@ -309,9 +309,10 @@ def test_covers_tags_enabled_mismatch_is_miss():
     assert not floss.cache.covers(doc, wanted(enable_tags=True), 4)
 
 
-def test_covers_tags_disabled_mismatch_is_miss():
+def test_covers_tags_disabled_is_hit():
+    # a tags-enabled document satisfies a no-tags request: materialize redacts
     doc = make_doc(enable_tags=True)
-    assert not floss.cache.covers(doc, wanted(enable_tags=False), 4)
+    assert floss.cache.covers(doc, wanted(enable_tags=False), 4)
 
 
 def test_materialize_sets_file_path_and_filters(tmp_path):
@@ -378,3 +379,21 @@ def test_materialize_syncs_layout_and_tag_flags():
     mat = floss.cache.materialize(doc, Path("sample.exe"), Analysis(enable_layout=False, enable_tags=False), 4)
     assert mat.analysis.enable_layout is False
     assert mat.analysis.enable_tags is False
+
+
+def test_materialize_clears_tags_when_disabled():
+    doc = make_full_doc()
+    assert doc.strings.static_strings[0].tags == ["#common"]
+    assert doc.layout.strings[0].tags == ["#winapi"]
+
+    # Analysis(enable_tags=False) keeps every string type enabled, tags off
+    mat = floss.cache.materialize(doc, Path("sample.exe"), Analysis(enable_tags=False), 4)
+    assert mat.strings.static_strings[0].tags == []
+    assert mat.strings.language_strings[0].tags == []
+    assert mat.layout.strings[0].tags == []
+
+
+def test_materialize_keeps_tags_when_enabled():
+    mat = floss.cache.materialize(make_full_doc(), Path("sample.exe"), wanted(), 4)
+    assert mat.strings.static_strings[0].tags == ["#common"]
+    assert mat.layout.strings[0].tags == ["#winapi"]
