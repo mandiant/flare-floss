@@ -41,6 +41,7 @@ import floss.language.go.extract
 import floss.language.go.coverage
 import floss.language.rust.extract
 import floss.language.rust.coverage
+import floss.language.go.extract_elf
 from floss.const import (
     MEGABYTE,
     MAX_FILE_SIZE,
@@ -126,7 +127,8 @@ def make_parser(argv):
         " 1. Go:   strings from binaries written in Go\n"
         " 2. Rust: strings from binaries written in Rust\n"
     )
-    epilog = textwrap.dedent("""
+    epilog = textwrap.dedent(
+        """
         only displaying core arguments, run `floss -H` to see all supported options
 
         examples:
@@ -138,8 +140,10 @@ def make_parser(argv):
 
           only extract stack and tight strings
             floss --only stack tight -- suspicious.exe
-        """)
-    epilog_advanced = textwrap.dedent("""
+        """
+    )
+    epilog_advanced = textwrap.dedent(
+        """
         examples:
           extract all strings from 32-bit shellcode
             floss -f sc32 shellcode.bin
@@ -149,7 +153,8 @@ def make_parser(argv):
         
           extract strings from a binary written in Go (if automatic language identification fails)
             floss --language go program.exe
-        """)
+        """
+    )
 
     show_all_options = "-H" in argv
 
@@ -592,6 +597,8 @@ def main(argv=None) -> int:
     if not static_strings:
         return 0
 
+    file_type = get_file_type(sample)
+
     static_runtime = get_runtime_diff(interim)
     # set language configurations
     selected_lang = Language(args.language)
@@ -684,12 +691,24 @@ def main(argv=None) -> int:
             logger.info("extracting language-specific Go strings")
 
             interim = time()
-            results.strings.language_strings = floss.language.go.extract.extract_go_strings(sample, args.min_length)
+            if file_type == SUPPORTED_FILE_MAGIC_ELF:
+                results.strings.language_strings = floss.language.go.extract_elf.extract_go_strings_elf(
+                    sample, args.min_length
+                )
+            else:
+                results.strings.language_strings = floss.language.go.extract.extract_go_strings(sample, args.min_length)
             results.metadata.runtime.language_strings = get_runtime_diff(interim)
 
             # missed strings only includes non-identified strings in searched range
             # here currently only focus on strings in string blob range
-            string_blob_strings = floss.language.go.extract.get_static_strings_from_blob_range(sample, static_strings)
+            if file_type == SUPPORTED_FILE_MAGIC_ELF:
+                string_blob_strings = floss.language.go.extract_elf.get_static_strings_from_blob_range_elf(
+                    sample, static_strings
+                )
+            else:
+                string_blob_strings = floss.language.go.extract.get_static_strings_from_blob_range(
+                    sample, static_strings
+                )
             results.strings.language_strings_missed = floss.language.utils.get_missed_strings(
                 string_blob_strings, results.strings.language_strings, args.min_length
             )

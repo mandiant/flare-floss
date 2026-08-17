@@ -103,6 +103,7 @@ dependencies = [
     # we still support.
 
     "networkx>=3",
+    "pyelftools>=0.32",
 ]
 dynamic = ["version", "readme"]
 
