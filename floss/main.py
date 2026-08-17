@@ -256,7 +256,7 @@ def main(argv=None) -> int:
         large_file=args.large_file,
         quiet=args.quiet,
         verbose=args.verbose,
-        prompt_deobfuscation=True,
+        prompt_deobfuscation=args.prompt_deobfuscation,
     )
 
     try:
