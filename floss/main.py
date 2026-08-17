@@ -140,6 +140,12 @@ def main(argv=None) -> int:
         ):
             if include and exclude:
                 parser.error("%s and --no-%s arguments are not allowed together" % (flag, flag[2:]))
+        for flag, values in (
+            ("--string-type", args.enabled_string_types),
+            ("--no-string-type", args.disabled_string_types),
+        ):
+            if len(values) > 1 and StringType.ALL.value in values:
+                parser.error("%s: 'all' cannot be combined with other string types" % flag)
         if args.max_strings is not None and args.max_strings <= 0:
             parser.error("--max-strings must be a positive integer")
         for pattern in args.queries:
