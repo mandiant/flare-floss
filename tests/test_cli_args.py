@@ -79,43 +79,24 @@ def test_language_extraction_independent_of_static(capsys):
     assert doc["strings"]["static_strings"] == []
 
 
-def test_manual_language_override_wins_over_auto_detect():
+def test_manual_language_override_wins_over_auto_detect(capsys):
     """--language go must be honored even when auto-detection returns unknown."""
-    from pathlib import Path
-
-    from floss.results import Analysis
-    from floss.pipeline import Options, analyze
+    import json
 
     # a C binary, so auto-detection yields unknown; forcing go must stick
     sample = Path(__file__).parent / "data" / "src" / "decode-in-place" / "bin" / "test-decode-in-place.exe"
 
-    results = analyze(
-        Options(
-            sample=sample,
-            min_length=4,
-            language="go",
-            analysis=Analysis(
-                enable_static_strings=False,
-                enable_stack_strings=False,
-                enable_tight_strings=False,
-                enable_decoded_strings=False,
-                enable_language_strings=True,
-            ),
-            prompt_deobfuscation=False,
-        )
-    )
-    assert results is not None
-    assert results.metadata.language == "go"
-    assert results.metadata.language_selected == "go"
+    assert floss.main.main([str(sample), "--language", "go", "--string-type", "language", "-y", "-j"]) == 0
+    doc = json.loads(capsys.readouterr().out)
+    assert doc["metadata"]["language"] == "go"
+    assert doc["metadata"]["language_selected"] == "go"
 
 
-def test_manual_language_override_beats_wrong_auto_detect(monkeypatch):
+def test_manual_language_override_beats_wrong_auto_detect(monkeypatch, capsys):
     """--language go must win even when auto-detection wrongly says rust."""
-    from pathlib import Path
+    import json
 
     import floss.language.identify
-    from floss.results import Analysis
-    from floss.pipeline import Options, analyze
 
     def fake_identify(sample, static_strings):
         from floss.language.identify import Language
@@ -125,25 +106,11 @@ def test_manual_language_override_beats_wrong_auto_detect(monkeypatch):
     monkeypatch.setattr(floss.language.identify, "identify_language_and_version", fake_identify)
 
     sample = Path(__file__).parent / "data" / "src" / "decode-in-place" / "bin" / "test-decode-in-place.exe"
-    results = analyze(
-        Options(
-            sample=sample,
-            min_length=4,
-            language="go",
-            analysis=Analysis(
-                enable_static_strings=False,
-                enable_stack_strings=False,
-                enable_tight_strings=False,
-                enable_decoded_strings=False,
-                enable_language_strings=True,
-            ),
-            prompt_deobfuscation=False,
-        )
-    )
-    assert results is not None
-    assert results.metadata.language == "go"
-    assert results.metadata.language_version == ""
-    assert results.metadata.language_selected == "go"
+    assert floss.main.main([str(sample), "--language", "go", "--string-type", "language", "-y", "-j"]) == 0
+    doc = json.loads(capsys.readouterr().out)
+    assert doc["metadata"]["language"] == "go"
+    assert doc["metadata"]["language_version"] == ""
+    assert doc["metadata"]["language_selected"] == "go"
 
 
 def test_expand_string_types():
