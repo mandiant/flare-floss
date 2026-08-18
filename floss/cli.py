@@ -147,7 +147,7 @@ def make_parser():
         environment variables:
           FLOSS_CACHE_DIR       directory for the analysis result cache (default: platform cache directory)
           FLOSS_CACHE_ENABLE    set to 0 to disable result caching (default: enabled)
-          FLOSS_CACHE_REFRESH   set to 1 to ignore cached results and overwrite the entry (default: unset)
+          FLOSS_CACHE_REFRESH   set to 1 to ignore cached results and overwrite the entry (default: disabled)
         """)
 
     parser = ArgumentParser(
