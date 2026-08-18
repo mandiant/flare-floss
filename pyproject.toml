@@ -142,14 +142,14 @@ dev = [
     "pycodestyle==2.14.0",
     "black==26.5.1",
     "isort==8.0.1",
-    "mypy==2.1.0",
+    "mypy==2.3.0",
     # type stubs for mypy
     "types-PyYAML==6.0.10",
     "types-tabulate==0.10.0.20260408",
 ]
 build = [
     "pyinstaller==6.21.0",
-    "setuptools==82.0.1",
+    "setuptools==83.0.0",
     "build==1.5.0"
 ]
 
