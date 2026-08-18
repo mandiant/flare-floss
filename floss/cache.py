@@ -252,6 +252,9 @@ def materialize(doc: ResultDocument, sample: Path, analysis: Analysis, min_lengt
     if not analysis.enable_tags:
         _clear_tags(doc)
     filter_string_len(doc, min_length)
+    # mirror a fresh run: the requested -n is what the document reports, so
+    # --json does not advertise a looser extraction threshold than it holds
+    doc.metadata.min_length = min_length
     return doc
 
 

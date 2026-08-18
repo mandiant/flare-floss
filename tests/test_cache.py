@@ -417,6 +417,13 @@ def test_materialize_syncs_layout_and_tag_flags():
     assert mat.analysis.enable_tags is False
 
 
+def test_materialize_updates_metadata_min_length():
+    # a -n 6 hit against a -n 4 cache entry must report the requested length
+    mat = floss.cache.materialize(make_full_doc(), Path("sample.exe"), wanted(), 6)
+    assert mat.metadata.min_length == 6
+    assert all(len(s.string) >= 6 for s in mat.strings.static_strings)
+
+
 def test_materialize_clears_tags_when_disabled():
     doc = make_full_doc()
     assert doc.strings.static_strings[0].tags == ["#common"]
