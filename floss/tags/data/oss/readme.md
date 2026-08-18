@@ -38,7 +38,7 @@ Major steps:
 
   1. build static libraries via vcpkg
   2. extract features via jh
-  3. convert to JSONL format with `jh_to_qs.py`
+  3. convert to JSONL format with `jh_to_oss.py`
   4. compress with gzip
 
 ### Build static libraries via vcpkg
@@ -89,10 +89,10 @@ $ ~/lancelot/target/release/jh x64-windows-static msvc143 zlib 1.2.13 release /m
 
 ### Convert to OSS database format
 
-We use the script `jh_to_qs.py` to convert these CSV lines into JSONL file prepared for FLOSS:
+We use the script `jh_to_oss.py` to convert these CSV lines into JSONL file prepared for FLOSS:
 
 ```console
-$ python3 jh_to_qs.py zlib.csv > zlib.jsonl
+$ python3 jh_to_oss.py zlib.csv > zlib.jsonl
 ```
 
 These files are then gzip'd:

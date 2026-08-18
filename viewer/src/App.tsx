@@ -2,7 +2,7 @@ import React, { useState, useCallback, useMemo, useRef, useEffect, useDeferredVa
 import { useDropzone } from 'react-dropzone';
 import './App.css';
 import { type ResultDocument, type ResultLayout, type ResultString, type Analysis, type Strings } from './types';
-import previewData from './pma_0303.json';
+import previewData from './pma0303_floss.json';
 
 const NOISY_TAGS = ['#common', '#duplicate', '#code', '#reloc', '#code-junk'];
 
@@ -307,14 +307,14 @@ const App: React.FC = () => {
 
   // Theme
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    const saved = localStorage.getItem('qs-viewer-theme');
+    const saved = localStorage.getItem('floss-viewer-theme');
     if (saved === 'light' || saved === 'dark') return saved;
     return window.matchMedia?.('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
   });
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('qs-viewer-theme', theme);
+    localStorage.setItem('floss-viewer-theme', theme);
   }, [theme]);
 
   // Resizable sidebar

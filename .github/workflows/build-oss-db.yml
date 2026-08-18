@@ -116,7 +116,7 @@ jobs:
         uses: peter-evans/create-pull-request@c5a7806660adbe173f04e3e038b0ccdcd758773c # v6.1.0
         with:
           path: flare-floss
-          base: quantumstrand
+          base: master
           commit-message: 'chore(oss-db): update string databases'
           title: 'Update OSS string databases'
           # Relative to $GITHUB_WORKSPACE (not the path: checkout).

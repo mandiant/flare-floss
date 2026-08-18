@@ -2,9 +2,9 @@ name: web-release
 
 on:
   push:
-    branches: [ quantumstrand ]
+    branches: [ master ]
     paths:
-      - 'qs-viewer/**'
+      - 'viewer/**'
   workflow_dispatch:
 
 permissions:
@@ -24,21 +24,21 @@ jobs:
         with:
           node-version: 24
           cache: 'npm'
-          cache-dependency-path: 'qs-viewer/package-lock.json'
+          cache-dependency-path: 'viewer/package-lock.json'
 
       - name: Install dependencies
         run: npm install
-        working-directory: ./qs-viewer
+        working-directory: ./viewer
 
       - name: Build
         run: npm run build
-        working-directory: ./qs-viewer
+        working-directory: ./viewer
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           # vite-plugin-singlefile puts everything into index.html in the dist folder
-          path: ./qs-viewer/dist
+          path: ./viewer/dist
 
   deploy:
     name: Deploy site to GitHub Pages
