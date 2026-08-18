@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ master ]
+    branches: [ master, quantumstrand ]
   pull_request:
-    branches: [ master ]
+    branches: [ master, quantumstrand ]
 
 # Cancel outdated runs when a new commit is pushed to the same branch/PR.
 concurrency:
