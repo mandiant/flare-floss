@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [ master, quantumstrand ]
 
+permissions:
+  contents: read
+
 # Cancel outdated runs when a new commit is pushed to the same branch/PR.
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
