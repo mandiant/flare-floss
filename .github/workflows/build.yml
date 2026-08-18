@@ -2,7 +2,7 @@ name: build
 
 on:
   pull_request:
-    branches: [ master, quantumstrand ]
+    branches: [ master ]
   release:
     types: [edited, published]
     branches: [ master ]

@@ -2,7 +2,7 @@ name: web-release
 
 on:
   push:
-    branches: [ quantumstrand ]
+    branches: [ master ]
     paths:
       - 'qs-viewer/**'
   workflow_dispatch:
