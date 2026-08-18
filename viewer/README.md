@@ -1,10 +1,10 @@
-# Quantum-Strand Viewer
+# FLOSS Graphical Viewer
 
-This is a web-based viewer for analyzing the output of the `floss` tool's quantum-strand analysis. It allows for interactive filtering and exploration of extracted strings, tags, and structures from a binary file.
+This is a web-based viewer for analyzing the output of the `floss` tool. It allows for interactive filtering and exploration of extracted strings, tags, and structures from a binary file.
 
 ## Features
 
-- Upload and parse `floss` quantum-strand JSON output.
+- Upload and parse `floss` JSON output.
 - Filter strings by search term, minimum length, tags, and structures.
 - Toggle display of columns (tags, encoding, offset/structure).
 - Copy filtered strings to the clipboard.

@@ -307,14 +307,14 @@ const App: React.FC = () => {
 
   // Theme
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    const saved = localStorage.getItem('qs-viewer-theme');
+    const saved = localStorage.getItem('floss-viewer-theme');
     if (saved === 'light' || saved === 'dark') return saved;
     return window.matchMedia?.('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
   });
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('qs-viewer-theme', theme);
+    localStorage.setItem('floss-viewer-theme', theme);
   }, [theme]);
 
   // Resizable sidebar
