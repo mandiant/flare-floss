@@ -23,7 +23,7 @@ import pathlib
 from typing import Set, Sequence
 from dataclasses import dataclass
 
-from floss.tags import data_root
+from floss.tags import data_root, ensure_not_lfs_pointer
 
 
 @dataclass
@@ -39,11 +39,13 @@ class WindowsApiStringDatabase:
         dll_names: Set[str] = set()
         api_names: Set[str] = set()
 
+        ensure_not_lfs_pointer(path / "dlls.txt.gz")
         for line in gzip.decompress((path / "dlls.txt.gz").read_bytes()).decode("utf-8").splitlines():
             if not line:
                 continue
             dll_names.add(line)
 
+        ensure_not_lfs_pointer(path / "apis.txt.gz")
         for line in gzip.decompress((path / "apis.txt.gz").read_bytes()).decode("utf-8").splitlines():
             if not line:
                 continue

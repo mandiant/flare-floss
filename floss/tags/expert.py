@@ -27,7 +27,7 @@ from dataclasses import dataclass
 
 import msgspec
 
-from floss.tags import data_root
+from floss.tags import data_root, ensure_not_lfs_pointer
 
 
 class ExpertRule(msgspec.Struct):
@@ -78,6 +78,7 @@ class ExpertStringDatabase:
         substring_rules: List[ExpertRule] = []
         regex_rules: List[Tuple[ExpertRule, re.Pattern]] = []
 
+        ensure_not_lfs_pointer(path)
         decoder = msgspec.json.Decoder(type=ExpertRule)
         buf = path.read_bytes()
         for line in buf.split(b"\n"):

@@ -25,7 +25,7 @@ from dataclasses import dataclass
 
 import msgspec
 
-from floss.tags import data_root
+from floss.tags import data_root, ensure_not_lfs_pointer
 
 
 class OpenSourceString(msgspec.Struct):
@@ -47,6 +47,7 @@ class OpenSourceStringDatabase:
     @classmethod
     def from_file(cls, path: pathlib.Path) -> "OpenSourceStringDatabase":
         metadata_by_string: Dict[str, OpenSourceString] = {}
+        ensure_not_lfs_pointer(path)
         decoder = msgspec.json.Decoder(type=OpenSourceString)
         for line in gzip.decompress(path.read_bytes()).split(b"\n"):
             if not line:

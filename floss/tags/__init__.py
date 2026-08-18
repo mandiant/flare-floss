@@ -29,6 +29,26 @@ def data_root() -> pathlib.Path:
     return pathlib.Path(__file__).resolve().parent / "data"
 
 
+# the first line of a Git LFS pointer file; used to detect unpulled databases
+LFS_POINTER_PREFIX = b"version https://git-lfs.github.com/"
+
+
+def ensure_not_lfs_pointer(path: pathlib.Path) -> None:
+    """Raise a clear error when a tag database file is an unpulled Git LFS pointer.
+
+    Without ``git lfs pull`` the LFS-tracked database files are tiny text
+    pointers, which the loaders otherwise fail on with confusing gzip/msgspec
+    errors.
+    """
+    try:
+        with path.open("rb") as f:
+            head = f.read(len(LFS_POINTER_PREFIX))
+    except OSError:
+        return
+    if head == LFS_POINTER_PREFIX:
+        raise ValueError(f"Git LFS pointer detected in {path.name}; please run `git lfs pull`")
+
+
 from floss.tags.engine import (
     Tagger,
     load_databases,
