@@ -235,15 +235,19 @@ class Layout(BaseModel, abc.ABC):
         such as a PE file and all its data.
         """
         if structures:
-            for string in self.strings:
-                for structures_by_address in structures:
-                    structure = structures_by_address.get(string.offset)
-                    if structure:
-                        string.structure = structure.name
-                        break
+            self._mark_string_structures(structures)
 
         for child in self.children:
             child.mark_structures(structures=structures, **kwargs)
+
+    def _mark_string_structures(self, structures) -> None:
+        """attach the first matching structure name to this node's own strings."""
+        for string in self.strings:
+            for structures_by_address in structures:
+                structure = structures_by_address.get(string.offset)
+                if structure:
+                    string.structure = structure.name
+                    break
 
 
 class SectionLayout(Layout):
@@ -291,6 +295,9 @@ class PELayout(Layout):
         super().tag_strings(taggers)
 
     def mark_structures(self, structures=(), **kwargs):
+        # apply the PE structures to this node's own strings too (e.g. strings
+        # in the header gap that are attached to the root layout node)
+        self._mark_string_structures((structures or ()) + (self.structures_by_address,))
         for child in self.children:
             if isinstance(child, (SectionLayout, SegmentLayout)):
                 # expected child of a PE
@@ -332,6 +339,9 @@ class ELFLayout(Layout):
         super().tag_strings(taggers)
 
     def mark_structures(self, structures: Optional[Tuple[Dict[int, Structure], ...]] = (), **kwargs):
+        # apply the ELF structures to this node's own strings too (the ELF
+        # header/program-header gap strings attach to the root layout node)
+        self._mark_string_structures((structures or ()) + (self.structures_by_address,))
         for child in self.children:
             if isinstance(child, (SectionLayout, SegmentLayout)):
                 child.mark_structures(structures=(structures or ()) + (self.structures_by_address,), **kwargs)
