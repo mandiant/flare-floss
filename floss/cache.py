@@ -195,7 +195,7 @@ def covers(cached: ResultDocument, wanted: Analysis, min_length: int) -> bool:
     document was built with (shorter strings were dropped at extraction time
     and cannot be recovered). Layout and tags are not part of the match: a
     cached layout/tags document can satisfy a request without them because
-    :func:`materialize` drops the layout and redacts the tags when they are not
+    `materialize()` drops the layout and redacts the tags when they are not
     wanted. The reverse (requesting layout/tags the cache was not built with) is
     a miss.
     """
@@ -299,7 +299,7 @@ def _acquire_lock(lock_path: Path) -> Optional[int]:
 
 
 def _release_lock(fd: int, lock_path: Path) -> None:
-    """Release a lock previously acquired by :func:`_acquire_lock`."""
+    """Release a lock previously acquired by `_acquire_lock()`."""
     if sys.platform == "win32":
         import msvcrt
 
