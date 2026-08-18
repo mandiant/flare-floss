@@ -20,6 +20,7 @@ import yaml
 import pytest
 import viv_utils
 
+import floss.cache
 from floss.const import MIN_STRING_LENGTH
 from floss.identify import (
     get_function_fvas,
@@ -29,6 +30,14 @@ from floss.identify import (
     get_functions_without_tightloops,
 )
 from floss.pipeline import select_functions
+
+
+@pytest.fixture(autouse=True)
+def _isolate_analysis_cache(tmp_path, monkeypatch):
+    """point the analysis cache at a throwaway directory per test so tests never
+    touch the real platform cache, and make caching deterministic."""
+    monkeypatch.setenv(floss.cache.ENV_CACHE_DIR, str(tmp_path / "floss-cache"))
+    monkeypatch.setenv(floss.cache.ENV_CACHE_ENABLE, "1")
 
 
 def extract_strings(vw):

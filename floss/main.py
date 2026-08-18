@@ -20,6 +20,7 @@ from pathlib import Path
 
 import rich.traceback
 
+import floss.cache
 import floss.results
 import floss.logging_
 import floss.render.json
@@ -36,6 +37,7 @@ from floss.utils import FileType, detect_file_type, expand_string_types, is_stri
 from floss.results import Analysis, load
 from floss.pipeline import Options, PipelineError, analyze
 from floss.render.filter import LayoutFilter
+from floss.language.identify import Language
 
 logger = floss.logging_.getLogger("floss")
 
@@ -170,6 +172,18 @@ def main(argv=None) -> int:
 
     set_log_config(args.debug, args.quiet)
 
+    # caching applies to the default analysis variant only: an explicit format,
+    # language, or custom signatures change the analysis, so the content-
+    # addressed cache could return a mismatched document. disable it for those.
+    cache_dir = None
+    if (
+        not args.analyze_functions
+        and args.format == "auto"
+        and args.language == Language.AUTO.value
+        and args.signatures == SIGNATURES_PATH_DEFAULT_STRING
+    ):
+        cache_dir = floss.cache.get_cache_dir()
+
     if hasattr(args, "signatures"):
         if args.signatures == SIGNATURES_PATH_DEFAULT_STRING:
             logger.debug("-" * 80)
@@ -198,7 +212,7 @@ def main(argv=None) -> int:
         logger.info("--summary is static-only; skipping stack/tight/decoded extraction")
         disabled_string_types.extend([StringType.STACK.value, StringType.TIGHT.value, StringType.DECODED.value])
 
-    if args.functions:
+    if args.analyze_functions:
         static_was_enabled = is_string_type_enabled(StringType.STATIC, disabled_string_types, enabled_string_types)
         try:
             if enabled_string_types and StringType.STATIC.value in enabled_string_types:
@@ -231,7 +245,7 @@ def main(argv=None) -> int:
 
     if detect_file_type(sample) is FileType.RESULTS:
         try:
-            results = load(sample, analysis, args.functions, args.min_length)
+            results = load(sample, analysis, args.analyze_functions, args.min_length)
         except floss.results.InvalidResultsFile as e:
             if args.json:
                 emit_json_error(f"cannot load JSON results file: {e}")
@@ -261,12 +275,13 @@ def main(argv=None) -> int:
         language=args.language,
         enabled_string_types=enabled_string_types,
         disabled_string_types=disabled_string_types,
-        functions=args.functions,
+        analyze_functions=args.analyze_functions,
         signatures=args.signatures,
         large_file=args.large_file,
         quiet=args.quiet,
         verbose=args.verbose,
         prompt_deobfuscation=args.prompt_deobfuscation,
+        cache_dir=cache_dir,
     )
 
     try:
