@@ -24,7 +24,8 @@ document never writes to the cache.
 
 The cache directory defaults to the platform cache directory and can be
 overridden with ``FLOSS_CACHE_DIR``. Caching can be disabled entirely by
-setting ``FLOSS_CACHE_ENABLE=0``.
+setting ``FLOSS_CACHE_ENABLE=0``, and a single run can be forced to
+re-analyze and overwrite its entry with ``FLOSS_CACHE_REFRESH=1``.
 """
 
 from __future__ import annotations
@@ -52,9 +53,12 @@ logger = floss.logging_.getLogger(__name__)
 
 ENV_CACHE_DIR = "FLOSS_CACHE_DIR"
 ENV_CACHE_ENABLE = "FLOSS_CACHE_ENABLE"
+ENV_CACHE_REFRESH = "FLOSS_CACHE_REFRESH"
 
 # values that disable caching, so FLOSS_CACHE_ENABLE=0 behaves as documented
 _DISABLED_VALUES = ("0", "false", "no", "n", "")
+# values that force a re-analysis, so FLOSS_CACHE_REFRESH=1 behaves as documented
+_ENABLED_VALUES = ("1", "true", "yes", "y")
 
 
 def cache_enabled() -> bool:
@@ -64,6 +68,16 @@ def cache_enabled() -> bool:
     caching is enabled by default.
     """
     return os.environ.get(ENV_CACHE_ENABLE, "1") not in _DISABLED_VALUES
+
+
+def cache_refresh() -> bool:
+    """Whether the current run should bypass the cache and overwrite its entry.
+
+    ``FLOSS_CACHE_REFRESH=1`` (or true/yes/y) forces a re-analysis: the cached
+    document is ignored and the fresh result is stored on top of it. Unset by
+    default.
+    """
+    return os.environ.get(ENV_CACHE_REFRESH, "") in _ENABLED_VALUES
 
 
 def get_cache_dir() -> Path:

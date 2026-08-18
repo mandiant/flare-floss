@@ -318,15 +318,19 @@ def analyze(options: Options) -> Optional[ResultDocument]:
 
     # result caching: keyed on the sample bytes + FLOSS version. on a valid hit
     # we skip extraction, layout, and tagging entirely and render from the cache.
+    # FLOSS_CACHE_REFRESH=1 forces a miss so the fresh result overwrites the entry.
     cache_key: Optional[str] = None
     if options.cache_dir is not None and not options.analyze_functions and floss.cache.cache_enabled():
         # --analyze-functions changes which functions are analyzed, so it is a miss:
         # a hit would wrongly return a full-function document.
         cache_key = floss.cache.compute_key(results.metadata.sha256, __version__)
-        cached = floss.cache.load(options.cache_dir, cache_key, results.metadata.sha256, __version__)
-        if cached is not None and floss.cache.covers(cached, analysis, options.min_length):
-            logger.debug("using cached results: %s", cache_key)
-            return floss.cache.materialize(cached, sample, analysis, options.min_length)
+        if not floss.cache.cache_refresh():
+            cached = floss.cache.load(options.cache_dir, cache_key, results.metadata.sha256, __version__)
+            if cached is not None and floss.cache.covers(cached, analysis, options.min_length):
+                logger.debug("using cached results: %s", cache_key)
+                return floss.cache.materialize(cached, sample, analysis, options.min_length)
+        else:
+            logger.debug("FLOSS_CACHE_REFRESH set; re-analyzing and overwriting cache entry %s", cache_key)
 
     static_strings = list(extract_ascii_unicode_strings(sample_buf, options.min_length))
     if not static_strings:

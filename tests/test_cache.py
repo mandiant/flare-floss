@@ -152,6 +152,17 @@ def test_cache_enabled_disabled(monkeypatch, value):
     assert not floss.cache.cache_enabled()
 
 
+def test_cache_refresh_default(monkeypatch):
+    monkeypatch.delenv(floss.cache.ENV_CACHE_REFRESH, raising=False)
+    assert not floss.cache.cache_refresh()
+
+
+@pytest.mark.parametrize("value", ("1", "true", "yes", "y"))
+def test_cache_refresh_enabled(monkeypatch, value):
+    monkeypatch.setenv(floss.cache.ENV_CACHE_REFRESH, value)
+    assert floss.cache.cache_refresh()
+
+
 def test_get_cache_dir_override(monkeypatch, tmp_path):
     monkeypatch.setenv(floss.cache.ENV_CACHE_DIR, str(tmp_path))
     assert floss.cache.get_cache_dir() == tmp_path
