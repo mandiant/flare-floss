@@ -152,6 +152,13 @@ def main(argv=None) -> int:
             # the summary's layout-derived sections cover static strings only, so
             # a non-static string-type selection is a shadow arg that does nothing.
             # reject it instead of silently ignoring it.
+            if args.analyze_functions:
+                # the summary is static-only, --analyze-functions cannot show
+                # static, so the combination leaves nothing to analyze
+                parser.error(
+                    "--summary only covers static strings, which --analyze-functions does not show; "
+                    "these flags cannot be combined"
+                )
             for flag, values in (
                 ("--string-type", args.enabled_string_types),
                 ("--no-string-type", args.disabled_string_types),

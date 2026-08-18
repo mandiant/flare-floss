@@ -589,6 +589,15 @@ def test_main_summary_accepts_explicit_static(exefile, capsys):
     assert "FLOSS SUMMARY" in out
 
 
+def test_main_summary_rejects_analyze_functions(exefile, capsys):
+    """--summary is static-only and --analyze-functions cannot show static, so
+    combining them must error instead of silently disabling every type."""
+    assert floss.main.main([exefile, "--summary", "--analyze-functions", "0x401000"]) == -1
+    err = capsys.readouterr().err
+    assert "--summary" in err
+    assert "--analyze-functions" in err
+
+
 def test_summary_no_layout_ok():
     """--summary must not crash when there is no layout tree."""
     results = make_results()
