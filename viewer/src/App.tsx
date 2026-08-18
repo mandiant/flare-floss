@@ -2,7 +2,7 @@ import React, { useState, useCallback, useMemo, useRef, useEffect, useDeferredVa
 import { useDropzone } from 'react-dropzone';
 import './App.css';
 import { type ResultDocument, type ResultLayout, type ResultString, type Analysis, type Strings } from './types';
-import previewData from './pma_0303.json';
+import previewData from './pma0303_floss.json';
 
 const NOISY_TAGS = ['#common', '#duplicate', '#code', '#reloc', '#code-junk'];
 
