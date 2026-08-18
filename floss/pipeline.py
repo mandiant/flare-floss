@@ -100,7 +100,7 @@ class Options:
     language: str = Language.UNKNOWN.value
     enabled_string_types: Optional[List[str]] = None
     disabled_string_types: Optional[List[str]] = None
-    functions: Optional[List[int]] = None
+    analyze_functions: Optional[List[int]] = None
     signatures: Optional[Path] = None
     large_file: bool = False
     quiet: bool = False
@@ -319,7 +319,7 @@ def analyze(options: Options) -> Optional[ResultDocument]:
     # result caching: keyed on the sample bytes + FLOSS version. on a valid hit
     # we skip extraction, layout, and tagging entirely and render from the cache.
     cache_key: Optional[str] = None
-    if options.cache_dir is not None and not options.functions and floss.cache.cache_enabled():
+    if options.cache_dir is not None and not options.analyze_functions and floss.cache.cache_enabled():
         # --analyze-functions changes which functions are analyzed, so it is a miss:
         # a hit would wrongly return a full-function document.
         cache_key = floss.cache.compute_key(results.metadata.sha256, __version__)
@@ -531,7 +531,7 @@ def analyze(options: Options) -> Optional[ResultDocument]:
 
         with results.metadata.runtime.measure_and_set_time("find_features"):
             try:
-                selected_functions = select_functions(vw, options.functions)
+                selected_functions = select_functions(vw, options.analyze_functions)
                 results.analysis.functions.discovered = len(vw.getFunctions())
             except ValueError as e:
                 # failed to find functions in workspace

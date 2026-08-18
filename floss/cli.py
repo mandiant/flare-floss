@@ -297,7 +297,7 @@ def make_parser():
     )
     advanced_group.add_argument(
         "--analyze-functions",
-        dest="functions",
+        dest="analyze_functions",
         type=lambda x: int(x, 0x10),
         default=None,
         nargs="+",

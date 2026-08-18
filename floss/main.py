@@ -177,7 +177,7 @@ def main(argv=None) -> int:
     # addressed cache could return a mismatched document. disable it for those.
     cache_dir = None
     if (
-        not args.functions
+        not args.analyze_functions
         and args.format == "auto"
         and args.language == Language.AUTO.value
         and args.signatures == SIGNATURES_PATH_DEFAULT_STRING
@@ -212,7 +212,7 @@ def main(argv=None) -> int:
         logger.info("--summary is static-only; skipping stack/tight/decoded extraction")
         disabled_string_types.extend([StringType.STACK.value, StringType.TIGHT.value, StringType.DECODED.value])
 
-    if args.functions:
+    if args.analyze_functions:
         static_was_enabled = is_string_type_enabled(StringType.STATIC, disabled_string_types, enabled_string_types)
         try:
             if enabled_string_types and StringType.STATIC.value in enabled_string_types:
@@ -245,7 +245,7 @@ def main(argv=None) -> int:
 
     if detect_file_type(sample) is FileType.RESULTS:
         try:
-            results = load(sample, analysis, args.functions, args.min_length)
+            results = load(sample, analysis, args.analyze_functions, args.min_length)
         except floss.results.InvalidResultsFile as e:
             if args.json:
                 emit_json_error(f"cannot load JSON results file: {e}")
@@ -275,7 +275,7 @@ def main(argv=None) -> int:
         language=args.language,
         enabled_string_types=enabled_string_types,
         disabled_string_types=disabled_string_types,
-        functions=args.functions,
+        analyze_functions=args.analyze_functions,
         signatures=args.signatures,
         large_file=args.large_file,
         quiet=args.quiet,
