@@ -191,3 +191,17 @@ def test_no_tags_skips_tag_databases(exefile):
     for s in results.strings.static_strings:
         for db_tag in ("#common", "#winapi", "#capa", "#msvc", "#openssl"):
             assert db_tag not in s.tags
+
+
+def test_yes_skips_deobfuscation_for_go(capsys):
+    """-y/--yes on a Go sample defaults to not running deobfuscation."""
+    import json
+
+    sample = Path(__file__).parent / "data" / "language" / "go" / "go-hello" / "bin" / "go-hello64.exe"
+
+    assert floss.main.main([str(sample), "-y", "-j"]) == 0
+    doc = json.loads(capsys.readouterr().out)
+    assert doc["metadata"]["language"] == "go"
+    assert doc["analysis"]["enable_stack_strings"] is False
+    assert doc["analysis"]["enable_tight_strings"] is False
+    assert doc["analysis"]["enable_decoded_strings"] is False
