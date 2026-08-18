@@ -132,9 +132,9 @@ def test_is_structured_layout():
 
 
 def _make_root_layout(cls, name, **extra):
-    from floss.layout.base import Structure
-    from floss.layout.types import ExtractedString, TaggedString
     from floss.ranges import Range, Slice, OffsetRanges
+    from floss.layout.base import Structure
+    from floss.layout.types import TaggedString, ExtractedString
 
     buf = b"\x00" * 32
     sl = Slice(buf=buf, range=Range(offset=0, length=len(buf)), base_offset=0)
@@ -159,8 +159,8 @@ def test_pe_root_strings_get_structure_annotations():
 
 
 def test_elf_root_strings_get_structure_annotations():
-    from floss.layout.base import ELFLayout
     from floss.ranges import OffsetRanges
+    from floss.layout.base import ELFLayout
 
     layout = _make_root_layout(ELFLayout, "elf", xor_key=None, relocation_offsets=OffsetRanges(ranges=[]))
     layout.mark_structures()

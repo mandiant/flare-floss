@@ -398,7 +398,9 @@ def analyze(options: Options) -> Optional[ResultDocument]:
                 # when stdout is redirected, such as in 'floss foo.exe | less' use default prompt values
                 if sys.stdout.isatty():
                     try:
-                        prompt = input("Do you want to enable string deobfuscation? (this could take a long time) [y/N] ")
+                        prompt = input(
+                            "Do you want to enable string deobfuscation? (this could take a long time) [y/N] "
+                        )
                     except KeyboardInterrupt:
                         raise PipelineError("aborted by user", exit_code=130)
                     except EOFError:
