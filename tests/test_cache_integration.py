@@ -24,7 +24,7 @@ def test_cache_hit_skips_analysis_and_matches_output(capsys, caplog, tmp_path, m
     out1 = capsys.readouterr().out
 
     sha256 = hashlib.sha256(Path(exefile).read_bytes()).hexdigest()
-    key = floss.cache.compute_key(sha256, __version__)
+    key = floss.cache.compute_key(sha256, __version__, "auto")
     assert (cache_dir / f"{key}.json").is_file()
     assert len(cache_entries(cache_dir)) == 1
 
@@ -66,7 +66,7 @@ def test_cache_refresh_reanalyzes_and_overwrites(capsys, caplog, tmp_path, monke
 
     assert floss.main.main([exefile, "--summary"]) == 0
     sha256 = hashlib.sha256(Path(exefile).read_bytes()).hexdigest()
-    key = floss.cache.compute_key(sha256, __version__)
+    key = floss.cache.compute_key(sha256, __version__, "auto")
     assert (cache_dir / f"{key}.json").is_file()
 
     # FLOSS_CACHE_REFRESH=1 forces a miss, re-analyzes, and overwrites the entry

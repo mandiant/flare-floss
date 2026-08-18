@@ -323,7 +323,7 @@ def analyze(options: Options) -> Optional[ResultDocument]:
     if options.cache_dir is not None and not options.analyze_functions and floss.cache.cache_enabled():
         # --analyze-functions changes which functions are analyzed, so it is a miss:
         # a hit would wrongly return a full-function document.
-        cache_key = floss.cache.compute_key(results.metadata.sha256, __version__)
+        cache_key = floss.cache.compute_key(results.metadata.sha256, __version__, options.format)
         if not floss.cache.cache_refresh():
             cached = floss.cache.load(options.cache_dir, cache_key, results.metadata.sha256, __version__)
             if cached is not None and floss.cache.covers(cached, analysis, options.min_length):
