@@ -64,20 +64,20 @@ _ENABLED_VALUES = ("1", "true", "yes", "y")
 def cache_enabled() -> bool:
     """Whether result caching is enabled.
 
-    ``FLOSS_CACHE_ENABLE`` disables caching when set to 0 (or false/no/n);
-    caching is enabled by default.
+    ``FLOSS_CACHE_ENABLE`` disables caching when set to 0 (or false/no/n,
+    case-insensitive); caching is enabled by default.
     """
-    return os.environ.get(ENV_CACHE_ENABLE, "1") not in _DISABLED_VALUES
+    return os.environ.get(ENV_CACHE_ENABLE, "1").lower() not in _DISABLED_VALUES
 
 
 def cache_refresh() -> bool:
     """Whether the current run should bypass the cache and overwrite its entry.
 
-    ``FLOSS_CACHE_REFRESH=1`` (or true/yes/y) forces a re-analysis: the cached
-    document is ignored and the fresh result is stored on top of it. Unset by
-    default.
+    ``FLOSS_CACHE_REFRESH=1`` (or true/yes/y, case-insensitive) forces a
+    re-analysis: the cached document is ignored and the fresh result is stored
+    on top of it. Unset by default.
     """
-    return os.environ.get(ENV_CACHE_REFRESH, "") in _ENABLED_VALUES
+    return os.environ.get(ENV_CACHE_REFRESH, "").lower() in _ENABLED_VALUES
 
 
 def get_cache_dir() -> Path:

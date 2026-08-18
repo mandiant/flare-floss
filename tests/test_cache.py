@@ -153,6 +153,12 @@ def test_cache_enabled_disabled(monkeypatch, value):
     assert not floss.cache.cache_enabled()
 
 
+@pytest.mark.parametrize("value", ("False", "NO", "N", "FALSE"))
+def test_cache_enabled_disabled_case_insensitive(monkeypatch, value):
+    monkeypatch.setenv(floss.cache.ENV_CACHE_ENABLE, value)
+    assert not floss.cache.cache_enabled()
+
+
 def test_cache_refresh_default(monkeypatch):
     monkeypatch.delenv(floss.cache.ENV_CACHE_REFRESH, raising=False)
     assert not floss.cache.cache_refresh()
@@ -160,6 +166,12 @@ def test_cache_refresh_default(monkeypatch):
 
 @pytest.mark.parametrize("value", ("1", "true", "yes", "y"))
 def test_cache_refresh_enabled(monkeypatch, value):
+    monkeypatch.setenv(floss.cache.ENV_CACHE_REFRESH, value)
+    assert floss.cache.cache_refresh()
+
+
+@pytest.mark.parametrize("value", ("True", "YES", "Y", "TRUE"))
+def test_cache_refresh_enabled_case_insensitive(monkeypatch, value):
     monkeypatch.setenv(floss.cache.ENV_CACHE_REFRESH, value)
     assert floss.cache.cache_refresh()
 
