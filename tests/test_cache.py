@@ -1,5 +1,6 @@
 import os
 import json
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -264,6 +265,30 @@ def test_store_skips_when_replace_fails(tmp_path, monkeypatch):
     assert not (tmp_path / f"{key}.json").exists()
     # the temporary file is cleaned up
     assert list(tmp_path.glob("*.tmp")) == []
+
+
+def test_store_skips_when_mkdir_fails(tmp_path, monkeypatch):
+    doc = make_doc()
+    key = floss.cache.compute_key(doc.metadata.sha256, __version__)
+    cache_dir = tmp_path / "cache"
+
+    def raising_mkdir(self, *args, **kwargs):
+        raise PermissionError("no write access to cache directory")
+
+    monkeypatch.setattr(Path, "mkdir", raising_mkdir)
+    assert floss.cache.store(cache_dir, key, doc) is False
+
+
+def test_store_skips_when_mkstemp_fails(tmp_path, monkeypatch):
+    doc = make_doc()
+    key = floss.cache.compute_key(doc.metadata.sha256, __version__)
+
+    def raising_mkstemp(*args, **kwargs):
+        raise OSError("no space left on device")
+
+    monkeypatch.setattr(tempfile, "mkstemp", raising_mkstemp)
+    assert floss.cache.store(tmp_path, key, doc) is False
+    assert not (tmp_path / f"{key}.json").exists()
 
 
 def test_load_drops_version_mismatch(tmp_path):

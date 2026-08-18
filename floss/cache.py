@@ -149,7 +149,11 @@ def store(cache_dir: Path, key: str, doc: ResultDocument) -> bool:
     the entry. When the lock cannot be acquired, caching is skipped and False is
     returned (the caller decides how to warn).
     """
-    cache_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        cache_dir.mkdir(parents=True, exist_ok=True)
+    except OSError as e:
+        logger.warning("could not create cache directory %s: %s; skipping cache write", cache_dir, e)
+        return False
 
     lock_path = cache_dir / f"{key}.lock"
     lock_fd = _acquire_lock(lock_path)
@@ -167,11 +171,16 @@ def _write_atomic(cache_dir: Path, key: str, payload: str) -> bool:
     """Atomically write ``{key}.json`` into the cache, or False on any OS failure.
 
     The payload is written to a temporary file in the cache directory and then
-    renamed into place. Cache writes are best-effort: a failure (disk full, the
-    destination held open by an antivirus scanner or another reader, etc.) must
-    not crash the analysis, so it is logged and caching is skipped.
+    renamed into place. Cache writes are best-effort: a failure (disk full, an
+    unwritable cache directory, the destination held open by an antivirus
+    scanner or another reader, etc.) must not crash the analysis, so it is
+    logged and caching is skipped.
     """
-    fd, tmp_name = tempfile.mkstemp(dir=str(cache_dir), prefix=f"{key}.", suffix=".tmp")
+    try:
+        fd, tmp_name = tempfile.mkstemp(dir=str(cache_dir), prefix=f"{key}.", suffix=".tmp")
+    except OSError as e:
+        logger.warning("could not create temporary cache file in %s: %s; skipping cache write", cache_dir, e)
+        return False
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             f.write(payload)
