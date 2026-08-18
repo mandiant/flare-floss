@@ -111,7 +111,12 @@ def load(cache_dir: Path, key: str, sha256: str, version: str) -> Optional[Resul
     so the caller re-analyzes and stores a fresh document.
     """
     path = cache_file_path(cache_dir, key)
-    if not path.is_file():
+    try:
+        if not path.is_file():
+            return None
+    except OSError:
+        # e.g. a locked parent directory makes stat() raise PermissionError;
+        # treat it as a miss so the analysis runs instead of crashing
         return None
 
     try:

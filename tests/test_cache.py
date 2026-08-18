@@ -303,6 +303,17 @@ def test_store_skips_when_mkstemp_fails(tmp_path, monkeypatch):
     assert not (tmp_path / f"{key}.json").exists()
 
 
+def test_load_skips_when_isfile_fails(tmp_path, monkeypatch):
+    doc = make_doc()
+    key = floss.cache.compute_key(doc.metadata.sha256, __version__)
+
+    def raising_is_file(self, *args, **kwargs):
+        raise PermissionError("no read access to cache directory")
+
+    monkeypatch.setattr(Path, "is_file", raising_is_file)
+    assert floss.cache.load(tmp_path, key, doc.metadata.sha256, __version__) is None
+
+
 def test_load_drops_version_mismatch(tmp_path):
     doc = make_doc(version="9.9.9")
     key = floss.cache.compute_key(doc.metadata.sha256, __version__)
