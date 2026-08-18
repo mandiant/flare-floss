@@ -32,6 +32,18 @@ from floss.tags.filter import TagRules
 # noisy tags that the --interesting shortcut excludes
 NOISY_TAGS: Set[str] = {"#common", "#duplicate", "#code", "#reloc", "#code-junk"}
 
+
+def is_interesting(tags: Sequence[str], tag_rules: TagRules) -> bool:
+    """
+    Determine if a string is considered 'interesting' for human analysis.
+    Uses Option A (Strict): Drops all strings containing a noisy tag,
+    UNLESS the string has an active 'highlight' tag (e.g., #capa rules).
+    """
+    if any(tag_rules.get(tag) == "highlight" for tag in tags):
+        return True
+    return not any(tag in NOISY_TAGS for tag in tags)
+
+
 # tag families, one per tag-source directory under floss/tags/data. a meta tag
 # matches any tag in its family, so --tag winapi / --tag oss / --tag gp etc.
 # work as selectors.
@@ -94,7 +106,7 @@ def tag_matches(user_tag: str, string_tags: Sequence[str]) -> bool:
     return any(normalize_tag(tag) == normalized for tag in string_tags)
 
 
-def relevance_key(s: ResultString, tag_rules: TagRules) -> Tuple[int, int]:
+def relevance_key(s: ResultString, tag_rules: TagRules) -> Tuple[int, int, int, int]:
     """sort key for --max-strings and high-value string ordering.
 
     relevance order within a section:
@@ -102,7 +114,9 @@ def relevance_key(s: ResultString, tag_rules: TagRules) -> Tuple[int, int]:
       2. then untagged strings
       3. then strings with any non-noisy tag
       4. then the rest (only noisy tags)
-    within each group, ascending by offset.
+    within each group, strings up to 256 chars are sorted descending by length,
+    then strings over 256 chars are sorted ascending by length,
+    and finally ascending by offset.
     """
     has_highlight = any(tag_rules.get(tag) == "highlight" for tag in s.tags)
     has_non_noisy = any(tag not in NOISY_TAGS for tag in s.tags)
@@ -114,7 +128,12 @@ def relevance_key(s: ResultString, tag_rules: TagRules) -> Tuple[int, int]:
         group = 2
     else:
         group = 3
-    return (group, s.offset)
+
+    length = len(s.string)
+    len_tier = 0 if length <= 256 else 1
+    len_score = -length if length <= 256 else length
+
+    return (group, len_tier, len_score, s.offset)
 
 
 def is_macho_arch_wrapper(layout: ResultLayout) -> bool:
@@ -213,9 +232,7 @@ class LayoutFilter:
             return False
         if self.exclude_tags and any(tag_matches(t, s.tags) for t in self.exclude_tags):
             return False
-        if self.interesting and any(tag in NOISY_TAGS for tag in s.tags):
-            # --interesting excludes any string carrying a noisy tag, even when
-            # it also has a non-noisy tag (e.g. #winapi #common is dropped)
+        if self.interesting and not is_interesting(s.tags, self.tag_rules):
             return False
 
         if self.queries and not any(pattern.search(s.string) for pattern in self.queries):
@@ -224,7 +241,7 @@ class LayoutFilter:
         return True
 
     @staticmethod
-    def relevance_key(s: ResultString, tag_rules: TagRules) -> Tuple[int, int]:
+    def relevance_key(s: ResultString, tag_rules: TagRules) -> Tuple[int, int, int, int]:
         """sort key for --max-strings, see the module-level relevance_key."""
         return relevance_key(s, tag_rules)
 
