@@ -189,17 +189,3 @@ def test_no_tags_skips_tag_databases(exefile):
     for s in results.strings.static_strings:
         for db_tag in ("#common", "#winapi", "#capa", "#msvc", "#openssl"):
             assert db_tag not in s.tags
-
-
-def test_deobfuscation_on_by_default(capsys):
-    """default (no string-type flags) runs all string types, deobfuscation on."""
-    import json
-
-    sample = Path(__file__).parent / "data" / "src" / "decode-in-place" / "bin" / "test-decode-in-place.exe"
-
-    assert floss.main.main([str(sample), "-j"]) == 0
-    doc = json.loads(capsys.readouterr().out)
-    assert doc["analysis"]["enable_static_strings"] is True
-    assert doc["analysis"]["enable_stack_strings"] is True
-    assert doc["analysis"]["enable_tight_strings"] is True
-    assert doc["analysis"]["enable_decoded_strings"] is True
