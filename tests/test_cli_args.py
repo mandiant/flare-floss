@@ -66,7 +66,7 @@ def test_language_extraction_independent_of_static(capsys):
     """language strings are extracted even when static strings are disabled.
 
     uses --string-type language (so only language extraction runs) on a Go sample
-    whose language is detectable, on a Go sample whose language is detectable.
+    whose language is detectable.
     """
     import json
 
