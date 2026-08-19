@@ -51,9 +51,12 @@ jobs:
           cargo build --release -p lancelot-bin
         working-directory: lancelot
 
+      - name: Install flare-floss
+        run: |
+          pip install -e .
+        working-directory: flare-floss
+
       - name: Build OSS databases
-        env:
-          PYTHONPATH: ${{ github.workspace }}/flare-floss
         run: |
           python scripts/tags/build_oss_db.py `
             --config floss\tags\data\oss\libraries.json `
