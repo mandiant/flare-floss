@@ -105,9 +105,6 @@ class Options:
     large_file: bool = False
     quiet: bool = False
     verbose: int = Verbosity.DEFAULT
-    # when True, do not prompt on TTY for deobfuscation on language binaries;
-    # deobfuscation then defaults to not running
-    no_prompt: bool = False
     # analysis cache directory; None disables caching (default in the CLI is
     # the platform cache directory via floss.cache.get_cache_dir())
     cache_dir: Optional[Path] = None
@@ -389,41 +386,6 @@ def analyze(options: Options) -> Optional[ResultDocument]:
         analysis.enable_stack_strings = False
         analysis.enable_tight_strings = False
         analysis.enable_decoded_strings = False
-
-    enabled_string_types = options.enabled_string_types or []
-    disabled_string_types = options.disabled_string_types or []
-    if results.metadata.language not in ("", "unknown"):
-        if not enabled_string_types and not disabled_string_types:
-            if not options.no_prompt:
-                # when stdout is redirected, such as in 'floss foo.exe | less' use default prompt values
-                if sys.stdout.isatty():
-                    try:
-                        prompt = input(
-                            "Do you want to enable string deobfuscation? (this could take a long time) [y/N] "
-                        )
-                    except KeyboardInterrupt:
-                        raise PipelineError("aborted by user", exit_code=130)
-                    except EOFError:
-                        raise PipelineError("aborted by user", exit_code=1)
-                else:
-                    prompt = "n"
-
-                if prompt.lower() == "y":
-                    logger.info("enabled string deobfuscation")
-                    analysis.enable_stack_strings = True
-                    analysis.enable_tight_strings = True
-                    analysis.enable_decoded_strings = True
-                else:
-                    logger.info("disabled string deobfuscation")
-                    analysis.enable_stack_strings = False
-                    analysis.enable_tight_strings = False
-                    analysis.enable_decoded_strings = False
-            else:
-                # --no-prompt: never prompt, default to not running deobfuscation
-                logger.info("string deobfuscation disabled (--no-prompt)")
-                analysis.enable_stack_strings = False
-                analysis.enable_tight_strings = False
-                analysis.enable_decoded_strings = False
 
     # in order of expected run time, fast to slow
     # 1. static strings (done above for language ID; layout-aware replace below when enabled)

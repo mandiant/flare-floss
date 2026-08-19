@@ -379,13 +379,6 @@ def make_parser():
         "-q", "--quiet", action="store_true", help="disable all status output on STDOUT except fatal errors"
     )
     logging_group.add_argument(
-        "--no-prompt",
-        dest="no_prompt",
-        action="store_true",
-        default=False,
-        help="do not prompt to enable string deobfuscation (defaults to not running it)",
-    )
-    logging_group.add_argument(
         "--color",
         type=str,
         choices=("auto", "always", "never"),
