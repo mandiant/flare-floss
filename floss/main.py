@@ -153,8 +153,6 @@ def main(argv=None) -> int:
             # a non-static string-type selection is a shadow arg that does nothing.
             # reject it instead of silently ignoring it.
             if args.analyze_functions:
-                # the summary is static-only, --analyze-functions cannot show
-                # static, so the combination leaves nothing to analyze
                 parser.error(
                     "--summary only covers static strings, which --analyze-functions does not show; "
                     "these flags cannot be combined"
