@@ -192,7 +192,7 @@ def test_compute_key():
     sha256 = "a" * 64
     # auto is the default analysis format
     assert floss.cache.compute_key(sha256, "1.0") == f"{sha256}-auto-1.0"
-    assert floss.cache.compute_key(sha256, "1.0", "auto") == f"{sha256}-auto-1.0"
+    assert floss.cache.compute_key(sha256, "1.0") == f"{sha256}-auto-1.0"
     # the analysis format is part of the key: sc32 and sc64 never collide
     assert floss.cache.compute_key(sha256, "1.0", "sc32") != floss.cache.compute_key(sha256, "1.0", "sc64")
 
@@ -203,7 +203,7 @@ def test_cache_file_path(tmp_path):
 
 def test_store_and_load_roundtrip(tmp_path):
     doc = make_doc()
-    key = floss.cache.compute_key(doc.metadata.sha256, __version__, "auto")
+    key = floss.cache.compute_key(doc.metadata.sha256, __version__)
 
     assert floss.cache.store(tmp_path, key, doc)
     assert (tmp_path / f"{key}.json").is_file()
@@ -217,7 +217,7 @@ def test_store_and_load_roundtrip(tmp_path):
 
 def test_store_writes_json_schema(tmp_path):
     doc = make_doc()
-    key = floss.cache.compute_key(doc.metadata.sha256, __version__, "auto")
+    key = floss.cache.compute_key(doc.metadata.sha256, __version__)
 
     floss.cache.store(tmp_path, key, doc)
     payload = json.loads((tmp_path / f"{key}.json").read_text())
@@ -225,12 +225,12 @@ def test_store_writes_json_schema(tmp_path):
 
 
 def test_load_missing(tmp_path):
-    key = floss.cache.compute_key("a" * 64, __version__, "auto")
+    key = floss.cache.compute_key("a" * 64, __version__)
     assert floss.cache.load(tmp_path, key, "a" * 64, __version__) is None
 
 
 def test_load_drops_invalid_json(tmp_path):
-    key = floss.cache.compute_key("a" * 64, __version__, "auto")
+    key = floss.cache.compute_key("a" * 64, __version__)
     (tmp_path / f"{key}.json").write_text("{not json")
 
     assert floss.cache.load(tmp_path, key, "a" * 64, __version__) is None
@@ -239,7 +239,7 @@ def test_load_drops_invalid_json(tmp_path):
 
 def test_load_drops_checksum_mismatch(tmp_path):
     doc = make_doc(sha256="a" * 64)
-    key = floss.cache.compute_key("a" * 64, __version__, "auto")
+    key = floss.cache.compute_key("a" * 64, __version__)
     floss.cache.store(tmp_path, key, doc)
 
     assert floss.cache.load(tmp_path, key, "b" * 64, __version__) is None
@@ -247,7 +247,7 @@ def test_load_drops_checksum_mismatch(tmp_path):
 
 
 def test_load_ignores_unlink_failure_on_invalid_entry(tmp_path, monkeypatch):
-    key = floss.cache.compute_key("a" * 64, __version__, "auto")
+    key = floss.cache.compute_key("a" * 64, __version__)
     (tmp_path / f"{key}.json").write_text("{not json")
 
     def raising_unlink(self, *args, **kwargs):
@@ -259,7 +259,7 @@ def test_load_ignores_unlink_failure_on_invalid_entry(tmp_path, monkeypatch):
 
 def test_load_ignores_unlink_failure_on_stale_entry(tmp_path, monkeypatch):
     doc = make_doc(sha256="a" * 64)
-    key = floss.cache.compute_key("a" * 64, __version__, "auto")
+    key = floss.cache.compute_key("a" * 64, __version__)
     floss.cache.store(tmp_path, key, doc)
 
     def raising_unlink(self, *args, **kwargs):
@@ -271,7 +271,7 @@ def test_load_ignores_unlink_failure_on_stale_entry(tmp_path, monkeypatch):
 
 def test_store_skips_when_replace_fails(tmp_path, monkeypatch):
     doc = make_doc()
-    key = floss.cache.compute_key(doc.metadata.sha256, __version__, "auto")
+    key = floss.cache.compute_key(doc.metadata.sha256, __version__)
 
     def raising_replace(src, dst):
         raise PermissionError("destination held open by antivirus")
@@ -285,7 +285,7 @@ def test_store_skips_when_replace_fails(tmp_path, monkeypatch):
 
 def test_store_skips_when_mkdir_fails(tmp_path, monkeypatch):
     doc = make_doc()
-    key = floss.cache.compute_key(doc.metadata.sha256, __version__, "auto")
+    key = floss.cache.compute_key(doc.metadata.sha256, __version__)
     cache_dir = tmp_path / "cache"
 
     def raising_mkdir(self, *args, **kwargs):
@@ -297,7 +297,7 @@ def test_store_skips_when_mkdir_fails(tmp_path, monkeypatch):
 
 def test_store_skips_when_mkstemp_fails(tmp_path, monkeypatch):
     doc = make_doc()
-    key = floss.cache.compute_key(doc.metadata.sha256, __version__, "auto")
+    key = floss.cache.compute_key(doc.metadata.sha256, __version__)
 
     def raising_mkstemp(*args, **kwargs):
         raise OSError("no space left on device")
@@ -309,7 +309,7 @@ def test_store_skips_when_mkstemp_fails(tmp_path, monkeypatch):
 
 def test_load_skips_when_isfile_fails(tmp_path, monkeypatch):
     doc = make_doc()
-    key = floss.cache.compute_key(doc.metadata.sha256, __version__, "auto")
+    key = floss.cache.compute_key(doc.metadata.sha256, __version__)
 
     def raising_is_file(self, *args, **kwargs):
         raise PermissionError("no read access to cache directory")
@@ -320,7 +320,7 @@ def test_load_skips_when_isfile_fails(tmp_path, monkeypatch):
 
 def test_load_drops_version_mismatch(tmp_path):
     doc = make_doc(version="9.9.9")
-    key = floss.cache.compute_key(doc.metadata.sha256, __version__, "auto")
+    key = floss.cache.compute_key(doc.metadata.sha256, __version__)
     floss.cache.store(tmp_path, key, doc)
 
     assert floss.cache.load(tmp_path, key, doc.metadata.sha256, __version__) is None
@@ -329,7 +329,7 @@ def test_load_drops_version_mismatch(tmp_path):
 
 def test_store_skips_when_locked(tmp_path):
     doc = make_doc()
-    key = floss.cache.compute_key(doc.metadata.sha256, __version__, "auto")
+    key = floss.cache.compute_key(doc.metadata.sha256, __version__)
     lock_path = tmp_path / f"{key}.lock"
 
     fd = floss.cache._acquire_lock(lock_path)
@@ -380,7 +380,7 @@ def test_covers_tags_disabled_is_hit():
 
 def test_materialize_sets_file_path_and_filters(tmp_path):
     doc = make_doc(min_length=4)
-    key = floss.cache.compute_key(doc.metadata.sha256, __version__, "auto")
+    key = floss.cache.compute_key(doc.metadata.sha256, __version__)
     floss.cache.store(tmp_path, key, doc)
     loaded = floss.cache.load(tmp_path, key, doc.metadata.sha256, __version__)
     assert loaded is not None
@@ -394,7 +394,7 @@ def test_materialize_sets_file_path_and_filters(tmp_path):
 
 def test_materialize_drops_layout_when_disabled(tmp_path):
     doc = make_doc(enable_layout=True)
-    key = floss.cache.compute_key(doc.metadata.sha256, __version__, "auto")
+    key = floss.cache.compute_key(doc.metadata.sha256, __version__)
     floss.cache.store(tmp_path, key, doc)
     loaded = floss.cache.load(tmp_path, key, doc.metadata.sha256, __version__)
     assert loaded is not None
