@@ -149,16 +149,15 @@ def main(argv=None) -> int:
             if len(values) > 1 and StringType.ALL.value in values:
                 parser.error("%s: 'all' cannot be combined with other string types" % flag)
         if args.summary:
-            # the summary's layout-derived sections cover static strings only, so
-            # a non-static string-type selection is a shadow arg that does nothing.
-            # reject it instead of silently ignoring it.
-            for flag, values in (
-                ("--string-type", args.enabled_string_types),
-                ("--no-string-type", args.disabled_string_types),
-            ):
-                for value in values:
-                    if value != StringType.STATIC.value:
-                        parser.error("%s: '--summary' only covers static strings and does not take %s" % (flag, value))
+            if args.analyze_functions:
+                parser.error(
+                    "--summary only covers static strings, which --analyze-functions does not show; "
+                    "these flags cannot be combined"
+                )
+            if args.enabled_string_types or args.disabled_string_types:
+                # --summary is its own static-only view; reject any string-type
+                # selection rather than accepting shadow args
+                parser.error("--summary only covers static strings and does not take --string-type/--no-string-type")
         if args.max_strings is not None and args.max_strings <= 0:
             parser.error("--max-strings must be a positive integer")
         for pattern in args.queries:
@@ -280,7 +279,6 @@ def main(argv=None) -> int:
         large_file=args.large_file,
         quiet=args.quiet,
         verbose=args.verbose,
-        prompt_deobfuscation=args.prompt_deobfuscation,
         cache_dir=cache_dir,
     )
 

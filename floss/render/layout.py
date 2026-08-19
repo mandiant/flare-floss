@@ -81,11 +81,10 @@ def render_string_string(s: ResultString, tag_rules: TagRules) -> Text:
         raise ValueError("string should be hidden")
 
     # render like json, but strip the leading/trailing quote marks.
-    # this means that whitespace characters like \t and \n will be rendered as such,
-    # which ensures that the rendered string will be a single line.
+    # this means that whitespace characters like \t, \n, and \r are rendered as
+    # literal escape sequences, which keeps the rendered string on a single line
+    # and matches the escaping done by sanitize() in the classic views.
     rendered_string = json.dumps(s.string)[1:-1]
-    if "\\t" in rendered_string:
-        rendered_string = rendered_string.replace("\\t", "    ")
     return make_span(rendered_string, style=string_style)
 
 

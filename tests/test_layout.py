@@ -116,3 +116,52 @@ def test_analysis_pipeline(pma_binary_path):
 
     # Check that the layout has been computed correctly
     assert parsed.name == "pe"
+
+
+def test_is_structured_layout():
+    import floss.enrich
+
+    assert floss.enrich.is_structured_layout("pe")
+    assert floss.enrich.is_structured_layout("elf")
+    assert floss.enrich.is_structured_layout("macho")
+    assert floss.enrich.is_structured_layout("macho (fat)")
+    # XOR-obfuscated PE/ELF headers append the XOR note to the name
+    assert floss.enrich.is_structured_layout("pe (XOR decoded with key: 0x41)")
+    assert floss.enrich.is_structured_layout("elf (XOR decoded with key: 0x42)")
+    assert not floss.enrich.is_structured_layout("binary")
+
+
+def _make_root_layout(cls, name, **extra):
+    from floss.ranges import Range, Slice, OffsetRanges
+    from floss.layout.base import Structure
+    from floss.layout.types import TaggedString, ExtractedString
+
+    buf = b"\x00" * 32
+    sl = Slice(buf=buf, range=Range(offset=0, length=len(buf)), base_offset=0)
+    layout = cls(
+        name=name,
+        slice=sl,
+        structures_by_address={0: Structure(slice=sl, name="pe/elf header")},
+        reloc_offsets=OffsetRanges(ranges=[]),
+        code_offsets=OffsetRanges(ranges=[]),
+        **extra,
+    )
+    layout.strings = [TaggedString(string=ExtractedString(string="rootstr", slice=sl, encoding="ascii"), tags=set())]
+    return layout
+
+
+def test_pe_root_strings_get_structure_annotations():
+    from floss.layout.base import PELayout
+
+    layout = _make_root_layout(PELayout, "pe", xor_key=None)
+    layout.mark_structures()
+    assert layout.strings[0].structure == "pe/elf header"
+
+
+def test_elf_root_strings_get_structure_annotations():
+    from floss.ranges import OffsetRanges
+    from floss.layout.base import ELFLayout
+
+    layout = _make_root_layout(ELFLayout, "elf", xor_key=None, relocation_offsets=OffsetRanges(ranges=[]))
+    layout.mark_structures()
+    assert layout.strings[0].structure == "pe/elf header"

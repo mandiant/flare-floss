@@ -190,7 +190,11 @@ def test_get_cache_dir_default(monkeypatch):
 
 def test_compute_key():
     sha256 = "a" * 64
-    assert floss.cache.compute_key(sha256, "1.0") == f"{sha256}-1.0"
+    # auto is the default analysis format
+    assert floss.cache.compute_key(sha256, "1.0") == f"{sha256}-auto-1.0"
+    assert floss.cache.compute_key(sha256, "1.0") == f"{sha256}-auto-1.0"
+    # the analysis format is part of the key: sc32 and sc64 never collide
+    assert floss.cache.compute_key(sha256, "1.0", "sc32") != floss.cache.compute_key(sha256, "1.0", "sc64")
 
 
 def test_cache_file_path(tmp_path):

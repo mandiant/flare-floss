@@ -28,7 +28,7 @@ from dataclasses import dataclass
 
 import msgspec
 
-from floss.tags import data_root
+from floss.tags import data_root, ensure_not_lfs_pointer
 
 Encoding = Literal["ascii"] | Literal["utf-16le"] | Literal["unknown"]
 # header | gap | overlay
@@ -135,10 +135,8 @@ class StringHashDatabase:
     def from_file(cls, path: pathlib.Path) -> "StringHashDatabase":
         string_hashes: Set[bytes] = set()
 
+        ensure_not_lfs_pointer(path)
         buf = path.read_bytes()
-
-        if buf.startswith(b"version https://git-lfs.github.com/"):
-            raise ValueError(f"Git LFS pointer detected in {path.name}; please run `git lfs pull`")
 
         for i in range(0, len(buf), 8):
             string_hashes.add(buf[i : i + 8])

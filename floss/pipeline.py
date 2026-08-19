@@ -104,10 +104,7 @@ class Options:
     signatures: Optional[Path] = None
     large_file: bool = False
     quiet: bool = False
-    disable_progress: bool = False
     verbose: int = Verbosity.DEFAULT
-    # when True, prompt on TTY for deobfuscation on language binaries
-    prompt_deobfuscation: bool = True
     # analysis cache directory; None disables caching (default in the CLI is
     # the platform cache directory via floss.cache.get_cache_dir())
     cache_dir: Optional[Path] = None
@@ -323,7 +320,7 @@ def analyze(options: Options) -> Optional[ResultDocument]:
     if options.cache_dir is not None and not options.analyze_functions and floss.cache.cache_enabled():
         # --analyze-functions changes which functions are analyzed, so it is a miss:
         # a hit would wrongly return a full-function document.
-        cache_key = floss.cache.compute_key(results.metadata.sha256, __version__)
+        cache_key = floss.cache.compute_key(results.metadata.sha256, __version__, options.format)
         if not floss.cache.cache_refresh():
             cached = floss.cache.load(options.cache_dir, cache_key, results.metadata.sha256, __version__)
             if cached is not None and floss.cache.covers(cached, analysis, options.min_length):
@@ -389,32 +386,6 @@ def analyze(options: Options) -> Optional[ResultDocument]:
         analysis.enable_stack_strings = False
         analysis.enable_tight_strings = False
         analysis.enable_decoded_strings = False
-
-    enabled_string_types = options.enabled_string_types or []
-    disabled_string_types = options.disabled_string_types or []
-    if results.metadata.language not in ("", "unknown"):
-        if not enabled_string_types and not disabled_string_types and options.prompt_deobfuscation:
-            # when stdout is redirected, such as in 'floss foo.exe | less' use default prompt values
-            if sys.stdout.isatty():
-                try:
-                    prompt = input("Do you want to enable string deobfuscation? (this could take a long time) [y/N] ")
-                except KeyboardInterrupt:
-                    raise PipelineError("aborted by user", exit_code=130)
-                except EOFError:
-                    raise PipelineError("aborted by user", exit_code=1)
-            else:
-                prompt = "n"
-
-            if prompt.lower() == "y":
-                logger.info("enabled string deobfuscation")
-                analysis.enable_stack_strings = True
-                analysis.enable_tight_strings = True
-                analysis.enable_decoded_strings = True
-            else:
-                logger.info("disabled string deobfuscation")
-                analysis.enable_stack_strings = False
-                analysis.enable_tight_strings = False
-                analysis.enable_decoded_strings = False
 
     # in order of expected run time, fast to slow
     # 1. static strings (done above for language ID; layout-aware replace below when enabled)
@@ -524,7 +495,7 @@ def analyze(options: Options) -> Optional[ResultDocument]:
                 text="analyzing program",
                 spinner="simpleDots",
                 stream=sys.stderr,
-                enabled=not (options.quiet or options.disable_progress),
+                enabled=not options.quiet,
             ):
                 with results.metadata.runtime.measure_and_set_time("vivisect"):
                     vw = load_vw(sample, options.format, sigpaths, should_save_workspace)
@@ -542,7 +513,7 @@ def analyze(options: Options) -> Optional[ResultDocument]:
                 raise PipelineError(e.args[0], exit_code=-1)
 
             decoding_function_features, library_functions = find_decoding_function_features(
-                vw, selected_functions, disable_progress=options.quiet or options.disable_progress
+                vw, selected_functions, disable_progress=options.quiet
             )
             results.analysis.functions.library = len(library_functions)
 
@@ -563,7 +534,7 @@ def analyze(options: Options) -> Optional[ResultDocument]:
                     funcs,
                     options.min_length,
                     verbosity=options.verbose,
-                    disable_progress=options.quiet or options.disable_progress,
+                    disable_progress=options.quiet,
                 )
                 results.analysis.functions.analyzed_stack_strings = len(funcs)
 
@@ -575,7 +546,7 @@ def analyze(options: Options) -> Optional[ResultDocument]:
                     tightloop_functions,
                     min_length=options.min_length,
                     verbosity=options.verbose,
-                    disable_progress=options.quiet or options.disable_progress,
+                    disable_progress=options.quiet,
                 )
                 results.analysis.functions.analyzed_tight_strings = len(tightloop_functions)
 
@@ -607,7 +578,7 @@ def analyze(options: Options) -> Optional[ResultDocument]:
                     fvas_to_emulate,
                     options.min_length,
                     verbosity=options.verbose,
-                    disable_progress=options.quiet or options.disable_progress,
+                    disable_progress=options.quiet,
                 )
                 results.analysis.functions.analyzed_decoded_strings = len(fvas_to_emulate)
 
