@@ -575,18 +575,15 @@ def test_main_summary_is_static_only_by_default(exefile, capsys):
     assert "decoded         0" in out
 
 
-def test_main_summary_rejects_non_static_string_type(exefile, capsys):
-    """--summary only covers static strings, so non-static types are rejected."""
-    assert floss.main.main([exefile, "--summary", "--string-type", "stack", "tight", "decoded"]) == -1
+def test_main_summary_rejects_string_type(exefile, capsys):
+    """--summary is its own static-only view, so any string-type selection is rejected."""
+    assert floss.main.main([exefile, "--summary", "--string-type", "static"]) == -1
     err = capsys.readouterr().err
     assert "--summary" in err
 
-
-def test_main_summary_accepts_explicit_static(exefile, capsys):
-    """--summary with an explicit static selection is fine."""
-    assert floss.main.main([exefile, "--summary", "--string-type", "static"]) == 0
-    out = capsys.readouterr().out
-    assert "FLOSS SUMMARY" in out
+    assert floss.main.main([exefile, "--summary", "--no-string-type", "static"]) == -1
+    err = capsys.readouterr().err
+    assert "--summary" in err
 
 
 def test_main_summary_rejects_analyze_functions(exefile, capsys):
