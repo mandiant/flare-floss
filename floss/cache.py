@@ -94,7 +94,7 @@ def get_cache_dir() -> Path:
     return Path(user_cache_dir("floss"))
 
 
-def compute_key(sha256: str, version: str, format: str) -> str:
+def compute_key(sha256: str, version: str, format: str = "auto") -> str:
     """The cache key: content-addressed sample hash + analysis format + version.
 
     The analysis format is part of the key so interpreting the same sample bytes
