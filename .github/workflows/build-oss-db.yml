@@ -52,6 +52,8 @@ jobs:
         working-directory: lancelot
 
       - name: Build OSS databases
+        env:
+          PYTHONPATH: ${{ github.workspace }}/flare-floss
         run: |
           python scripts/tags/build_oss_db.py `
             --config floss\tags\data\oss\libraries.json `
@@ -63,7 +65,11 @@ jobs:
       - name: Show metrics summary
         if: success() || failure()
         run: |
-          Get-Content floss\tags\data\oss\build_metrics.json
+          if (Test-Path floss\tags\data\oss\build_metrics.json) {
+            Get-Content floss\tags\data\oss\build_metrics.json
+          } else {
+            Write-Host "build_metrics.json not produced"
+          }
         working-directory: flare-floss
 
       - name: Show entry-level diff
