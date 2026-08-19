@@ -287,7 +287,7 @@ def main(argv=None) -> int:
         large_file=args.large_file,
         quiet=args.quiet,
         verbose=args.verbose,
-        prompt_deobfuscation=args.prompt_deobfuscation,
+        no_prompt=args.no_prompt,
         cache_dir=cache_dir,
     )
 

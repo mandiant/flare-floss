@@ -105,8 +105,9 @@ class Options:
     large_file: bool = False
     quiet: bool = False
     verbose: int = Verbosity.DEFAULT
-    # when True, prompt on TTY for deobfuscation on language binaries
-    prompt_deobfuscation: bool = True
+    # when True, do not prompt on TTY for deobfuscation on language binaries;
+    # deobfuscation then defaults to not running
+    no_prompt: bool = False
     # analysis cache directory; None disables caching (default in the CLI is
     # the platform cache directory via floss.cache.get_cache_dir())
     cache_dir: Optional[Path] = None
@@ -393,7 +394,7 @@ def analyze(options: Options) -> Optional[ResultDocument]:
     disabled_string_types = options.disabled_string_types or []
     if results.metadata.language not in ("", "unknown"):
         if not enabled_string_types and not disabled_string_types:
-            if options.prompt_deobfuscation:
+            if not options.no_prompt:
                 # when stdout is redirected, such as in 'floss foo.exe | less' use default prompt values
                 if sys.stdout.isatty():
                     try:
@@ -418,8 +419,8 @@ def analyze(options: Options) -> Optional[ResultDocument]:
                     analysis.enable_tight_strings = False
                     analysis.enable_decoded_strings = False
             else:
-                # -y/--yes: never prompt, default to not running deobfuscation
-                logger.info("string deobfuscation disabled (-y/--yes)")
+                # --no-prompt: never prompt, default to not running deobfuscation
+                logger.info("string deobfuscation disabled (--no-prompt)")
                 analysis.enable_stack_strings = False
                 analysis.enable_tight_strings = False
                 analysis.enable_decoded_strings = False

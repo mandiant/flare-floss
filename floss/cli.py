@@ -379,11 +379,10 @@ def make_parser():
         "-q", "--quiet", action="store_true", help="disable all status output on STDOUT except fatal errors"
     )
     logging_group.add_argument(
-        "-y",
-        "--yes",
-        dest="prompt_deobfuscation",
-        action="store_false",
-        default=True,
+        "--no-prompt",
+        dest="no_prompt",
+        action="store_true",
+        default=False,
         help="do not prompt to enable string deobfuscation (defaults to not running it)",
     )
     logging_group.add_argument(

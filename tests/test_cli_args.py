@@ -65,14 +65,14 @@ def test_args_analysis_type_conflict(exefile):
 def test_language_extraction_independent_of_static(capsys):
     """language strings are extracted even when static strings are disabled.
 
-    uses --string-type language (so only language extraction runs) and -y so the
+    uses --string-type language (so only language extraction runs) and --no-prompt so the
     deobfuscation prompt is skipped, on a Go sample whose language is detectable.
     """
     import json
 
     sample = Path(__file__).parent / "data" / "language" / "go" / "go-hello" / "bin" / "go-hello64.exe"
 
-    assert floss.main.main([str(sample), "--string-type", "language", "-y", "-j"]) == 0
+    assert floss.main.main([str(sample), "--string-type", "language", "--no-prompt", "-j"]) == 0
     doc = json.loads(capsys.readouterr().out)
     assert doc["metadata"]["language"] == "go"
     assert len(doc["strings"]["language_strings"]) > 0
@@ -86,7 +86,7 @@ def test_manual_language_override_wins_over_auto_detect(capsys):
     # a C binary, so auto-detection yields unknown; forcing go must stick
     sample = Path(__file__).parent / "data" / "src" / "decode-in-place" / "bin" / "test-decode-in-place.exe"
 
-    assert floss.main.main([str(sample), "--language", "go", "--string-type", "language", "-y", "-j"]) == 0
+    assert floss.main.main([str(sample), "--language", "go", "--string-type", "language", "--no-prompt", "-j"]) == 0
     doc = json.loads(capsys.readouterr().out)
     assert doc["metadata"]["language"] == "go"
     assert doc["metadata"]["language_selected"] == "go"
@@ -106,7 +106,7 @@ def test_manual_language_override_beats_wrong_auto_detect(monkeypatch, capsys):
     monkeypatch.setattr(floss.language.identify, "identify_language_and_version", fake_identify)
 
     sample = Path(__file__).parent / "data" / "src" / "decode-in-place" / "bin" / "test-decode-in-place.exe"
-    assert floss.main.main([str(sample), "--language", "go", "--string-type", "language", "-y", "-j"]) == 0
+    assert floss.main.main([str(sample), "--language", "go", "--string-type", "language", "--no-prompt", "-j"]) == 0
     doc = json.loads(capsys.readouterr().out)
     assert doc["metadata"]["language"] == "go"
     assert doc["metadata"]["language_version"] == ""
@@ -139,7 +139,7 @@ def test_no_layout_yields_classic_static(exefile):
                 enable_layout=False,
                 enable_tags=True,
             ),
-            prompt_deobfuscation=False,
+            no_prompt=True,
         )
     )
     assert results is not None
@@ -169,7 +169,7 @@ def test_no_tags_skips_tag_databases(exefile):
                 enable_layout=True,
                 enable_tags=False,
             ),
-            prompt_deobfuscation=False,
+            no_prompt=True,
         )
     )
     assert results is not None
@@ -193,13 +193,13 @@ def test_no_tags_skips_tag_databases(exefile):
             assert db_tag not in s.tags
 
 
-def test_yes_skips_deobfuscation_for_go(capsys):
-    """-y/--yes on a Go sample defaults to not running deobfuscation."""
+def test_no_prompt_skips_deobfuscation_for_go(capsys):
+    """--no-prompt on a Go sample defaults to not running deobfuscation."""
     import json
 
     sample = Path(__file__).parent / "data" / "language" / "go" / "go-hello" / "bin" / "go-hello64.exe"
 
-    assert floss.main.main([str(sample), "-y", "-j"]) == 0
+    assert floss.main.main([str(sample), "--no-prompt", "-j"]) == 0
     doc = json.loads(capsys.readouterr().out)
     assert doc["metadata"]["language"] == "go"
     assert doc["analysis"]["enable_stack_strings"] is False
