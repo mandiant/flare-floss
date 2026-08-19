@@ -262,9 +262,9 @@ def main():
     max_len = args.max_len
     if max_len == -1:
         if args.libs:
-            max_len = MAX_LEN_PES
-        elif args.pes:
             max_len = MAX_LEN_LIBS
+        elif args.pes:
+            max_len = MAX_LEN_PES
         else:
             raise ValueError("unknown extraction type")
 
