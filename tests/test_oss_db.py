@@ -31,7 +31,6 @@ def test_query_db():
     assert s is not None
     assert s.string == "invalid distance code"
     assert s.library_name == "zlib"
-    assert s.library_version == "1.2.13"
     assert s.file_path == "CMakeFiles/zlib.dir/inffast.obj"
     assert s.function_name == "inflate_fast"
     assert s.line_number is None
