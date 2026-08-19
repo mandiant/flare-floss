@@ -2,9 +2,13 @@ name: build
 
 on:
   pull_request:
-    branches: [ master ]
+    branches: [ master, quantumstrand ]
   release:
     types: [edited, published]
+    branches: [ master ]
+
+permissions:
+  contents: read
 
 jobs:
   build:
@@ -29,6 +33,7 @@ jobs:
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           submodules: false
+          lfs: true
       - name: Set up Python 3.10
         uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c # v5.0.0
         with:
@@ -39,6 +44,18 @@ jobs:
           pip install -e .[build]
       - name: Build standalone executable
         run: pyinstaller .github/pyinstaller/floss.spec
+      # build job uses submodules: false; smoke test needs a real PE sample
+      - name: Checkout test sample
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          repository: mandiant/flare-floss-testfiles
+          path: tests/data
+      - name: Smoke test layout/tags via standalone floss
+        run: |
+          chmod +x dist/${{ matrix.artifact_name }}
+          ./dist/${{ matrix.artifact_name }} --help
+          # static-only layout path (default) should include tag annotations in JSON
+          ./dist/${{ matrix.artifact_name }} tests/data/test-decode-to-stack.exe --string-type static -j | grep -q '#common'
       - uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
         with:
           name: ${{ matrix.asset_name }}
@@ -111,7 +128,7 @@ jobs:
       - name: Set zip name
         run: echo "zip_name=floss-${GITHUB_REF#refs/tags/}-${{ matrix.asset_name }}.zip" >> $GITHUB_ENV
       - name: Zip ${{ matrix.artifact_name }} into ${{ env.zip_name }}
-        run: zip ${{ env.zip_name }} ${{ matrix.artifact_name }}
+        run: zip "$zip_name" "${{ matrix.artifact_name }}"
       - name: Upload ${{ env.zip_name }} to GH Release
         uses: svenstaro/upload-release-action@29e53e917877a24fad85510ded594ab3c9ca12de # 2.11.5
         with:

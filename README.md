@@ -39,9 +39,40 @@ Not all compilers use string formats that the classic `strings.exe` algorithm su
  1. Go
  2. Rust
 
-The strings FLOSS extracts specific to a compiler are much easier to inspect by humans. 
+The strings FLOSS extracts specific to a compiler are much easier to inspect by humans.
 
 Please consult the documentation to learn more about the [language-specific string extraction](doc/language_specific_strings.md).
+
+### Layout-aware static strings
+
+FLOSS enriches static strings by default with
+file structure context and tags (global prevalence, open-source libraries,
+expert rules, and more). Stack, tight, and decoded strings still appear after
+the layout-aware static listing when deobfuscation is enabled.
+
+```console
+$ floss sample.exe
+$ floss sample.exe -j
+```
+
+Features:
+
+- extract ASCII and UTF-16LE strings
+- show strings next to right-aligned, colored context, including tags and file offset
+- render strings within PE section range delimiters
+- annotate strings from known PE structures, like the import table
+- don't show junk strings that overlap with instructions
+- mute strings known to be globally prevalent, via an embedded database
+- mute strings from popular open source libraries, via embedded databases
+- highlight strings that match expert rules, via embedded databases
+
+![screenshot 1](https://github.com/mandiant/flare-floss/assets/156560/f2d471a3-2624-498c-aaa9-928e2909c338)
+![screenshot 2](https://github.com/mandiant/flare-floss/assets/156560/23bd20a1-7dff-46b5-be65-12582cb90d64)
+
+Tag databases and FLIRT signature files are tracked with Git LFS; contributors
+cloning the repo may need Git LFS installed to fetch those files. Maintenance of
+tag databases is documented in [scripts/tags/README.md](scripts/tags/README.md)
+and the per-database notes under `floss/tags/data/`.
 
 ## Installation
 To use FLOSS, download a standalone executable file from the releases page:
@@ -56,22 +87,21 @@ Extract obfuscated strings from a malware binary:
 
 Only extract stack and tight strings:
 
-    $ floss --only stack tight -- suspicious.exe
+    $ floss --string-type stack tight -- suspicious.exe
 
 Do not extract static strings:
 
-    $ floss --no static -- backdoor.exe
+    $ floss --no-string-type static -- backdoor.exe
 
 Display the help/usage screens:
 
-    $ floss -h  # show core arguments
-    $ floss -H  # show all supported arguments
+    $ floss -h  # show all supported arguments
 
 For a detailed description of using FLOSS, review the documentation
  [here](doc/usage.md).
 
 ## Scripts
-FLOSS also contains additional Python scripts in the [scripts](scripts) directory 
+FLOSS also contains additional Python scripts in the [scripts](scripts) directory
 which can be used to load its output into other tools such as Binary Ninja or IDA Pro.
 For detailed description of these scripts review the documentation [here](scripts/README.md).
 

@@ -1,0 +1,4 @@
+floss/tags/data/**/*.bin filter=lfs diff=lfs merge=lfs -text
+floss/tags/data/**/*.gz filter=lfs diff=lfs merge=lfs -text
+floss/tags/data/**/*.jsonl filter=lfs diff=lfs merge=lfs -text
+floss/sigs/*.sig filter=lfs diff=lfs merge=lfs -text
