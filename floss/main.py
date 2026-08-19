@@ -211,13 +211,10 @@ def main(argv=None) -> int:
     disabled_string_types = expand_string_types(list(args.disabled_string_types or []))
     enabled_string_types = expand_string_types(list(args.enabled_string_types or []))
 
-    if not enabled_string_types and not disabled_string_types and not args.analyze_functions:
-        # string deobfuscation is opt-in: default to static (and language)
-        # strings only, so a plain run doesn't spin up the slow vivisect stage
-        # for stack/tight/decoded. enable it explicitly with
-        # --string-type stack/tight/decoded (--analyze-functions requests
-        # function-level deobfuscation and is therefore not affected).
-        logger.info("string deobfuscation is off by default; use --string-type stack/tight/decoded to enable")
+    if args.summary and not disabled_string_types and not enabled_string_types:
+        # the summary's layout-derived sections cover static strings only, so
+        # don't spin up the slow deobfuscation for stack/tight/decoded
+        logger.info("--summary is static-only; skipping stack/tight/decoded extraction")
         disabled_string_types.extend([StringType.STACK.value, StringType.TIGHT.value, StringType.DECODED.value])
 
     if args.analyze_functions:

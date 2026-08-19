@@ -39,9 +39,8 @@ def test_shellcode(scfile):
     assert floss.main.main([scfile, "-f", "sc32"]) == 0
     assert floss.main.main([scfile, "--format", "sc64"]) == 0
 
-    # fail: forcing the PE format on shellcode only errors once deobfuscation
-    # (which runs vivisect) is requested
-    assert floss.main.main([scfile, "--format", "pe", "--string-type", "stack", "tight", "decoded"]) == -1
+    # fail: forcing the PE format on shellcode errors once vivisect runs
+    assert floss.main.main([scfile, "--format", "pe"]) == -1
 
 
 @pytest.mark.parametrize("type_", [t.value for t in StringType])
@@ -192,16 +191,15 @@ def test_no_tags_skips_tag_databases(exefile):
             assert db_tag not in s.tags
 
 
-def test_deobfuscation_off_by_default(capsys):
-    """deobfuscation is opt-in: a plain run leaves stack/tight/decoded off."""
+def test_deobfuscation_on_by_default(capsys):
+    """default (no string-type flags) runs all string types, deobfuscation on."""
     import json
 
-    sample = Path(__file__).parent / "data" / "language" / "go" / "go-hello" / "bin" / "go-hello64.exe"
+    sample = Path(__file__).parent / "data" / "src" / "decode-in-place" / "bin" / "test-decode-in-place.exe"
 
     assert floss.main.main([str(sample), "-j"]) == 0
     doc = json.loads(capsys.readouterr().out)
-    assert doc["metadata"]["language"] == "go"
     assert doc["analysis"]["enable_static_strings"] is True
-    assert doc["analysis"]["enable_stack_strings"] is False
-    assert doc["analysis"]["enable_tight_strings"] is False
-    assert doc["analysis"]["enable_decoded_strings"] is False
+    assert doc["analysis"]["enable_stack_strings"] is True
+    assert doc["analysis"]["enable_tight_strings"] is True
+    assert doc["analysis"]["enable_decoded_strings"] is True
