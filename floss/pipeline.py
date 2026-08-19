@@ -104,7 +104,6 @@ class Options:
     signatures: Optional[Path] = None
     large_file: bool = False
     quiet: bool = False
-    disable_progress: bool = False
     verbose: int = Verbosity.DEFAULT
     # when True, prompt on TTY for deobfuscation on language binaries
     prompt_deobfuscation: bool = True
@@ -533,7 +532,7 @@ def analyze(options: Options) -> Optional[ResultDocument]:
                 text="analyzing program",
                 spinner="simpleDots",
                 stream=sys.stderr,
-                enabled=not (options.quiet or options.disable_progress),
+                enabled=not options.quiet,
             ):
                 with results.metadata.runtime.measure_and_set_time("vivisect"):
                     vw = load_vw(sample, options.format, sigpaths, should_save_workspace)
@@ -551,7 +550,7 @@ def analyze(options: Options) -> Optional[ResultDocument]:
                 raise PipelineError(e.args[0], exit_code=-1)
 
             decoding_function_features, library_functions = find_decoding_function_features(
-                vw, selected_functions, disable_progress=options.quiet or options.disable_progress
+                vw, selected_functions, disable_progress=options.quiet
             )
             results.analysis.functions.library = len(library_functions)
 
@@ -572,7 +571,7 @@ def analyze(options: Options) -> Optional[ResultDocument]:
                     funcs,
                     options.min_length,
                     verbosity=options.verbose,
-                    disable_progress=options.quiet or options.disable_progress,
+                    disable_progress=options.quiet,
                 )
                 results.analysis.functions.analyzed_stack_strings = len(funcs)
 
@@ -584,7 +583,7 @@ def analyze(options: Options) -> Optional[ResultDocument]:
                     tightloop_functions,
                     min_length=options.min_length,
                     verbosity=options.verbose,
-                    disable_progress=options.quiet or options.disable_progress,
+                    disable_progress=options.quiet,
                 )
                 results.analysis.functions.analyzed_tight_strings = len(tightloop_functions)
 
@@ -616,7 +615,7 @@ def analyze(options: Options) -> Optional[ResultDocument]:
                     fvas_to_emulate,
                     options.min_length,
                     verbosity=options.verbose,
-                    disable_progress=options.quiet or options.disable_progress,
+                    disable_progress=options.quiet,
                 )
                 results.analysis.functions.analyzed_decoded_strings = len(fvas_to_emulate)
 
