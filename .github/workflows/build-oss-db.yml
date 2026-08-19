@@ -51,6 +51,11 @@ jobs:
           cargo build --release -p lancelot-bin
         working-directory: lancelot
 
+      - name: Install flare-floss
+        run: |
+          pip install -e .
+        working-directory: flare-floss
+
       - name: Build OSS databases
         run: |
           python scripts/tags/build_oss_db.py `
@@ -63,7 +68,11 @@ jobs:
       - name: Show metrics summary
         if: success() || failure()
         run: |
-          Get-Content floss\tags\data\oss\build_metrics.json
+          if (Test-Path floss\tags\data\oss\build_metrics.json) {
+            Get-Content floss\tags\data\oss\build_metrics.json
+          } else {
+            Write-Host "build_metrics.json not produced"
+          }
         working-directory: flare-floss
 
       - name: Show entry-level diff
