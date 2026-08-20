@@ -25,6 +25,7 @@ from typing import List, Optional
 from pathlib import Path
 
 import floss.utils
+import floss.server
 import floss.logging_
 from floss.const import (
     MEGABYTE,
@@ -33,6 +34,7 @@ from floss.const import (
 )
 from floss.utils import set_vivisect_log_level
 from floss.render import Verbosity
+from floss.server import DEFAULT_PORT
 from floss.version import __version__
 from floss.logging_ import TRACE, DebugLevel
 from floss.render.filter import NOISY_TAGS, TAG_FAMILIES, KNOWN_STRUCTURE_SLUGS
@@ -167,7 +169,9 @@ def make_parser():
     parser.add_argument(
         "sample",
         type=argparse.FileType("rb"),
-        help="path to sample to analyze",
+        nargs="?",
+        default=None,
+        help="path to sample to analyze (optional when --server is used)",
     )
 
     analysis_group = parser.add_argument_group("analysis arguments")
@@ -366,6 +370,20 @@ def make_parser():
         default=[],
         help="columns to show in the layout view; valid values: tags, offset, structure, encoding. Default: tags, offset.",
     )
+
+    server_group = parser.add_argument_group("web viewer arguments")
+    server_group.add_argument(
+        "--server",
+        dest="server",
+        nargs="?",
+        const="",
+        default=None,
+        type=str,
+        metavar="PORT",
+        help="serve the bundled web viewer over a local HTTP server after analysis; "
+        "optionally give a port number (default: 8080); a sample is optional",
+    )
+    parser.set_defaults(port=DEFAULT_PORT)
 
     logging_group = parser.add_argument_group("logging arguments")
     logging_group.add_argument(
