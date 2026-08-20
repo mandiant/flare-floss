@@ -60,6 +60,6 @@ termcolor==3.3.0
 tqdm==4.69.0
 types-pyyaml==6.0.10
 types-tabulate==0.10.0.20260408
-virtualenv==21.6.0
+virtualenv==21.7.4
 viv-utils==0.8.0
 vivisect==1.3.1
