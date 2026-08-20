@@ -28,7 +28,7 @@ nodeenv==1.10.0
 packaging==26.2
 pathspec==1.1.0
 pefile==2024.8.26
-pip==26.1.2
+pip==26.2.1
 platformdirs==4.11.0
 pluggy==1.6.0
 pre-commit==4.6.0
