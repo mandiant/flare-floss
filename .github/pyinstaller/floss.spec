@@ -55,6 +55,10 @@ datas = [
     # this gets invoked from the directory of the spec file,
     # i.e. ./.github/pyinstaller
     ('../../floss/sigs', 'sigs'),
+    # the built web viewer (a single self-contained HTML file), served by
+    # `floss --server`; build it first via `npm run build` in the viewer/
+    # directory
+    ('../../viewer/dist/index.html', 'viewer'),
     # tag databases
     ('../../floss/tags/data/crt/*.jsonl.gz', 'floss/tags/data/crt'),
     ('../../floss/tags/data/expert/*.jsonl', 'floss/tags/data/expert'),

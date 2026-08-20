@@ -16,11 +16,13 @@
 import re
 import sys
 import json
+import argparse
 from pathlib import Path
 
 import rich.traceback
 
 import floss.cache
+import floss.server
 import floss.results
 import floss.logging_
 import floss.render.json
@@ -83,6 +85,22 @@ def json_requested(argv) -> bool:
     """best-effort detection of a JSON output mode before argument parsing completes."""
     argv = argv or []
     return "--json" in argv or any(a == "-j" for a in argv)
+
+
+def _server_value_is_sample(value: str) -> bool:
+    """
+    Decide whether the value of `--server <value>` is a sample path rather than
+    a port.
+
+    A non-numeric value is a sample. A numeric value is ambiguous (a port or a
+    numeric filename), so it is only treated as a sample when a file with that
+    name exists.
+    """
+    try:
+        int(value)
+    except ValueError:
+        return True
+    return Path(value).is_file()
 
 
 def build_layout_filter(args) -> LayoutFilter:
@@ -160,6 +178,27 @@ def main(argv=None) -> int:
                 parser.error("--summary only covers static strings and does not take --string-type/--no-string-type")
         if args.max_strings is not None and args.max_strings <= 0:
             parser.error("--max-strings must be a positive integer")
+        if args.server is not None:
+            value = args.server
+            args.server = True
+            if value != "":
+                if args.sample is None and _server_value_is_sample(value):
+                    # `--server <sample>`: a sample path directly after the
+                    # flag, only when none was given positionally; numeric
+                    # values are only samples when such a file exists
+                    try:
+                        args.sample = argparse.FileType("rb")(value)
+                    except argparse.ArgumentTypeError as e:
+                        parser.error("--server: %s" % e)
+                else:
+                    try:
+                        args.port = int(value)
+                    except ValueError:
+                        parser.error("--server: %r is not a valid port number" % value)
+            if not (0 <= args.port <= 65535):
+                parser.error("--server: port must be between 0 and 65535")
+        if args.sample is None and not args.server:
+            parser.error("the following arguments are required: sample")
         for pattern in args.queries:
             try:
                 re.compile(pattern)
@@ -199,109 +238,112 @@ def main(argv=None) -> int:
 
         args.signatures = sigs_path
 
-    sample = Path(args.sample.name)
-    args.sample.close()
+    results = None
+    if args.sample is not None:
+        sample = Path(args.sample.name)
+        args.sample.close()
 
-    disabled_string_types = expand_string_types(list(args.disabled_string_types or []))
-    enabled_string_types = expand_string_types(list(args.enabled_string_types or []))
+        disabled_string_types = expand_string_types(list(args.disabled_string_types or []))
+        enabled_string_types = expand_string_types(list(args.enabled_string_types or []))
 
-    if args.summary and not disabled_string_types and not enabled_string_types:
-        # the summary's layout-derived sections cover static strings only, so
-        # don't spin up the slow deobfuscation for stack/tight/decoded
-        logger.info("--summary is static-only; skipping stack/tight/decoded extraction")
-        disabled_string_types.extend([StringType.STACK.value, StringType.TIGHT.value, StringType.DECODED.value])
+        if args.summary and not disabled_string_types and not enabled_string_types:
+            # the summary's layout-derived sections cover static strings only, so
+            # don't spin up the slow deobfuscation for stack/tight/decoded
+            logger.info("--summary is static-only; skipping stack/tight/decoded extraction")
+            disabled_string_types.extend([StringType.STACK.value, StringType.TIGHT.value, StringType.DECODED.value])
 
-    if args.analyze_functions:
-        static_was_enabled = is_string_type_enabled(StringType.STATIC, disabled_string_types, enabled_string_types)
-        try:
-            if enabled_string_types and StringType.STATIC.value in enabled_string_types:
-                # --string-type explicitly selected static, but --analyze-functions cannot show it:
-                # drop it from the include list instead of forcing the exclude list.
-                enabled_string_types.remove(StringType.STATIC.value)
-                if not enabled_string_types:
-                    parser.error(
-                        "--string-type static cannot be combined with --analyze-functions, "
-                        "which does not show static strings"
-                    )
-            elif not enabled_string_types and StringType.STATIC.value not in disabled_string_types:
-                disabled_string_types.append(StringType.STATIC.value)
-        except ArgumentValueError as e:
-            report_error(parser, str(e))
-            return -1
-        if static_was_enabled:
-            logger.warning("analyzing specified functions, not showing static strings")
+        if args.analyze_functions:
+            static_was_enabled = is_string_type_enabled(StringType.STATIC, disabled_string_types, enabled_string_types)
+            try:
+                if enabled_string_types and StringType.STATIC.value in enabled_string_types:
+                    # --string-type explicitly selected static, but --analyze-functions cannot show it:
+                    # drop it from the include list instead of forcing the exclude list.
+                    enabled_string_types.remove(StringType.STATIC.value)
+                    if not enabled_string_types:
+                        parser.error(
+                            "--string-type static cannot be combined with --analyze-functions, "
+                            "which does not show static strings"
+                        )
+                elif not enabled_string_types and StringType.STATIC.value not in disabled_string_types:
+                    disabled_string_types.append(StringType.STATIC.value)
+            except ArgumentValueError as e:
+                report_error(parser, str(e))
+                return -1
+            if static_was_enabled:
+                logger.warning("analyzing specified functions, not showing static strings")
 
-    # layout/tags are always on: automatic and detected from the sample content
-    analysis = Analysis(
-        enable_static_strings=is_string_type_enabled(StringType.STATIC, disabled_string_types, enabled_string_types),
-        enable_stack_strings=is_string_type_enabled(StringType.STACK, disabled_string_types, enabled_string_types),
-        enable_tight_strings=is_string_type_enabled(StringType.TIGHT, disabled_string_types, enabled_string_types),
-        enable_decoded_strings=is_string_type_enabled(StringType.DECODED, disabled_string_types, enabled_string_types),
-        enable_language_strings=is_string_type_enabled(
-            StringType.LANGUAGE, disabled_string_types, enabled_string_types
-        ),
-    )
+        # layout/tags are always on: automatic and detected from the sample content
+        analysis = Analysis(
+            enable_static_strings=is_string_type_enabled(
+                StringType.STATIC, disabled_string_types, enabled_string_types
+            ),
+            enable_stack_strings=is_string_type_enabled(StringType.STACK, disabled_string_types, enabled_string_types),
+            enable_tight_strings=is_string_type_enabled(StringType.TIGHT, disabled_string_types, enabled_string_types),
+            enable_decoded_strings=is_string_type_enabled(
+                StringType.DECODED, disabled_string_types, enabled_string_types
+            ),
+            enable_language_strings=is_string_type_enabled(
+                StringType.LANGUAGE, disabled_string_types, enabled_string_types
+            ),
+        )
 
-    if detect_file_type(sample) is FileType.RESULTS:
-        try:
-            results = load(sample, analysis, args.analyze_functions, args.min_length)
-        except floss.results.InvalidResultsFile as e:
-            if args.json:
-                emit_json_error(f"cannot load JSON results file: {e}")
-            else:
-                logger.error("cannot load JSON results file: %s", e)
-            return -1
-        except floss.results.InvalidLoadConfig as e:
-            if args.json:
-                emit_json_error(str(e))
-            else:
-                logger.error("%s", e)
-            return -1
-
-        if args.json:
-            r = floss.render.json.render(results)
+        if detect_file_type(sample) is FileType.RESULTS:
+            try:
+                results = load(sample, analysis, args.analyze_functions, args.min_length)
+            except floss.results.InvalidResultsFile as e:
+                if args.json:
+                    emit_json_error(f"cannot load JSON results file: {e}")
+                else:
+                    logger.error("cannot load JSON results file: %s", e)
+                return -1
+            except floss.results.InvalidLoadConfig as e:
+                if args.json:
+                    emit_json_error(str(e))
+                else:
+                    logger.error("%s", e)
+                return -1
         else:
-            r = render_text(args, results)
+            options = Options(
+                sample=sample,
+                min_length=args.min_length,
+                analysis=analysis,
+                format=args.format,
+                language=args.language,
+                enabled_string_types=enabled_string_types,
+                disabled_string_types=disabled_string_types,
+                analyze_functions=args.analyze_functions,
+                signatures=args.signatures,
+                large_file=args.large_file,
+                quiet=args.quiet,
+                verbose=args.verbose,
+                cache_dir=cache_dir,
+            )
 
-        print(r)
-        return 0
+            try:
+                results = analyze(options)
+            except PipelineError as e:
+                if args.json:
+                    emit_json_error(str(e), code=e.exit_code if e.exit_code >= 0 else 1)
+                elif e.exit_code in (1, 130):
+                    logger.info("%s", e)
+                else:
+                    logger.error("%s", e)
+                return e.exit_code
 
-    options = Options(
-        sample=sample,
-        min_length=args.min_length,
-        analysis=analysis,
-        format=args.format,
-        language=args.language,
-        enabled_string_types=enabled_string_types,
-        disabled_string_types=disabled_string_types,
-        analyze_functions=args.analyze_functions,
-        signatures=args.signatures,
-        large_file=args.large_file,
-        quiet=args.quiet,
-        verbose=args.verbose,
-        cache_dir=cache_dir,
-    )
+    if args.server:
+        # the server wins over the text/JSON render flags: no results are
+        # printed, the viewer loads them over HTTP instead.
+        return floss.server.serve(results, args.port)
 
-    try:
-        analysis_results = analyze(options)
-    except PipelineError as e:
-        if args.json:
-            emit_json_error(str(e), code=e.exit_code if e.exit_code >= 0 else 1)
-        elif e.exit_code in (1, 130):
-            logger.info("%s", e)
-        else:
-            logger.error("%s", e)
-        return e.exit_code
-
-    if analysis_results is None:
+    if results is None:
         return 0
 
     if args.json:
-        r = floss.render.json.render(analysis_results)
+        r = floss.render.json.render(results)
     else:
         # this may be slow when there's many strings, so informing users what's happening
         logger.info("rendering results")
-        r = render_text(args, analysis_results)
+        r = render_text(args, results)
 
     print(r)
     return 0
