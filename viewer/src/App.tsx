@@ -524,6 +524,33 @@ const App: React.FC = () => {
     processData(previewData as ResultDocument);
   };
 
+  const handleDownloadViewer = useCallback(async () => {
+    let html: string | null = null;
+    if (!import.meta.env.DEV) {
+      try {
+        const res = await fetch(window.location.href, { cache: 'no-store' });
+        if (res.ok) html = await res.text();
+      } catch {
+        // fetch can fail on file:// or restricted origins; fall back to serializing the live DOM
+      }
+    }
+    if (!html) {
+      const clone = document.documentElement.cloneNode(true) as HTMLElement;
+      const root = clone.querySelector('#root');
+      if (root) root.innerHTML = '';
+      html = '<!doctype html>\n' + clone.outerHTML;
+    }
+    const blob = new Blob([html], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = 'floss-viewer.html';
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  }, []);
+
   const lowercaseMap = useMemo(() => {
     const map = new Map<ResultString, string>();
     const walk = (layout: ResultLayout) => {
@@ -622,6 +649,19 @@ const App: React.FC = () => {
         <div className="sidebar-header">
           <img className="app-logo" src="/floss-logo.png" alt="FLOSS" />
           <div className="sidebar-header-buttons">
+            <button
+              className="btn-ghost"
+              onClick={handleDownloadViewer}
+              title="Download this viewer as a standalone HTML file for offline use"
+              aria-label="Download this viewer as a standalone HTML file for offline use"
+              style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 32, padding: '7px 0' }}
+            >
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+            </button>
             <button
               className="btn-ghost"
               onClick={() => setTheme(t => t === 'light' ? 'dark' : 'light')}
