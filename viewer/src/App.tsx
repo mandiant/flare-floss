@@ -3,6 +3,7 @@ import { useDropzone } from 'react-dropzone';
 import './App.css';
 import { type ResultDocument, type ResultLayout, type ResultString, type Analysis, type Strings } from './types';
 import previewData from './pma0303_floss.json';
+import { VIEWER_VERSION, VIEWER_COMMIT } from './generated/version';
 
 const NOISY_TAGS = ['#common', '#duplicate', '#code', '#reloc', '#code-junk'];
 
@@ -538,13 +539,14 @@ const App: React.FC = () => {
       const clone = document.documentElement.cloneNode(true) as HTMLElement;
       const root = clone.querySelector('#root');
       if (root) root.innerHTML = '';
+      clone.removeAttribute('data-theme');
       html = '<!doctype html>\n' + clone.outerHTML;
     }
     const blob = new Blob([html], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
     anchor.href = url;
-    anchor.download = 'floss-viewer.html';
+    anchor.download = `floss-viewer-${VIEWER_VERSION}-${VIEWER_COMMIT}.html`;
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();
