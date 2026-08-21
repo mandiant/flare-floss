@@ -14,7 +14,10 @@
 
 
 import json
+import time
 import errno
+import socket
+import struct
 import threading
 import http.client
 import urllib.error
@@ -167,6 +170,27 @@ def test_missing_host_header_accepted():
     try:
         status, _ = fetch_with_host(httpd, "/", None)
         assert status == 200
+    finally:
+        httpd.shutdown()
+
+
+def test_client_disconnect_early_keeps_server_working(minimal_results, capfd):
+    """a client that resets the connection mid-request must not break later requests."""
+    httpd = start_server(results=minimal_results, viewer_html=VIEWER_HTML)
+    try:
+        port = httpd.server_address[1]
+        for _ in range(3):
+            sock = socket.create_connection(("127.0.0.1", port), timeout=5)
+            request = f"GET {floss.server.RESULTS_ENDPOINT} HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\n\r\n"
+            sock.sendall(request.encode("utf-8"))
+            # reset the connection instead of a clean close to force an error server-side
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, struct.pack("ii", 1, 0))
+            sock.close()
+        time.sleep(0.25)
+        assert "Traceback" not in capfd.readouterr().err
+        status, body, _ = fetch(httpd, "/")
+        assert status == 200
+        assert body == VIEWER_HTML
     finally:
         httpd.shutdown()
 

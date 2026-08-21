@@ -60,6 +60,10 @@ class ViewerRequestHandler(BaseHTTPRequestHandler):
 
     server_version = "FLOSSViewer/1.0"
 
+    # cap the time spent reading a request so a slow client cannot tie up a
+    # worker thread forever (slowloris guard)
+    timeout = 30
+
     # the analysis results document rendered to JSON bytes, or None when there are no results
     results_body: Optional[bytes] = None
 
@@ -123,12 +127,15 @@ class ViewerRequestHandler(BaseHTTPRequestHandler):
         self._send_bytes(200, "application/json", self.results_body)
 
     def _send_bytes(self, code: int, content_type: str, body: bytes):
-        self.send_response(code)
-        self.send_header("Content-Type", content_type)
-        self.send_header("Content-Length", str(len(body)))
-        self.send_header("Cache-Control", "no-store")
-        self.end_headers()
-        self.wfile.write(body)
+        try:
+            self.send_response(code)
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(body)
+        except (BrokenPipeError, ConnectionResetError):
+            logger.debug("%s - client disconnected before the response was written", self.address_string())
 
     def log_message(self, format, *args):  # noqa: A002
         logger.debug("%s - %s", self.address_string(), format % args)
