@@ -647,21 +647,7 @@ const App: React.FC = () => {
       {/* ---- Sidebar ---- */}
       <div className="sidebar" style={{ width: sidebarWidth }}>
         <div className="sidebar-header">
-          <img className="app-logo" src="floss-logo.png" alt="FLOSS" />
           <div className="sidebar-header-buttons">
-            <button
-              className="btn-ghost"
-              onClick={handleDownloadViewer}
-              title="Download this viewer as a standalone HTML file for offline use"
-              aria-label="Download this viewer as a standalone HTML file for offline use"
-              style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 32, padding: '7px 0' }}
-            >
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="7 10 12 15 17 10" />
-                <line x1="12" y1="15" x2="12" y2="3" />
-              </svg>
-            </button>
             <button
               className="btn-ghost"
               onClick={() => setTheme(t => t === 'light' ? 'dark' : 'light')}
@@ -687,7 +673,6 @@ const App: React.FC = () => {
                 </svg>
               )}
             </button>
-            <button className="btn-ghost" onClick={handlePreview}>Preview</button>
             <label htmlFor="file-upload" className="btn-ghost" style={{ cursor: 'pointer' }}>
               Upload
             </label>
@@ -868,6 +853,24 @@ const App: React.FC = () => {
                 FLOSS. It lets you interactively search, filter, and browse static, stack, tight,
                 and decoded strings.
               </p>
+              <div className="landing-actions">
+                <button className="btn-ghost" onClick={handlePreview} title="Load a sample floss results document">
+                  Demo
+                </button>
+                <button
+                  className="btn-ghost"
+                  onClick={handleDownloadViewer}
+                  title="Download this viewer as a standalone HTML file for offline use"
+                  aria-label="Download this viewer as a standalone HTML file for offline use"
+                >
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="7 10 12 15 17 10" />
+                    <line x1="12" y1="15" x2="12" y2="3" />
+                  </svg>
+                  Download viewer
+                </button>
+              </div>
               <div className="landing-steps">
                 <p className="landing-steps-title">New to floss? Follow these quick steps to get started:</p>
                 <ol>
@@ -901,8 +904,8 @@ const App: React.FC = () => {
                 </p>
               </div>
               <p className="landing-download">
-                You can download this viewer for offline usage via the download button in the
-                top-left corner of this page.
+                The download saves this viewer as a single HTML file that works offline, without
+                an internet connection.
               </p>
             </div>
           </div>

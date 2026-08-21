@@ -572,6 +572,17 @@ body {
   margin: 0 0 24px 0;
 }
 
+.landing-actions {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin: 0 0 24px 0;
+}
+
+.landing-actions .btn-ghost svg {
+  margin-right: 6px;
+}
+
 .landing-steps {
   background: var(--overlay);
   border: 1px solid var(--border);
