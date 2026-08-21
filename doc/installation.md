@@ -158,6 +158,10 @@ This combines the source code, Python interpreter, and required resources
 
     `$ pip install pyinstaller`
 
+- Build the web viewer (required: `floss.spec` packages `viewer/dist/index.html` and fails without it):
+
+    `$ cd viewer && npm install && npm run build`
+
 - Build standalone executable:
 
     `$ pyinstaller .github/pyinstaller/floss.spec`

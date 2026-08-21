@@ -81,25 +81,38 @@ content, so you can explore results without re-running the analysis.
 
     floss.exe malware_floss_results.json
 
+To explore results in the web viewer instead of the terminal,
+run FLOSS with `--server`; see the next section.
+
 
 ### View results in the web viewer (`--server`)
 
-FLOSS bundles a graphical web viewer for exploring results. Run FLOSS with `--server`
-to analyze a sample, start a small local web server, and open the viewer pre-loaded
-with the results:
+FLOSS includes a graphical web viewer for exploring results. Run FLOSS with `--server`
+to analyze a sample, then start a small local web server that serves the viewer at `/`
+and the results JSON at `/results`. FLOSS prints the URL, such as
+`http://127.0.0.1:8080`, which you then open in your browser yourself:
 
     floss.exe --server malware.exe
 
-The server binds to `127.0.0.1` only and is meant for local use, it is not intended
+FLOSS blocks serving until you interrupt it with Ctrl+C.
+
+The server binds to `127.0.0.1` only and is meant for local use; it is not intended
 to be exposed to a network. By default it listens on port `8080`; pass a port number
 directly to `--server` (0-65535) to choose another:
 
     floss.exe --server 9090 malware.exe
 
+In server mode the results are served over HTTP, so output flags like `-j/--json`
+have no effect.
+
 The sample is optional with `--server`: without one the viewer still starts and you
 can upload a results file as usual.
 
     floss.exe --server
+
+The standalone binary bundles the viewer. When running from source, build it first
+with `npm install && npm run build` in the `viewer/` directory; otherwise the server
+responds with instructions explaining that the viewer is not bundled.
 
 
 ### Verbose results (`-v`)
