@@ -869,16 +869,72 @@ body.resizing {
 @media (max-width: 800px) {
   .App {
     flex-direction: column;
+    height: 100dvh;
   }
 
   .sidebar {
+    width: 100% !important;
+    min-width: 0;
+    max-width: none;
+    max-height: 45dvh;
     border-right: none;
     border-bottom: 1px solid var(--border);
-    max-height: 50vh;
-    max-width: none;
   }
 
   .resize-handle {
     display: none;
+  }
+
+  .main-content {
+    flex: 1;
+    min-height: 0;
+  }
+
+  .welcome-state {
+    padding: 20px;
+  }
+
+  .landing {
+    padding: 24px 18px 20px;
+  }
+
+  .string-tags,
+  .string-offset-structure {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  body {
+    font-size: 13px;
+  }
+
+  .sidebar-header {
+    padding: 12px 14px 10px;
+  }
+
+  .sidebar-header-buttons {
+    flex-wrap: wrap;
+  }
+
+  .search-section,
+  .metadata,
+  .filter-section {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .search-row {
+    flex-wrap: wrap;
+  }
+
+  .landing-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .drop-overlay-inner {
+    margin: 0 16px;
+    padding: 20px 24px;
   }
 }
