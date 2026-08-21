@@ -25,7 +25,6 @@ from typing import List, Optional
 from pathlib import Path
 
 import floss.utils
-import floss.server
 import floss.logging_
 from floss.const import (
     MEGABYTE,
