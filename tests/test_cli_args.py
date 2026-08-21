@@ -243,3 +243,8 @@ def test_server_digits_stay_port_with_sample(monkeypatch, tmp_path):
     monkeypatch.setattr("floss.server.serve", fake_serve)
     assert floss.main.main(["--server", "12345", str(results_file)]) == 0
     assert served == [12345]
+
+
+def test_json_with_server_rejected():
+    """server mode never prints JSON, so the combination must fail loudly."""
+    assert floss.main.main(["--json", "--server"]) == -1

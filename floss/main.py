@@ -180,6 +180,9 @@ def main(argv=None) -> int:
         if args.server is not None:
             value = args.server
             args.server = True
+            if args.json:
+                # server mode never prints JSON, so fail loudly rather than silently dropping the flag
+                parser.error("--json cannot be combined with --server")
             if value != "":
                 if args.sample is None and _server_value_is_sample(value):
                     # `--server <sample>`: a sample path directly after the
