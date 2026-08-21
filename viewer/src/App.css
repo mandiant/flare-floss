@@ -534,6 +534,112 @@ body {
   margin: 0;
 }
 
+/* ---- Landing Page ---- */
+
+.landing {
+  max-width: 560px;
+  text-align: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 36px 40px 28px 40px;
+}
+
+.landing-logo {
+  width: 180px;
+  max-width: 70%;
+  margin-bottom: 16px;
+}
+
+.landing-title {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-decoration: none;
+  margin-bottom: 20px;
+}
+
+.landing-title:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.landing-desc {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text);
+  margin: 0 0 24px 0;
+}
+
+.landing-steps {
+  background: var(--overlay);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  text-align: center;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.landing-steps-title {
+  margin: 0 0 10px 0;
+  color: var(--text-muted);
+}
+
+.landing-steps ol {
+  margin: 0;
+  padding-left: 18px;
+  text-align: left;
+  display: inline-block;
+}
+
+.landing-steps li {
+  margin-bottom: 6px;
+}
+
+.landing-steps li:last-child {
+  margin-bottom: 0;
+}
+
+.landing-steps ul {
+  margin: 2px 0 0 0;
+  padding-left: 16px;
+  list-style-type: circle;
+}
+
+.landing-steps code {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 5px;
+  white-space: nowrap;
+}
+
+.landing-steps-more {
+  margin: 12px 0 0 0;
+  color: var(--text-muted);
+}
+
+.landing a {
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.landing a:hover {
+  color: var(--accent);
+}
+
+.landing-download {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 20px 0 0 0;
+}
+
 /* ---- Layout Sections (String groups) ---- */
 
 .layout {

@@ -853,9 +853,57 @@ const App: React.FC = () => {
       <div className="main-content">
         {!data ? (
           <div className="welcome-state">
-            <div className="welcome-inner">
-              <p className="welcome-title">FLOSS Graphical Viewer</p>
-              <p className="welcome-sub">Drag a JSON file or use the upload button</p>
+            <div className="landing">
+              <img className="landing-logo" src="/floss-logo.png" alt="FLOSS" />
+              <a
+                className="landing-title"
+                href="https://github.com/mandiant/flare-floss"
+                target="_blank"
+                rel="noreferrer"
+              >
+                floss: FLARE Obfuscated String Solver
+              </a>
+              <p className="landing-desc">
+                The FLOSS Graphical Viewer is a web-based tool to explore the strings extracted by
+                FLOSS. It lets you interactively search, filter, and browse static, stack, tight,
+                and decoded strings.
+              </p>
+              <div className="landing-steps">
+                <p className="landing-steps-title">New to floss? Follow these quick steps to get started:</p>
+                <ol>
+                  <li>
+                    Install floss:
+                    <ul>
+                      <li>
+                        download the latest{' '}
+                        <a href="https://github.com/mandiant/flare-floss/releases/latest" target="_blank" rel="noreferrer">
+                          standalone executable release
+                        </a>
+                      </li>
+                      <li>
+                        or run <code>pip install flare-floss</code>
+                      </li>
+                    </ul>
+                  </li>
+                  <li>
+                    Analyze a sample and save the JSON results:
+                    <br />
+                    <code>floss -j /path/to/file &gt; results.json</code>
+                  </li>
+                  <li>Load the JSON results file into the viewer (drag and drop or Upload)</li>
+                </ol>
+                <p className="landing-steps-more">
+                  For more detailed information, explore the{' '}
+                  <a href="https://github.com/mandiant/flare-floss" target="_blank" rel="noreferrer">
+                    floss GitHub repository
+                  </a>
+                  .
+                </p>
+              </div>
+              <p className="landing-download">
+                You can download this viewer for offline usage via the download button in the
+                top-left corner of this page.
+              </p>
             </div>
           </div>
         ) : filteredLayout ? (
