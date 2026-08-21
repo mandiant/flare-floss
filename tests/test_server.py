@@ -45,9 +45,9 @@ def fetch(httpd, path):
     url = f"http://127.0.0.1:{httpd.server_address[1]}{path}"
     try:
         with urllib.request.urlopen(url, timeout=5) as r:
-            return r.status, r.read(), r.headers.get("Content-Type")
+            return r.status, r.read(), r.headers
     except urllib.error.HTTPError as e:
-        return e.code, e.read(), e.headers.get("Content-Type")
+        return e.code, e.read(), e.headers
 
 
 def fetch_with_host(httpd, path, host):
@@ -72,10 +72,10 @@ def minimal_results():
 def test_viewer_page_200_when_built():
     httpd = start_server(results=None, viewer_html=VIEWER_HTML)
     try:
-        status, body, content_type = fetch(httpd, "/")
+        status, body, headers = fetch(httpd, "/")
         assert status == 200
         assert body == VIEWER_HTML
-        assert "text/html" in content_type
+        assert "text/html" in headers.get("Content-Type")
     finally:
         httpd.shutdown()
 
@@ -103,9 +103,11 @@ def test_results_endpoint_404_without_results():
 def test_results_endpoint_200_with_results(minimal_results):
     httpd = start_server(results=minimal_results, viewer_html=VIEWER_HTML)
     try:
-        status, body, content_type = fetch(httpd, floss.server.RESULTS_ENDPOINT)
+        status, body, headers = fetch(httpd, floss.server.RESULTS_ENDPOINT)
         assert status == 200
-        assert content_type == "application/json"
+        assert headers.get("Content-Type") == "application/json"
+        # BaseHTTPRequestHandler appends an OWS space after the version; strip it
+        assert headers.get("Server", "").strip() == "FLOSSViewer/1.0"
         doc = json.loads(body)
         assert doc["metadata"]["file_path"] == "test.exe"
         assert "layout" in doc

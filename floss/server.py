@@ -60,6 +60,9 @@ class ViewerRequestHandler(BaseHTTPRequestHandler):
 
     server_version = "FLOSSViewer/1.0"
 
+    # do not advertise the Python version alongside the viewer version
+    sys_version = ""
+
     # cap the time spent reading a request so a slow client cannot tie up a
     # worker thread forever (slowloris guard)
     timeout = 30
