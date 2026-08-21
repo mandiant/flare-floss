@@ -189,11 +189,10 @@ def main(argv=None) -> int:
                         args.sample = argparse.FileType("rb")(value)
                     except argparse.ArgumentTypeError as e:
                         parser.error("--server: %s" % e)
+                elif not re.fullmatch(r"[0-9]+", value):
+                    parser.error('--server: unexpected extra sample "%s"' % value)
                 else:
-                    try:
-                        args.port = int(value)
-                    except ValueError:
-                        parser.error("--server: %r is not a valid port number" % value)
+                    args.port = int(value)
             if not (0 <= args.port <= 65535):
                 parser.error("--server: port must be between 0 and 65535")
         if args.sample is None and not args.server:

@@ -213,3 +213,33 @@ def test_server_port_max(monkeypatch):
 @pytest.mark.parametrize("value", ["70000", "-1"])
 def test_server_port_out_of_range(value):
     assert floss.main.main(["--server", value]) == -1
+
+
+def test_server_extra_sample_rejected(monkeypatch, tmp_path, capsys):
+    """a second sample after --server is a clear error, not a bogus port complaint."""
+    (tmp_path / "a.json").write_bytes(b"MZ")
+    (tmp_path / "b.json").write_bytes(b"MZ")
+    monkeypatch.chdir(tmp_path)
+    assert floss.main.main(["--server", "a.json", "b.json"]) == -1
+    assert "extra sample" in capsys.readouterr().err
+
+
+def test_server_digits_stay_port_with_sample(monkeypatch, tmp_path):
+    """with a sample already given, --server PORT is always the port, even when a file named PORT exists."""
+    from floss.results import Analysis, Metadata, ResultDocument
+
+    (tmp_path / "12345").write_bytes(b"not really a sample")
+    doc = ResultDocument(metadata=Metadata(file_path="test.exe", min_length=4), analysis=Analysis())
+    results_file = tmp_path / "results.json"
+    results_file.write_text(floss.render.json.render(doc), encoding="utf-8")
+
+    served = []
+
+    def fake_serve(results, port):
+        served.append(port)
+        return 0
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr("floss.server.serve", fake_serve)
+    assert floss.main.main(["--server", "12345", str(results_file)]) == 0
+    assert served == [12345]
