@@ -16,6 +16,7 @@
 import json
 import errno
 import threading
+import http.client
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -44,6 +45,20 @@ def fetch(httpd, path):
             return r.status, r.read(), r.headers.get("Content-Type")
     except urllib.error.HTTPError as e:
         return e.code, e.read(), e.headers.get("Content-Type")
+
+
+def fetch_with_host(httpd, path, host):
+    """issue a GET with full control over the Host header (None omits it)."""
+    conn = http.client.HTTPConnection("127.0.0.1", httpd.server_address[1], timeout=5)
+    try:
+        conn.putrequest("GET", path, skip_host=True)
+        if host is not None:
+            conn.putheader("Host", host)
+        conn.endheaders()
+        resp = conn.getresponse()
+        return resp.status, resp.read()
+    finally:
+        conn.close()
 
 
 @pytest.fixture
@@ -100,6 +115,43 @@ def test_unknown_path_404():
     try:
         status, _, _ = fetch(httpd, "/does-not-exist")
         assert status == 404
+    finally:
+        httpd.shutdown()
+
+
+def test_foreign_host_header_rejected(minimal_results):
+    """a DNS-rebinding request (foreign Host) must not be able to read results."""
+    httpd = start_server(results=minimal_results, viewer_html=VIEWER_HTML)
+    try:
+        port = httpd.server_address[1]
+        for host in (f"evil.example:{port}", "evil.example", ""):
+            status, _ = fetch_with_host(httpd, floss.server.RESULTS_ENDPOINT, host)
+            assert status == 403
+            status, _ = fetch_with_host(httpd, "/", host)
+            assert status == 403
+    finally:
+        httpd.shutdown()
+
+
+def test_local_host_header_accepted(minimal_results):
+    httpd = start_server(results=minimal_results, viewer_html=VIEWER_HTML)
+    try:
+        port = httpd.server_address[1]
+        for host in (f"127.0.0.1:{port}", f"localhost:{port}"):
+            status, _ = fetch_with_host(httpd, floss.server.RESULTS_ENDPOINT, host)
+            assert status == 200
+            status, _ = fetch_with_host(httpd, "/", host)
+            assert status == 200
+    finally:
+        httpd.shutdown()
+
+
+def test_missing_host_header_accepted():
+    """HTTP/1.0 clients may omit Host; they cannot be used for DNS rebinding."""
+    httpd = start_server(results=None, viewer_html=VIEWER_HTML)
+    try:
+        status, _ = fetch_with_host(httpd, "/", None)
+        assert status == 200
     finally:
         httpd.shutdown()
 

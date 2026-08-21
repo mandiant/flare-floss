@@ -66,7 +66,14 @@ class ViewerRequestHandler(BaseHTTPRequestHandler):
     # the bytes of the built viewer page, or None when it was not bundled
     viewer_html: Optional[bytes] = None
 
+    # Host header values this server accepts, computed by create_server once
+    # the actual (possibly ephemeral) port is known; None disables the check
+    allowed_hosts: Optional[frozenset] = None
+
     def do_GET(self):
+        if not self._host_allowed():
+            self._send_bytes(403, "text/plain; charset=utf-8", b"403 Forbidden\n")
+            return
         path = urllib.parse.urlparse(self.path).path
         if path == "/":
             self._serve_viewer()
@@ -74,6 +81,25 @@ class ViewerRequestHandler(BaseHTTPRequestHandler):
             self._serve_results()
         else:
             self._send_bytes(404, "text/plain; charset=utf-8", b"404 Not Found\n")
+
+    def _host_allowed(self) -> bool:
+        """
+        Only serve requests whose Host header points at this server.
+
+        The server binds to the loopback interface, but a web page open in the
+        analyst's browser can re-bind its own domain name (DNS rebinding) to
+        127.0.0.1 and would then be able to read the analysis results
+        cross-origin. Rejecting foreign Host headers closes that hole; browsers
+        always send Host, while simple HTTP/1.0 clients may omit it.
+        """
+        host = self.headers.get("Host")
+        if host is None:
+            # HTTP/1.0 clients may omit Host; they cannot drive DNS rebinding
+            return True
+        if self.allowed_hosts is None:
+            # direct instantiation without create_server: no restriction known
+            return True
+        return host in self.allowed_hosts
 
     def _serve_viewer(self):
         if self.viewer_html is None:
@@ -146,7 +172,9 @@ def create_server(
 
     Handler.results = results
     Handler.viewer_html = viewer_html
-    return ThreadingHTTPServer((HOST, port), Handler)
+    httpd = ThreadingHTTPServer((HOST, port), Handler)
+    Handler.allowed_hosts = frozenset({f"{HOST}:{httpd.server_port}", f"localhost:{httpd.server_port}"})
+    return httpd
 
 
 def serve(results: Optional[ResultDocument], port: int = DEFAULT_PORT) -> int:
