@@ -54,14 +54,14 @@ class ViewerRequestHandler(BaseHTTPRequestHandler):
     """
     Serves the FLOSS viewer page and the analysis results.
 
-    ``results`` and ``viewer_html`` are injected on the class before serving
-    (see :func:`create_server`).
+    ``results_body`` and ``viewer_html`` are injected on the class before
+    serving (see :func:`create_server`).
     """
 
     server_version = "FLOSSViewer/1.0"
 
-    # the analysis results document, or None when there are no results
-    results: Optional[ResultDocument] = None
+    # the analysis results document rendered to JSON bytes, or None when there are no results
+    results_body: Optional[bytes] = None
 
     # the bytes of the built viewer page, or None when it was not bundled
     viewer_html: Optional[bytes] = None
@@ -117,11 +117,10 @@ class ViewerRequestHandler(BaseHTTPRequestHandler):
         self._send_bytes(200, "text/html; charset=utf-8", self.viewer_html)
 
     def _serve_results(self):
-        if self.results is None:
+        if self.results_body is None:
             self._send_bytes(404, "application/json", b'{"error": "no results available"}\n')
             return
-        body = floss.render.json.render(self.results).encode("utf-8")
-        self._send_bytes(200, "application/json", body)
+        self._send_bytes(200, "application/json", self.results_body)
 
     def _send_bytes(self, code: int, content_type: str, body: bytes):
         self.send_response(code)
@@ -170,7 +169,7 @@ def create_server(
     class Handler(ViewerRequestHandler):
         pass
 
-    Handler.results = results
+    Handler.results_body = None if results is None else floss.render.json.render(results).encode("utf-8")
     Handler.viewer_html = viewer_html
     httpd = ThreadingHTTPServer((HOST, port), Handler)
     Handler.allowed_hosts = frozenset({f"{HOST}:{httpd.server_port}", f"localhost:{httpd.server_port}"})

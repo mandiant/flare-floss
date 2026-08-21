@@ -110,6 +110,21 @@ def test_results_endpoint_200_with_results(minimal_results):
         httpd.shutdown()
 
 
+def test_results_body_cached_across_requests(minimal_results):
+    """the document is rendered once at startup; every GET serves identical bytes."""
+    httpd = start_server(results=minimal_results, viewer_html=VIEWER_HTML)
+    try:
+        status1, body1, _ = fetch(httpd, floss.server.RESULTS_ENDPOINT)
+        status2, body2, _ = fetch(httpd, floss.server.RESULTS_ENDPOINT)
+        assert status1 == 200
+        assert status2 == 200
+        assert body1 == body2
+        doc = json.loads(body1)
+        assert doc["metadata"]["file_path"] == "test.exe"
+    finally:
+        httpd.shutdown()
+
+
 def test_unknown_path_404():
     httpd = start_server(results=None, viewer_html=VIEWER_HTML)
     try:
