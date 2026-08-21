@@ -189,3 +189,27 @@ def test_no_tags_skips_tag_databases(exefile):
     for s in results.strings.static_strings:
         for db_tag in ("#common", "#winapi", "#capa", "#msvc", "#openssl"):
             assert db_tag not in s.tags
+
+
+@pytest.mark.parametrize("value", ["12_34", "+80", " 80", "٨٠"])
+def test_server_port_requires_plain_digits(value):
+    """only plain digit strings are ports; look-alike values must error, not silently become a port."""
+    assert floss.main.main(["--server", value]) == -1
+
+
+def test_server_port_max(monkeypatch):
+    """65535 is a valid port."""
+    served = []
+
+    def fake_serve(results, port):
+        served.append(port)
+        return 0
+
+    monkeypatch.setattr("floss.server.serve", fake_serve)
+    assert floss.main.main(["--server", "65535"]) == 0
+    assert served == [65535]
+
+
+@pytest.mark.parametrize("value", ["70000", "-1"])
+def test_server_port_out_of_range(value):
+    assert floss.main.main(["--server", value]) == -1

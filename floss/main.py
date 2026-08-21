@@ -92,13 +92,12 @@ def _server_value_is_sample(value: str) -> bool:
     Decide whether the value of `--server <value>` is a sample path rather than
     a port.
 
-    A non-numeric value is a sample. A numeric value is ambiguous (a port or a
-    numeric filename), so it is only treated as a sample when a file with that
-    name exists.
+    Only plain digit strings (e.g. "8080") may be ports; anything else
+    (including "12_34", "+80", " 80", or unicode digits) is a sample. A digit
+    string is ambiguous (a port or a numeric filename), so it is only treated
+    as a sample when a file with that name exists.
     """
-    try:
-        int(value)
-    except ValueError:
+    if not re.fullmatch(r"[0-9]+", value):
         return True
     return Path(value).is_file()
 
