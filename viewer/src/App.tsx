@@ -3,6 +3,7 @@ import { useDropzone } from 'react-dropzone';
 import './App.css';
 import { type ResultDocument, type ResultLayout, type ResultString, type Analysis, type Strings } from './types';
 import previewData from './pma0303_floss.json';
+import { VIEWER_VERSION, VIEWER_COMMIT } from './generated/version';
 
 const NOISY_TAGS = ['#common', '#duplicate', '#code', '#reloc', '#code-junk'];
 
@@ -524,6 +525,34 @@ const App: React.FC = () => {
     processData(previewData as ResultDocument);
   };
 
+  const handleDownloadViewer = useCallback(async () => {
+    let html: string | null = null;
+    if (!import.meta.env.DEV) {
+      try {
+        const res = await fetch(window.location.href, { cache: 'no-store' });
+        if (res.ok) html = await res.text();
+      } catch {
+        // fetch can fail on file:// or restricted origins; fall back to serializing the live DOM
+      }
+    }
+    if (!html) {
+      const clone = document.documentElement.cloneNode(true) as HTMLElement;
+      const root = clone.querySelector('#root');
+      if (root) root.innerHTML = '';
+      clone.removeAttribute('data-theme');
+      html = '<!doctype html>\n' + clone.outerHTML;
+    }
+    const blob = new Blob([html], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `floss-viewer-${VIEWER_VERSION}-${VIEWER_COMMIT}.html`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  }, []);
+
   const lowercaseMap = useMemo(() => {
     const map = new Map<ResultString, string>();
     const walk = (layout: ResultLayout) => {
@@ -620,7 +649,6 @@ const App: React.FC = () => {
       {/* ---- Sidebar ---- */}
       <div className="sidebar" style={{ width: sidebarWidth }}>
         <div className="sidebar-header">
-          <img className="app-logo" src="floss-logo.png" alt="FLOSS" />
           <div className="sidebar-header-buttons">
             <button
               className="btn-ghost"
@@ -647,7 +675,6 @@ const App: React.FC = () => {
                 </svg>
               )}
             </button>
-            <button className="btn-ghost" onClick={handlePreview}>Preview</button>
             <label htmlFor="file-upload" className="btn-ghost" style={{ cursor: 'pointer' }}>
               Upload
             </label>
@@ -813,9 +840,75 @@ const App: React.FC = () => {
       <div className="main-content">
         {!data ? (
           <div className="welcome-state">
-            <div className="welcome-inner">
-              <p className="welcome-title">FLOSS Graphical Viewer</p>
-              <p className="welcome-sub">Drag a JSON file or use the upload button</p>
+            <div className="landing">
+              <img className="landing-logo" src="/floss-logo.png" alt="FLOSS" />
+              <a
+                className="landing-title"
+                href="https://github.com/mandiant/flare-floss"
+                target="_blank"
+                rel="noreferrer"
+              >
+                floss: FLARE Obfuscated String Solver
+              </a>
+              <p className="landing-desc">
+                The FLOSS Graphical Viewer is a web-based tool to explore the strings extracted by
+                FLOSS. It lets you interactively search, filter, and browse static, stack, tight,
+                and decoded strings.
+              </p>
+              <div className="landing-actions">
+                <button className="btn-ghost" onClick={handlePreview} title="Load a sample floss results document">
+                  Demo
+                </button>
+                <button
+                  className="btn-ghost"
+                  onClick={handleDownloadViewer}
+                  title="Download this viewer as a standalone HTML file for offline use"
+                  aria-label="Download this viewer as a standalone HTML file for offline use"
+                >
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="7 10 12 15 17 10" />
+                    <line x1="12" y1="15" x2="12" y2="3" />
+                  </svg>
+                  Download viewer
+                </button>
+              </div>
+              <div className="landing-steps">
+                <p className="landing-steps-title">New to floss? Follow these quick steps to get started:</p>
+                <ol>
+                  <li>
+                    Install floss:
+                    <ul>
+                      <li>
+                        download the latest{' '}
+                        <a href="https://github.com/mandiant/flare-floss/releases/latest" target="_blank" rel="noreferrer">
+                          standalone executable release
+                        </a>
+                      </li>
+                      <li>
+                        or run <code>pip install flare-floss</code>
+                      </li>
+                    </ul>
+                  </li>
+                  <li>
+                    Analyze a sample and save the JSON results:
+                    <br />
+                    <code>floss -j /path/to/file &gt; results.json</code>
+                  </li>
+                  <li>Load the JSON results file into the viewer (drag and drop or Upload)</li>
+                </ol>
+                <p className="landing-steps-more">
+                  For more detailed information, explore the{' '}
+                  <a href="https://github.com/mandiant/flare-floss" target="_blank" rel="noreferrer">
+                    floss GitHub repository
+                  </a>
+                  .
+                </p>
+              </div>
+              <p className="landing-download">
+                The download saves this viewer as a single HTML file that works offline, without
+                an internet connection.
+              </p>
             </div>
           </div>
         ) : filteredLayout ? (
