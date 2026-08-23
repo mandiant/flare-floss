@@ -825,10 +825,9 @@ const App: React.FC = () => {
             )}
           </div>
           {data && (
-            <div style={{ display: 'flex', alignItems: 'center' }}>
-              <button className="btn-copy" onClick={handleCopyStrings}>Copy</button>
-              {copyFeedback && <span className="copy-feedback">{copyFeedback}</span>}
-            </div>
+            <button className={`btn-copy${copyFeedback ? ' btn-copy--done' : ''}`} onClick={handleCopyStrings}>
+              {copyFeedback || 'Copy'}
+            </button>
           )}
         </div>
       </div>

@@ -479,21 +479,9 @@ body {
   border-color: var(--text-muted);
 }
 
-.copy-feedback {
-  font-size: 11px;
-  color: var(--text-muted);
-  margin-left: 8px;
-  animation: fadeIn 150ms ease;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-
-  to {
-    opacity: 1;
-  }
+.btn-copy--done {
+  color: var(--accent);
+  border-color: var(--text-muted);
 }
 
 /* ---- Main Content Area ---- */
@@ -558,7 +546,7 @@ body {
 }
 
 .landing-logo {
-  width: 280px;
+  width: 760px;
   max-width: 70%;
   margin-bottom: 16px;
 }
@@ -613,7 +601,7 @@ body {
 }
 
 .landing-steps-title {
-  margin: 0 0 10px 0;
+  margin: 0 0 30px 0;
   color: var(--text-muted);
   font-size: 19px;
 }
@@ -649,7 +637,7 @@ body {
 }
 
 .landing-steps-more {
-  margin: 12px 0 0 0;
+  margin: 30px 0 0 0;
   color: var(--text-muted);
 }
 
