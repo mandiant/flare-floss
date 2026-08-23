@@ -428,11 +428,20 @@ body {
   height: 22px;
 }
 
-.theme-toggle--floating {
+.topbar-actions {
   position: fixed;
   top: 20px;
   right: 20px;
   z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.topbar-upload {
+  height: 48px;
+  box-sizing: border-box;
+  font-size: 14px;
 }
 
 .sidebar-footer {

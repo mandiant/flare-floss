@@ -4,6 +4,7 @@ import './App.css';
 import { type ResultDocument, type ResultLayout, type ResultString, type Analysis, type Strings } from './types';
 import previewData from './pma0303_floss.json';
 import { VIEWER_VERSION, VIEWER_COMMIT } from './generated/version';
+import flossLogo from './floss-logo.png';
 
 const NOISY_TAGS = ['#common', '#duplicate', '#code', '#reloc', '#code-junk'];
 
@@ -264,9 +265,9 @@ const normalizeDocument = (raw: unknown): ResultDocument | null => {
   };
 };
 
-const ThemeToggle: React.FC<{ theme: 'light' | 'dark'; onToggle: () => void; floating?: boolean }> = ({ theme, onToggle, floating }) => (
+const ThemeToggle: React.FC<{ theme: 'light' | 'dark'; onToggle: () => void }> = ({ theme, onToggle }) => (
   <button
-    className={`theme-toggle${floating ? ' theme-toggle--floating' : ''}`}
+    className="theme-toggle"
     onClick={onToggle}
     title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
     aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
@@ -673,11 +674,13 @@ const App: React.FC = () => {
 
   return (
     <div className={isDragActive ? 'App drag-active' : 'App'} {...getRootProps()}>
-      <ThemeToggle
-        floating
-        theme={theme}
-        onToggle={() => setTheme(t => (t === 'light' ? 'dark' : 'light'))}
-      />
+      <div className="topbar-actions">
+        <label htmlFor="file-upload" className="btn-ghost topbar-upload" title="Load a FLOSS results JSON file">
+          Upload
+        </label>
+        <ThemeToggle theme={theme} onToggle={() => setTheme(t => (t === 'light' ? 'dark' : 'light'))} />
+      </div>
+      <input {...getInputProps()} id="file-upload" />
       {/* ---- Sidebar ---- */}
       {data && (
         <>
@@ -850,7 +853,7 @@ const App: React.FC = () => {
         {!data ? (
           <div className="welcome-state">
             <div className="landing">
-              <img className="landing-logo" src="/floss-logo.png" alt="FLOSS" />
+              <img className="landing-logo" src={flossLogo} alt="FLOSS" />
               <a
                 className="landing-title"
                 href="https://github.com/mandiant/flare-floss"
@@ -868,7 +871,6 @@ const App: React.FC = () => {
                 <label htmlFor="file-upload" className="btn-ghost" style={{ cursor: 'pointer' }}>
                   Upload
                 </label>
-                <input {...getInputProps()} id="file-upload" />
                 <button className="btn-ghost" onClick={handlePreview} title="Load a sample floss results document">
                   Demo
                 </button>
