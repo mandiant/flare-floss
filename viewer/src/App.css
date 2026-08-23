@@ -17,7 +17,7 @@
   --highlight: #f0f0f0;
   --overlay: rgba(255, 255, 255, 0.02);
   --overlay-row: rgba(255, 255, 255, 0.015);
-  --font-mono: 'JetBrains Mono', 'SF Mono', 'Menlo', monospace;
+  --font-mono: 'Geist Mono', 'JetBrains Mono', 'SF Mono', 'Menlo', monospace;
   --radius: 3px;
   --transition: 150ms ease;
 }
