@@ -51,7 +51,7 @@ python-flirt==0.10.0
 python-lancelot==0.10.0
 pyyaml==6.0.1
 rich==15.0.0
-setuptools==83.0.0
+setuptools==84.0.0
 six==1.17.0
 sortedcontainers==2.4.0
 spinners==0.0.24
