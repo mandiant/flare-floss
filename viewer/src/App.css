@@ -94,25 +94,6 @@ body {
   max-width: 600px;
 }
 
-.sidebar-header {
-  padding: 20px 20px 16px;
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-}
-
-.app-logo {
-  display: block;
-  width: 100%;
-  max-width: 240px;
-  height: auto;
-  margin: 0 0 14px 0;
-}
-
-.sidebar-header-buttons {
-  display: flex;
-  gap: 8px;
-}
-
 .btn-ghost {
   display: inline-flex;
   align-items: center;
@@ -421,6 +402,39 @@ body {
 
 /* ---- Sidebar Footer / Actions ---- */
 
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  background: var(--surface-raised);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all var(--transition);
+  flex-shrink: 0;
+}
+
+.theme-toggle:hover {
+  color: var(--accent);
+  border-color: var(--text-muted);
+  background: var(--surface-hover);
+}
+
+.theme-toggle svg {
+  width: 22px;
+  height: 22px;
+}
+
+.theme-toggle--floating {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 100;
+}
+
 .sidebar-footer {
   padding: 12px 20px;
   border-top: 1px solid var(--border);
@@ -537,24 +551,22 @@ body {
 /* ---- Landing Page ---- */
 
 .landing {
-  max-width: 560px;
+  max-width: 720px;
   text-align: center;
-  background: var(--surface);
-  border: 1px solid var(--border);
   border-radius: 6px;
   padding: 36px 40px 28px 40px;
 }
 
 .landing-logo {
-  width: 180px;
+  width: 280px;
   max-width: 70%;
   margin-bottom: 16px;
 }
 
 .landing-title {
   display: block;
-  font-size: 13px;
-  font-weight: 500;
+  font-size: 20px;
+  font-weight: 600;
   color: var(--text-secondary);
   text-decoration: none;
   margin-bottom: 20px;
@@ -566,19 +578,36 @@ body {
 }
 
 .landing-desc {
-  font-size: 13px;
+  font-size: 15px;
   line-height: 1.55;
   color: var(--text);
   margin: 0 0 24px 0;
 }
 
+.landing-actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin: 0 0 24px 0;
+}
+
+.landing-actions .btn-ghost {
+  font-size: 14px;
+  padding: 10px 22px;
+}
+
+.landing-actions .btn-ghost svg {
+  margin-right: 6px;
+  width: 16px;
+  height: 16px;
+}
+
 .landing-steps {
-  background: var(--overlay);
-  border: 1px solid var(--border);
+  background: transparent;
   border-radius: var(--radius);
-  padding: 16px 20px;
+  padding: 28px 0;
   text-align: center;
-  font-size: 12px;
+  font-size: 18px;
   line-height: 1.6;
   color: var(--text-secondary);
 }
@@ -586,6 +615,7 @@ body {
 .landing-steps-title {
   margin: 0 0 10px 0;
   color: var(--text-muted);
+  font-size: 19px;
 }
 
 .landing-steps ol {
@@ -611,9 +641,8 @@ body {
 
 .landing-steps code {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 16px;
   background: var(--surface-raised);
-  border: 1px solid var(--border);
   border-radius: 3px;
   padding: 1px 5px;
   white-space: nowrap;
@@ -626,16 +655,17 @@ body {
 
 .landing a {
   color: var(--text);
-  text-decoration: underline;
-  text-underline-offset: 2px;
+  text-decoration: none;
+  font-weight: 600;
 }
 
 .landing a:hover {
   color: var(--accent);
+  text-decoration: underline;
 }
 
 .landing-download {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--text-muted);
   margin: 20px 0 0 0;
 }
@@ -858,16 +888,64 @@ body.resizing {
 @media (max-width: 800px) {
   .App {
     flex-direction: column;
+    height: 100dvh;
   }
 
   .sidebar {
+    width: 100% !important;
+    min-width: 0;
+    max-width: none;
+    max-height: 45dvh;
     border-right: none;
     border-bottom: 1px solid var(--border);
-    max-height: 50vh;
-    max-width: none;
   }
 
   .resize-handle {
     display: none;
+  }
+
+  .main-content {
+    flex: 1;
+    min-height: 0;
+  }
+
+  .welcome-state {
+    padding: 20px;
+  }
+
+  .landing {
+    padding: 24px 18px 20px;
+  }
+
+  .string-tags,
+  .string-offset-structure {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  body {
+    font-size: 13px;
+  }
+
+  .search-section,
+  .metadata,
+  .filter-section {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .search-row {
+    flex-wrap: wrap;
+  }
+
+  .landing-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .drop-overlay-inner {
+    margin: 0 16px;
+    padding: 20px 24px;
   }
 }
