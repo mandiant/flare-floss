@@ -482,6 +482,8 @@ body {
 .btn-copy--done {
   color: var(--accent);
   border-color: var(--text-muted);
+  pointer-events: none;
+  cursor: default;
 }
 
 /* ---- Main Content Area ---- */

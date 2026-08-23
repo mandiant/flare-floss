@@ -825,7 +825,11 @@ const App: React.FC = () => {
             )}
           </div>
           {data && (
-            <button className={`btn-copy${copyFeedback ? ' btn-copy--done' : ''}`} onClick={handleCopyStrings}>
+            <button
+              className={`btn-copy${copyFeedback === 'Copied!' ? ' btn-copy--done' : ''}`}
+              onClick={handleCopyStrings}
+              disabled={copyFeedback === 'Copied!'}
+            >
               {copyFeedback || 'Copy'}
             </button>
           )}
