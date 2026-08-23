@@ -442,6 +442,7 @@ body {
   height: 48px;
   box-sizing: border-box;
   font-size: 14px;
+  background: var(--surface-raised);
 }
 
 .sidebar-footer {
