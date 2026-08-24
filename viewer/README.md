@@ -8,7 +8,7 @@ This is a web-based viewer for analyzing the output of the `floss` tool. It allo
 - Filter strings by search term, minimum length, tags, and structures.
 - Toggle display of columns (tags, encoding, offset/structure).
 - Copy filtered strings to the clipboard.
-- Download the viewer itself as a standalone HTML file for offline use (download icon in the header). The saved file is fully self-contained and can be opened directly in a browser without an internet connection. The file is named after the viewer version and git commit it was built from (e.g. `floss-viewer-0.0.0-abc1234.html`), so downloads are identifiable and reproducible per build.
+- Download the viewer itself as a standalone HTML file for offline use (download icon in the header). The saved file is fully self-contained and can be opened directly in a browser without an internet connection. The file is named after the viewer version, the commit date, and the git commit it was built from (e.g. `floss-viewer-3.1.1-26-08-24-abc1234.html`), so downloads are identifiable, reproducible, and sortable per build.
 
 ## Development
 
