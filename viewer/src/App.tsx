@@ -3,6 +3,8 @@ import { useDropzone } from 'react-dropzone';
 import './App.css';
 import { type ResultDocument, type ResultLayout, type ResultString, type Analysis, type Strings } from './types';
 import previewData from './pma0303_floss.json';
+import { VIEWER_VERSION, VIEWER_COMMIT, VIEWER_DATE } from './generated/version';
+import flossLogo from './floss-logo.png';
 
 const NOISY_TAGS = ['#common', '#duplicate', '#code', '#reloc', '#code-junk'];
 
@@ -262,6 +264,33 @@ const normalizeDocument = (raw: unknown): ResultDocument | null => {
     layout: normalizeLayout(o.layout),
   };
 };
+
+const ThemeToggle: React.FC<{ theme: 'light' | 'dark'; onToggle: () => void }> = ({ theme, onToggle }) => (
+  <button
+    className="theme-toggle"
+    onClick={onToggle}
+    title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+    aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+  >
+    {theme === 'light' ? (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+      </svg>
+    ) : (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="5" />
+        <line x1="12" y1="1" x2="12" y2="3" />
+        <line x1="12" y1="21" x2="12" y2="23" />
+        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+        <line x1="1" y1="12" x2="3" y2="12" />
+        <line x1="21" y1="12" x2="23" y2="12" />
+        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+      </svg>
+    )}
+  </button>
+);
 
 export class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { error: Error | null }> {
   state = { error: null as Error | null };
@@ -524,6 +553,38 @@ const App: React.FC = () => {
     processData(previewData as ResultDocument);
   };
 
+  const handleDownloadViewer = useCallback(async () => {
+    // TODO: downloads are not canonical. The fetch path below saves the exact
+    // served bytes, but the DOM-serialization fallback bakes in runtime state
+    // (e.g. the active theme) and is not byte-identical. Embedding the built
+    // page source at build time would make every download identical.
+    let html: string | null = null;
+    if (!import.meta.env.DEV) {
+      try {
+        const res = await fetch(window.location.href, { cache: 'no-store' });
+        if (res.ok) html = await res.text();
+      } catch {
+        // fetch can fail on file:// or restricted origins; fall back to serializing the live DOM
+      }
+    }
+    if (!html) {
+      const clone = document.documentElement.cloneNode(true) as HTMLElement;
+      const root = clone.querySelector('#root');
+      if (root) root.innerHTML = '';
+      clone.removeAttribute('data-theme');
+      html = '<!doctype html>\n' + clone.outerHTML;
+    }
+    const blob = new Blob([html], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `floss-viewer-${VIEWER_VERSION}-${VIEWER_DATE}-${VIEWER_COMMIT}.html`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  }, []);
+
   const lowercaseMap = useMemo(() => {
     const map = new Map<ResultString, string>();
     const walk = (layout: ResultLayout) => {
@@ -617,44 +678,22 @@ const App: React.FC = () => {
 
   return (
     <div className={isDragActive ? 'App drag-active' : 'App'} {...getRootProps()}>
+      <div className="topbar-actions">
+        <label htmlFor="file-upload" className="btn-ghost topbar-upload" title="Load a FLOSS results JSON file">
+          Upload
+        </label>
+        <ThemeToggle theme={theme} onToggle={() => setTheme(t => (t === 'light' ? 'dark' : 'light'))} />
+      </div>
+      <input {...getInputProps()} id="file-upload" />
       {/* ---- Sidebar ---- */}
-      <div className="sidebar" style={{ width: sidebarWidth }}>
-        <div className="sidebar-header">
-          <img className="app-logo" src="floss-logo.png" alt="FLOSS" />
-          <div className="sidebar-header-buttons">
-            <button
-              className="btn-ghost"
-              onClick={() => setTheme(t => t === 'light' ? 'dark' : 'light')}
-              title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
-              aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
-              style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 32, padding: '7px 0' }}
-            >
-              {theme === 'light' ? (
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-                </svg>
-              ) : (
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="5" />
-                  <line x1="12" y1="1" x2="12" y2="3" />
-                  <line x1="12" y1="21" x2="12" y2="23" />
-                  <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
-                  <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
-                  <line x1="1" y1="12" x2="3" y2="12" />
-                  <line x1="21" y1="12" x2="23" y2="12" />
-                  <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
-                  <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
-                </svg>
-              )}
-            </button>
-            <button className="btn-ghost" onClick={handlePreview}>Preview</button>
-            <label htmlFor="file-upload" className="btn-ghost" style={{ cursor: 'pointer' }}>
-              Upload
-            </label>
-            <input {...getInputProps()} id="file-upload" />
-          </div>
-        </div>
-
+      {data && (
+        <>
+          <div className="sidebar" style={{ width: sidebarWidth }}>
+            {data && (
+              <div className="sidebar-logo">
+                <img src={flossLogo} alt="FLOSS" />
+              </div>
+            )}
         <div className="sidebar-body">
           {data && (
             <>
@@ -784,22 +823,29 @@ const App: React.FC = () => {
         </div>
 
         {/* Sidebar Footer */}
-        {data && (
-          <div className="sidebar-footer">
-            <span className="string-count">
-              <strong>{visibleStringCount}</strong>&nbsp;/&nbsp;{tagInfo.totalStringCount}
-              {ignoredStringCount > 0 && (
-                <>
-                  &nbsp;·&nbsp;<span className="string-count-ignored">{ignoredStringCount} ignored</span>
-                </>
-              )}
-            </span>
-            <div style={{ display: 'flex', alignItems: 'center' }}>
-              <button className="btn-copy" onClick={handleCopyStrings}>Copy</button>
-              {copyFeedback && <span className="copy-feedback">{copyFeedback}</span>}
-            </div>
+        <div className="sidebar-footer">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {data && (
+              <span className="string-count">
+                <strong>{visibleStringCount}</strong>&nbsp;/&nbsp;{tagInfo.totalStringCount}
+                {ignoredStringCount > 0 && (
+                  <>
+                    &nbsp;·&nbsp;<span className="string-count-ignored">{ignoredStringCount} ignored</span>
+                  </>
+                )}
+              </span>
+            )}
           </div>
-        )}
+          {data && (
+            <button
+              className={`btn-copy${copyFeedback === 'Copied!' ? ' btn-copy--done' : ''}`}
+              onClick={handleCopyStrings}
+              disabled={copyFeedback === 'Copied!'}
+            >
+              {copyFeedback || 'Copy'}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* ---- Resize Handle ---- */}
@@ -808,14 +854,85 @@ const App: React.FC = () => {
         className="resize-handle"
         onMouseDown={handleResizeStart}
       />
+        </>
+      )}
 
       {/* ---- Main Content ---- */}
       <div className="main-content">
         {!data ? (
           <div className="welcome-state">
-            <div className="welcome-inner">
-              <p className="welcome-title">FLOSS Graphical Viewer</p>
-              <p className="welcome-sub">Drag a JSON file or use the upload button</p>
+            <div className="landing">
+              <img className="landing-logo" src={flossLogo} alt="FLOSS" />
+              <a
+                className="landing-title"
+                href="https://github.com/mandiant/flare-floss"
+                target="_blank"
+                rel="noreferrer"
+              >
+                floss: FLARE Obfuscated String Solver
+              </a>
+              <p className="landing-desc">
+                The FLOSS Graphical Viewer is a web-based tool to explore the strings extracted by
+                FLOSS. It lets you interactively search, filter, and browse static, stack, tight,
+                and decoded strings.
+              </p>
+              <div className="landing-actions">
+                <label htmlFor="file-upload" className="btn-ghost" style={{ cursor: 'pointer' }}>
+                  Upload
+                </label>
+                <button className="btn-ghost" onClick={handlePreview} title="Load a sample floss results document">
+                  Demo
+                </button>
+                <button
+                  className="btn-ghost"
+                  onClick={handleDownloadViewer}
+                  title="Download this viewer as a standalone HTML file for offline use"
+                  aria-label="Download this viewer as a standalone HTML file for offline use"
+                >
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="7 10 12 15 17 10" />
+                    <line x1="12" y1="15" x2="12" y2="3" />
+                  </svg>
+                  Download viewer
+                </button>
+              </div>
+              <div className="landing-steps">
+                <p className="landing-steps-title">New to floss? Follow these quick steps to get started:</p>
+                <ol>
+                  <li>
+                    Install floss:
+                    <ul>
+                      <li>
+                        download the latest{' '}
+                        <a href="https://github.com/mandiant/flare-floss/releases/latest" target="_blank" rel="noreferrer">
+                          standalone executable release
+                        </a>
+                      </li>
+                      <li>
+                        or run <code>pip install flare-floss</code>
+                      </li>
+                    </ul>
+                  </li>
+                  <li>
+                    Analyze a sample and save the JSON results:
+                    <br />
+                    <code>floss -j /path/to/file &gt; results.json</code>
+                  </li>
+                  <li>Load the JSON results file into the viewer (drag and drop or Upload)</li>
+                </ol>
+                <p className="landing-steps-more">
+                  For more detailed information, explore the{' '}
+                  <a href="https://github.com/mandiant/flare-floss" target="_blank" rel="noreferrer">
+                    floss GitHub repository
+                  </a>
+                  .
+                </p>
+              </div>
+              <p className="landing-download">
+                The download saves this viewer as a single HTML file that works offline, without
+                an internet connection.
+              </p>
             </div>
           </div>
         ) : filteredLayout ? (
