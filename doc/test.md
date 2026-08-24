@@ -22,14 +22,9 @@ Add `-k <name>` to select specific tests or `-x` to stop at the first failure.
 ## Continuous integration
 
 The [tests.yml](../.github/workflows/tests.yml) workflow runs on every push and
-pull request against `master`. It runs Python 3.10, 3.11, and 3.12:
-
-- Python 3.10 and 3.11 across Ubuntu, Windows, and macOS
-- Python 3.12 additionally on Ubuntu
-
-The `code_style` job runs `isort`, `black`, and `mypy`; the `tests` job runs
-`pytest tests/`. All linters, formatters, and tests must pass before a pull
-request is merged.
+pull request. It checks code style and runs the unit test suite across the
+supported Python versions and operating systems. See the workflow file for the
+current matrix. All checks must pass before a pull request is merged.
 
 ## The web viewer
 
