@@ -3,6 +3,11 @@ name: build
 on:
   pull_request:
     branches: [ master, quantumstrand ]
+    # PyInstaller builds and their smoke tests can't be affected by these files
+    paths-ignore:
+      - 'viewer/**'
+      - 'doc/**'
+      - '**.md'
   release:
     types: [edited, published]
     branches: [ master ]
