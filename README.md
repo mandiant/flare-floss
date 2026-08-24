@@ -106,13 +106,11 @@ which can be used to load its output into other tools such as Binary Ninja or ID
 For detailed description of these scripts review the documentation [here](scripts/README.md).
 
 ## Graphical viewer
-FLOSS includes a web-based [viewer](viewer/) for exploring the JSON results that
-`floss -j sample.exe` produces. It lets you upload the output, filter strings by
-search term, minimum length, tags, and structures, toggle columns, and copy the
-filtered strings to the clipboard. The viewer can also be built into a single,
-self-contained offline HTML file that opens directly in a browser.
-
-See [viewer/README.md](viewer/README.md) to develop, build, or host it.
+Explore `floss -j` output in the hosted [web viewer](https://mandiant.github.io/flare-floss/):
+upload the JSON, filter strings by search term, minimum length, tags, or
+structures, and copy what you keep. You can also build it yourself into a single,
+self-contained offline HTML file that opens directly in a browser, see
+[viewer/README.md](viewer/README.md).
 
 ## Documentation
 
