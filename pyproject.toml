@@ -84,6 +84,7 @@ dependencies = [
     "rich>=13",
     "pefile>=2022.5.30",
     "binary2strings>=0.1",
+    "google-re2>=1",
 
     # ---------------------------------------
     # Dependencies that we develop

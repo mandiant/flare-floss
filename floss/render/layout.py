@@ -26,7 +26,7 @@ from typing import Optional, Sequence
 
 from rich.text import Text
 from rich.style import Style
-from rich.console import Console
+from rich.console import Group, Console
 
 from floss.results import ResultLayout, ResultString
 from floss.tags.filter import TagRules
@@ -345,6 +345,9 @@ def render_strings(
         visible_tags_by_index = [get_visible_tags(string) for string in strings]
         prev_tags = None
         prev_tags_width = 0
+
+        chunk = []
+
         for idx, string in enumerate(strings):
             visible_tags = visible_tags_by_index[idx]
             next_tags = visible_tags_by_index[idx + 1] if idx + 1 < len(strings) else None
@@ -373,7 +376,7 @@ def render_strings(
                 is_group_start=is_group_start,
             )
             line.append_text(make_span("│" * (depth + 1), style=MUTED_STYLE))
-            console.print(line)
+            chunk.append(line)
 
             # track for next iteration
             if visible_tags != prev_tags:
@@ -384,6 +387,14 @@ def render_strings(
                     if "tags" in columns
                     else 0
                 )
+
+            batch_size = 100 if console.is_terminal else 10000
+            if len(chunk) >= batch_size:
+                console.print(Group(*chunk))
+                chunk.clear()
+
+        if chunk:
+            console.print(Group(*chunk))
 
     if not layout.children:
         render_string_lines(console, tag_rules, layout.strings, depth)
