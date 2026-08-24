@@ -23,6 +23,13 @@ Then, run the development server:
 npm run dev
 ```
 
+To check your changes, run the linter and a production build:
+
+```bash
+npm run lint
+npm run build
+```
+
 This will start a local server, and you can view the application in your browser. The server supports Hot Module Replacement (HMR), so changes to the source code will be reflected live without a full page reload.
 
 ## Building

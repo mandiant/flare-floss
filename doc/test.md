@@ -26,18 +26,6 @@ pull request. It checks code style and runs the unit test suite across the
 supported Python versions and operating systems. See the workflow file for the
 current matrix. All checks must pass before a pull request is merged.
 
-## The web viewer
-
-The [viewer](../viewer/) is a separate Node.js/TypeScript app with its own
-tooling. Install dependencies and check it with:
-
-    cd viewer
-    npm install
-    npm run lint
-    npm run build
-
-`npm run build` produces a single self-contained `dist/index.html`.
-
 
 ## Binary Test Cases
 
