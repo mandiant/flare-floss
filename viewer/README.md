@@ -26,7 +26,7 @@ npm run dev
 
 This will start a local server, and you can view the application in your browser. The server supports Hot Module Replacement (HMR), so changes to the source code will be reflected live without a full page reload.
 
-TODO: add basic viewer tests (e.g. a CI job that runs `npm run lint` and `npm run build`, plus a small smoke test for load/upload/download flows), see the discussion in mandiant/flare-floss#1399.
+TODO: add basic viewer tests (lint/build CI job + smoke tests for the load/upload/download flows), tracked in mandiant/flare-floss#1402.
 
 ## Building
 
