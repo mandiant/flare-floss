@@ -5,8 +5,10 @@ with **tags**. Tags come from embedded databases and expert rules, and let you
 filter the listing down to the strings that matter using `--tag`, `--no-tag`, and
 `--interesting` (see [usage.md](usage.md#filtering-arguments)).
 
-This document describes tag *consumption*. For *maintenance* of the databases,
-see [scripts/tags/README.md](../scripts/tags/README.md).
+This document covers tag consumption: which tags exist and how to filter with
+them. Rebuilding and installing the databases is maintenance, documented in
+[scripts/tags/README.md](../scripts/tags/README.md). Per-database notes sit next
+to the data under [floss/tags/data/](../floss/tags/data/).
 
 ## Tag families
 
