@@ -166,25 +166,10 @@ alternative views:
 
 ### Tags
 
-FLOSS tags static strings with semantic context from embedded databases. There
-are several tag families, each matching a tag directory under `floss/tags/data/`:
-
-| Family | Tags | Source |
-|---|---|---|
-| `winapi` | `#winapi` | Windows API usage |
-| `crt` | `#msvc` | Microsoft C runtime |
-| `expert` | `#capa` | expert rules (e.g. capa) |
-| `gp` | `#common`, `#code-junk` | global prevalence |
-| `oss` | per-library, e.g. `#openssl`, `#zlib` | open-source libraries |
-
-A tag family matches any tag in its family, so `--tag winapi`, `--tag oss`, and
-`--tag gp` all work as selectors. Individual tags can also be matched directly
-(e.g. `--tag openssl`). Tag names are normalized by stripping a leading `#` and
-lowercasing, so `winapi`, `#WinAPI`, and `#winapi` are equivalent.
-
-The databases are maintained out-of-tree and installed via Git objects/LFS; see
-[scripts/tags/README.md](../scripts/tags/README.md) for the maintenance pipeline
-(global prevalence, open-source libraries, and VirusTotal feed sampling).
+FLOSS tags static strings with semantic context from embedded databases: Windows
+API usage, C runtime, global prevalence, open-source libraries, and expert rules.
+Filter with `--tag`, `--no-tag`, and `--interesting` as shown above. See
+[tags.md](tags.md) for every family and tag, and where each database comes from.
 
 ### Environment variables
 
