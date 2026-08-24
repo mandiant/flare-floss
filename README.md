@@ -30,9 +30,9 @@ FLOSS extracts all the following string types:
 
 Please review the theory behind FLOSS [here](doc/theory.md).
 
-Our [blog post](https://www.mandiant.com/resources/automatically-extracting-obfuscated-strings) talks more about the motivation behind FLOSS and details how the tool works.
+Our [blog post](https://cloud.google.com/blog/topics/threat-intelligence/automatically-extracting-obfuscated-strings/) talks more about the motivation behind FLOSS and details how the tool works.
 
-FLOSS version 2.0 updates are detailed in this [blog post](https://www.mandiant.com/resources/floss-version-2).
+FLOSS version 2.0 updates are detailed in this [blog post](https://cloud.google.com/blog/topics/threat-intelligence/floss-version-2/).
 
 ### Language-specific Strings
 Not all compilers use string formats that the classic `strings.exe` algorithm supports. For example, if strings are UTF-8 encoded or stored without a NULL-terminator. FLOSS can identify and extract strings from programs compiled from the following languages:
