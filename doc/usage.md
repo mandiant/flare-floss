@@ -130,9 +130,8 @@ alternative views:
     floss.exe --summary malware.exe
     floss.exe --columns tags offset structure -- malware.exe
 
-- `--plain` renders the classic flat list of strings without layout context or
-  tags, matching FLOSS v1-style output. Useful for feeding the output into
-  `strings.exe`-style tooling.
+- `--plain` renders a flat list of strings, one per line, without layout context
+  or tags. Use it when piping output into line-oriented tools like grep.
 - `--summary` emits a concise summary (sample metadata, per-type string counts,
   section counts, a tag histogram, and high-value strings). It is static-only by
   default unless string types are explicitly selected. This is the quickest way
