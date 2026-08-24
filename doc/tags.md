@@ -14,7 +14,8 @@ to the data under [floss/tags/data/](../floss/tags/data/).
 
 Tags are grouped into families, one per tag-source directory under
 [floss/tags/data/](../floss/tags/data/). A family name matches any tag in that
-family, so `--tag winapi` matches every Windows API tag.
+family, so `--tag oss` matches every open-source library tag, and
+`--no-tag oss` drops all of them at once.
 
 | Family | Example tags | Source |
 |---|---|---|
