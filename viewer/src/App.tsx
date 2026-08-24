@@ -554,6 +554,10 @@ const App: React.FC = () => {
   };
 
   const handleDownloadViewer = useCallback(async () => {
+    // TODO: downloads are not canonical. The fetch path below saves the exact
+    // served bytes, but the DOM-serialization fallback bakes in runtime state
+    // (e.g. the active theme) and is not byte-identical. Embedding the built
+    // page source at build time would make every download identical.
     let html: string | null = null;
     if (!import.meta.env.DEV) {
       try {
