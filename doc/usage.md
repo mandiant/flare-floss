@@ -194,10 +194,10 @@ Write FLOSS results to `stdout` structured in JSON to make it easy to ingest by 
 
     floss.exe -j malware.exe > malware_strings.json
 
-The JSON document is the versioned `FLOSS` results schema. You can explore it
-interactively in the [web viewer](../viewer/README.md), which supports uploading,
-filtering, and copying this output. See the [results document](results_document.md)
-for the schema overview.
+The easiest way to explore this output is the hosted
+[web viewer](https://mandiant.github.io/flare-floss/): upload the JSON file, then
+filter by tag, structure, or search term, and copy the strings you keep. See
+[results_document.md](results_document.md) for the schema itself.
 
 ### Load FLOSS results (automatic)
 
