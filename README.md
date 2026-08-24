@@ -105,5 +105,25 @@ FLOSS also contains additional Python scripts in the [scripts](scripts) director
 which can be used to load its output into other tools such as Binary Ninja or IDA Pro.
 For detailed description of these scripts review the documentation [here](scripts/README.md).
 
+## Graphical viewer
+FLOSS includes a web-based [viewer](viewer/) for exploring the JSON results that
+`floss -j sample.exe` produces. It lets you upload the output, filter strings by
+search term, minimum length, tags, and structures, toggle columns, and copy the
+filtered strings to the clipboard. The viewer can also be built into a single,
+self-contained offline HTML file that opens directly in a browser.
+
+See [viewer/README.md](viewer/README.md) to develop, build, or host it.
+
+## Documentation
+
+- [doc/usage.md](doc/usage.md) — CLI usage: extraction, filtering, rendering, and environment variables
+- [doc/results_document.md](doc/results_document.md) — the versioned JSON results schema
+- [doc/tags.md](doc/tags.md) — the semantic tag system and its tag families
+- [doc/language_specific_strings.md](doc/language_specific_strings.md) — Go and Rust string extraction
+- [doc/theory.md](doc/theory.md) — the deobfuscation algorithm
+- [doc/installation.md](doc/installation.md) — all installation methods
+- [doc/test.md](doc/test.md) — how to build and run the test suite
+- [viewer/README.md](viewer/README.md) — web viewer development
+
 ## Mailing List
 Subscribe to the FLARE mailing list for community announcements by sending an email with the subject "subscribe" to [flare-external@google.com](mailto:flare-external@google.com?subject=subscribe&body=subscribe).

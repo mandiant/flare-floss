@@ -8,6 +8,41 @@ First, make sure that `pytest` is installed:
 
     pip install pytest
 
+## Running the unit test suite
+
+FLOSS ships a unit-test suite covering the renderers, layout, tagging, caching,
+and the CLI. Install the dev dependencies (see
+[installation.md](installation.md#step-3-install-development-and-testing-dependencies)),
+then run:
+
+    pytest tests/
+
+Add `-k <name>` to select specific tests or `-x` to stop at the first failure.
+
+## Continuous integration
+
+The [tests.yml](../.github/workflows/tests.yml) workflow runs on every push and
+pull request against `master`. It runs Python 3.10, 3.11, and 3.12:
+
+- Python 3.10 and 3.11 across Ubuntu, Windows, and macOS
+- Python 3.12 additionally on Ubuntu
+
+The `code_style` job runs `isort`, `black`, and `mypy`; the `tests` job runs
+`pytest tests/`. All linters, formatters, and tests must pass before a pull
+request is merged.
+
+## The web viewer
+
+The [viewer](../viewer/) is a separate Node.js/TypeScript app with its own
+tooling. Install dependencies and check it with:
+
+    cd viewer
+    npm install
+    npm run lint
+    npm run build
+
+`npm run build` produces a single self-contained `dist/index.html`.
+
 
 ## Binary Test Cases
 

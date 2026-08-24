@@ -23,7 +23,9 @@ We use PyInstaller to create these packages.
 
 ### MacOS Standalone installation
 
-By default, on macOS Catalina or greater, Gatekeeper will block execution of the standalone binary. To resolve this, simply try to execute it once on the command-line and then go to `System Preferences` / `Security & Privacy` / `General` and approve the application.
+By default, on macOS Catalina or greater, Gatekeeper will block execution of the standalone binary. To resolve this, simply try to execute it once on the command-line and then go to `System Settings` / `Privacy & Security` and approve the application. Alternatively, remove the quarantine attribute (enabled by default for downloaded files) from the binary before running it:
+
+    xattr -d com.apple.quarantine ./floss
 
 ## Method 2: Using FLOSS as a Python library
 
@@ -49,11 +51,40 @@ If you'd like to edit the source files, see Method 3.
 
 ### Step 2: Use FLOSS from a Python script
 
-You can now import the `floss` module from a Python script:
+You can now import the `floss` module from a Python script. The supported
+programmatic entry points are:
 
-    #!/usr/env/python
-    import floss
-    print(dir(floss))
+- `floss.main.main(argv)` — run the same analysis the CLI does and return the
+  process exit code. Pass a list of arguments (for example
+  `["sample.exe", "--json"]`) in place of `sys.argv[1:]`.
+- `floss.pipeline.analyze(options)` — run the full analysis pipeline and return a
+  `floss.results.ResultDocument`. You must build a `floss.pipeline.Options`
+  object (sample path, `min_length`, an `Analysis` config, and so on).
+- `floss.results.ResultDocument` — load and validate an existing results JSON
+  document (`ResultDocument.parse_file(path)`), or construct one in memory to
+  render with the modules under `floss.render`.
+
+Example, driving the pipeline directly:
+
+    #!/usr/bin/env python
+    from pathlib import Path
+    from floss.pipeline import Options, analyze
+    from floss.results import Analysis
+
+    options = Options(
+        sample=Path("malware.exe"),
+        min_length=4,
+        analysis=Analysis(),
+    )
+    doc = analyze(options)
+    print(len(doc.strings.stack_strings), "stack strings")
+
+These are the current programmatic interfaces. The CLI (`floss ...`) remains the
+stable, documented interface — the Python API can change between releases, so
+pin the `flare-floss` version if you rely on it.
+
+:warning: Importing `floss` does not itself register any convenience functions;
+`dir(floss)` is not a useful listing. Use the entry points above instead.
 
 
 ## Method 3: Inspecting the FLOSS source code
@@ -68,6 +99,16 @@ By following these instructions, you'll maintain a local directory
 - Clone the FLOSS git repository:
 
     `$ git clone https://github.com/mandiant/flare-floss /local/path/to/src`
+
+Several large data files (tag databases under `floss/tags/data/` and FLIRT
+signatures under `floss/sigs/`) are tracked with [Git LFS](https://git-lfs.com/).
+Ensure Git LFS is installed (`git lfs install`) and that the clone has the
+filters enabled, then fetch the large objects with:
+
+    `$ git lfs pull`
+
+Without these files the tag and signature features will be silently missing or
+empty.
 
 ### Step 2: Install the local source code
 
@@ -145,6 +186,10 @@ pre-commit installed at .git/hooks/pre-push
 
 This way you can ensure that you don't commit code style or formatting offenses.
 You can always temporarily skip the checks by using the `-n`/`--no-verify` git option.
+
+These dev-level requirements are summarized in the repository's
+[`AGENTS.md`](../AGENTS.md). The linters and tests run in CI must all pass before
+a pull request is merged.
 
 
 ### Step 4: Building standalone executables
