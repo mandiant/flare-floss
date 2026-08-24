@@ -20,6 +20,10 @@ Here's a summary of the command line flags and options you
 
 See `floss -h` for all supported arguments and usage examples.
 
+For a first look at a new sample, start with `floss --summary malware.exe`. It
+prints metadata, per-type string counts, a tag histogram, and the most
+interesting strings, which is usually enough to decide where to dig next.
+
 ### Extract static, obfuscated, and stack strings (default mode)
 
     floss.exe malware.exe
