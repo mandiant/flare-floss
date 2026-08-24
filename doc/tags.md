@@ -10,10 +10,11 @@ see [scripts/tags/README.md](../scripts/tags/README.md).
 
 ## Tag families
 
-Tags are grouped into families, one per tag-source directory under
-[`floss/tags/data/`](../floss/tags/data/). A family name matches any tag in that
-family, so `--tag winapi` matches every Windows API tag. The families are defined
-in [`floss/render/filter.py`](../floss/render/filter.py).
+Tags are grouped into families. "Family" is the term the code uses, see
+`TAG_FAMILIES` in [floss/render/filter.py](../floss/render/filter.py). There is
+one family per tag-source directory under [floss/tags/data/](../floss/tags/data/).
+A family name matches any tag in that family, so `--tag winapi` matches every
+Windows API tag.
 
 | Family | Example tags | Source |
 |---|---|---|
