@@ -187,9 +187,7 @@ pre-commit installed at .git/hooks/pre-push
 This way you can ensure that you don't commit code style or formatting offenses.
 You can always temporarily skip the checks by using the `-n`/`--no-verify` git option.
 
-These dev-level requirements are summarized in the repository's
-[`AGENTS.md`](../AGENTS.md). The linters and tests run in CI must all pass before
-a pull request is merged.
+The linters and tests run in CI must all pass before a pull request is merged.
 
 
 ### Step 4: Building standalone executables
