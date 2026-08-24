@@ -685,6 +685,11 @@ const App: React.FC = () => {
       {data && (
         <>
           <div className="sidebar" style={{ width: sidebarWidth }}>
+            {data && (
+              <div className="sidebar-logo">
+                <img src={flossLogo} alt="FLOSS" />
+              </div>
+            )}
         <div className="sidebar-body">
           {data && (
             <>

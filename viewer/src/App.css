@@ -159,6 +159,21 @@ body {
   background: var(--overlay);
 }
 
+/* ---- Sidebar Logo ---- */
+
+.sidebar-logo {
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+.sidebar-logo img {
+  height: 20px;
+  width: auto;
+}
+
 /* ---- Sidebar Scrollable Body ---- */
 
 .sidebar-body {
