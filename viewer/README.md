@@ -25,17 +25,12 @@ npm run dev
 
 This will start a local server, and you can view the application in your browser. The server supports Hot Module Replacement (HMR), so changes to the source code will be reflected live without a full page reload.
 
-To lint the code, run:
+## Building
+
+To check your changes and build for production, run:
 
 ```bash
 npm run lint
-```
-
-## Building
-
-To build the application for production, run the following command:
-
-```bash
 npm run build
 ```
 
