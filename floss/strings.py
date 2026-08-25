@@ -12,9 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import re
 from typing import Iterable
 from itertools import chain
+
+import re2 as re  # type: ignore
 
 from floss.results import StaticString, StringEncoding
 

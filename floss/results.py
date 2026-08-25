@@ -21,18 +21,9 @@ import contextlib
 from enum import Enum
 from typing import TYPE_CHECKING, Dict, List, Iterator, Optional
 from pathlib import Path
-from dataclasses import field
+from dataclasses import field, dataclass
 
 from pydantic import TypeAdapter, ValidationError
-
-# we use pydantic for dataclasses so that we can
-# easily load and validate JSON reports.
-#
-# pydantic checks all the JSON fields look as they should
-# while using the nice and familiar dataclass syntax.
-#
-# really, you should just pretend we're using stock dataclasses.
-from pydantic.dataclasses import dataclass
 
 import floss.logging_
 from floss.render import Verbosity
@@ -382,7 +373,7 @@ def read(sample: Path) -> ResultDocument:
         raise InvalidResultsFile(f"{e}")
 
     try:
-        results = ResultDocument(**results)
+        results = TypeAdapter(ResultDocument).validate_python(results)
     except (TypeError, ValidationError) as e:
         raise InvalidResultsFile(f"{str(sample)} is not a valid FLOSS result document: {e}")
 

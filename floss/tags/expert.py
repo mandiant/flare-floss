@@ -22,9 +22,12 @@ wraps those queries into ``Tagger`` callables applied during analysis.
 
 import re
 import pathlib
-from typing import Set, Dict, List, Tuple, Literal, Sequence
+import functools
+import importlib.resources
+from typing import Set, Dict, List, Tuple, Literal, Optional, Sequence
 from dataclasses import dataclass
 
+import re2  # type: ignore
 import msgspec
 
 from floss.tags import data_root, ensure_not_lfs_pointer
@@ -52,23 +55,69 @@ class ExpertStringDatabase:
     def __len__(self) -> int:
         return len(self.string_rules) + len(self.substring_rules) + len(self.regex_rules)
 
+    @functools.cached_property
+    def combined_substring_pattern(self) -> Optional[re.Pattern]:
+        parts = [re.escape(r.value) for r in self.substring_rules if r.value]
+        parts.sort(key=len, reverse=True)
+        return re.compile("|".join(parts)) if parts else None
+
+    @functools.cached_property
+    def re2_prefilter(self):
+
+        valid_patterns = []
+        valid_rules = []
+        fallback_rules = []
+        for rule, regex in self.regex_rules:
+            val = regex.pattern
+            try:
+                re2.compile(val)
+                valid_patterns.append(val)
+                valid_rules.append((rule, regex))
+            except Exception:
+                fallback_rules.append((rule, regex))
+
+        p = None
+        if valid_patterns:
+            try:
+                # bound maximum regex parsing aggressively to 80MB to prevent `capa` regex rule overflow halts
+                p = re2.compile("(?:" + ")|(?:".join(valid_patterns) + ")", max_mem=83886080)
+            except Exception:
+                # if the aggregated combined OR pattern is STILL too monolithic, abort the fast-path completely.
+                # gracefully fall back to native processing for valid_rules rather than crashing.
+                fallback_rules.extend(valid_rules)
+                valid_rules = []
+
+        return (p, valid_rules, fallback_rules)
+
     def query(self, s: str) -> Set[str]:
         ret = set()
 
         if s in self.string_rules:
             ret.add(self.string_rules[s].tag)
 
-        # note that this is O(m * n)
-        # #strings * #rules
-        for rule in self.substring_rules:
-            if rule.value in s:
-                ret.add(rule.tag)
+        if self.combined_substring_pattern is None or self.combined_substring_pattern.search(s):
+            for rule in self.substring_rules:
+                if rule.value in s:
+                    ret.add(rule.tag)
 
-        # note that this is O(m * n)
-        # #strings * #rules
-        for rule, regex in self.regex_rules:
+        r2p, valid_rules, fallback_rules = self.re2_prefilter
+
+        # Always evaluate rules that RE2 rejected natively (like lookaheads)
+        for rule, regex in fallback_rules:
             if regex.search(s):
                 ret.add(rule.tag)
+
+        # If RE2 hit, evaluate ONLY the valid rules (which RE2 covers) to find WHICH triggered it.
+        # If RE2 didn't hit, we skip checking the rules that RE2 covers.
+        if r2p is not None and r2p.search(s):
+            for rule, regex in valid_rules:
+                if regex.search(s):
+                    ret.add(rule.tag)
+        elif r2p is None:
+            # Full native fallback if re2 could not compile ANY rules
+            for rule, regex in valid_rules:
+                if regex.search(s):
+                    ret.add(rule.tag)
 
         return ret
 
@@ -93,8 +142,12 @@ class ExpertStringDatabase:
                 case ExpertRule(type="substring"):
                     substring_rules.append(rule)
                 case ExpertRule(type="regex"):
-                    # TODO: may have to cleanup the //gi from the regex
-                    regex_rules.append((rule, re.compile(rule.value)))
+                    val = rule.value
+                    if val.startswith("/") and val.endswith("/"):
+                        val = val[1:-1]
+                    elif val.startswith("/") and val.endswith("/i"):
+                        val = "(?i)" + val[1:-2]
+                    regex_rules.append((rule, re.compile(val)))
                 case _:
                     raise ValueError(f"unexpected rule type: {rule.type}")
 

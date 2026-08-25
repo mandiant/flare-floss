@@ -100,7 +100,7 @@ def build_layout_filter(args) -> LayoutFilter:
     )
 
 
-def render_text(args, results: floss.results.ResultDocument) -> str:
+def render_text(args, results: floss.results.ResultDocument, stream=None):
     """render results as text, honoring --summary, --plain, --columns, and the filters."""
     if args.summary:
         # --summary is its own output; it needs the layout tree intact
@@ -113,6 +113,7 @@ def render_text(args, results: floss.results.ResultDocument) -> str:
         columns=args.columns,
         layout_filter=build_layout_filter(args),
         plain=args.plain,
+        stream=stream,
     )
 
 
@@ -261,9 +262,10 @@ def main(argv=None) -> int:
         if args.json:
             r = floss.render.json.render(results)
         else:
-            r = render_text(args, results)
+            r = render_text(args, results, stream=sys.stdout)
 
-        print(r)
+        if r:
+            print(r)
         return 0
 
     options = Options(
@@ -301,9 +303,10 @@ def main(argv=None) -> int:
     else:
         # this may be slow when there's many strings, so informing users what's happening
         logger.info("rendering results")
-        r = render_text(args, analysis_results)
+        r = render_text(args, analysis_results, stream=sys.stdout)
 
-    print(r)
+    if r:
+        print(r)
     return 0
 
 

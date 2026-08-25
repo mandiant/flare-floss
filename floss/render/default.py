@@ -229,12 +229,25 @@ def render_static_substrings(strings, encoding, offset_len, console, verbose, di
     if verbose != Verbosity.DEFAULT:
         encoding = heading_style(encoding)
     render_sub_heading(f"FLOSS STATIC STRINGS: {encoding}", len(strings), console, disable_headers)
+    is_terminal = console.is_terminal
+    # batch rendering to minimize PTY blocking without hiding execution output on real terminals.
+    # on pipe/redirect redirects chunking expands to 10k bounds for massive throughput scalability.
+    batch_size = 100 if is_terminal else 10000
+
+    batch = []
     for s in strings:
         if verbose == Verbosity.DEFAULT:
-            console.print(sanitize(s.string), markup=False)
+            batch.append(sanitize(s.string))
         else:
             colored_string = string_style(sanitize(s.string))
-            console.print(f"0x{s.offset:>0{offset_len}x} {colored_string}")
+            batch.append(f"0x{s.offset:>0{offset_len}x} {colored_string}")
+
+        if len(batch) >= batch_size:
+            console.print("\n".join(batch), markup=(verbose != Verbosity.DEFAULT))
+            batch.clear()
+
+    if batch:
+        console.print("\n".join(batch), markup=(verbose != Verbosity.DEFAULT))
 
 
 def render_staticstrings(strings, console, verbose, disable_headers):
@@ -375,7 +388,7 @@ def get_color(color):
     if color == "always":
         color_system = "256"
     elif color == "auto":
-        color_system = "windows"
+        color_system = "auto"
     elif color == "never":
         color_system = None
     else:
@@ -405,9 +418,17 @@ def render(
     columns: Sequence[str] = DEFAULT_COLUMNS,
     layout_filter: Optional[LayoutFilter] = None,
     plain: bool = False,
-):
+    stream=None,
+) -> str:
     sys.__stdout__.reconfigure(encoding="utf-8")  # type: ignore [union-attr]
-    console = Console(file=io.StringIO(), color_system=get_color(color), highlight=False, soft_wrap=True)
+
+    file_obj = stream if stream is not None else io.StringIO()
+    console = Console(
+        file=file_obj,
+        color_system=get_color(color),
+        highlight=False,
+        soft_wrap=True,  # type: ignore [arg-type]
+    )
 
     if not columns:
         columns = DEFAULT_COLUMNS
@@ -497,5 +518,8 @@ def render(
         renderer(strings, console, verbose, disable_headers)
         console.print("\n")
 
-    console.file.seek(0)
-    return console.file.read()
+    if stream is None:
+        console.file.seek(0)
+        return console.file.read()
+    else:
+        return ""
