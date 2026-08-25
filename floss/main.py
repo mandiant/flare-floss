@@ -264,7 +264,7 @@ def main(argv=None) -> int:
         else:
             r = render_text(args, results, stream=sys.stdout)
 
-        if r is not None:
+        if r:
             print(r)
         return 0
 
@@ -305,7 +305,7 @@ def main(argv=None) -> int:
         logger.info("rendering results")
         r = render_text(args, analysis_results, stream=sys.stdout)
 
-    if r is not None:
+    if r:
         print(r)
     return 0
 

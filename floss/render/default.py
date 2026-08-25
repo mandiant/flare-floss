@@ -522,4 +522,4 @@ def render(
         console.file.seek(0)
         return console.file.read()
     else:
-        return None
+        return ""
