@@ -64,18 +64,30 @@ class ExpertStringDatabase:
     @functools.cached_property
     def re2_prefilter(self):
 
-        valid = []
-        fallback = []
+        valid_patterns = []
+        valid_rules = []
+        fallback_rules = []
         for rule, regex in self.regex_rules:
             val = regex.pattern
             try:
                 re2.compile(val)
-                valid.append(val)
+                valid_patterns.append(val)
+                valid_rules.append((rule, regex))
             except Exception:
-                fallback.append((rule, regex))
+                fallback_rules.append((rule, regex))
 
-        p = re2.compile("(?:" + ")|(?:".join(valid) + ")") if valid else None
-        return (p, fallback)
+        p = None
+        if valid_patterns:
+            try:
+                # bound maximum regex parsing aggressively to 80MB to prevent `capa` regex rule overflow halts
+                p = re2.compile("(?:" + ")|(?:".join(valid_patterns) + ")", max_mem=83886080)
+            except Exception:
+                # if the aggregated combined OR pattern is STILL too monolithic, abort the fast-path completely.
+                # gracefully fall back to native processing for valid_rules rather than crashing.
+                fallback_rules.extend(valid_rules)
+                valid_rules = []
+
+        return (p, valid_rules, fallback_rules)
 
     def query(self, s: str) -> Set[str]:
         ret = set()
@@ -88,22 +100,22 @@ class ExpertStringDatabase:
                 if rule.value in s:
                     ret.add(rule.tag)
 
-        r2p, fallback_rules = self.re2_prefilter
+        r2p, valid_rules, fallback_rules = self.re2_prefilter
 
         # Always evaluate rules that RE2 rejected natively (like lookaheads)
         for rule, regex in fallback_rules:
             if regex.search(s):
                 ret.add(rule.tag)
 
-        # If RE2 hit, evaluate the rest of the rules (which RE2 covers) to find WHICH triggered it.
+        # If RE2 hit, evaluate ONLY the valid rules (which RE2 covers) to find WHICH triggered it.
         # If RE2 didn't hit, we skip checking the rules that RE2 covers.
         if r2p is not None and r2p.search(s):
-            for rule, regex in self.regex_rules:
+            for rule, regex in valid_rules:
                 if regex.search(s):
                     ret.add(rule.tag)
         elif r2p is None:
             # Full native fallback if re2 could not compile ANY rules
-            for rule, regex in self.regex_rules:
+            for rule, regex in valid_rules:
                 if regex.search(s):
                     ret.add(rule.tag)
 
