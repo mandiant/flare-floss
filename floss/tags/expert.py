@@ -67,11 +67,7 @@ class ExpertStringDatabase:
         valid = []
         fallback = []
         for rule, regex in self.regex_rules:
-            val = rule.value
-            if val.startswith("/") and val.endswith("/"):
-                val = val[1:-1]
-            elif val.startswith("/") and val.endswith("/i"):
-                val = "(?i)" + val[1:-2]
+            val = regex.pattern
             try:
                 re2.compile(val)
                 valid.append(val)
@@ -134,8 +130,12 @@ class ExpertStringDatabase:
                 case ExpertRule(type="substring"):
                     substring_rules.append(rule)
                 case ExpertRule(type="regex"):
-                    # TODO: may have to cleanup the //gi from the regex
-                    regex_rules.append((rule, re.compile(rule.value)))
+                    val = rule.value
+                    if val.startswith("/") and val.endswith("/"):
+                        val = val[1:-1]
+                    elif val.startswith("/") and val.endswith("/i"):
+                        val = "(?i)" + val[1:-2]
+                    regex_rules.append((rule, re.compile(val)))
                 case _:
                     raise ValueError(f"unexpected rule type: {rule.type}")
 
