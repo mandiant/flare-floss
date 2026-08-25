@@ -27,6 +27,7 @@ import importlib.resources
 from typing import Set, Dict, List, Tuple, Literal, Optional, Sequence
 from dataclasses import dataclass
 
+import re2  # type: ignore
 import msgspec
 
 from floss.tags import data_root, ensure_not_lfs_pointer
@@ -62,7 +63,6 @@ class ExpertStringDatabase:
 
     @functools.cached_property
     def re2_prefilter(self):
-        import re2  # type: ignore
 
         valid = []
         fallback = []

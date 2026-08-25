@@ -230,6 +230,8 @@ def render_static_substrings(strings, encoding, offset_len, console, verbose, di
         encoding = heading_style(encoding)
     render_sub_heading(f"FLOSS STATIC STRINGS: {encoding}", len(strings), console, disable_headers)
     is_terminal = console.is_terminal
+    # batch rendering to minimize PTY blocking without hiding execution output on real terminals.
+    # on pipe/redirect redirects chunking expands to 10k bounds for massive throughput scalability.
     batch_size = 100 if is_terminal else 10000
 
     batch = []

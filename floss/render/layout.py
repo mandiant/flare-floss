@@ -388,6 +388,10 @@ def render_strings(
                     else 0
                 )
 
+            # string lists can scale into the tens of thousands per binary section. rather than iterating
+            # individual `console.print` layouts rapidly and bottlenecking sys.stdout streams heavily...
+            # we batch rendering! limit UI redraw blockages bounds when targeting a real user terminal,
+            # and uncap it up to 10k bounds when just piping it out to a file natively.
             batch_size = 100 if console.is_terminal else 10000
             if len(chunk) >= batch_size:
                 console.print(Group(*chunk))
