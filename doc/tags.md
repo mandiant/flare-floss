@@ -12,21 +12,26 @@ to the data under [floss/tags/data/](../floss/tags/data/).
 
 ## Tag families
 
-Tags are grouped into families, one per tag-source directory under
-[floss/tags/data/](../floss/tags/data/). A family name matches any tag in that
-family, so `--tag oss` matches every open-source library tag, and
-`--no-tag oss` drops all of them at once.
+A family name matches any tag in that family, so `--tag oss` matches every
+open-source library tag, and `--no-tag oss` drops all of them at once.
 
-| Family | Example tags | Source |
-|---|---|---|
-| `winapi` | `#winapi` | Windows API usage database (`floss/tags/data/winapi/`) |
-| `crt` | `#msvc` | Microsoft C runtime library (`floss/tags/data/crt/`) |
-| `expert` | `#capa` | Expert / capa rules (`floss/tags/data/expert/`) |
-| `gp` | `#common`, `#code-junk` | Global-prevalence database (`floss/tags/data/gp/`) |
-| `oss` | `#openssl`, `#zlib`, `#curl`, … | Open-source library databases (`floss/tags/data/oss/`) |
+The multi-tag families are:
 
-The `oss` family has one tag per library, derived from the file name in
+| Family | Tags |
+|---|---|
+| `gp` | `#common`, `#code-junk` |
+| `oss` | one tag per library, e.g. `#openssl`, `#zlib`, `#curl` |
+
+The `oss` family derives each library tag from the file name in
 `floss/tags/data/oss/` (for example `openssl.jsonl.gz` → `#openssl`).
+
+The remaining tags are single tags, not families, and can be filtered directly:
+
+| Tag | Source |
+|---|---|
+| `#winapi` | Windows API usage database (`floss/tags/data/winapi/`) |
+| `#msvc` | Microsoft C runtime library (`floss/tags/data/crt/`) |
+| `#capa` | Expert / capa rules (`floss/tags/data/expert/`) |
 
 ## Match behavior
 
