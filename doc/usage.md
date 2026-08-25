@@ -151,7 +151,7 @@ alternative views:
     floss.exe -dd malware.exe
     floss.exe --color never malware.exe
 
-- `-L`/`--large-file` allows processing files larger than the default 16 MB
+- `-L`/`--large-file` allows processing files larger than the default 64 MB
   limit. Files above this limit abort deobfuscation with an error unless this
   flag is set, because stack/tight/decoded string extraction is expensive.
 - `--signatures PATH` specifies a `.sig`/`.pat` file (or directory) used to
