@@ -28,9 +28,10 @@ This will start a local server, and you can view the application in your browser
 
 ## Building
 
-To build the application for production, run the following command:
+To check your changes and build for production, run:
 
 ```bash
+npm run lint
 npm run build
 ```
 
