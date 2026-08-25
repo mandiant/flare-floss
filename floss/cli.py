@@ -24,6 +24,8 @@ from enum import Enum
 from typing import List, Optional
 from pathlib import Path
 
+import shtab
+
 import floss.utils
 import floss.logging_
 from floss.const import (
@@ -151,6 +153,7 @@ def make_parser():
         """)
 
     parser = ArgumentParser(
+        prog="floss",
         description=desc,
         epilog=epilog,
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -164,11 +167,13 @@ def make_parser():
         help="minimum string length",
     )
 
-    parser.add_argument(
+    sample_argument = parser.add_argument(
         "sample",
         type=argparse.FileType("rb"),
         help="path to sample to analyze",
     )
+    # enable file path completion for the sample positional argument
+    setattr(sample_argument, "complete", shtab.FILE)
 
     analysis_group = parser.add_argument_group("analysis arguments")
     analysis_group.add_argument(
@@ -334,6 +339,12 @@ def make_parser():
             action=floss.utils.UninstallContextMenu,
             help="uninstall FLOSS from the right-click context menu for Windows Explorer and exit",
         )
+
+    shtab.add_argument_to(
+        parser,
+        ["--print-completion"],
+        help="print shell completion script for the given shell",
+    )
 
     output_group = parser.add_argument_group("rendering arguments")
     output_group.add_argument("-j", "--json", action="store_true", help="emit JSON instead of text")
