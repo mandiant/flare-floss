@@ -343,7 +343,7 @@ def make_parser():
     shtab.add_argument_to(
         parser,
         ["--print-completion"],
-        help="print shell completion script for the given shell",
+        help="print shell completion script for bash, zsh, tcsh, fish, or powershell",
     )
 
     output_group = parser.add_argument_group("rendering arguments")
