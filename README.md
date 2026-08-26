@@ -97,6 +97,9 @@ Display the help/usage screens:
 
     $ floss -h  # show all supported arguments
 
+Enable tab completion for flags, choice values, and file paths with `floss --print-completion bash`
+(also zsh, fish); installation instructions are in [doc/usage.md](doc/usage.md#shell-completions).
+
 For a detailed description of using FLOSS, review the documentation
  [here](doc/usage.md).
 
