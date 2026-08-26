@@ -18,7 +18,7 @@ import pytest
 import floss.main
 
 
-@pytest.mark.parametrize("shell", ["bash", "zsh", "fish"])
+@pytest.mark.parametrize("shell", ["bash", "zsh", "tcsh", "fish", "powershell"])
 def test_print_completion(shell, capsys):
     """--print-completion emits a non-empty completion script and exits cleanly."""
     with pytest.raises(SystemExit) as excinfo:
