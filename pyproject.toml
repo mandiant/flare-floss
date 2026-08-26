@@ -82,6 +82,7 @@ dependencies = [
     "tqdm>=4",
     "halo>=0.0.31",
     "rich>=13",
+    "shtab>=1.7",
     "pefile>=2022.5.30",
     "binary2strings>=0.1",
     "google-re2>=1",

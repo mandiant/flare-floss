@@ -275,6 +275,35 @@ After this option is installed, you can right-click on any file and select `Open
  to quickly open the target file with FLOSS for analysis.
 
 
+### Shell completions (`--print-completion {bash,zsh,tcsh,fish,powershell}`)
+
+FLOSS can print a tab-completion script for your shell. The script is generated
+from FLOSS's argument definitions, so flags, choice values (such as
+`--string-type static`), and sample file paths all complete as you type.
+
+    floss --print-completion bash
+
+Install the output for your shell:
+
+bash:
+
+    mkdir -p ~/.local/share/bash_completion
+    floss --print-completion bash > ~/.local/share/bash_completion/floss
+    echo 'source ~/.local/share/bash_completion/floss' >> ~/.bashrc
+
+zsh (requires `compinit`, which most frameworks and default configs run):
+
+    mkdir -p ~/.local/share/zsh/site-functions
+    floss --print-completion zsh > ~/.local/share/zsh/site-functions/_floss
+
+fish:
+
+    mkdir -p ~/.config/fish/completions
+    floss --print-completion fish > ~/.config/fish/completions/floss.fish
+
+Then restart your shell or start a new one.
+
+
 ## <a name="shellcode"></a>Shellcode analysis options
 
 Malicious shellcode often times contains obfuscated strings or stackstrings.
