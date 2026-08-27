@@ -8,7 +8,7 @@ coverage==7.15.0
 cxxfilt==0.3.0
 distlib==0.4.0
 dncil==1.0.2
-dnfile==0.13.0
+dnfile==0.18.0
 filelock==3.32.0
 funcy==2.0
 google-re2==1.1.20251105

@@ -106,7 +106,7 @@ dependencies = [
 
     "networkx>=3",
     # layout / tagging
-    "dnfile==0.13.0",
+    "dnfile==0.18.0",
     "colorama==0.4.6",
     "machofile==2026.2.4",
     "msgspec==0.21.1",
