@@ -1,4 +1,4 @@
-annotated-types==0.7.0
+annotated-types==0.8.0
 binary2strings==0.1.13
 black==26.5.1
 cfgv==3.5.0
