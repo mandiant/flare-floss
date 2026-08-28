@@ -446,21 +446,7 @@ def get_extract_stats(
                 found = True
                 len_lang_str += len(lang_str.string)
 
-                # remove found string data
-                idx = s.string.find(lang_str.string)
-                assert idx != -1
-                if idx == 0:
-                    new_offset = s.offset + idx + len(lang_str.string)
-                else:
-                    new_offset = s.offset
-
-                replaced_s = s.string.replace(lang_str.string, "", 1)
-                replaced_len = len(replaced_s)
-                s_trimmed = StaticString(
-                    string=replaced_s,
-                    offset=new_offset,
-                    encoding=s.encoding,
-                )
+                s_trimmed, replaced_len = strip_found_lang_string(s, lang_str)
 
                 type_ = "substring"
                 if s.string[: len(lang_str.string)] == lang_str.string and s.offset == lang_str.offset:
@@ -575,6 +561,21 @@ def get_extract_stats(
     return 100 * (len_lang_str / len_all_ss)
 
 
+def strip_found_lang_string(s: StaticString, lang_str: StaticString) -> Tuple[StaticString, int]:
+    """remove the found language string from ``s``, returning the trimmed
+    ``StaticString`` and its remaining length."""
+    idx = s.string.find(lang_str.string)
+    assert idx != -1
+    if idx == 0:
+        new_offset = s.offset + idx + len(lang_str.string)
+    else:
+        new_offset = s.offset
+
+    replaced_s = s.string.replace(lang_str.string, "", 1)
+    replaced_len = len(replaced_s)
+    return StaticString(string=replaced_s, offset=new_offset, encoding=s.encoding), replaced_len
+
+
 def get_missed_strings(
     all_ss_strings: List[StaticString], lang_strings: List[StaticString], min_len: int
 ) -> List[StaticString]:
@@ -588,22 +589,7 @@ def get_missed_strings(
             if lang_str.string and lang_str.string in s.string and s.offset <= lang_str.offset <= s.offset + orig_len:
                 found = True
 
-                # remove found string data
-                idx = s.string.find(lang_str.string)
-                assert idx != -1
-                if idx == 0:
-                    new_offset = s.offset + idx + len(lang_str.string)
-                else:
-                    new_offset = s.offset
-
-                replaced_s = s.string.replace(lang_str.string, "", 1)
-                replaced_len = len(replaced_s)
-                s_trimmed = StaticString(
-                    string=replaced_s,
-                    offset=new_offset,
-                    encoding=s.encoding,
-                )
-                s = s_trimmed
+                s, replaced_len = strip_found_lang_string(s, lang_str)
 
                 if replaced_len < min_len:
                     break
