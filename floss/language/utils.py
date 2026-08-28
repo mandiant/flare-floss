@@ -195,7 +195,7 @@ def find_i386_push_xrefs(buf: bytes) -> Iterable[VA]:
 
 def find_amd64_push_xrefs(buf: bytes) -> Iterable[VA]:
     """find all the 64-bit PUSH instructions and their target virtual addresses."""
-    yield from _scan_immediates(_PUSH_XREFS_RE, buf, "<Q", 0, rip_relative=False)
+    yield from _scan_immediates(_PUSH_XREFS_RE, buf, "<I", 0, rip_relative=False)
 
 
 def find_i386_mov_xrefs(buf: bytes) -> Iterable[VA]:
@@ -205,7 +205,7 @@ def find_i386_mov_xrefs(buf: bytes) -> Iterable[VA]:
 
 def find_amd64_mov_xrefs(buf: bytes) -> Iterable[VA]:
     """find all the 64-bit MOV instructions and their target virtual addresses."""
-    yield from _scan_immediates(_AMD64_MOV_XREFS_RE, buf, "<Q", 0, rip_relative=False)
+    yield from _scan_immediates(_AMD64_MOV_XREFS_RE, buf, "<I", 0, rip_relative=False)
 
 
 def _iter_section_xrefs(pe: pefile.PE, amd64_scan, i386_scan) -> Iterable[VA]:
