@@ -132,20 +132,3 @@ def extract_unicode_strings(buf: bytes, n: int = MIN_LENGTH) -> Iterable[StaticS
             )
         except UnicodeDecodeError:
             pass
-
-
-def main():
-    import sys
-
-    with open(sys.argv[1], "rb") as f:
-        b = f.read()
-
-    for s in extract_ascii_strings(b):
-        print("0x{:x}: {:s}".format(s.offset, s.string))
-
-    for s in extract_unicode_strings(b):
-        print("0x{:x}: {:s}".format(s.offset, s.string))
-
-
-if __name__ == "__main__":
-    main()
