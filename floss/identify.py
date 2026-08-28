@@ -14,7 +14,6 @@
 
 
 import copy
-import operator
 import collections
 from typing import Dict, List, Tuple, DefaultDict
 
@@ -31,14 +30,7 @@ from floss.features.extract import (
     extract_function_features,
     extract_basic_block_features,
 )
-from floss.features.features import (
-    Arguments,
-    TightLoop,
-    BlockCount,
-    TightFunction,
-    KindaTightLoop,
-    InstructionCount,
-)
+from floss.features.features import Arguments, TightLoop, BlockCount, TightFunction, KindaTightLoop, InstructionCount
 
 logger = floss.logging_.getLogger(__name__)
 
@@ -86,7 +78,7 @@ def get_function_score_weighted(features):
 
 
 def get_top_functions(candidate_functions, count=20) -> List[Dict[int, Dict]]:
-    return sorted(candidate_functions.items(), key=lambda x: operator.getitem(x[1], "score"), reverse=True)[:count]
+    return sorted(candidate_functions.items(), key=lambda x: x[1]["score"], reverse=True)[:count]
 
 
 def get_tight_function_fvas(decoding_function_features) -> List[int]:
@@ -106,7 +98,7 @@ def append_unique(fvas, fvas_to_append):
 
 
 def get_function_fvas(functions) -> List[int]:
-    return list(map(lambda p: p[0], functions))
+    return [p[0] for p in functions]
 
 
 def get_functions_with_tightloops(functions):
