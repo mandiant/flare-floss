@@ -288,9 +288,9 @@ def render_stackstrings(
             )
             for s in strings:
                 table.add_row(
-                    util.hex(s.function),
-                    util.hex(s.program_counter),
-                    util.hex(s.frame_offset),
+                    hex(s.function),
+                    hex(s.program_counter),
+                    hex(s.frame_offset),
                     string_style(sanitize(s.string)),
                 )
 
