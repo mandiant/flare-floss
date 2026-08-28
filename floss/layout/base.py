@@ -249,6 +249,31 @@ class Layout(BaseModel, abc.ABC):
                     string.structure = structure.name
                     break
 
+    def _xor_reloc_code_taggers(self, xor_key, code_offsets, reloc_offsets) -> Tuple[Tagger, ...]:
+        """the XOR, relocation, and code taggers common to the binary layouts."""
+
+        def check_is_xor_tagger(s: ExtractedString) -> Sequence[Tag]:
+            return check_is_xor(xor_key)
+
+        def check_is_reloc_tagger(s: ExtractedString) -> Sequence[Tag]:
+            return check_is_reloc(reloc_offsets, s)
+
+        def check_is_code_tagger(s: ExtractedString) -> Sequence[Tag]:
+            return check_is_code(code_offsets, s)
+
+        return (check_is_xor_tagger, check_is_reloc_tagger, check_is_code_tagger)
+
+    def _mark_structures_with(self, structures, structures_by_address) -> None:
+        """mark structures on this node and recurse, threading ``structures_by_address``
+        through the Section/Segment children (the layout types that represent
+        binary sections)."""
+        self._mark_string_structures((structures or ()) + (structures_by_address,))
+        for child in self.children:
+            if isinstance(child, (SectionLayout, SegmentLayout)):
+                child.mark_structures(structures=(structures or ()) + (structures_by_address,))
+            else:
+                child.mark_structures(structures=structures)
+
 
 class SectionLayout(Layout):
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -277,36 +302,12 @@ class PELayout(Layout):
     structures_by_address: Dict[int, Structure]
 
     def tag_strings(self, taggers: Sequence[Tagger]):
-        def check_is_xor_tagger(s: ExtractedString) -> Sequence[Tag]:
-            return check_is_xor(self.xor_key)
-
-        def check_is_reloc_tagger(s: ExtractedString) -> Sequence[Tag]:
-            return check_is_reloc(self.reloc_offsets, s)
-
-        def check_is_code_tagger(s: ExtractedString) -> Sequence[Tag]:
-            return check_is_code(self.code_offsets, s)
-
-        taggers = tuple(taggers) + (
-            check_is_xor_tagger,
-            check_is_reloc_tagger,
-            check_is_code_tagger,
+        super().tag_strings(
+            tuple(taggers) + self._xor_reloc_code_taggers(self.xor_key, self.code_offsets, self.reloc_offsets)
         )
 
-        super().tag_strings(taggers)
-
     def mark_structures(self, structures=(), **kwargs):
-        # apply the PE structures to this node's own strings too (e.g. strings
-        # in the header gap that are attached to the root layout node)
-        self._mark_string_structures((structures or ()) + (self.structures_by_address,))
-        for child in self.children:
-            if isinstance(child, (SectionLayout, SegmentLayout)):
-                # expected child of a PE
-                child.mark_structures(structures=structures + (self.structures_by_address,), **kwargs)
-            else:
-                # unexpected child of a PE
-                # maybe like a resource or overlay, etc.
-                # which is fine - but we don't expect it to know about the PE structures.
-                child.mark_structures(structures=structures, **kwargs)
+        self._mark_structures_with(structures, self.structures_by_address)
 
 
 class ELFLayout(Layout):
@@ -321,32 +322,12 @@ class ELFLayout(Layout):
     structures_by_address: Dict[int, Structure]
 
     def tag_strings(self, taggers: Sequence[Tagger]):
-        def check_is_xor_tagger(s: ExtractedString) -> Sequence[Tag]:
-            return check_is_xor(self.xor_key)
-
-        def check_is_reloc_tagger(s: ExtractedString) -> Sequence[Tag]:
-            return check_is_reloc(self.relocation_offsets, s)
-
-        def check_is_code_tagger(s: ExtractedString) -> Sequence[Tag]:
-            return check_is_code(self.code_offsets, s)
-
-        taggers = tuple(taggers) + (
-            check_is_xor_tagger,
-            check_is_reloc_tagger,
-            check_is_code_tagger,
+        super().tag_strings(
+            tuple(taggers) + self._xor_reloc_code_taggers(self.xor_key, self.code_offsets, self.relocation_offsets)
         )
 
-        super().tag_strings(taggers)
-
     def mark_structures(self, structures: Optional[Tuple[Dict[int, Structure], ...]] = (), **kwargs):
-        # apply the ELF structures to this node's own strings too (the ELF
-        # header/program-header gap strings attach to the root layout node)
-        self._mark_string_structures((structures or ()) + (self.structures_by_address,))
-        for child in self.children:
-            if isinstance(child, (SectionLayout, SegmentLayout)):
-                child.mark_structures(structures=(structures or ()) + (self.structures_by_address,), **kwargs)
-            else:
-                child.mark_structures(structures=structures, **kwargs)
+        self._mark_structures_with(structures, self.structures_by_address)
 
 
 class ResourceLayout(Layout):
