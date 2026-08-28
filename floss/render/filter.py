@@ -240,11 +240,6 @@ class LayoutFilter:
 
         return True
 
-    @staticmethod
-    def relevance_key(s: ResultString, tag_rules: TagRules) -> Tuple[int, int, int, int]:
-        """sort key for --max-strings, see the module-level relevance_key."""
-        return relevance_key(s, tag_rules)
-
     def apply_node(self, layout: ResultLayout, section: str, depth: int) -> Optional[ResultLayout]:
         """filter one layout node, recursing into children.
 
@@ -297,7 +292,7 @@ class LayoutFilter:
         kept strings within a node are emitted in relevance order.
         """
         strings = [s for s in layout.strings if id(s) in keep]
-        strings.sort(key=lambda s: self.relevance_key(s, self.tag_rules))
+        strings.sort(key=lambda s: relevance_key(s, self.tag_rules))
         children: List[ResultLayout] = []
         for child in layout.children:
             pruned = self.prune(child, keep)
@@ -318,7 +313,7 @@ class LayoutFilter:
         all_strings = self.collect_strings(layout)
         if self.max_strings is None or len(all_strings) <= self.max_strings:
             return layout
-        ranked = sorted(all_strings, key=lambda s: self.relevance_key(s, self.tag_rules))
+        ranked = sorted(all_strings, key=lambda s: relevance_key(s, self.tag_rules))
         keep = {id(s) for s in ranked[: self.max_strings]}
         return self.prune(layout, keep)
 
@@ -343,7 +338,7 @@ class LayoutFilter:
                     capped = self.cap_node(section)
                     if capped is not None:
                         arch_children.append(capped)
-                ranked_wrapper = sorted(child.strings, key=lambda s: self.relevance_key(s, self.tag_rules))
+                ranked_wrapper = sorted(child.strings, key=lambda s: relevance_key(s, self.tag_rules))
                 children.append(
                     ResultLayout(
                         name=child.name,
@@ -357,7 +352,7 @@ class LayoutFilter:
                 capped = self.cap_node(child)
                 if capped is not None:
                     children.append(capped)
-        ranked_root = sorted(filtered.strings, key=lambda s: self.relevance_key(s, self.tag_rules))
+        ranked_root = sorted(filtered.strings, key=lambda s: relevance_key(s, self.tag_rules))
         strings = ranked_root[: self.max_strings]
 
         if not strings and not children:
