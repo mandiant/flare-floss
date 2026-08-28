@@ -412,46 +412,30 @@ def analyze(options: Options) -> Optional[ResultDocument]:
 
         if results.metadata.language == Language.GO.value:
             logger.info("extracting language-specific Go strings")
-            with results.metadata.runtime.measure_and_set_time("language_strings"):
-                results.strings.language_strings = floss.language.go.extract.extract_go_strings(
-                    sample, options.min_length
-                )
-
-            # missed strings only includes non-identified strings in searched range
-            # here currently only focus on strings in string blob range
-            base_statics = results.strings.static_strings if layout_doc is not None else static_strings
-            string_blob_strings = floss.language.go.extract.get_static_strings_from_blob_range(sample, base_statics)
-            results.strings.language_strings_missed = floss.language.utils.get_missed_strings(
-                string_blob_strings, results.strings.language_strings, options.min_length
-            )
-            if layout_offset_index is not None:
-                results.strings.language_strings = enrich_static_strings(
-                    results.strings.language_strings, offset_index=layout_offset_index
-                )
-                results.strings.language_strings_missed = enrich_static_strings(
-                    results.strings.language_strings_missed, offset_index=layout_offset_index
-                )
-
-        elif results.metadata.language == Language.RUST.value:
+            extractor = floss.language.go.extract.extract_go_strings
+            range_strings = floss.language.go.extract.get_static_strings_from_blob_range
+        else:
             logger.info("extracting language-specific Rust strings")
-            with results.metadata.runtime.measure_and_set_time("language_strings"):
-                results.strings.language_strings = floss.language.rust.extract.extract_rust_strings(
-                    sample, options.min_length
-                )
+            extractor = floss.language.rust.extract.extract_rust_strings
+            range_strings = floss.language.rust.extract.get_static_strings_from_rdata
 
-            # currently Rust strings are only extracted from the .rdata section
-            base_statics = results.strings.static_strings if layout_doc is not None else static_strings
-            rdata_strings = floss.language.rust.extract.get_static_strings_from_rdata(sample, base_statics)
-            results.strings.language_strings_missed = floss.language.utils.get_missed_strings(
-                rdata_strings, results.strings.language_strings, options.min_length
+        with results.metadata.runtime.measure_and_set_time("language_strings"):
+            results.strings.language_strings = extractor(sample, options.min_length)
+
+        # missed strings only includes non-identified strings in the searched
+        # range of the targeted section/range
+        base_statics = results.strings.static_strings if layout_doc is not None else static_strings
+        range_statistics = range_strings(sample, base_statics)
+        results.strings.language_strings_missed = floss.language.utils.get_missed_strings(
+            range_statistics, results.strings.language_strings, options.min_length
+        )
+        if layout_offset_index is not None:
+            results.strings.language_strings = enrich_static_strings(
+                results.strings.language_strings, offset_index=layout_offset_index
             )
-            if layout_offset_index is not None:
-                results.strings.language_strings = enrich_static_strings(
-                    results.strings.language_strings, offset_index=layout_offset_index
-                )
-                results.strings.language_strings_missed = enrich_static_strings(
-                    results.strings.language_strings_missed, offset_index=layout_offset_index
-                )
+            results.strings.language_strings_missed = enrich_static_strings(
+                results.strings.language_strings_missed, offset_index=layout_offset_index
+            )
 
     if (
         results.analysis.enable_decoded_strings
