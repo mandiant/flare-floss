@@ -75,233 +75,143 @@ def get_image_range(pe: pefile.PE) -> Tuple[VA, VA]:
     return image_base, image_base + image_size
 
 
+def _scan_immediates(pattern: "re.Pattern", buf: bytes, fmt: str, base_addr: VA, rip_relative: bool) -> Iterable[VA]:
+    """
+    scan ``buf`` for instruction pattern ``pattern`` and yield the embedded
+    target virtual addresses. ``rip_relative`` instructions add the instruction
+    length; all others are absolute, ``base_addr`` is ignored.
+    """
+    insn_len = 7 if rip_relative else 0
+    for match in pattern.finditer(buf):
+        value = struct.unpack(fmt, match.group("address"))[0]
+        if rip_relative:
+            yield base_addr + match.start() + value + insn_len
+        else:
+            yield value
+
+
+_AMD64_LEA_XREFS_RE = re.compile(
+    # use rb, or else double escape the term "\x0D", or else beware!
+    rb"""
+    (?:                   # non-capturing group
+          \x48 \x8D \x05  # 48 8d 05 aa aa 00 00    lea    rax,[rip+0xaaaa]
+        | \x48 \x8D \x0D  # 48 8d 0d aa aa 00 00    lea    rcx,[rip+0xaaaa]
+        | \x48 \x8D \x15  # 48 8d 15 aa aa 00 00    lea    rdx,[rip+0xaaaa]
+        | \x48 \x8D \x1D  # 48 8d 1d aa aa 00 00    lea    rbx,[rip+0xaaaa]
+        | \x48 \x8D \x2D  # 48 8d 2d aa aa 00 00    lea    rbp,[rip+0xaaaa]
+        | \x48 \x8D \x35  # 48 8d 35 aa aa 00 00    lea    rsi,[rip+0xaaaa]
+        | \x48 \x8D \x3D  # 48 8d 3d aa aa 00 00    lea    rdi,[rip+0xaaaa]
+        | \x4C \x8D \x05  # 4c 8d 05 aa aa 00 00    lea     r8,[rip+0xaaaa]
+        | \x4C \x8D \x0D  # 4c 8d 0d aa aa 00 00    lea     r9,[rip+0xaaaa]
+        | \x4C \x8D \x15  # 4c 8d 15 aa aa 00 00    lea    r10,[rip+0xaaaa]
+        | \x4C \x8D \x1D  # 4c 8d 1d aa aa 00 00    lea    r11,[rip+0xaaaa]
+        | \x4C \x8D \x25  # 4c 8d 25 aa aa 00 00    lea    r12,[rip+0xaaaa]
+        | \x4C \x8D \x2D  # 4c 8d 2d aa aa 00 00    lea    r13,[rip+0xaaaa]
+        | \x4C \x8D \x35  # 4c 8d 35 aa aa 00 00    lea    r14,[rip+0xaaaa]
+        | \x4C \x8D \x3D  # 4c 8d 3d aa aa 00 00    lea    r15,[rip+0xaaaa]
+    )
+    (?P<address>....)
+    """,
+    re.DOTALL | re.VERBOSE,
+)
+
+_I386_LEA_XREFS_RE = re.compile(
+    rb"""
+    (
+          \x8D \x05  # 8d 05 aa aa 00 00       lea    eax,ds:0xaaaa
+        | \x8D \x1D  # 8d 1d aa aa 00 00       lea    ebx,ds:0xaaaa
+        | \x8D \x0D  # 8d 0d aa aa 00 00       lea    ecx,ds:0xaaaa
+        | \x8D \x15  # 8d 15 aa aa 00 00       lea    edx,ds:0xaaaa
+        | \x8D \x35  # 8d 35 aa aa 00 00       lea    esi,ds:0xaaaa
+        | \x8D \x3D  # 8d 3d aa aa 00 00       lea    edi,ds:0xaaaa
+    )
+    (?P<address>....)
+    """,
+    re.DOTALL + re.VERBOSE,
+)
+
+_PUSH_XREFS_RE = re.compile(
+    rb"""
+    (
+          \x68       # 68 aa aa 00 00       push   0xaaaa
+    )
+    (?P<address>....)
+    """,
+    re.DOTALL + re.VERBOSE,
+)
+
+_I386_MOV_XREFS_RE = re.compile(
+    rb"""
+    (
+          \xB9       # b9 aa aa 00 00       mov    ecx,0xaaaa
+        | \xBB       # bb aa aa 00 00       mov    ebx,0xaaaa
+        | \xBA       # ba aa aa 00 00       mov    edx,0xaaaa
+        | \xB8       # b8 aa aa 00 00       mov    eax,0xaaaa
+        | \xBE       # be aa aa 00 00       mov    esi,0xaaaa
+        | \xBF       # bf aa aa 00 00       mov    edi,0xaaaa
+    )
+    (?P<address>....)
+    """,
+    re.DOTALL + re.VERBOSE,
+)
+
+_AMD64_MOV_XREFS_RE = re.compile(
+    rb"""
+    (
+          \x48 \xC7 \xC0       # 48 c7 c0 aa aa 00 00       mov    rax,0xaaaa
+        | \x48 \xC7 \xC1       # 48 c7 c1 aa aa 00 00       mov    rcx,0xaaaa
+        | \x48 \xC7 \xC2       # 48 c7 c2 aa aa 00 00       mov    rdx,0xaaaa
+        | \x48 \xC7 \xC3       # 48 c7 c3 aa aa 00 00       mov    rbx,0xaaaa
+        | \x48 \xC7 \xC5       # 48 c7 c5 aa aa 00 00       mov    rbp,0xaaaa
+        | \x48 \xC7 \xC6       # 48 c7 c6 aa aa 00 00       mov    rsi,0xaaaa
+        | \x48 \xC7 \xC7       # 48 c7 c7 aa aa 00 00       mov    rdi,0xaaaa
+    )
+    (?P<address>....)
+    """,
+    re.DOTALL + re.VERBOSE,
+)
+
+
 def find_amd64_lea_xrefs(buf: bytes, base_addr: VA) -> Iterable[VA]:
     """
-    scan the given data found at the given base address
-    to find all the 64-bit RIP-relative LEA instructions,
+    find all the 64-bit RIP-relative LEA instructions,
     extracting the target virtual address.
     """
-    rip_relative_insn_length = 7
-    rip_relative_insn_re = re.compile(
-        # use rb, or else double escape the term "\x0D", or else beware!
-        rb"""
-        (?:                   # non-capturing group
-              \x48 \x8D \x05  # 48 8d 05 aa aa 00 00    lea    rax,[rip+0xaaaa] 
-            | \x48 \x8D \x0D  # 48 8d 0d aa aa 00 00    lea    rcx,[rip+0xaaaa]
-            | \x48 \x8D \x15  # 48 8d 15 aa aa 00 00    lea    rdx,[rip+0xaaaa]
-            | \x48 \x8D \x1D  # 48 8d 1d aa aa 00 00    lea    rbx,[rip+0xaaaa]
-            | \x48 \x8D \x2D  # 48 8d 2d aa aa 00 00    lea    rbp,[rip+0xaaaa]
-            | \x48 \x8D \x35  # 48 8d 35 aa aa 00 00    lea    rsi,[rip+0xaaaa]
-            | \x48 \x8D \x3D  # 48 8d 3d aa aa 00 00    lea    rdi,[rip+0xaaaa]
-            | \x4C \x8D \x05  # 4c 8d 05 aa aa 00 00    lea     r8,[rip+0xaaaa]
-            | \x4C \x8D \x0D  # 4c 8d 0d aa aa 00 00    lea     r9,[rip+0xaaaa]
-            | \x4C \x8D \x15  # 4c 8d 15 aa aa 00 00    lea    r10,[rip+0xaaaa]
-            | \x4C \x8D \x1D  # 4c 8d 1d aa aa 00 00    lea    r11,[rip+0xaaaa]
-            | \x4C \x8D \x25  # 4c 8d 25 aa aa 00 00    lea    r12,[rip+0xaaaa]
-            | \x4C \x8D \x2D  # 4c 8d 2d aa aa 00 00    lea    r13,[rip+0xaaaa]
-            | \x4C \x8D \x35  # 4c 8d 35 aa aa 00 00    lea    r14,[rip+0xaaaa]
-            | \x4C \x8D \x3D  # 4c 8d 3d aa aa 00 00    lea    r15,[rip+0xaaaa]
-        )
-        (?P<offset>....)
-        """,
-        re.DOTALL | re.VERBOSE,
-    )
-
-    for match in rip_relative_insn_re.finditer(buf):
-        offset_bytes = match.group("offset")
-        offset = struct.unpack("<i", offset_bytes)[0]
-
-        yield base_addr + match.start() + offset + rip_relative_insn_length
+    yield from _scan_immediates(_AMD64_LEA_XREFS_RE, buf, "<i", base_addr, rip_relative=True)
 
 
 def find_i386_lea_xrefs(buf: bytes) -> Iterable[VA]:
     """
-    scan the given data
-    to find all the 32-bit absolutely addressed LEA instructions,
+    find all the 32-bit absolutely addressed LEA instructions,
     extracting the target virtual address.
     """
-    absolute_insn_re = re.compile(
-        rb"""
-        (
-              \x8D \x05  # 8d 05 aa aa 00 00       lea    eax,ds:0xaaaa
-            | \x8D \x1D  # 8d 1d aa aa 00 00       lea    ebx,ds:0xaaaa
-            | \x8D \x0D  # 8d 0d aa aa 00 00       lea    ecx,ds:0xaaaa
-            | \x8D \x15  # 8d 15 aa aa 00 00       lea    edx,ds:0xaaaa
-            | \x8D \x35  # 8d 35 aa aa 00 00       lea    esi,ds:0xaaaa
-            | \x8D \x3D  # 8d 3d aa aa 00 00       lea    edi,ds:0xaaaa
-        )
-        (?P<address>....)
-        """,
-        re.DOTALL + re.VERBOSE,
-    )
-
-    for match in absolute_insn_re.finditer(buf):
-        address_bytes = match.group("address")
-        address = struct.unpack("<I", address_bytes)[0]
-
-        yield address
-
-
-def find_lea_xrefs(pe: pefile.PE) -> Iterable[VA]:
-    """
-    scan the executable sections of the given PE file
-    for LEA instructions that reference valid memory addresses,
-    yielding the virtual addresses.
-    """
-    low, high = get_image_range(pe)
-
-    for section in pe.sections:
-        if not section.IMAGE_SCN_MEM_EXECUTE:
-            continue
-
-        code = section.get_data()
-
-        if pe.FILE_HEADER.Machine == pefile.MACHINE_TYPE["IMAGE_FILE_MACHINE_AMD64"]:
-            xrefs = find_amd64_lea_xrefs(code, section.VirtualAddress + pe.OPTIONAL_HEADER.ImageBase)
-        elif pe.FILE_HEADER.Machine == pefile.MACHINE_TYPE["IMAGE_FILE_MACHINE_I386"]:
-            xrefs = find_i386_lea_xrefs(code)
-        else:
-            raise ValueError("unhandled architecture")
-
-        for xref in xrefs:
-            if low <= xref < high:
-                yield xref
+    yield from _scan_immediates(_I386_LEA_XREFS_RE, buf, "<I", 0, rip_relative=False)
 
 
 def find_i386_push_xrefs(buf: bytes) -> Iterable[VA]:
-    """
-    scan the given data found at the given base address
-    to find all the 32-bit PUSH instructions,
-    extracting the target virtual address.
-    """
-    push_insn_re = re.compile(
-        rb"""
-        (
-              \x68       # 68 aa aa 00 00       push   0xaaaa
-        )
-        (?P<address>....)
-        """,
-        re.DOTALL + re.VERBOSE,
-    )
-
-    for match in push_insn_re.finditer(buf):
-        address_bytes = match.group("address")
-        address = struct.unpack("<I", address_bytes)[0]
-
-        yield address
+    """find all the 32-bit PUSH instructions and their target virtual addresses."""
+    yield from _scan_immediates(_PUSH_XREFS_RE, buf, "<I", 0, rip_relative=False)
 
 
 def find_amd64_push_xrefs(buf: bytes) -> Iterable[VA]:
-    """
-    scan the given data found at the given base address
-    to find all the 64-bit PUSH instructions,
-    extracting the target virtual address.
-    """
-    push_insn_re = re.compile(
-        rb"""
-        (
-              \x68       # 68 aa aa 00 00       push   0xaaaa
-        )
-        (?P<address>....)
-        """,
-        re.DOTALL + re.VERBOSE,
-    )
-
-    for match in push_insn_re.finditer(buf):
-        address_bytes = match.group("address")
-        address = struct.unpack("<Q", address_bytes)[0]
-
-        yield address
-
-
-def find_push_xrefs(pe: pefile.PE) -> Iterable[VA]:
-    """
-    scan the executable sections of the given PE file
-    for PUSH instructions that reference valid memory addresses,
-    yielding the virtual addresses.
-    """
-    low, high = get_image_range(pe)
-
-    for section in pe.sections:
-        if not section.IMAGE_SCN_MEM_EXECUTE:
-            continue
-
-        code = section.get_data()
-
-        if pe.FILE_HEADER.Machine == pefile.MACHINE_TYPE["IMAGE_FILE_MACHINE_AMD64"]:
-            xrefs = find_amd64_push_xrefs(code)
-        elif pe.FILE_HEADER.Machine == pefile.MACHINE_TYPE["IMAGE_FILE_MACHINE_I386"]:
-            xrefs = find_i386_push_xrefs(code)
-        else:
-            raise ValueError("unhandled architecture")
-
-        for xref in xrefs:
-            if low <= xref < high:
-                yield xref
+    """find all the 64-bit PUSH instructions and their target virtual addresses."""
+    yield from _scan_immediates(_PUSH_XREFS_RE, buf, "<Q", 0, rip_relative=False)
 
 
 def find_i386_mov_xrefs(buf: bytes) -> Iterable[VA]:
-    """
-    scan the given data found at the given base address
-    to find all the 32-bit MOV instructions,
-    extracting the target virtual address.
-    """
-    mov_insn_re = re.compile(
-        rb"""
-        (
-              \xB9       # b9 aa aa 00 00       mov    ecx,0xaaaa
-            | \xBB       # bb aa aa 00 00       mov    ebx,0xaaaa
-            | \xBA       # ba aa aa 00 00       mov    edx,0xaaaa
-            | \xB8       # b8 aa aa 00 00       mov    eax,0xaaaa
-            | \xBE       # be aa aa 00 00       mov    esi,0xaaaa
-            | \xBF       # bf aa aa 00 00       mov    edi,0xaaaa
-        )
-        (?P<address>....)
-        """,
-        re.DOTALL + re.VERBOSE,
-    )
-
-    for match in mov_insn_re.finditer(buf):
-        address_bytes = match.group("address")
-        address = struct.unpack("<I", address_bytes)[0]
-
-        yield address
+    """find all the 32-bit MOV instructions and their target virtual addresses."""
+    yield from _scan_immediates(_I386_MOV_XREFS_RE, buf, "<I", 0, rip_relative=False)
 
 
 def find_amd64_mov_xrefs(buf: bytes) -> Iterable[VA]:
+    """find all the 64-bit MOV instructions and their target virtual addresses."""
+    yield from _scan_immediates(_AMD64_MOV_XREFS_RE, buf, "<Q", 0, rip_relative=False)
+
+
+def _iter_section_xrefs(pe: pefile.PE, amd64_scan, i386_scan) -> Iterable[VA]:
     """
-    scan the given data found at the given base address
-    to find all the 64-bit MOV instructions,
-    extracting the target virtual address.
-    """
-    mov_insn_re = re.compile(
-        rb"""
-        (
-              \x48 \xC7 \xC0       # 48 c7 c0 aa aa 00 00       mov    rax,0xaaaa
-            | \x48 \xC7 \xC1       # 48 c7 c1 aa aa 00 00       mov    rcx,0xaaaa
-            | \x48 \xC7 \xC2       # 48 c7 c2 aa aa 00 00       mov    rdx,0xaaaa
-            | \x48 \xC7 \xC3       # 48 c7 c3 aa aa 00 00       mov    rbx,0xaaaa
-            | \x48 \xC7 \xC5       # 48 c7 c5 aa aa 00 00       mov    rbp,0xaaaa
-            | \x48 \xC7 \xC6       # 48 c7 c6 aa aa 00 00       mov    rsi,0xaaaa
-            | \x48 \xC7 \xC7       # 48 c7 c7 aa aa 00 00       mov    rdi,0xaaaa
-        )
-        (?P<address>....)
-        """,
-        re.DOTALL + re.VERBOSE,
-    )
-
-    for match in mov_insn_re.finditer(buf):
-        address_bytes = match.group("address")
-        address = struct.unpack("<Q", address_bytes)[0]
-
-        yield address
-
-
-def find_mov_xrefs(pe: pefile.PE) -> Iterable[VA]:
-    """
-    scan the executable sections of the given PE file
-    for MOV instructions that reference valid memory addresses,
-    yielding the virtual addresses.
+    scan the executable sections of the given PE file with the arch-specific
+    scanner, yielding targets that fall within the image range.
     """
     low, high = get_image_range(pe)
 
@@ -312,15 +222,30 @@ def find_mov_xrefs(pe: pefile.PE) -> Iterable[VA]:
         code = section.get_data()
 
         if pe.FILE_HEADER.Machine == pefile.MACHINE_TYPE["IMAGE_FILE_MACHINE_AMD64"]:
-            xrefs = find_amd64_mov_xrefs(code)
+            xrefs = amd64_scan(code, section.VirtualAddress + pe.OPTIONAL_HEADER.ImageBase)
         elif pe.FILE_HEADER.Machine == pefile.MACHINE_TYPE["IMAGE_FILE_MACHINE_I386"]:
-            xrefs = find_i386_mov_xrefs(code)
+            xrefs = i386_scan(code)
         else:
             raise ValueError("unhandled architecture")
 
         for xref in xrefs:
             if low <= xref < high:
                 yield xref
+
+
+def find_lea_xrefs(pe: pefile.PE) -> Iterable[VA]:
+    """scan the executable sections for LEA instructions that reference valid addresses."""
+    yield from _iter_section_xrefs(pe, find_amd64_lea_xrefs, find_i386_lea_xrefs)
+
+
+def find_push_xrefs(pe: pefile.PE) -> Iterable[VA]:
+    """scan the executable sections for PUSH instructions that reference valid addresses."""
+    yield from _iter_section_xrefs(pe, find_amd64_push_xrefs, find_i386_push_xrefs)
+
+
+def find_mov_xrefs(pe: pefile.PE) -> Iterable[VA]:
+    """scan the executable sections for MOV instructions that reference valid addresses."""
+    yield from _iter_section_xrefs(pe, find_amd64_mov_xrefs, find_i386_mov_xrefs)
 
 
 def get_max_section_size(pe: pefile.PE) -> int:
