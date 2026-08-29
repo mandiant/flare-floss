@@ -341,7 +341,8 @@ def log_result(decoded_string, verbosity):
         )
     else:
         # StackString and its TightString subclass
-        assert isinstance(decoded_string, StackString)
+        if not isinstance(decoded_string, StackString):
+            raise ValueError("unknown decoded or extracted string type: %s" % type(decoded_string))
         logger.info(
             "%s [%s] in 0x%x at address 0x%x",
             string,
