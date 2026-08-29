@@ -41,9 +41,22 @@ import floss.language.utils
 import floss.language.go.extract
 import floss.language.rust.extract
 from floss.cli import WorkspaceLoadError
-from floss.const import MAX_FILE_SIZE
-from floss.utils import FileType, get_imagebase, detect_file_type, get_runtime_diff, get_vivisect_meta_info
-from floss.enrich import build_offset_index, is_structured_layout, enrich_static_strings, static_strings_from_layout
+from floss.const import (
+    MAX_FILE_SIZE,
+)
+from floss.utils import (
+    FileType,
+    get_imagebase,
+    detect_file_type,
+    get_runtime_diff,
+    get_vivisect_meta_info,
+)
+from floss.enrich import (
+    build_offset_index,
+    is_structured_layout,
+    enrich_static_strings,
+    static_strings_from_layout,
+)
 from floss.layout import Layout
 from floss.render import Verbosity
 from floss.results import Runtime, Analysis, Metadata, ResultLayout, ResultDocument
