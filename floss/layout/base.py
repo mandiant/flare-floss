@@ -263,16 +263,16 @@ class Layout(BaseModel, abc.ABC):
 
         return (check_is_xor_tagger, check_is_reloc_tagger, check_is_code_tagger)
 
-    def _mark_structures_with(self, structures, structures_by_address) -> None:
+    def _mark_structures_with(self, structures, structures_by_address, **kwargs) -> None:
         """mark structures on this node and recurse, threading ``structures_by_address``
         through the Section/Segment children (the layout types that represent
         binary sections)."""
         self._mark_string_structures((structures or ()) + (structures_by_address,))
         for child in self.children:
             if isinstance(child, (SectionLayout, SegmentLayout)):
-                child.mark_structures(structures=(structures or ()) + (structures_by_address,))
+                child.mark_structures(structures=(structures or ()) + (structures_by_address,), **kwargs)
             else:
-                child.mark_structures(structures=structures)
+                child.mark_structures(structures=structures, **kwargs)
 
 
 class SectionLayout(Layout):
@@ -307,7 +307,7 @@ class PELayout(Layout):
         )
 
     def mark_structures(self, structures=(), **kwargs):
-        self._mark_structures_with(structures, self.structures_by_address)
+        self._mark_structures_with(structures, self.structures_by_address, **kwargs)
 
 
 class ELFLayout(Layout):
@@ -327,7 +327,7 @@ class ELFLayout(Layout):
         )
 
     def mark_structures(self, structures: Optional[Tuple[Dict[int, Structure], ...]] = (), **kwargs):
-        self._mark_structures_with(structures, self.structures_by_address)
+        self._mark_structures_with(structures, self.structures_by_address, **kwargs)
 
 
 class ResourceLayout(Layout):
