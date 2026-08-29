@@ -407,6 +407,18 @@ class SnprintfHook:
         return False
 
 
+class PrintfHook:
+    # TODO disabled for now as incomplete (need to implement string format) and could result in FP strings as is
+    def __call__(self, emu, api, argv):
+        # TODO vfprintf, vfwprintf, vfprintf_s, vfwprintf_s, vsnprintf, vsnwprintf, etc.
+        if fu.contains_funcname(api, ("vsprintf", "vswprintf", "wvsprintfA")):
+            buf, format_, *va_list = argv
+            format_str = fu.readStringAtRva(emu, format_, maxsize=MAX_STR_SIZE)
+            emu.writeMemory(buf, format_str)
+            fu.call_return(emu, api, argv, buf)
+            return True
+
+
 class ExitExceptionHook:
     def __call__(self, emu, api, argv):
         if fu.contains_funcname(api, ("ExitProcess", "RaiseException")):
@@ -472,6 +484,7 @@ DEFAULT_HOOKS = (
     MemchrHook(),
     MemsetHook(),
     SnprintfHook(),
+    # PrintfHook(), currently disabled, see comments above
     StrncmpHook(),
     GetLastErrorHook(),
     GetCurrentProcessHook(),
