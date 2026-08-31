@@ -7,6 +7,7 @@ from fixtures import exefile
 
 import floss.main
 import floss.utils
+import floss.pipeline
 
 # floss --no-string-type static -j tests/data/src/decode-in-place/bin/test-decode-in-place.exe
 RESULTS = textwrap.dedent("""
@@ -90,6 +91,14 @@ RESULTS = textwrap.dedent("""
     }
 }
 """)
+
+
+def test_load_vw_ignores_adjacent_viv(tmp_path, exefile):
+    sample = tmp_path / "sample.exe"
+    sample.write_bytes(Path(exefile).read_bytes())
+    sample.with_suffix(".exe.viv").write_bytes(b"not a workspace")
+    vw = floss.pipeline.load_vw(sample, "auto", [])
+    assert vw.getFunctions()
 
 
 def test_load(tmp_path):

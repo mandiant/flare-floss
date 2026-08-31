@@ -137,6 +137,18 @@ def select_functions(vw, asked_functions: Optional[List[int]]) -> Set[int]:
     return asked_functions_
 
 
+def _load_workspace_from_file(sample_path: Path) -> VivWorkspace:
+    # getWorkspace() implicitly loads adjacent .viv files; FLOSS must parse only the requested, untrusted sample.
+    vw = VivWorkspace()
+    vw.verbose = False
+    pe_config = vw.config.getSubConfig("viv").getSubConfig("parsers").getSubConfig("pe")
+    pe_config["loadresources"] = True
+    pe_config["nx"] = True
+    vw.loadFromFile(str(sample_path))
+    viv_utils.setVwVivisectLibraryVersion(vw)
+    return vw
+
+
 def load_vw(
     sample_path: Path,
     format: str,
@@ -161,7 +173,7 @@ def load_vw(
     elif format == "sc64":
         vw = viv_utils.getShellcodeWorkspaceFromFile(str(sample_path), arch="amd64", analyze=False)
     else:
-        vw = viv_utils.getWorkspace(str(sample_path), analyze=False, should_save=False)
+        vw = _load_workspace_from_file(sample_path)
 
     if file_type is FileType.PE:
         viv_utils.flirt.register_flirt_signature_analyzers(vw, list(map(str, sigpaths)))
