@@ -118,8 +118,13 @@ def _get_code_ranges(
             return None
 
     code_ranges: List[Tuple[int, int]] = []
+    seen_basic_blocks: Set[int] = set()
     for flow_graph in be2.flow_graph:
         for basic_block_index in flow_graph.basic_block_index:
+            if basic_block_index in seen_basic_blocks:
+                continue
+            seen_basic_blocks.add(basic_block_index)
+
             try:
                 basic_block = be2.basic_block[basic_block_index]
             except IndexError:

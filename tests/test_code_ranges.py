@@ -181,3 +181,28 @@ def test_get_code_ranges_handles_pe_error(mock_pe):
         (0x2000, 0x200F),
         (0x3000, 0x301F),
     ]
+
+
+def test_get_code_ranges_deduplicates_shared_basic_blocks(mock_pe):
+    """Test that basic blocks referenced in multiple flow graphs are only processed once."""
+    be2, idx = _make_be2_mocks(
+        [
+            [(0x401000, 0x10)],
+            [(0x401020, 0x15)],
+        ]
+    )
+
+    # Add a second flow graph that shares basic block 0 and basic block 1
+    fg2 = Mock()
+    fg2.basic_block_index = [0, 1]
+    be2.flow_graph.append(fg2)
+
+    slice_ = Slice(buf=b"", range=Range(offset=0, length=0x5000))
+
+    ranges = _get_code_ranges(be2, idx, 0x400000, mock_pe, slice_)
+
+    # Should only contain 2 ranges, not duplicated to 4
+    assert ranges == [
+        (0x2000, 0x200F),
+        (0x2020, 0x2034),
+    ]
