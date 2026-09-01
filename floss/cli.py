@@ -143,6 +143,9 @@ def make_parser():
           emit a concise summary instead of the full listing
             floss --summary suspicious.exe
 
+          emit a standalone HTML report
+            floss --html suspicious.exe > report.html
+
           extract strings from a binary written in Go (if automatic language identification fails)
             floss --language go program.exe
 
@@ -348,6 +351,11 @@ def make_parser():
 
     output_group = parser.add_argument_group("rendering arguments")
     output_group.add_argument("-j", "--json", action="store_true", help="emit JSON instead of text")
+    output_group.add_argument(
+        "--html",
+        action="store_true",
+        help="emit a standalone HTML report instead of text",
+    )
     output_group.add_argument(
         "--summary",
         action="store_true",
