@@ -9,6 +9,7 @@ This is a web-based viewer for analyzing the output of the `floss` tool. It allo
 - Toggle display of columns (tags, encoding, offset/structure).
 - Copy filtered strings to the clipboard.
 - Download the viewer itself as a standalone HTML file for offline use (download icon in the header). The saved file is fully self-contained and can be opened directly in a browser without an internet connection. The file is named after the viewer version, the commit date, and the git commit it was built from (e.g. `floss-viewer-3.1.1-26-08-24-abc1234.html`).
+- Preload results from `window.flossResults`. FLOSS `--html` fills this from the built `dist/index.html` template so the report opens with results already loaded. Leave it `null` for the hosted viewer and the Download-viewer copy.
 
 ## Development
 
