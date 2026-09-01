@@ -20,6 +20,7 @@
 # See the License for the specific language governing permissions and limitations under the License.
 
 import sys
+import json
 import subprocess
 from pathlib import Path
 from functools import lru_cache
@@ -66,3 +67,35 @@ def test_disassembler_scripts(script, args):
     script_path = get_disassembler_script_path(script)
     p = run_program(script_path, args)
     assert p.returncode == 0
+
+
+def make_result_document(path: Path, address_type: str) -> Path:
+    """Write a minimal result document holding one decoded string."""
+    document = {
+        "metadata": {"file_path": "fixture.exe"},
+        "strings": {
+            "decoded_strings": [
+                {
+                    "address": 4096,
+                    "address_type": address_type,
+                    "string": "DECODED_TEST",
+                    "encoding": "ASCII",
+                    "decoded_at": 4199808,
+                    "decoding_routine": 4199654,
+                }
+            ]
+        },
+    }
+    path.write_text(json.dumps(document))
+    return path
+
+
+@pytest.mark.parametrize("address_type", ["GLOBAL", "STACK"])
+def test_ghidra_script_parses(tmp_path, address_type):
+    """The generated Ghidra script has to be valid Python, not just render cleanly."""
+    results = make_result_document(tmp_path / f"{address_type.lower()}.json", address_type)
+
+    p = run_program(get_disassembler_script_path("render-ghidra-import-script.py"), [str(results)])
+
+    assert p.returncode == 0
+    compile(p.stdout.decode("utf-8"), "apply_floss.py", "exec")
