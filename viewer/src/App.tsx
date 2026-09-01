@@ -381,7 +381,7 @@ const App: React.FC = () => {
     handleRef.current?.classList.add('dragging');
   }, []);
 
-  const processData = (jsonData: ResultDocument) => {
+  const processData = useCallback((jsonData: ResultDocument) => {
     setData(jsonData);
     setSearchTerm('');
     setShowUntagged(true);
@@ -408,7 +408,14 @@ const App: React.FC = () => {
     );
     setSelectedTags(defaultTags);
     setSelectedStructures(Array.from(allStructures));
-  }
+  }, []);
+
+  useEffect(() => {
+    const embedded = window.flossResults;
+    if (embedded == null) return;
+    const normalized = normalizeDocument(embedded);
+    if (normalized) processData(normalized);
+  }, [processData]);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
@@ -433,7 +440,7 @@ const App: React.FC = () => {
       alert("Failed to read the file.");
     };
     reader.readAsText(file);
-  }, []);
+  }, [processData]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -920,6 +927,11 @@ const App: React.FC = () => {
                     <code>floss -j /path/to/file &gt; results.json</code>
                   </li>
                   <li>Load the JSON results file into the viewer (drag and drop or Upload)</li>
+                  <li>
+                    Or emit a standalone HTML report and open it in a browser:
+                    <br />
+                    <code>floss --html /path/to/file &gt; report.html</code>
+                  </li>
                 </ol>
                 <p className="landing-steps-more">
                   For more detailed information, explore the{' '}
