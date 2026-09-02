@@ -202,7 +202,7 @@ filter by tag, structure, or search term, and copy the strings you keep. See
 ### Write a standalone HTML report (`--html`)
 
 Write a self-contained HTML file that opens in a browser with the results already
-loaded. `--html` cannot be combined with `-j/--json`.
+loaded.
 
     floss.exe --html malware.exe > malware_strings.html
 
