@@ -36,4 +36,4 @@ npm run lint
 npm run build
 ```
 
-This will create a single, self-contained HTML file in the `dist` directory. This file can be opened directly in a browser or hosted on a web server. `floss --html` reads that same file. Source checkouts need this build. The pip package and standalone executable copy it in at package/build time, so it is not committed.
+This will create a single, self-contained HTML file in the `dist` directory and copy it to `floss/render/templates/index.html`. That copy is what `floss --html` reads for source checkouts, pip, and the standalone executable. Do not commit it.

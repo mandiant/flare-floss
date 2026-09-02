@@ -14,7 +14,6 @@
 
 """Standalone HTML report renderer and --html CLI."""
 
-import sys
 from pathlib import Path
 
 import pytest
@@ -127,24 +126,10 @@ def test_html_missing_template_cli(exefile, tmp_path, monkeypatch, capsys):
     assert "HTML template not found" in captured.out + captured.err
 
 
-def test_html_template_path_from_source():
-    """source checkouts use viewer/dist; a pip wheel may ship templates/index.html."""
+def test_html_template_path_is_next_to_renderer():
+    """pip, source, and the standalone exe all use floss/render/templates/index.html."""
     path = floss.render.html.get_html_template_path()
-    repo = Path(floss.render.html.__file__).resolve().parent.parent.parent
-    packaged = Path(floss.render.html.__file__).resolve().parent / "templates" / "index.html"
-    built = repo / "viewer" / "dist" / "index.html"
-    assert path in (packaged, built)
-
-
-def test_html_template_path_standalone(tmp_path, monkeypatch):
-    """PyInstaller layout: _MEIPASS/viewer/dist/index.html."""
-    bundled = tmp_path / "viewer" / "dist"
-    bundled.mkdir(parents=True)
-    (bundled / "index.html").write_text(MINIMAL_TEMPLATE, encoding="utf-8")
-    monkeypatch.setattr(sys, "frozen", True, raising=False)
-    monkeypatch.setattr(sys, "_MEIPASS", str(tmp_path), raising=False)
-    assert floss.render.html.get_html_template_path() == bundled / "index.html"
-    assert floss.render.html.require_html_template() == bundled / "index.html"
+    assert path == Path(floss.render.html.__file__).resolve().parent / "templates" / "index.html"
 
 
 def test_html_from_sample(exefile, tmp_path, monkeypatch, capsys):

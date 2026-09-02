@@ -21,7 +21,6 @@ no local server is required.
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
 import floss.render.json
@@ -36,20 +35,12 @@ class HtmlTemplateError(ValueError):
 
 
 def get_html_template_path() -> Path:
-    """path to the pre-built viewer HTML.
+    """path to the pre-built viewer HTML, always next to this module.
 
-    under PyInstaller this is ``_MEIPASS/viewer/dist/index.html``.
-    a pip wheel may ship a copy next to this module at ``templates/index.html``.
-    a source checkout uses ``viewer/dist/index.html`` after ``npm run build``.
+    pip, a source checkout, and the PyInstaller exe all use
+    ``floss/render/templates/index.html``.
     """
-    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
-        root = Path(getattr(sys, "_MEIPASS"))
-        return root / "viewer" / "dist" / "index.html"
-    packaged = Path(__file__).resolve().parent / "templates" / "index.html"
-    if packaged.is_file():
-        return packaged
-    repo_root = Path(__file__).resolve().parent.parent.parent
-    return repo_root / "viewer" / "dist" / "index.html"
+    return Path(__file__).resolve().parent / "templates" / "index.html"
 
 
 def require_html_template() -> Path:

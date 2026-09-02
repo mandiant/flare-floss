@@ -56,7 +56,7 @@ datas = [
     # i.e. ./.github/pyinstaller
     ('../../floss/sigs', 'sigs'),
     # pre-built HTML viewer used by ``floss --html`` (from ``npm run build``)
-    ('../../viewer/dist/index.html', 'viewer/dist'),
+    ('../../viewer/dist/index.html', 'floss/render/templates'),
     # tag databases
     ('../../floss/tags/data/crt/*.jsonl.gz', 'floss/tags/data/crt'),
     ('../../floss/tags/data/expert/*.jsonl', 'floss/tags/data/expert'),
