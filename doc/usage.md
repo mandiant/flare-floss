@@ -208,8 +208,9 @@ loaded. `--html` cannot be combined with `-j/--json`.
 
 The report is a copy of the [web viewer](https://mandiant.github.io/flare-floss/)
 with the result document embedded. Interactive exploration of the data happens in the browser, the same
-way it does when you upload JSON to the hosted viewer. The viewer template is
-included with the pip package and the standalone executable.
+way it does when you upload JSON to the hosted viewer. The pip package and
+standalone executable include the viewer. From a source checkout, build it first
+with `cd viewer && npm install && npm run build`.
 
 `--html` also works on a saved results document:
 

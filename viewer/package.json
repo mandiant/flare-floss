@@ -7,7 +7,7 @@
   },
   "scripts": {
     "dev": "node scripts/generate-version.mjs && vite",
-    "build": "node scripts/generate-version.mjs && tsc -b && vite build && node -e \"require('fs').copyFileSync('dist/index.html','../floss/render/templates/index.html')\"",
+    "build": "node scripts/generate-version.mjs && tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
   },
