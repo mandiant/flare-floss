@@ -96,6 +96,14 @@ def test_html_missing_placeholder():
         floss.render.html.render(_doc_with_string("x"), template="<html></html>")
 
 
+def test_html_require_rejects_missing_placeholder(tmp_path, monkeypatch):
+    path = tmp_path / "index.html"
+    path.write_text("<html></html>", encoding="utf-8")
+    monkeypatch.setattr(floss.render.html, "get_html_template_path", lambda: path)
+    with pytest.raises(floss.render.html.HtmlTemplateError, match="placeholder"):
+        floss.render.html.require_html_template()
+
+
 def test_html_missing_template_file(tmp_path, monkeypatch):
     missing = tmp_path / "viewer" / "dist" / "index.html"
     monkeypatch.setattr(floss.render.html, "get_html_template_path", lambda: missing)

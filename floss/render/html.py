@@ -50,12 +50,15 @@ def get_html_template_path() -> Path:
 
 
 def require_html_template() -> Path:
-    """return the template path, or raise if the built viewer is not present."""
+    """return the template path, or raise if it is missing or not a valid viewer."""
     path = get_html_template_path()
     if not path.is_file():
         raise HtmlTemplateError(
             "HTML template not found at %s. Build the viewer:\n  cd viewer && npm install && npm run build" % path
         )
+    text = path.read_text(encoding="utf-8")
+    if RESULTS_PLACEHOLDER not in text:
+        raise HtmlTemplateError("HTML template is missing the FLOSS_RESULTS placeholder")
     return path
 
 

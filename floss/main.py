@@ -272,11 +272,7 @@ def main(argv=None) -> int:
         if args.json:
             r = floss.render.json.render(results)
         elif args.html:
-            try:
-                r = floss.render.html.render(results)
-            except floss.render.html.HtmlTemplateError as e:
-                report_error(parser, str(e))
-                return -1
+            r = floss.render.html.render(results)
         else:
             r = render_text(args, results, stream=sys.stdout)
 
@@ -318,11 +314,7 @@ def main(argv=None) -> int:
         r = floss.render.json.render(analysis_results)
     elif args.html:
         logger.info("rendering results")
-        try:
-            r = floss.render.html.render(analysis_results)
-        except floss.render.html.HtmlTemplateError as e:
-            report_error(parser, str(e))
-            return -1
+        r = floss.render.html.render(analysis_results)
     else:
         # this may be slow when there's many strings, so informing users what's happening
         logger.info("rendering results")
