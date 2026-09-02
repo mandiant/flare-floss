@@ -313,11 +313,8 @@ def main(argv=None) -> int:
     if args.json:
         r = floss.render.json.render(analysis_results)
     elif args.html:
-        logger.info("rendering results")
         r = floss.render.html.render(analysis_results)
     else:
-        # this may be slow when there's many strings, so informing users what's happening
-        logger.info("rendering results")
         r = render_text(args, analysis_results, stream=sys.stdout)
 
     if r:
