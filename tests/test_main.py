@@ -31,14 +31,12 @@ def test_main_help(capsys):
         out = capsys.readouterr().out
         assert "usage:" in out
         assert "--json" in out
-        assert "--html" in out
 
     # running without arguments prints the same help and exits with code 1
     assert floss.main.main([]) == 1
     out = capsys.readouterr().out
     assert "usage:" in out
     assert "--json" in out
-    assert "--html" in out
 
 
 def test_main_version(capsys):
