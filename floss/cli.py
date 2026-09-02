@@ -354,7 +354,7 @@ def make_parser():
     output_group.add_argument(
         "--html",
         action="store_true",
-        help="emit a standalone HTML report instead of text",
+        help="emit a standalone HTML report instead of text; cannot be combined with -j/--json",
     )
     output_group.add_argument(
         "--summary",
