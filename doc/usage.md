@@ -207,7 +207,7 @@ loaded. `--html` cannot be combined with `-j/--json`.
     floss.exe --html malware.exe > malware_strings.html
 
 The report is a copy of the [web viewer](https://mandiant.github.io/flare-floss/)
-with the result document embedded. Filtering happens in the browser, the same
+with the result document embedded. Interactive exploration of the data happens in the browser, the same
 way it does when you upload JSON to the hosted viewer. The viewer template is
 included with the pip package and the standalone executable.
 
