@@ -51,16 +51,21 @@ with open("./floss/version.py", "wb") as f:
     )
     f.write(("__version__ = '%s'" % version).encode("utf-8"))
 
-if not Path("viewer/dist/index.html").is_file():
-    raise SystemExit("missing viewer/dist/index.html; run: cd viewer && npm install && npm run build")
-
 datas = [
     # when invoking pyinstaller from the project root,
     # this gets invoked from the directory of the spec file,
     # i.e. ./.github/pyinstaller
     ('../../floss/sigs', 'sigs'),
+]
+if Path("viewer/dist/index.html").is_file():
     # pre-built HTML viewer used by ``floss --html`` (from ``npm run build``)
-    ('../../viewer/dist/index.html', 'floss/render/templates'),
+    datas.append(('../../viewer/dist/index.html', 'floss/render/templates'))
+else:
+    print(
+        "WARNING: missing viewer/dist/index.html; the standalone binary will not support --html. "
+        "Build the viewer with: cd viewer && npm install && npm run build"
+    )
+datas += [
     # tag databases
     ('../../floss/tags/data/crt/*.jsonl.gz', 'floss/tags/data/crt'),
     ('../../floss/tags/data/expert/*.jsonl', 'floss/tags/data/expert'),
