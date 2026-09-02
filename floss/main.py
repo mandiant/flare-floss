@@ -269,16 +269,16 @@ def main(argv=None) -> int:
                 logger.error("%s", e)
             return -1
 
-        try:
-            if args.json:
-                r = floss.render.json.render(results)
-            elif args.html:
+        if args.json:
+            r = floss.render.json.render(results)
+        elif args.html:
+            try:
                 r = floss.render.html.render(results)
-            else:
-                r = render_text(args, results, stream=sys.stdout)
-        except floss.render.html.HtmlTemplateError as e:
-            report_error(parser, str(e))
-            return -1
+            except floss.render.html.HtmlTemplateError as e:
+                report_error(parser, str(e))
+                return -1
+        else:
+            r = render_text(args, results, stream=sys.stdout)
 
         if r:
             print(r)
@@ -314,19 +314,19 @@ def main(argv=None) -> int:
     if analysis_results is None:
         return 0
 
-    try:
-        if args.json:
-            r = floss.render.json.render(analysis_results)
-        elif args.html:
-            logger.info("rendering results")
+    if args.json:
+        r = floss.render.json.render(analysis_results)
+    elif args.html:
+        logger.info("rendering results")
+        try:
             r = floss.render.html.render(analysis_results)
-        else:
-            # this may be slow when there's many strings, so informing users what's happening
-            logger.info("rendering results")
-            r = render_text(args, analysis_results, stream=sys.stdout)
-    except floss.render.html.HtmlTemplateError as e:
-        report_error(parser, str(e))
-        return -1
+        except floss.render.html.HtmlTemplateError as e:
+            report_error(parser, str(e))
+            return -1
+    else:
+        # this may be slow when there's many strings, so informing users what's happening
+        logger.info("rendering results")
+        r = render_text(args, analysis_results, stream=sys.stdout)
 
     if r:
         print(r)
