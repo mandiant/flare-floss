@@ -14,6 +14,9 @@
 
 """Standalone HTML report renderer and --html CLI."""
 
+import sys
+from pathlib import Path
+
 import pytest
 from fixtures import exefile
 
@@ -116,25 +119,40 @@ def test_html_missing_template_cli(exefile, tmp_path, monkeypatch, capsys):
     assert "HTML template not found" in captured.out + captured.err
 
 
-def test_html_from_sample(exefile, tmp_path, monkeypatch, capsys):
-    template_path = tmp_path / "index.html"
-    template_path.write_text(MINIMAL_TEMPLATE, encoding="utf-8")
-    monkeypatch.setattr(floss.render.html, "get_html_template_path", lambda: template_path)
+def test_html_template_ships_with_package():
+    """pip and source installs both load the template next to the renderer."""
+    path = floss.render.html.get_html_template_path()
+    assert path == Path(floss.render.html.__file__).resolve().parent / "templates" / "index.html"
+    assert path.is_file()
+    assert floss.render.html.RESULTS_PLACEHOLDER in path.read_text(encoding="utf-8")
+
+
+def test_html_template_path_standalone(tmp_path, monkeypatch):
+    """PyInstaller layout: _MEIPASS/viewer/dist/index.html."""
+    bundled = tmp_path / "viewer" / "dist"
+    bundled.mkdir(parents=True)
+    (bundled / "index.html").write_text(MINIMAL_TEMPLATE, encoding="utf-8")
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(sys, "_MEIPASS", str(tmp_path), raising=False)
+    assert floss.render.html.get_html_template_path() == bundled / "index.html"
+    assert floss.render.html.require_html_template() == bundled / "index.html"
+
+
+def test_html_from_sample(exefile, capsys):
+    """end-to-end --html from a source/package install using the shipped template."""
     assert floss.main.main([exefile, "--html", "--string-type", "static"]) == 0
     out = capsys.readouterr().out
     assert "window.flossResults =" in out
     assigned = out.split("window.flossResults = ", 1)[1].split("; /* FLOSS_RESULTS */", 1)[0]
     assert assigned.startswith("{")
     assert "test-decode-in-place.exe" in out
+    assert floss.render.html.RESULTS_PLACEHOLDER not in out
 
 
-def test_html_from_results_json(tmp_path, monkeypatch, capsys):
+def test_html_from_results_json(tmp_path, capsys):
     doc = _doc_with_string("kernel32.dll")
     json_path = tmp_path / "results.json"
     json_path.write_text(floss.render.json.render(doc), encoding="utf-8")
-    template_path = tmp_path / "index.html"
-    template_path.write_text(MINIMAL_TEMPLATE, encoding="utf-8")
-    monkeypatch.setattr(floss.render.html, "get_html_template_path", lambda: template_path)
 
     assert floss.main.main([str(json_path), "--html"]) == 0
     out = capsys.readouterr().out

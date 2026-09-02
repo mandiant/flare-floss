@@ -208,7 +208,8 @@ loaded. `--html` cannot be combined with `-j/--json`.
 
 The report is a copy of the [web viewer](https://mandiant.github.io/flare-floss/)
 with the result document embedded. Filtering happens in the browser, the same
-way it does when you upload JSON to the hosted viewer.
+way it does when you upload JSON to the hosted viewer. The viewer template is
+included with the pip package and the standalone executable.
 
 `--html` also works on a saved results document:
 

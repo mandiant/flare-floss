@@ -39,13 +39,14 @@ def get_html_template_path() -> Path:
     """path to the pre-built viewer HTML.
 
     under PyInstaller this is ``_MEIPASS/viewer/dist/index.html``.
-    in a source checkout it is ``<repo>/viewer/dist/index.html``.
+    otherwise it is the copy shipped with the ``floss`` package
+    (``floss/render/templates/index.html``), which pip and source checkouts
+    both use.
     """
     if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
         root = Path(getattr(sys, "_MEIPASS"))
         return root / "viewer" / "dist" / "index.html"
-    repo_root = Path(__file__).resolve().parent.parent.parent
-    return repo_root / "viewer" / "dist" / "index.html"
+    return Path(__file__).resolve().parent / "templates" / "index.html"
 
 
 def require_html_template() -> Path:

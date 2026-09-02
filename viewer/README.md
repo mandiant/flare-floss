@@ -36,4 +36,4 @@ npm run lint
 npm run build
 ```
 
-This will create a single, self-contained HTML file in the `dist` directory. This file can be opened directly in a browser or hosted on a web server.
+This will create a single, self-contained HTML file in the `dist` directory. This file can be opened directly in a browser or hosted on a web server. The build also copies that file to `floss/render/templates/index.html`, which is what `floss --html` ships in the pip package and the standalone executable. Commit the updated template with the viewer change.

@@ -1,3 +1,4 @@
 include LICENSE.txt
 graft floss/sigs
 graft floss/tags/data
+include floss/render/templates/index.html

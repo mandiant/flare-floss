@@ -55,6 +55,8 @@ datas = [
     # this gets invoked from the directory of the spec file,
     # i.e. ./.github/pyinstaller
     ('../../floss/sigs', 'sigs'),
+    # pre-built HTML viewer used by ``floss --html``
+    ('../../floss/render/templates/index.html', 'viewer/dist'),
     # tag databases
     ('../../floss/tags/data/crt/*.jsonl.gz', 'floss/tags/data/crt'),
     ('../../floss/tags/data/expert/*.jsonl', 'floss/tags/data/expert'),
