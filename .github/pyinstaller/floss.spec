@@ -15,6 +15,7 @@
 
 
 import subprocess
+from pathlib import Path
 
 from PyInstaller.utils.hooks import collect_submodules
 
@@ -49,6 +50,9 @@ with open("./floss/version.py", "wb") as f:
         .replace("tags/", "")
     )
     f.write(("__version__ = '%s'" % version).encode("utf-8"))
+
+if not Path("viewer/dist/index.html").is_file():
+    raise SystemExit("missing viewer/dist/index.html; run: cd viewer && npm install && npm run build")
 
 datas = [
     # when invoking pyinstaller from the project root,
