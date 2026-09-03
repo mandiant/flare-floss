@@ -157,3 +157,57 @@ impl StringHashDatabase {
         self.string_hashes.contains(&hash)
     }
 }
+
+pub struct TaggedString {
+    pub offset: usize,
+    pub length: usize,
+    pub string: String,
+    pub encoding: crate::strings::StringEncoding,
+    pub tags: HashSet<String>,
+    pub structure: String,
+}
+
+use std::ops::Range;
+
+pub fn ranges_overlap(r1: &Range<usize>, r2: &Range<usize>) -> bool {
+    r1.start < r2.end && r2.start < r1.end
+}
+
+pub fn tag_strings(
+    strings: &[crate::strings::StaticString],
+    code_ranges: &[Range<usize>],
+    // reloc_ranges: &[Range<usize>], // TODO
+    layout: &crate::layout::Layout,
+    // TODO: Pass databases
+) -> Vec<TaggedString> {
+    let mut tagged_strings = Vec::new();
+
+    for s in strings {
+        let mut tags = HashSet::new();
+        let s_range = s.offset..(s.offset + s.length);
+
+        // 1. Layout derived tags
+        // #code
+        if code_ranges.iter().any(|r| ranges_overlap(&s_range, r)) {
+            tags.insert("#code".to_string());
+        }
+
+        // #decoded if xor_key is present
+        if layout.xor_key.is_some() {
+            tags.insert("#decoded".to_string());
+        }
+
+        // 2. Database derived tags (TODO)
+
+        tagged_strings.push(TaggedString {
+            offset: s.offset,
+            length: s.length,
+            string: s.string.to_string(),
+            encoding: s.encoding,
+            tags,
+            structure: String::new(), // TODO
+        });
+    }
+
+    tagged_strings
+}

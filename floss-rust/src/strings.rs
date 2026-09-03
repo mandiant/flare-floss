@@ -3,6 +3,7 @@ use std::borrow::Cow;
 pub struct StaticString<'a> {
     pub string: Cow<'a, str>,
     pub offset: usize,
+    pub length: usize, // Byte length in file
     pub encoding: StringEncoding,
 }
 
@@ -56,6 +57,7 @@ pub fn extract_ascii_strings<'a>(buf: &'a [u8], min_length: usize) -> Vec<Static
                     strings.push(StaticString {
                         string: Cow::Borrowed(s),
                         offset: start,
+                        length,
                         encoding: StringEncoding::ASCII,
                     });
                 }
@@ -72,6 +74,7 @@ pub fn extract_ascii_strings<'a>(buf: &'a [u8], min_length: usize) -> Vec<Static
             strings.push(StaticString {
                 string: Cow::Borrowed(s),
                 offset: start,
+                length,
                 encoding: StringEncoding::ASCII,
             });
         }
@@ -110,6 +113,7 @@ pub fn extract_unicode_strings<'a>(buf: &'a [u8], min_length: usize) -> Vec<Stat
                     strings.push(StaticString {
                         string: Cow::Owned(s),
                         offset: start,
+                        length: j - start, // Byte length
                         encoding: StringEncoding::UTF16LE,
                     });
                 }
