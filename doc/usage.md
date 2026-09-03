@@ -199,6 +199,23 @@ The easiest way to explore this output is the hosted
 filter by tag, structure, or search term, and copy the strings you keep. See
 [results_document.md](results_document.md) for the schema itself.
 
+### Write a standalone HTML report (`--html`)
+
+Write a self-contained HTML file that opens in a browser with the results already
+loaded.
+
+    floss.exe --html malware.exe > malware_strings.html
+
+The report is a copy of the [web viewer](https://mandiant.github.io/flare-floss/)
+with the result document embedded. Interactive exploration of the data happens in the browser, the same
+way it does when you upload JSON to the hosted viewer. The pip package and
+standalone executable include the viewer. From a source checkout, build it first
+with `cd viewer && npm install && npm run build`.
+
+`--html` also works on a saved results document:
+
+    floss.exe --html malware_strings.json > malware_strings.html
+
 ### Load FLOSS results (automatic)
 
 Loading a saved FLOSS results JSON document is automatic and detected from the file

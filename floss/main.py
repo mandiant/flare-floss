@@ -23,6 +23,7 @@ import rich.traceback
 import floss.cache
 import floss.results
 import floss.logging_
+import floss.render.html
 import floss.render.json
 import floss.render.default
 import floss.render.summary
@@ -159,6 +160,8 @@ def main(argv=None) -> int:
                 # --summary is its own static-only view; reject any string-type
                 # selection rather than accepting shadow args
                 parser.error("--summary only covers static strings and does not take --string-type/--no-string-type")
+        if args.json and args.html:
+            parser.error("--json and --html cannot be combined")
         if args.max_strings is not None and args.max_strings <= 0:
             parser.error("--max-strings must be a positive integer")
         for pattern in args.queries:
@@ -171,6 +174,13 @@ def main(argv=None) -> int:
         return -1
 
     set_log_config(args.debug, args.quiet)
+
+    if args.html:
+        try:
+            floss.render.html.require_html_template()
+        except floss.render.html.HtmlTemplateError as e:
+            report_error(parser, str(e))
+            return -1
 
     # caching applies to the default analysis variant only: an explicit format,
     # language, or custom signatures change the analysis, so the content-
@@ -261,6 +271,8 @@ def main(argv=None) -> int:
 
         if args.json:
             r = floss.render.json.render(results)
+        elif args.html:
+            r = floss.render.html.render(results)
         else:
             r = render_text(args, results, stream=sys.stdout)
 
@@ -300,6 +312,8 @@ def main(argv=None) -> int:
 
     if args.json:
         r = floss.render.json.render(analysis_results)
+    elif args.html:
+        r = floss.render.html.render(analysis_results)
     else:
         # this may be slow when there's many strings, so informing users what's happening
         logger.info("rendering results")

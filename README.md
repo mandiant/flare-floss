@@ -111,9 +111,14 @@ For detailed description of these scripts review the documentation [here](script
 ## Graphical viewer
 Explore `floss -j` output in the hosted [web viewer](https://mandiant.github.io/flare-floss/):
 upload the JSON, filter strings by search term, minimum length, tags, or
-structures, and copy what you keep. You can also build it yourself into a single,
-self-contained offline HTML file that opens directly in a browser, see
-[viewer/README.md](viewer/README.md).
+structures, and copy what you keep.
+
+Emit a standalone HTML report directly and open it in a browser:
+
+    floss --html malware.exe > report.html
+
+You can also build the viewer yourself into a single, self-contained offline HTML
+file, see [viewer/README.md](viewer/README.md).
 
 ## Documentation
 

@@ -127,7 +127,7 @@ pythonpath = ["."]
 include = ["floss*"]
 
 [tool.setuptools.package-data]
-"floss" = ["sigs/*", "tags/data/**/*"]
+"floss" = ["sigs/*", "tags/data/**/*", "render/templates/index.html"]
 
 [project.optional-dependencies]
 # Dev and build dependencies are not relaxed because
