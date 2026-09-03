@@ -74,6 +74,7 @@ Implement a high-performance Rust module to replace FLOSS's current Python-based
 ### Comprehensive Parity Verification
 *   **Full Parity Goal:** Achieve **zero diffs** between the Rust module and current FLOSS running with `--string-type static --json` (which implies `--no-decoded-strings --no-stack-strings --no-tight-strings`).
 *   **Automated Diffing:** Implement a test script/harness to run both versions on a set of test binaries (e.g., in `tests/data/`) and diff the structured JSON output (`ResultDocument`).
+*   **Large Scale Verification:** Utilize the larger corpus of binaries present in `runs/` (e.g., `runs/run_20260623_215319_202507080000_202606222359/samples`) to verify parity at scale and identify edge cases.
 *   **Compatibility Matrix:** Verify parity across PE and ELF file formats.
 
 ### Performance Benchmarking
