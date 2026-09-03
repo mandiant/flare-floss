@@ -43,7 +43,7 @@ pydantic==2.13.1
 # so we rely on pydantic to pull in the right version of pydantic-core.
 # pydantic-core==2.27.1
 pyelftools==0.31
-pygments==2.20.0
+pygments==2.21.0
 pytest==9.1.0
 pytest-cov==7.1.0
 pytest-instafail==0.5.0
