@@ -51,13 +51,9 @@ impl ExpertStringDatabase {
                 "regex" => {
                     if let Ok(re) = regex::Regex::new(&rule.value) {
                         regex_rules.push((rule, re));
-                    } else {
-                        // TODO: Log invalid regex
                     }
                 }
-                _ => {
-                    // TODO: Log unknown rule type
-                }
+                _ => {}
             }
         }
 
@@ -120,7 +116,7 @@ impl OpenSourceStringDatabase {
             }
 
             let s: OpenSourceString = serde_json::from_str(&line)?;
-            metadata_by_string.insert(s.string.clone(), s);
+            metadata_by_string.insert(s.string.to_string(), s);
         }
 
         Ok(OpenSourceStringDatabase { metadata_by_string })
@@ -158,16 +154,9 @@ impl StringHashDatabase {
     }
 }
 
-pub struct TaggedString {
-    pub offset: usize,
-    pub length: usize,
-    pub string: String,
-    pub encoding: crate::strings::StringEncoding,
-    pub tags: HashSet<String>,
-    pub structure: String,
-}
-
 use std::ops::Range;
+use crate::results::StaticString;
+use crate::results::StringEncoding;
 
 pub fn ranges_overlap(r1: &Range<usize>, r2: &Range<usize>) -> bool {
     r1.start < r2.end && r2.start < r1.end
@@ -176,10 +165,12 @@ pub fn ranges_overlap(r1: &Range<usize>, r2: &Range<usize>) -> bool {
 pub fn tag_strings(
     strings: &[crate::strings::StaticString],
     code_ranges: &[Range<usize>],
-    // reloc_ranges: &[Range<usize>], // TODO
+    reloc_ranges: &[Range<usize>],
     layout: &crate::layout::Layout,
-    // TODO: Pass databases
-) -> Vec<TaggedString> {
+    expert_db: Option<&ExpertStringDatabase>,
+    os_db: Option<&OpenSourceStringDatabase>,
+    gp_db: Option<&StringHashDatabase>,
+) -> Vec<StaticString> {
     let mut tagged_strings = Vec::new();
 
     for s in strings {
@@ -192,22 +183,108 @@ pub fn tag_strings(
             tags.insert("#code".to_string());
         }
 
+        // #reloc
+        if reloc_ranges.iter().any(|r| ranges_overlap(&s_range, r)) {
+            tags.insert("#reloc".to_string());
+        }
+
         // #decoded if xor_key is present
         if layout.xor_key.is_some() {
             tags.insert("#decoded".to_string());
         }
 
-        // 2. Database derived tags (TODO)
+        // 2. Database derived tags
+        if let Some(db) = expert_db {
+            let expert_tags = db.query(&s.string);
+            for t in expert_tags {
+                tags.insert(t);
+            }
+        }
 
-        tagged_strings.push(TaggedString {
+        if let Some(db) = os_db {
+            if let Some(t) = db.query(&s.string) {
+                tags.insert(t);
+            }
+        }
+
+        if let Some(db) = gp_db {
+            if db.contains(&s.string) {
+                tags.insert("#common".to_string());
+            }
+        }
+
+        // Convert HashSet into a sorted Vec for deterministic JSON output
+        let mut tags_vec: Vec<String> = tags.into_iter().collect();
+        tags_vec.sort();
+
+        let encoding = match s.encoding {
+            crate::strings::StringEncoding::ASCII => StringEncoding::Ascii,
+            crate::strings::StringEncoding::UTF16LE => StringEncoding::Utf16Le,
+        };
+
+        tagged_strings.push(StaticString {
             offset: s.offset,
-            length: s.length,
             string: s.string.to_string(),
-            encoding: s.encoding,
-            tags,
-            structure: String::new(), // TODO
+            encoding,
+            tags: tags_vec,
+            section: find_section(&s_range, layout),
+            structure: String::new(), // Not implemented yet
         });
     }
 
     tagged_strings
+}
+
+fn find_section(s_range: &Range<usize>, layout: &crate::layout::Layout) -> String {
+    // DFS to find the deepest matching child Node. (like sections in PE)
+    for child in &layout.children {
+        let child_range = child.offset..(child.offset + child.length);
+        if ranges_overlap(s_range, &child_range) {
+            return child.name.clone();
+        }
+    }
+    String::new()
+}
+
+impl ExpertStringDatabase {
+    pub fn from_uncompressed_file<P: AsRef<Path>>(path: P) -> io::Result<Self> {
+        let file = File::open(path)?;
+        let reader = BufReader::new(file);
+
+        let mut string_rules = HashMap::new();
+        let mut substring_rules = Vec::new();
+        let mut regex_rules = Vec::new();
+
+        for line in reader.lines() {
+            let line = line?;
+            if line.trim().is_empty() {
+                continue;
+            }
+
+            let rule: ExpertRule = match serde_json::from_str(&line) {
+                Ok(r) => r,
+                Err(_) => continue,
+            };
+            match rule.rule_type.as_str() {
+                "string" => {
+                    string_rules.insert(rule.value.clone(), rule);
+                }
+                "substring" => {
+                    substring_rules.push(rule);
+                }
+                "regex" => {
+                    if let Ok(re) = regex::Regex::new(&rule.value) {
+                        regex_rules.push((rule, re));
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        Ok(ExpertStringDatabase {
+            string_rules,
+            substring_rules,
+            regex_rules,
+        })
+    }
 }

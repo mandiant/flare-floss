@@ -136,3 +136,22 @@ pub fn get_code_ranges(buf: &[u8]) -> Vec<Range<usize>> {
 
     ranges
 }
+
+pub fn get_reloc_ranges(buf: &[u8]) -> Vec<Range<usize>> {
+    let mut ranges = Vec::new();
+    if let Ok(pe) = goblin::pe::PE::parse(buf) {
+        if let Some(opt_header) = &pe.header.optional_header {
+            let data_dirs = &opt_header.data_directories;
+            if let Some(reloc_dir) = data_dirs.get_base_relocation_table() {
+                let file_alignment = opt_header.windows_fields.file_alignment;
+                let opts = goblin::pe::options::ParseOptions::default();
+                
+                // The relocations directory occupies a chunk in file
+                if let Some(offset) = goblin::pe::utils::find_offset(reloc_dir.virtual_address as usize, &pe.sections, file_alignment, &opts) {
+                    ranges.push(offset..(offset + reloc_dir.size as usize));
+                }
+            }
+        }
+    }
+    ranges
+}
