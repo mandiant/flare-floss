@@ -58,8 +58,9 @@ Implement a high-performance Rust module to replace FLOSS's current Python-based
     *   Apply relevant tags (e.g., `#common`, `#winapi`).
 
 ### Step 5: Output Integration
-1.  Define a serializable Rust struct to represent `ResultString` or `ExtractedString` with its metadata (offset, encoding, tags).
-2.  Ensure output format compatibility (**Exact Schema Match**) with FLOSS's current JSON schema for easy diffing.
+1.  Define serializable Rust structs to represent the full `ResultDocument`, including `ResultLayout`, `Strings`, and `Metadata`.
+2.  Build the full layout tree (`ResultLayout`) with extracted and tagged strings.
+3.  Ensure output format compatibility (**Exact Schema Match**) with FLOSS's current JSON schema (`ResultDocument`) for easy diffing.
 
 ---
 
