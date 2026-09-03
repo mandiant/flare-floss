@@ -65,6 +65,17 @@ Implement a high-performance Rust module to replace FLOSS's current Python-based
 ---
 
 ## Verification & Benchmarking
-*   **Functional Parity:** Compare output against current FLOSS running with `--no-decoded-strings --no-stack-strings --no-tight-strings`.
-*   **Coverage:** Verify counts of extracted strings and applied tags match closely.
-*   **Performance:** Profile against Python implementation to measure speedup.
+
+### Incremental Parity Checks
+*   **Step 1 Verification:** Compare extracted ASCII/UTF-16 strings counts and offsets against `floss.strings` output for target test binaries.
+*   **Step 2 Verification:** Compare identified segment ranges (code, data, relocations) against `floss.layout` output.
+*   **Step 3 & 4 Verification:** Compare applied tags per string against Python implementation.
+
+### Comprehensive Parity Verification
+*   **Full Parity Goal:** Achieve **zero diffs** between the Rust module and current FLOSS running with `--string-type static --json` (which implies `--no-decoded-strings --no-stack-strings --no-tight-strings`).
+*   **Automated Diffing:** Implement a test script/harness to run both versions on a set of test binaries (e.g., in `tests/data/`) and diff the structured JSON output (`ResultDocument`).
+*   **Compatibility Matrix:** Verify parity across PE and ELF file formats.
+
+### Performance Benchmarking
+*   **Profiling:** Measure execution time and memory usage against the Python implementation to quantify the performance gain.
+*   **Scaling:** Test with large binaries to verify performance advantages over the Python version.
