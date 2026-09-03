@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useMemo, useRef, useEffect, useDeferredValue } from 'react';
 import { useDropzone } from 'react-dropzone';
 import './App.css';
-import { type ResultDocument, type ResultLayout, type ResultString, type Analysis, type Strings } from './types';
+import { type ResultDocument, type ResultLayout, type ResultString, type Analysis, type Strings, type StackString, type DecodedString } from './types';
 import previewData from './pma0303_floss.json';
 import { VIEWER_VERSION, VIEWER_COMMIT, VIEWER_DATE } from './generated/version';
 import flossLogo from './floss-logo.png';
@@ -166,6 +166,109 @@ const VirtualList: React.FC<{ layout: ResultLayout; displayOptions: DisplayOptio
   );
 };
 
+const StackStringRow: React.FC<{ str: StackString; showEncoding: boolean; alt?: boolean; style?: React.CSSProperties }> = React.memo(
+  ({ str, showEncoding, alt, style }) => (
+    <div className={`string-view obfuscated-row${alt ? ' string-view--alt' : ''}`} style={style} title={str.string}>
+      <span className="string-content">{str.string}</span>
+      {showEncoding && <span className="string-encoding">{encodingMark(str.encoding)}</span>}
+      <span className="obf-meta">{formatHex(str.function)}</span>
+      <span className="obf-meta">{formatHex(str.program_counter)}</span>
+      <span className="obf-meta">+{str.frame_offset}</span>
+    </div>
+  )
+);
+
+const DecodedStringRow: React.FC<{ str: DecodedString; showEncoding: boolean; alt?: boolean; style?: React.CSSProperties }> = React.memo(
+  ({ str, showEncoding, alt, style }) => (
+    <div className={`string-view obfuscated-row${alt ? ' string-view--alt' : ''}`} style={style} title={str.string}>
+      <span className="string-content">{str.string}</span>
+      {showEncoding && <span className="string-encoding">{encodingMark(str.encoding)}</span>}
+      <span className="obf-meta">{formatDecodedAddress(str)}</span>
+      <span className="obf-meta">{formatHex(str.decoded_at)}</span>
+      <span className="obf-meta">{formatHex(str.decoding_routine)}</span>
+    </div>
+  )
+);
+
+const useVirtualScroll = () => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [scrollTop, setScrollTop] = useState(0);
+  const [viewportH, setViewportH] = useState(0);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const update = () => {
+      setScrollTop(el.scrollTop);
+      setViewportH(el.clientHeight);
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    el.addEventListener('scroll', update, { passive: true });
+    return () => {
+      ro.disconnect();
+      el.removeEventListener('scroll', update);
+    };
+  }, []);
+
+  return { containerRef, scrollTop, viewportH };
+};
+
+const StackStringList: React.FC<{ strings: StackString[]; showEncoding: boolean }> = ({ strings, showEncoding }) => {
+  const { containerRef, scrollTop, viewportH } = useVirtualScroll();
+  const totalHeight = strings.length * ROW_HEIGHT;
+  const startIdx = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN);
+  const endIdx = Math.min(strings.length, Math.ceil((scrollTop + viewportH) / ROW_HEIGHT) + OVERSCAN);
+  const visible: React.ReactNode[] = [];
+  for (let i = startIdx; i < endIdx; i++) {
+    visible.push(
+      <StackStringRow key={i} str={strings[i]} showEncoding={showEncoding} alt={i % 2 === 1} style={{ position: 'absolute', top: i * ROW_HEIGHT, left: 0, right: 0 }} />
+    );
+  }
+  return (
+    <div className="obfuscated-wrap">
+      <div className="obfuscated-header">
+        <span className="obfuscated-header-string">String</span>
+        {showEncoding && <span className="obfuscated-header-enc">Enc</span>}
+        <span className="obfuscated-header-meta">Function</span>
+        <span className="obfuscated-header-meta">PC</span>
+        <span className="obfuscated-header-meta">Frame</span>
+      </div>
+      <div className="virtual-list" ref={containerRef}>
+        <div style={{ height: totalHeight, position: 'relative' }}>{visible}</div>
+      </div>
+    </div>
+  );
+};
+
+const DecodedStringList: React.FC<{ strings: DecodedString[]; showEncoding: boolean }> = ({ strings, showEncoding }) => {
+  const { containerRef, scrollTop, viewportH } = useVirtualScroll();
+  const totalHeight = strings.length * ROW_HEIGHT;
+  const startIdx = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN);
+  const endIdx = Math.min(strings.length, Math.ceil((scrollTop + viewportH) / ROW_HEIGHT) + OVERSCAN);
+  const visible: React.ReactNode[] = [];
+  for (let i = startIdx; i < endIdx; i++) {
+    visible.push(
+      <DecodedStringRow key={i} str={strings[i]} showEncoding={showEncoding} alt={i % 2 === 1} style={{ position: 'absolute', top: i * ROW_HEIGHT, left: 0, right: 0 }} />
+    );
+  }
+  return (
+    <div className="obfuscated-wrap">
+      <div className="obfuscated-header">
+        <span className="obfuscated-header-string">String</span>
+        {showEncoding && <span className="obfuscated-header-enc">Enc</span>}
+        <span className="obfuscated-header-meta">Address</span>
+        <span className="obfuscated-header-meta">Call site</span>
+        <span className="obfuscated-header-meta">Routine</span>
+      </div>
+      <div className="virtual-list" ref={containerRef}>
+        <div style={{ height: totalHeight, position: 'relative' }}>{visible}</div>
+      </div>
+    </div>
+  );
+};
+
 const CheckItem: React.FC<{ label: string; count?: number; checked: boolean; onChange: () => void }> = ({ label, count, checked, onChange }) => (
   <label className="check-item">
     <input type="checkbox" checked={checked} onChange={onChange} />
@@ -225,6 +328,91 @@ const normalizeLayout = (raw: unknown): ResultLayout | null => {
   };
 };
 
+type ObfuscatedTab = 'layout' | 'stack' | 'tight' | 'decoded';
+
+const TABS: { id: ObfuscatedTab; label: string }[] = [
+  { id: 'layout', label: 'Layout' },
+  { id: 'stack', label: 'Stackstrings' },
+  { id: 'tight', label: 'Tightstrings' },
+  { id: 'decoded', label: 'Decoded Strings' },
+];
+
+const formatHex = (v: number): string => `0x${v.toString(16)}`;
+
+const encodingMark = (encoding: string): string => {
+  const e = encoding.toLowerCase();
+  if (e === 'unicode' || e === 'utf-16le') return 'U';
+  if (e === 'utf-8' || e === 'utf8') return '8';
+  return '';
+};
+
+const formatDecodedAddress = (str: DecodedString): string => {
+  const t = str.address_type.toUpperCase();
+  if (t === 'STACK') return '[stack]';
+  if (t === 'HEAP') return '[heap]';
+  return formatHex(str.address);
+};
+
+const EmptyPane: React.FC<{ title: string; sub: string }> = ({ title, sub }) => (
+  <div className="welcome-state">
+    <div className="welcome-inner">
+      <p className="welcome-title">{title}</p>
+      <p className="welcome-sub">{sub}</p>
+    </div>
+  </div>
+);
+
+const normalizeStackString = (raw: unknown): StackString | null => {
+  if (typeof raw !== 'object' || raw === null) return null;
+  const o = raw as Record<string, unknown>;
+  if (typeof o.string !== 'string') return null;
+  return {
+    function: toNum(o.function),
+    string: o.string,
+    encoding: toStr(o.encoding),
+    program_counter: toNum(o.program_counter),
+    stack_pointer: toNum(o.stack_pointer),
+    original_stack_pointer: toNum(o.original_stack_pointer),
+    offset: toNum(o.offset),
+    frame_offset: toNum(o.frame_offset),
+  };
+};
+
+const normalizeDecodedString = (raw: unknown): DecodedString | null => {
+  if (typeof raw !== 'object' || raw === null) return null;
+  const o = raw as Record<string, unknown>;
+  if (typeof o.string !== 'string') return null;
+  return {
+    address: toNum(o.address),
+    address_type: toStr(o.address_type),
+    string: o.string,
+    encoding: toStr(o.encoding),
+    decoded_at: toNum(o.decoded_at),
+    decoding_routine: toNum(o.decoding_routine),
+  };
+};
+
+const normalizeStrings = (raw: unknown): Strings => {
+  const empty: Strings = {
+    stack_strings: [],
+    tight_strings: [],
+    decoded_strings: [],
+    static_strings: [],
+    language_strings: [],
+    language_strings_missed: [],
+  };
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return empty;
+  const o = raw as Record<string, unknown>;
+  const pickStack = (k: string) =>
+    (Array.isArray(o[k]) ? o[k].map(normalizeStackString) : []).filter(
+      (s): s is StackString => s !== null
+    );
+  const decoded = (Array.isArray(o.decoded_strings) ? o.decoded_strings.map(normalizeDecodedString) : []).filter(
+    (s): s is DecodedString => s !== null
+  );
+  return { ...empty, stack_strings: pickStack('stack_strings'), tight_strings: pickStack('tight_strings'), decoded_strings: decoded };
+};
+
 const normalizeDocument = (raw: unknown): ResultDocument | null => {
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return null;
   const o = raw as Record<string, unknown>;
@@ -260,7 +448,7 @@ const normalizeDocument = (raw: unknown): ResultDocument | null => {
       language_selected: toStr(metaRaw.language_selected),
     },
     analysis: (typeof o.analysis === 'object' && o.analysis !== null ? o.analysis : {}) as Analysis,
-    strings: (typeof o.strings === 'object' && o.strings !== null ? o.strings : {}) as Strings,
+    strings: normalizeStrings(o.strings),
     layout: normalizeLayout(o.layout),
   };
 };
@@ -333,6 +521,7 @@ const App: React.FC = () => {
     showOffsetAndStructure: true,
   });
   const [copyFeedback, setCopyFeedback] = useState('');
+  const [activeTab, setActiveTab] = useState<ObfuscatedTab>('layout');
 
   // Theme
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -386,6 +575,7 @@ const App: React.FC = () => {
     setSearchTerm('');
     setShowUntagged(true);
     setShowStringsWithoutStructure(true);
+    setActiveTab('layout');
     setMinStringLength(jsonData.metadata.min_length);
 
     const allTags = new Set<string>();
@@ -555,9 +745,12 @@ const App: React.FC = () => {
   };
 
   const handlePreview = () => {
-    // The JSON is now imported directly, so we can just use it.
-    // The type assertion is safe because we trust the local file.
-    processData(previewData as ResultDocument);
+    const normalized = normalizeDocument(previewData);
+    if (!normalized) {
+      alert("Failed to load the demo document.");
+      return;
+    }
+    processData(normalized);
   };
 
   const handleDownloadViewer = useCallback(async () => {
@@ -663,15 +856,58 @@ const App: React.FC = () => {
 
   const ignoredStringCount = tagInfo.totalStringCount - visibleStringCount;
 
+  const filteredObfuscated = useMemo(() => {
+    const empty = { stack: [] as StackString[], tight: [] as StackString[], decoded: [] as DecodedString[] };
+    if (!data) return empty;
+    const keep = (s: string) => {
+      if (s.length < minStringLength) return false;
+      if (deferredSearchTerm === '') return true;
+      return subsequenceMatch(deferredSearchTerm.toLowerCase(), s.toLowerCase());
+    };
+    return {
+      stack: data.strings.stack_strings.filter(s => keep(s.string)),
+      tight: data.strings.tight_strings.filter(s => keep(s.string)),
+      decoded: data.strings.decoded_strings.filter(s => keep(s.string)),
+    };
+  }, [data, deferredSearchTerm, minStringLength]);
+
+  const filteredStack = filteredObfuscated.stack;
+  const filteredTight = filteredObfuscated.tight;
+  const filteredDecoded = filteredObfuscated.decoded;
+
+  const tabVisibleCounts: Record<ObfuscatedTab, number> = {
+    layout: visibleStringCount,
+    stack: filteredStack.length,
+    tight: filteredTight.length,
+    decoded: filteredDecoded.length,
+  };
+
+  const tabTotalCounts: Record<ObfuscatedTab, number> = {
+    layout: tagInfo.totalStringCount,
+    stack: data?.strings.stack_strings.length ?? 0,
+    tight: data?.strings.tight_strings.length ?? 0,
+    decoded: data?.strings.decoded_strings.length ?? 0,
+  };
+
   const handleCopyStrings = () => {
-    if (!filteredLayout) return;
+    if (!data) return;
+    if (tabVisibleCounts[activeTab] === 0) return;
 
     const stringsToCopy: string[] = [];
-    const collectStrings = (layout: ResultLayout) => {
-      stringsToCopy.push(...layout.strings.map(s => s.string));
-      layout.children.forEach(collectStrings);
-    };
-    collectStrings(filteredLayout);
+    if (activeTab === 'layout') {
+      if (!filteredLayout) return;
+      const collectStrings = (layout: ResultLayout) => {
+        stringsToCopy.push(...layout.strings.map(s => s.string));
+        layout.children.forEach(collectStrings);
+      };
+      collectStrings(filteredLayout);
+    } else if (activeTab === 'stack') {
+      stringsToCopy.push(...filteredStack.map(s => s.string));
+    } else if (activeTab === 'tight') {
+      stringsToCopy.push(...filteredTight.map(s => s.string));
+    } else {
+      stringsToCopy.push(...filteredDecoded.map(s => s.string));
+    }
 
     navigator.clipboard.writeText(stringsToCopy.join('\n')).then(() => {
       setCopyFeedback('Copied!');
@@ -685,12 +921,14 @@ const App: React.FC = () => {
 
   return (
     <div className={isDragActive ? 'App drag-active' : 'App'} {...getRootProps()}>
-      <div className="topbar-actions">
-        <label htmlFor="file-upload" className="btn-ghost topbar-upload" title="Load a FLOSS results JSON file">
-          Upload
-        </label>
-        <ThemeToggle theme={theme} onToggle={() => setTheme(t => (t === 'light' ? 'dark' : 'light'))} />
-      </div>
+      {!data && (
+        <div className="topbar-actions">
+          <label htmlFor="file-upload" className="btn-ghost topbar-upload" title="Load a FLOSS results JSON file">
+            Upload
+          </label>
+          <ThemeToggle theme={theme} onToggle={() => setTheme(t => (t === 'light' ? 'dark' : 'light'))} />
+        </div>
+      )}
       <input {...getInputProps()} id="file-upload" />
       {/* ---- Sidebar ---- */}
       {data && (
@@ -755,64 +993,68 @@ const App: React.FC = () => {
                 </div>
               </div>
 
-              {/* Tags Filter */}
-              <div className="filter-section">
-                <div className="filter-section-header">
-                  <span className="filter-section-title">Tags</span>
-                  <div className="filter-actions">
-                    <button className="filter-action-btn" onClick={handleSelectAll}>All</button>
-                    <button className="filter-action-btn" onClick={handleSelectNone}>None</button>
-                    <button className="filter-action-btn" onClick={handleFocusView}>Focus</button>
+              {activeTab === 'layout' && (
+                <>
+                  {/* Tags Filter */}
+                  <div className="filter-section">
+                    <div className="filter-section-header">
+                      <span className="filter-section-title">Tags</span>
+                      <div className="filter-actions">
+                        <button className="filter-action-btn" onClick={handleSelectAll}>All</button>
+                        <button className="filter-action-btn" onClick={handleSelectNone}>None</button>
+                        <button className="filter-action-btn" onClick={handleFocusView}>Focus</button>
+                      </div>
+                    </div>
+                    <div className="filter-items">
+                      {tagInfo.availableTags.map(tag => (
+                        <CheckItem
+                          key={tag}
+                          label={tag}
+                          count={tagInfo.tagCounts[tag]}
+                          checked={selectedTags.includes(tag)}
+                          onChange={() => handleTagChange(tag)}
+                        />
+                      ))}
+                      {tagInfo.untaggedCount > 0 && (
+                        <CheckItem
+                          key="untagged"
+                          label="(untagged)"
+                          count={tagInfo.untaggedCount}
+                          checked={showUntagged}
+                          onChange={() => setShowUntagged(p => !p)}
+                        />
+                      )}
+                    </div>
                   </div>
-                </div>
-                <div className="filter-items">
-                  {tagInfo.availableTags.map(tag => (
-                    <CheckItem
-                      key={tag}
-                      label={tag}
-                      count={tagInfo.tagCounts[tag]}
-                      checked={selectedTags.includes(tag)}
-                      onChange={() => handleTagChange(tag)}
-                    />
-                  ))}
-                  {tagInfo.untaggedCount > 0 && (
-                    <CheckItem
-                      key="untagged"
-                      label="(untagged)"
-                      count={tagInfo.untaggedCount}
-                      checked={showUntagged}
-                      onChange={() => setShowUntagged(p => !p)}
-                    />
-                  )}
-                </div>
-              </div>
 
-              {/* Structures Filter */}
-              <div className="filter-section">
-                <div className="filter-section-header">
-                  <span className="filter-section-title">Structures</span>
-                </div>
-                <div className="filter-items">
-                  {structureInfo.availableStructures.map(structure => (
-                    <CheckItem
-                      key={structure}
-                      label={structure}
-                      count={structureInfo.structureCounts[structure]}
-                      checked={selectedStructures.includes(structure)}
-                      onChange={() => handleStructureChange(structure)}
-                    />
-                  ))}
-                  {structureInfo.withoutStructureCount > 0 && (
-                    <CheckItem
-                      key="no-structure"
-                      label="(none)"
-                      count={structureInfo.withoutStructureCount}
-                      checked={showStringsWithoutStructure}
-                      onChange={() => setShowStringsWithoutStructure(p => !p)}
-                    />
-                  )}
-                </div>
-              </div>
+                  {/* Structures Filter */}
+                  <div className="filter-section">
+                    <div className="filter-section-header">
+                      <span className="filter-section-title">Structures</span>
+                    </div>
+                    <div className="filter-items">
+                      {structureInfo.availableStructures.map(structure => (
+                        <CheckItem
+                          key={structure}
+                          label={structure}
+                          count={structureInfo.structureCounts[structure]}
+                          checked={selectedStructures.includes(structure)}
+                          onChange={() => handleStructureChange(structure)}
+                        />
+                      ))}
+                      {structureInfo.withoutStructureCount > 0 && (
+                        <CheckItem
+                          key="no-structure"
+                          label="(none)"
+                          count={structureInfo.withoutStructureCount}
+                          checked={showStringsWithoutStructure}
+                          onChange={() => setShowStringsWithoutStructure(p => !p)}
+                        />
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
 
               {/* Display Columns */}
               <div className="filter-section">
@@ -820,9 +1062,13 @@ const App: React.FC = () => {
                   <span className="filter-section-title">Columns</span>
                 </div>
                 <div className="filter-items">
-                  <CheckItem label="Tags" checked={displayOptions.showTags} onChange={() => handleDisplayOptionChange('showTags')} />
+                  {activeTab === 'layout' && (
+                    <>
+                      <CheckItem label="Tags" checked={displayOptions.showTags} onChange={() => handleDisplayOptionChange('showTags')} />
+                      <CheckItem label="Offset & Structure" checked={displayOptions.showOffsetAndStructure} onChange={() => handleDisplayOptionChange('showOffsetAndStructure')} />
+                    </>
+                  )}
                   <CheckItem label="Encoding" checked={displayOptions.showEncoding} onChange={() => handleDisplayOptionChange('showEncoding')} />
-                  <CheckItem label="Offset & Structure" checked={displayOptions.showOffsetAndStructure} onChange={() => handleDisplayOptionChange('showOffsetAndStructure')} />
                 </div>
               </div>
             </>
@@ -834,8 +1080,8 @@ const App: React.FC = () => {
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             {data && (
               <span className="string-count">
-                <strong>{visibleStringCount}</strong>&nbsp;/&nbsp;{tagInfo.totalStringCount}
-                {ignoredStringCount > 0 && (
+                <strong>{tabVisibleCounts[activeTab]}</strong>&nbsp;/&nbsp;{tabTotalCounts[activeTab]}
+                {activeTab === 'layout' && ignoredStringCount > 0 && (
                   <>
                     &nbsp;·&nbsp;<span className="string-count-ignored">{ignoredStringCount} ignored</span>
                   </>
@@ -847,7 +1093,7 @@ const App: React.FC = () => {
             <button
               className={`btn-copy${copyFeedback === 'Copied!' ? ' btn-copy--done' : ''}`}
               onClick={handleCopyStrings}
-              disabled={copyFeedback === 'Copied!'}
+              disabled={copyFeedback === 'Copied!' || tabVisibleCounts[activeTab] === 0}
             >
               {copyFeedback || 'Copy'}
             </button>
@@ -947,13 +1193,57 @@ const App: React.FC = () => {
               </p>
             </div>
           </div>
-        ) : filteredLayout ? (
-          <VirtualList layout={filteredLayout} displayOptions={displayOptions} />
         ) : (
-          <div className="welcome-state">
-            <div className="welcome-inner">
-              <p className="welcome-title">No matches</p>
-              <p className="welcome-sub">Try adjusting your search or filter settings</p>
+          <div className="tab-container">
+            <div className="tab-bar" role="tablist" aria-label="String views">
+              {TABS.map(tab => (
+                <button
+                  key={tab.id}
+                  role="tab"
+                  aria-selected={activeTab === tab.id}
+                  className={`tab-btn${activeTab === tab.id ? ' tab-btn--active' : ''}`}
+                  onClick={() => setActiveTab(tab.id)}
+                >
+                  {tab.label}
+                  <span className="tab-badge">{tabVisibleCounts[tab.id]}</span>
+                </button>
+              ))}
+              <div className="tab-bar-actions">
+                <label htmlFor="file-upload" className="btn-ghost topbar-upload topbar-upload--compact" title="Load a FLOSS results JSON file">
+                  Upload
+                </label>
+                <ThemeToggle theme={theme} onToggle={() => setTheme(t => (t === 'light' ? 'dark' : 'light'))} />
+              </div>
+            </div>
+            <div className="tab-content">
+              {activeTab === 'layout' && (
+                filteredLayout ? (
+                  <VirtualList layout={filteredLayout} displayOptions={displayOptions} />
+                ) : (
+                  <EmptyPane title="No matches" sub="Try adjusting your search or filter settings" />
+                )
+              )}
+              {activeTab === 'stack' && (
+                filteredStack.length > 0 ? (
+                  <StackStringList strings={filteredStack} showEncoding={displayOptions.showEncoding} />
+                ) : (
+                  <EmptyPane title="No stackstrings" sub={tabTotalCounts.stack === 0 ? 'This document has none' : 'Try adjusting your search or min length'} />
+                )
+              )}
+              {activeTab === 'tight' && (
+                filteredTight.length > 0 ? (
+                  <StackStringList strings={filteredTight} showEncoding={displayOptions.showEncoding} />
+                ) : (
+                  <EmptyPane title="No tightstrings" sub={tabTotalCounts.tight === 0 ? 'This document has none' : 'Try adjusting your search or min length'} />
+                )
+              )}
+              {activeTab === 'decoded' && (
+                filteredDecoded.length > 0 ? (
+                  <DecodedStringList strings={filteredDecoded} showEncoding={displayOptions.showEncoding} />
+                ) : (
+                  <EmptyPane title="No decoded strings" sub={tabTotalCounts.decoded === 0 ? 'This document has none' : 'Try adjusting your search or min length'} />
+                )
+              )}
             </div>
           </div>
         )}
