@@ -4,6 +4,7 @@ use std::path::Path;
 
 mod layout;
 mod strings;
+mod tags;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
