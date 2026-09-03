@@ -44,6 +44,9 @@ fn main() {
     println!("Extracted {} ASCII strings", ascii_strings.len());
     println!("Extracted {} UTF-16LE strings", unicode_strings.len());
 
+    let code_ranges = layout::get_code_ranges(&layout.data);
+    println!("Identified {} code ranges (basic blocks)", code_ranges.len());
+
     // Print first few for verification
     println!("\nFirst 5 ASCII strings:");
     for s in ascii_strings.iter().take(5) {
