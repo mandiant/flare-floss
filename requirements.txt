@@ -16,7 +16,7 @@ halo==0.0.31
 identify==2.6.1
 iniconfig==2.3.0
 intervaltree==3.2.1
-isort==8.0.1
+isort==9.0.1
 log-symbols==0.0.14
 machofile==2026.2.4
 markdown-it-py==4.2.0
