@@ -331,25 +331,25 @@ def log_result(decoded_string, verbosity):
     string = sanitize(decoded_string.string)
     if verbosity < Verbosity.VERBOSE:
         logger.info("%s", string)
+    elif isinstance(decoded_string, DecodedString):
+        logger.info(
+            "%s [%s] decoded by 0x%x called at 0x%x",
+            string,
+            decoded_string.encoding,
+            decoded_string.decoding_routine,
+            decoded_string.decoded_at,
+        )
     else:
-        if type(decoded_string) == DecodedString:
-            logger.info(
-                "%s [%s] decoded by 0x%x called at 0x%x",
-                string,
-                decoded_string.encoding,
-                decoded_string.decoding_routine,
-                decoded_string.decoded_at,
-            )
-        elif type(decoded_string) in (StackString, TightString):
-            logger.info(
-                "%s [%s] in 0x%x at address 0x%x",
-                string,
-                decoded_string.encoding,
-                decoded_string.function,
-                decoded_string.program_counter,
-            )
-        else:
+        # StackString and its TightString subclass
+        if not isinstance(decoded_string, StackString):
             raise ValueError("unknown decoded or extracted string type: %s" % type(decoded_string))
+        logger.info(
+            "%s [%s] in 0x%x at address 0x%x",
+            string,
+            decoded_string.encoding,
+            decoded_string.function,
+            decoded_string.program_counter,
+        )
 
 
 def load(sample: Path, analysis: Analysis, functions: List[int], min_length: int) -> ResultDocument:
@@ -409,11 +409,9 @@ def filter_functions(results: ResultDocument, functions: List[int]) -> None:
     }
     results.analysis.functions.decoding_function_scores = filtered_scores
 
-    results.strings.stack_strings = list(filter(lambda f: f.function in functions, results.strings.stack_strings))
-    results.strings.tight_strings = list(filter(lambda f: f.function in functions, results.strings.tight_strings))
-    results.strings.decoded_strings = list(
-        filter(lambda f: f.decoding_routine in functions, results.strings.decoded_strings)
-    )
+    results.strings.stack_strings = [f for f in results.strings.stack_strings if f.function in functions]
+    results.strings.tight_strings = [f for f in results.strings.tight_strings if f.function in functions]
+    results.strings.decoded_strings = [f for f in results.strings.decoded_strings if f.decoding_routine in functions]
 
     results.analysis.functions.analyzed_stack_strings = len(results.strings.stack_strings)
     results.analysis.functions.analyzed_tight_strings = len(results.strings.tight_strings)
@@ -438,18 +436,14 @@ def filter_string_len(results: ResultDocument, min_length: int) -> None:
             "document, so strings between %d and %d were already dropped and "
             "cannot be recovered" % (min_length, stored_min_length, min_length, stored_min_length)
         )
-    results.strings.static_strings = list(filter(lambda s: len(s.string) >= min_length, results.strings.static_strings))
-    results.strings.stack_strings = list(filter(lambda s: len(s.string) >= min_length, results.strings.stack_strings))
-    results.strings.tight_strings = list(filter(lambda s: len(s.string) >= min_length, results.strings.tight_strings))
-    results.strings.decoded_strings = list(
-        filter(lambda s: len(s.string) >= min_length, results.strings.decoded_strings)
-    )
-    results.strings.language_strings = list(
-        filter(lambda s: len(s.string) >= min_length, results.strings.language_strings)
-    )
-    results.strings.language_strings_missed = list(
-        filter(lambda s: len(s.string) >= min_length, results.strings.language_strings_missed)
-    )
+    results.strings.static_strings = [s for s in results.strings.static_strings if len(s.string) >= min_length]
+    results.strings.stack_strings = [s for s in results.strings.stack_strings if len(s.string) >= min_length]
+    results.strings.tight_strings = [s for s in results.strings.tight_strings if len(s.string) >= min_length]
+    results.strings.decoded_strings = [s for s in results.strings.decoded_strings if len(s.string) >= min_length]
+    results.strings.language_strings = [s for s in results.strings.language_strings if len(s.string) >= min_length]
+    results.strings.language_strings_missed = [
+        s for s in results.strings.language_strings_missed if len(s.string) >= min_length
+    ]
     if results.layout is not None:
         results.layout = _filter_layout_string_len(results.layout, min_length)
 

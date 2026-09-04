@@ -62,7 +62,7 @@ def remove_false_positive_lib_strings(layout: "Layout"):
 
 
 def should_hide_string(s: ResultString, tag_rules: TagRules) -> bool:
-    return any(map(lambda tag: tag_rules.get(tag) == "hide", s.tags))
+    return any(tag_rules.get(tag) == "hide" for tag in s.tags)
 
 
 def hide_strings_by_rules(layout: ResultLayout, tag_rules: TagRules) -> ResultLayout:

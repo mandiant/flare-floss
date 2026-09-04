@@ -14,7 +14,7 @@
 
 
 import contextlib
-from typing import Any, List, Tuple
+from typing import List, Tuple
 
 import envi
 import viv_utils.emulator_drivers
@@ -133,14 +133,6 @@ class ApiMonitor(viv_utils.emulator_drivers.Monitor):
         raise Exception("No valid return address found...")
 
 
-class DemoHook:
-    def __call__(
-        self, emu: viv_utils.emulator_drivers.EmulatorDriver, api: Tuple[str, Any, str, str, List], argv: List
-    ):
-        # api: (rettype, retname, callconv, funcname, [(argtype, argname), ...)]
-        ...
-
-
 class GetProcessHeapHook:
     def __call__(self, emu, api, argv):
         if fu.contains_funcname(api, ("GetProcessHeap",)):
@@ -185,9 +177,6 @@ class MemoryAllocationHook:
 
     _heap_addr = HEAP_BASE
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
     def _allocate_mem(self, emu, size):
         va = self._heap_addr
         # align to 16-byte boundary (64-bit), also works for 32-bit, which is normally 8-bytes
@@ -229,9 +218,6 @@ class CppNewObjectHook(MemoryAllocationHook):
     YAPAXI_Z_32 = "??2@YAPAXI@Z"  # void * __cdecl operator new(unsigned int)
     YAPEAX_K_Z_64 = "??2@YAPEAX_K@Z"  # void * __ptr64 __cdecl operator new(unsigned __int64)
     DEFAULT_SIZE = 0x1000
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
 
     def __call__(self, emu, api, argv):
         if fu.contains_funcname(api, (self.ZNWJ, self.ZNWJ, self.YAPAXI_Z_32, self.YAPEAX_K_Z_64)):

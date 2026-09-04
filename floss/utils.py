@@ -291,10 +291,6 @@ def get_vivisect_meta_info(vw, selected_functions, decoding_function_features):
     return info
 
 
-def hex(i):
-    return "0x%x" % (i)
-
-
 # TODO ideally avoid emulation in the first place
 #  libary detection appears to fail, called via __amsg_exit or __abort
 #  also see issue #296 for another possible solution
