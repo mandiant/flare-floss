@@ -188,10 +188,6 @@ pub fn tag_strings(
             tags.insert("#reloc".to_string());
         }
 
-        // #decoded if xor_key is present
-        if layout.xor_key.is_some() {
-            tags.insert("#decoded".to_string());
-        }
 
         // 2. Database derived tags
         if let Some(db) = expert_db {
