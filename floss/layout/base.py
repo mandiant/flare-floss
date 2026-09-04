@@ -128,70 +128,40 @@ class Layout(BaseModel, abc.ABC):
         "convenience"
         return self.slice.range.end
 
-    def extract_strings(self, min_len: int) -> None:
+    def extract_strings(self, min_len: int, strings: Optional[List[ExtractedString]] = None) -> None:
         """
         find the strings in this layout and its children, recursively.
-
-        this finds strings in the gaps between the children (and before the
-        first and after the last child), so this method must run before
-        ``tag_strings``.
+        
+        This finds strings natively across the monolithic sample buffer and 
+        overlays metadata by checking if the start offset intersects a node boundary.
         """
-        # imported here to avoid a circular import with floss.layout.extract
-        from floss.layout.extract import extract_strings as extract_gap_strings
-
-        if not self.children:
-            # at this moment, self.strings contains only ExtractedStrings
-            # after tag_strings, it will contain TaggedStrings.
-            self.strings = extract_gap_strings(self.slice, min_len)  # type: ignore
-            return
-
-        # we have children, so we need to recurse to find their strings,
-        # and also find strings in the gaps between children.
-        # lets find the gap strings first:
-        for i, child in enumerate(self.children):
-            if i == 0:
-                # find the strings before the first child
-                offset = 0
-                size = self.children[0].offset - self.offset
-
+        if strings is None:
+            from floss.layout.extract import extract_strings as extract_gap_strings
+            strings = list(extract_gap_strings(self.slice, min_len))
+        
+        self.strings = []
+        child_strings = {id(child): [] for child in self.children}
+        
+        child_ranges = [(child.offset, child.end, child) for child in self.children]
+        
+        for s in strings:
+            # We use the start offset to determine which layout node the string belongs to
+            # This follows the Bug 1 fix strategy of overlaying metadata by intersecting start offset
+            # with node boundaries.
+            start = s.slice.range.offset
+            matched_child = None
+            for child_start, child_end, child in child_ranges:
+                if child_start <= start < child_end:
+                    matched_child = child
+                    break
+                    
+            if matched_child:
+                child_strings[id(matched_child)].append(s)
             else:
-                # find strings between children
-                prior = self.children[i - 1]
-                offset = prior.end - self.offset
-                size = child.offset - prior.end
+                self.strings.append(s)
 
-            if size == 0:
-                # there is no gap here.
-                continue
-
-            gap = self.slice.slice(offset, size)
-            self.strings.extend(extract_gap_strings(gap, min_len))  # type: ignore
-
-        # finally, find strings after the last child
-        last_child = self.children[-1]
-        offset = last_child.end - self.offset
-        size = self.end - last_child.end
-
-        if size > 0:
-            gap = self.slice.slice(offset, size)
-            self.strings.extend(extract_gap_strings(gap, min_len))  # type: ignore
-
-        # now recurse to find the strings in the children.
         for child in self.children:
-            child.extract_strings(min_len)
-
-        if self.strings:
-            child_ranges = [(child.offset, child.end) for child in self.children]
-            filtered = []
-            for string in self.strings:
-                if isinstance(string, TaggedString):
-                    offset = string.offset
-                else:
-                    offset = string.slice.range.offset
-                if any(start <= offset < end for start, end in child_ranges):
-                    continue
-                filtered.append(string)
-            self.strings = filtered
+            child.extract_strings(min_len, strings=child_strings[id(child)])
 
     def tag_strings(self, taggers: Sequence[Tagger]):
         """

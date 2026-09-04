@@ -65,6 +65,15 @@ PE_RESOURCE_TYPES = {
 }
 
 
+def safe_get_offset_from_rva(pe: pefile.PE, rva: int) -> int:
+    section = pe.get_section_by_rva(rva)
+    if section is not None:
+        rva_offset = rva - section.VirtualAddress
+        if rva_offset >= section.SizeOfRawData:
+            raise pefile.PEFormatError("RVA 0x%x exceeds section 0x%x SizeOfRawData 0x%x" % (rva, section.VirtualAddress, section.SizeOfRawData))
+    return pe.get_offset_from_rva(rva)
+
+
 def get_reloc_offsets(slice: Slice, pe: pefile.PE) -> Set[int]:
     ret: Set[int] = set()
 
@@ -80,7 +89,7 @@ def get_reloc_offsets(slice: Slice, pe: pefile.PE) -> Set[int]:
 
     rva = dir_entry.VirtualAddress
     try:
-        offset = pe.get_offset_from_rva(rva)
+        offset = safe_get_offset_from_rva(pe, rva)
     except pefile.PEFormatError as e:
         logger.warning("failed to get offset for relocation directory RVA 0x%x: %s", rva, e)
         return ret
@@ -112,7 +121,7 @@ def _get_code_ranges(
     @functools.lru_cache(maxsize=None)
     def get_offset_from_rva_cached(rva):
         try:
-            return pe.get_offset_from_rva(rva)
+            return safe_get_offset_from_rva(pe, rva)
         except pefile.PEFormatError as e:
             logger.warning("%s", str(e))
             return None

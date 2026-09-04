@@ -67,3 +67,26 @@ from floss.tags.filter import (
 )
 
 load_taggers = load_databases
+
+def tag_classic_strings(strings, taggers) -> None:
+    from floss.tags.filter import DEFAULT_FILENAMES
+
+    for s in strings:
+        tags = set(s.tags)
+        for tagger in taggers:
+            # Taggers check s.string or string.string (if they use ExtractedString typing),
+            # but they just access the object's string property at runtime.
+            tags.update(tagger(s))
+        s.tags = list(tags)
+
+    # remove false positive lib strings
+    for filename in DEFAULT_FILENAMES:
+        libname = filename.partition(".")[0]
+        tagname = f"#{libname}"
+
+        count = sum(1 for string in strings if tagname in string.tags)
+
+        if 0 < count < 5:
+            for string in strings:
+                if tagname in string.tags:
+                    string.tags.remove(tagname)
