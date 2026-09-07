@@ -331,7 +331,7 @@ const normalizeLayout = (raw: unknown): ResultLayout | null => {
 type ObfuscatedTab = 'layout' | 'stack' | 'tight' | 'decoded';
 
 const TABS: { id: ObfuscatedTab; label: string }[] = [
-  { id: 'layout', label: 'Layout' },
+  { id: 'layout', label: 'Static Strings' },
   { id: 'stack', label: 'Stackstrings' },
   { id: 'tight', label: 'Tightstrings' },
   { id: 'decoded', label: 'Decoded Strings' },
