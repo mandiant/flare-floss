@@ -72,6 +72,7 @@ def mock_pe():
         return rva + 0x1000
 
     pe.get_offset_from_rva.side_effect = get_offset_from_rva
+    pe.get_section_by_rva.return_value = None
     return pe
 
 
