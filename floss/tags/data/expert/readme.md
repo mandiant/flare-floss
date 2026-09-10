@@ -20,4 +20,5 @@ Each document looks like:
 
 The expert databases are:
 
-  - `capa.jsonl.gz`: strings extracted from [capa](https://github.com/mandiant/capa) rules using the `import_from_capa.py` script: `$ python import_from_capa.py ~/code/capa/rules/ > capa.jsonl`.
+  - `capa.jsonl`: strings extracted from [capa](https://github.com/mandiant/capa) rules using the `import_from_capa.py` script.
+  - `capa_blocklist.json`: a list of noisy strings that are removed from the capa expert database to prevent false positives.
