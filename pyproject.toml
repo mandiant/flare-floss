@@ -152,7 +152,7 @@ dev = [
 build = [
     "pyinstaller==6.22.1",
     "setuptools==84.0.0",
-    "build==1.5.0"
+    "build==1.6.0"
 ]
 
 
