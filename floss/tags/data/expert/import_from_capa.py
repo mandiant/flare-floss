@@ -1,18 +1,20 @@
 import sys
 
-import msgspec
-import capa.main
-import capa.rules
 import capa.engine
+import capa.features.basicblock
+import capa.features.common
 import capa.features.file
 import capa.features.insn
-import capa.features.common
-import capa.features.basicblock
+import capa.main
+import capa.rules
+import msgspec
 
 from floss.tags.expert import ExpertRule
 
 
-def walk_rule_logic(rule: capa.rules.Rule, node: capa.engine.Statement | capa.engine.Feature):
+def walk_rule_logic(
+    rule: capa.rules.Rule, node: capa.engine.Statement | capa.engine.Feature
+):
     match node:
         case (
             capa.features.common.Regex(name=type, value=value)
@@ -24,9 +26,18 @@ def walk_rule_logic(rule: capa.rules.Rule, node: capa.engine.Statement | capa.en
             assert type in ("regex", "substring", "string")  # type: ignore
             assert isinstance(value, str)  # type: ignore
 
+            modifiers = ""
+            if type == "regex":
+                if value.startswith("/") and value.endswith("/"):
+                    value = value[1:-1]
+                elif value.startswith("/") and value.endswith("/i"):
+                    value = value[1:-2]
+                    modifiers = "i"
+
             yield ExpertRule(
                 type=type,  # type: ignore
                 value=value,  # type: ignore
+                modifiers=modifiers,
                 tag="#capa",
                 action="highlight",
                 note=rule.name[:-33] if rule.is_subscope_rule() else rule.name,
