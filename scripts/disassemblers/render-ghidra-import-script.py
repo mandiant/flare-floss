@@ -223,12 +223,12 @@ def render_ghidra_script(result_document: ResultDocument) -> str:
             b64 = base64.b64encode(ds.string.encode("utf-8")).decode("ascii")
             if ds.address_type == AddressType.GLOBAL:
                 main_commands.append(
-                    f'    print(f"FLOSS: string \\"{{decode_string(\\"{b64}\\")}}\\" at global VA 0x{ds.address:x}")'
+                    f'    print("FLOSS: string \\"" + decode_string("{b64}") + "\\" at global VA 0x{ds.address:x}")'
                 )
                 main_commands.append(f'    append_comment(0x{ds.address:x}, "FLOSS: " + decode_string("{b64}"))')
             else:
                 main_commands.append(
-                    f'    print(f"FLOSS: string \\"{{decode_string(\\"{b64}\\")}}\\" decoded at VA 0x{ds.decoded_at:x}")'
+                    f'    print("FLOSS: string \\"" + decode_string("{b64}") + "\\" decoded at VA 0x{ds.decoded_at:x}")'
                 )
                 main_commands.append(f'    append_comment(0x{ds.decoded_at:x}, "FLOSS: " + decode_string("{b64}"))')
     main_commands.append('    print("Imported decoded strings from FLOSS")')
