@@ -38,7 +38,7 @@ def test_cross_section_string_fragmentation(fixtures_dir: Path):
     """
     Assert that strings overlapping structural bounds natively retain monolithic extraction lengths.
     """
-    binary = fixtures_dir / "bug1_cross_section.exe"
+    binary = fixtures_dir / "bug1_cross_section_min.exe"
     buf = binary.read_bytes()
     file_slice = Slice.from_bytes(buf)
     parsed = compute_layout(file_slice)
@@ -59,7 +59,7 @@ def test_rva_overflow_mistagging(fixtures_dir: Path):
     """
     Assert that VirtualSize overrides correctly bound to SizeOfRawData natively without polluting layout mapping logic overlaps.
     """
-    binary = fixtures_dir / "bug2_rva_overflow.exe"
+    binary = fixtures_dir / "bug2_rva_overflow_min.exe"
     buf = binary.read_bytes()
     file_slice = Slice.from_bytes(buf)
     parsed = compute_layout(file_slice)
