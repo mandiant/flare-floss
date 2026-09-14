@@ -49,11 +49,6 @@ def identify_language_and_version(
         logger.info("Rust binary found with version: %s", version)
         return Language.RUST, version
 
-    is_zig, version = get_if_zig_and_version(static_strings)
-    if is_zig:
-        logger.info("Zig binary found")
-        return Language.ZIG, version
-
     # open file as PE for further checks
     try:
         pe = pefile.PE(str(sample))
