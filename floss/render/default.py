@@ -352,6 +352,7 @@ def render(results: floss.results.ResultDocument, verbose, disable_headers, colo
     if results.metadata.language in (
         floss.language.identify.Language.GO.value,
         floss.language.identify.Language.RUST.value,
+        floss.language.identify.Language.ZIG.value,
     ):
         render_language_strings(
             results.metadata.language,

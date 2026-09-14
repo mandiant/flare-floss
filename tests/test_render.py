@@ -82,3 +82,24 @@ def test_render_rich_markup():
     assert "[/<]three" in render(results, False, False, "auto")
     assert "[/<]four" in render(results, True, False, "auto")
     assert "[/<]four" in render(results, False, False, "auto")
+
+
+def test_render_zig_language_strings():
+    results = ResultDocument(
+        metadata=Metadata(file_path="test", min_length=4, language="zig"),
+        analysis=Analysis(),
+        strings=Strings(
+            language_strings=[
+                StaticString(
+                    string="ZIG_SLICE_ALPHA",
+                    offset=0x1832D8,
+                    encoding=StringEncoding.UTF8,
+                )
+            ]
+        ),
+    )
+
+    output = render(results, True, False, "auto")
+
+    assert "FLOSS ZIG STRINGS (1)" in output
+    assert "ZIG_SLICE_ALPHA" in output

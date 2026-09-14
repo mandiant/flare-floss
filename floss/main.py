@@ -39,6 +39,7 @@ import floss.language.utils
 import floss.render.default
 import floss.language.go.extract
 import floss.language.go.coverage
+import floss.language.zig.extract
 import floss.language.rust.extract
 import floss.language.rust.coverage
 from floss.const import (
@@ -705,6 +706,24 @@ def main(argv=None) -> int:
             rdata_strings = floss.language.rust.extract.get_static_strings_from_rdata(sample, static_strings)
             results.strings.language_strings_missed = floss.language.utils.get_missed_strings(
                 rdata_strings, results.strings.language_strings, args.min_length
+            )
+
+        elif results.metadata.language == Language.ZIG.value:
+            logger.info("extracting language-specific Zig strings")
+
+            interim = time()
+            results.strings.language_strings = (
+                floss.language.zig.extract.extract_zig_strings(sample, args.min_length)
+            )
+            results.metadata.runtime.language_strings = get_runtime_diff(interim)
+
+            rdata_strings = floss.language.zig.extract.get_static_strings_from_rdata(
+                sample, static_strings
+            )
+            results.strings.language_strings_missed = (
+                floss.language.utils.get_missed_strings(
+                    rdata_strings, results.strings.language_strings, args.min_length
+                )
             )
     if (
         results.analysis.enable_decoded_strings
