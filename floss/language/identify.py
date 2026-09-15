@@ -126,7 +126,7 @@ def get_if_zig_and_version(pe: pefile.PE) -> Tuple[bool, str]:
     for descriptor in getattr(pe, "DIRECTORY_ENTRY_IMPORT", []):
         dll = descriptor.dll.decode("ascii", "replace").lower()
         imports[dll] = {
-            entry.name.decode("ascii", "replace")
+            entry.name.decode("ascii", "replace").lower()
             for entry in descriptor.imports
             if entry.name is not None
         }
@@ -150,7 +150,7 @@ def get_if_zig_and_version(pe: pefile.PE) -> Tuple[bool, str]:
         score += 4
         has_structure = True
 
-    if "RtlExitUserProcess" in imports.get("ntdll.dll", set()):
+    if "rtlexituserprocess" in imports.get("ntdll.dll", set()):
         score += 4
         has_runtime = True
 
@@ -190,9 +190,9 @@ def get_if_zig_and_version(pe: pefile.PE) -> Tuple[bool, str]:
         has_runtime = True
 
     lock_write_imports = {
-        "AcquireSRWLockExclusive",
-        "ReleaseSRWLockExclusive",
-        "WriteFile",
+        "acquiresrwlockexclusive",
+        "releasesrwlockexclusive",
+        "writefile",
     }
     has_distinctive_runtime = runtime_hits >= 3 or lock_write_imports <= all_imports
     if lock_write_imports <= all_imports:
