@@ -108,7 +108,7 @@ def get_if_zig_and_version(pe: pefile.PE) -> Tuple[bool, str]:
     """
     Return whether the PE matches the tested Zig Windows runtime signatures.
 
-    This combines PE structure, imports, and mapped runtime strings. Tested for Zig 0.12 to 0.16.
+    This combines PE structure, imports, and mapped .rdata runtime strings. Tested for Zig 0.12 to 0.16.
     """
 
     sections = {
@@ -145,7 +145,7 @@ def get_if_zig_and_version(pe: pefile.PE) -> Tuple[bool, str]:
         score += 4
         has_structure = True
 
-    if "RtlExitUserProcess" in imports.get("ntdll.dll", set()):
+    if "rtlexituserprocess" in imports.get("ntdll.dll", set()):
         score += 4
         has_runtime = True
 
@@ -168,16 +168,17 @@ def get_if_zig_and_version(pe: pefile.PE) -> Tuple[bool, str]:
         ".reloc",
     }
 
-    # should be exactly the same as the one of these two
-    if section_names in (legacy_sections, modern_sections):
+    # Allow additional sections while requiring a complete known section bundle.
+    if legacy_sections.issubset(section_names) or modern_sections.issubset(section_names):
         score += 2
         has_structure = True
 
-    mapped_data = b"".join(
+    rdata = b"".join(
         section.get_data()[
             : min(int(section.Misc_VirtualSize), int(section.SizeOfRawData))
         ]
         for section in pe.sections
+        if section.Name.rstrip(b"\0") == b".rdata"
     )
     runtime_markers = (
         b"integer overflow",
@@ -187,16 +188,20 @@ def get_if_zig_and_version(pe: pefile.PE) -> Tuple[bool, str]:
         b"panic: ",
         b"stack trace",
     )
-    runtime_hits = sum(marker in mapped_data for marker in runtime_markers)
+    runtime_hits = sum(marker in rdata for marker in runtime_markers)
     if runtime_hits >= 3:
         score += 2
         has_runtime = True
 
     lock_write_imports = {
-        "AcquireSRWLockExclusive",
-        "ReleaseSRWLockExclusive",
-        "WriteFile",
+        "acquiresrwlockexclusive",
+        "releasesrwlockexclusive",
+        "writefile",
     }
+
+    # Runtime markers and lock/write imports may be absent in some Zig binaries,
+    # particularly in ReleaseFast and ReleaseSmall builds. Keep this requirement
+    # for now to reduce false positives, accepting false negatives for those binaries.
     has_distinctive_runtime = runtime_hits >= 3 or lock_write_imports <= all_imports
     if lock_write_imports <= all_imports:
         score += 1
