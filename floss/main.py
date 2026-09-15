@@ -193,7 +193,7 @@ def main(argv=None) -> int:
         and args.signatures == SIGNATURES_PATH_DEFAULT_STRING
     ):
         cache_dir = floss.cache.get_cache_dir()
-     
+
     if hasattr(args, "signatures"):
         if args.signatures == SIGNATURES_PATH_DEFAULT_STRING:
             logger.debug("-" * 80)
