@@ -24,8 +24,6 @@ SEVERE = 1.00
 
 class Feature:
     def __init__(self, value):
-        super(Feature, self).__init__()
-
         self.name = self.__class__.__name__
         self.value = value
 

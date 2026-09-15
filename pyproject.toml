@@ -82,8 +82,10 @@ dependencies = [
     "tqdm>=4",
     "halo>=0.0.31",
     "rich>=13",
+    "shtab>=1.7",
     "pefile>=2022.5.30",
     "binary2strings>=0.1",
+    "google-re2>=1",
 
     # ---------------------------------------
     # Dependencies that we develop
@@ -91,7 +93,7 @@ dependencies = [
     # These dependencies are often actively influenced by capa,
     # so we provide a minimum patch version that includes the
     # latest bug fixes we need here.
-    "viv-utils[flirt]>=0.7.9",
+    "viv-utils[flirt]>=0.8.0",
     "vivisect>=1.1.1",
     "dncil>=1.0.2",
 
@@ -103,6 +105,13 @@ dependencies = [
     # we still support.
 
     "networkx>=3",
+    # layout / tagging
+    "dnfile==0.18.0",
+    "colorama==0.4.6",
+    "machofile==2026.2.4",
+    "msgspec==0.21.1",
+    "python-lancelot==0.10.0",
+    "pyelftools==0.31",
 ]
 dynamic = ["version", "readme"]
 
@@ -110,8 +119,15 @@ dynamic = ["version", "readme"]
 version = {attr = "floss.version.__version__"}
 readme = {file = "README.md", content-type = "text/markdown"}
 
-[tool.setuptools]
-packages = ["floss", "floss.sigs"]
+[tool.pytest.ini_options]
+# so tests can import scripts.tags.* (scripts is not an installed package)
+pythonpath = ["."]
+
+[tool.setuptools.packages.find]
+include = ["floss*"]
+
+[tool.setuptools.package-data]
+"floss" = ["sigs/*", "tags/data/**/*", "render/templates/index.html"]
 
 [project.optional-dependencies]
 # Dev and build dependencies are not relaxed because
@@ -127,15 +143,15 @@ dev = [
     "pytest-cov==7.1.0",
     "pycodestyle==2.14.0",
     "black==26.5.1",
-    "isort==8.0.1",
-    "mypy==2.2.0",
+    "isort==9.0.1",
+    "mypy==2.3.0",
     # type stubs for mypy
     "types-PyYAML==6.0.10",
     "types-tabulate==0.10.0.20260408",
 ]
 build = [
-    "pyinstaller==6.21.0",
-    "setuptools==83.0.0",
+    "pyinstaller==6.22.1",
+    "setuptools==84.0.0",
     "build==1.5.0"
 ]
 

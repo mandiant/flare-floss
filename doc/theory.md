@@ -52,3 +52,10 @@ Finally, FLOSS diffs the emulator memory states from before and
   6. Emulate decoder functions using extracted arguments and emulator state
   7. Diff memory state from before and after decoder emulation
   8. Extract human-readable strings from memory state difference
+
+This document covers only the deobfuscation algorithm above. FLOSS also enriches
+static strings with layout-aware context and semantic tags by default, and
+extracts language-specific strings from Go and Rust binaries. See the
+[language-specific string extraction](language_specific_strings.md) doc, the
+[tags](tags.md) doc, and the layout-aware static strings feature list in the
+[README](../README.md).

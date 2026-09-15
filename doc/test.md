@@ -8,6 +8,24 @@ First, make sure that `pytest` is installed:
 
     pip install pytest
 
+## Running the unit test suite
+
+FLOSS ships a unit-test suite covering the renderers, layout, tagging, caching,
+and the CLI. Install the dev dependencies (see
+[installation.md](installation.md#step-3-install-development-and-testing-dependencies)),
+then run:
+
+    pytest tests/
+
+Add `-k <name>` to select specific tests or `-x` to stop at the first failure.
+
+## Continuous integration
+
+The [tests.yml](../.github/workflows/tests.yml) workflow runs on every push and
+pull request. It checks code style and runs the unit test suite across the
+supported Python versions and operating systems. See the workflow file for the
+current matrix. All checks must pass before a pull request is merged.
+
 
 ## Binary Test Cases
 

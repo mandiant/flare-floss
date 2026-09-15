@@ -18,9 +18,11 @@ Since FLOSS also extracts static strings (like `strings.exe`),
 Here's a summary of the command line flags and options you
  can provide to FLOSS to modify its behavior.
 
-See `floss -h` for all supported arguments and usage examples. This displays the most used arguments only.
+See `floss -h` for all supported arguments and usage examples.
 
-To see all supported arguments run `floss -H`.
+For a first look at a new sample, start with `floss --summary malware.exe`. It
+prints metadata, per-type string counts, a tag histogram, and the most
+interesting strings, which is usually enough to decide where to dig next.
 
 ### Extract static, obfuscated, and stack strings (default mode)
 
@@ -42,33 +44,149 @@ FLOSS can identify programs compiled from selected programming languages and ext
 
 By default, this process is automatic. However, you can use the `--language` argument to manually select or disable this feature.
 
-### Disable string type extraction (`--no {static,decoded,stack,tight}`)
+### Disable string type extraction (`--no-string-type {static,stack,tight,decoded,language,all}`)
 
 When FLOSS searches for static strings, it looks for
  human-readable ASCII and UTF-16 strings across the
  entire binary contents of the file.
 This means you may be able to replace `strings.exe` with
  FLOSS in your analysis workflow. However, you may disable
- the extraction of static strings via the `--no static` switch.
+ the extraction of static strings via the `--no-string-type static` switch.
 
-    floss.exe --no static -- malware.exe
+    floss.exe --no-string-type static -- malware.exe
 
-Since `--no` supports multiple arguments, end the command options with a double dash `--`.
+Since `--no-string-type` supports multiple arguments, end the command options with a double dash `--`.
 
 Analogous, you can disable the extraction of obfuscated strings, stackstrings or any combination.
 
-    floss.exe --no decoded -- malware.exe
-    floss.exe --no stack tight -- malware.exe
+    floss.exe --no-string-type decoded -- malware.exe
+    floss.exe --no-string-type stack tight -- malware.exe
 
 
-### Enable string type extraction (`--only {static,decoded,stack,tight}`)
+### Enable string type extraction (`--string-type {static,stack,tight,decoded,language,all}`)
 
 Sometimes it's easier to specify only the string type(s) you want to extract.
-Use the `--only` option for that.
+Use the `--string-type` option for that.
 
-    floss.exe --only decoded -- malware.exe
+    floss.exe --string-type decoded -- malware.exe
 
-Please note that `--no` and `--only` cannot be used at the same time.
+Please note that `--string-type` and `--no-string-type` cannot be used at the same time.
+
+### Filtering arguments
+
+These options let you drill into the layout-aware static string listing by
+binary section, structure, semantic tag, or content. They are the primary
+controls for the layout-aware output that FLOSS enables by default (see the
+[Tags](#tags) section and [layout-aware static strings](../README.md#layout-aware-static-strings)
+in the README).
+
+Filtering by binary section:
+
+    floss.exe --section .rdata -- malware.exe
+    floss.exe --no-section .text -- malware.exe
+
+`--section` keeps only static strings whose containing section is in the given
+list; `--no-section` drops them. Both accept multiple names and repeat.
+
+Filtering by binary structure (PE/ELF/Mach-O structures such as the import
+table, section headers, etc.):
+
+    floss.exe --structure import-table -- malware.exe
+    floss.exe --no-structure symbol-table -- malware.exe
+
+Structure names are slugs and match regardless of separators, so `import-table`,
+`import_table`, and `import table` are equivalent. Run `--summary` to see the
+structures present in a specific sample.
+
+Filtering by semantic tag:
+
+    floss.exe --tag winapi openssl -- malware.exe
+    floss.exe --no-tag crt -- malware.exe
+
+`--tag` keeps strings that carry any of the given tags (or tag families, see the
+[Tags](#tags) section); `--no-tag` drops them. Run `--summary` to see the tags
+present in a specific sample.
+
+Convenience shortcuts:
+
+    floss.exe --interesting -- malware.exe
+    floss.exe --query "http://" -- malware.exe
+    floss.exe --max-strings 50 -- malware.exe
+
+- `--interesting` drops strings that carry a "noisy" tag (prevalent, duplicated,
+  code, or relocation-related strings, e.g. `#common`, `#duplicate`, `#code`),
+  unless they also carry a highlight tag (such as `#capa`).
+- `--query REGEX` keeps only strings matching the given regular expression(s).
+  Repeatable; patterns are ORed.
+- `--max-strings N` caps the emitted strings per section to the top `N` by
+  relevance (highlighted first, then untagged, then tagged, ascending by offset).
+
+`--interesting` is a shorthand for the noisy-tag exclusion; the section,
+structure, and tag filters can all be combined with each other and with
+`--query`.
+
+### Output options
+
+Not all renderers produce the full layout-aware listing. These options select
+alternative views:
+
+    floss.exe --plain malware.exe
+    floss.exe --summary malware.exe
+    floss.exe --columns tags offset structure -- malware.exe
+
+- `--plain` renders a flat list of strings, one per line, without layout context
+  or tags. Use it when piping output into line-oriented tools like grep.
+- `--summary` emits a concise summary (sample metadata, per-type string counts,
+  section counts, a tag histogram, and high-value strings). It is static-only by
+  default unless string types are explicitly selected. This is the quickest way
+  to see which sections, structures, and tags a sample contains.
+- `--columns {tags,offset,structure,encoding}` selects which columns appear in
+  the layout view. Valid values are `tags`, `offset`, `structure`, `encoding`;
+  the default is `tags` and `offset`.
+
+### Advanced options
+
+    floss.exe -L malware.exe
+    floss.exe --signatures /path/to/lib.sig malware.exe
+    floss.exe -dd malware.exe
+    floss.exe --color never malware.exe
+
+- `-L`/`--large-file` allows processing files larger than the default 64 MB
+  limit. Files above this limit abort deobfuscation with an error unless this
+  flag is set, because stack/tight/decoded string extraction is expensive.
+- `--signatures PATH` specifies a `.sig`/`.pat` file (or directory) used to
+  identify library functions for deobfuscation. FLOSS uses its embedded FLIRT
+  signatures by default. Signature databases are tracked with Git LFS; see the
+  [README](../README.md) for the LFS note.
+- `-d`/`--debug` enables debugging output on STDERR. Specify it multiple times
+  to increase verbosity: `-d` (debug), `-dd` (TRACE), `-ddd` (SUPERTRACE). These
+  levels are most useful to FLOSS developers and when reporting bugs.
+- `--color {auto,always,never}` controls ANSI color codes in the results.
+  `auto` (the default) colors only during an interactive session.
+
+### Tags
+
+FLOSS tags static strings with semantic context from embedded databases: Windows
+API usage, C runtime, global prevalence, open-source libraries, and expert rules.
+Filter with `--tag`, `--no-tag`, and `--interesting` as shown above. See
+[tags.md](tags.md) for every family and tag, and where each database comes from.
+
+### Environment variables
+
+FLOSS reads the following environment variables:
+
+| Variable | Effect |
+|---|---|
+| `FLOSS_CACHE_DIR` | directory for the analysis result cache (default: the platform cache directory) |
+| `FLOSS_CACHE_ENABLE` | set to `0` to disable result caching (enabled by default) |
+| `FLOSS_CACHE_REFRESH` | set to `1` to ignore the cached result and overwrite the entry (disabled by default) |
+| `FLOSS_SAVE_WORKSPACE` | set to `0`/`no` to prevent saving the vivisect workspace to disk during deobfuscation |
+
+Result caching is **enabled by default**. The full result document is cached on
+first run and reused on later runs, so repeated analyses of the same sample are
+fast. Because a cache hit may serve a document written by an earlier run, disable
+it with `FLOSS_CACHE_ENABLE=0` (or point `FLOSS_CACHE_DIR` at a scratch
+directory) when reproducing or diffing output across code changes.
 
 ### Write output as JSON (`-j/--json`)
 
@@ -76,11 +194,34 @@ Write FLOSS results to `stdout` structured in JSON to make it easy to ingest by 
 
     floss.exe -j malware.exe > malware_strings.json
 
-### Load FLOSS results (`-l/--load`)
+The easiest way to explore this output is the hosted
+[web viewer](https://mandiant.github.io/flare-floss/): upload the JSON file, then
+filter by tag, structure, or search term, and copy the strings you keep. See
+[results_document.md](results_document.md) for the schema itself.
 
-Load a FLOSS results JSON document. This allows to explore FLOSS results without re-running the analysis.
+### Write a standalone HTML report (`--html`)
 
-    floss.exe -l malware_floss_results.json
+Write a self-contained HTML file that opens in a browser with the results already
+loaded.
+
+    floss.exe --html malware.exe > malware_strings.html
+
+The report is a copy of the [web viewer](https://mandiant.github.io/flare-floss/)
+with the result document embedded. Interactive exploration of the data happens in the browser, the same
+way it does when you upload JSON to the hosted viewer. The pip package and
+standalone executable include the viewer. From a source checkout, build it first
+with `cd viewer && npm install && npm run build`.
+
+`--html` also works on a saved results document:
+
+    floss.exe --html malware_strings.json > malware_strings.html
+
+### Load FLOSS results (automatic)
+
+Loading a saved FLOSS results JSON document is automatic and detected from the file
+content, so you can explore results without re-running the analysis.
+
+    floss.exe malware_floss_results.json
 
 
 ### Verbose results (`-v`)
@@ -120,10 +261,10 @@ Supplying a larger minimum length reduces the chances
     floss.exe -n 10 malware.exe
 
 
-### Decoding function specification (`--functions`)
+### Decoding function specification (`--analyze-functions`)
 
 You can instruct FLOSS to decode the strings provided
- to specific functions by using the `--functions`
+ to specific functions by using the `--analyze-functions`
  option.
 By default, FLOSS uses heuristics to identify decoding
  routines in malware.
@@ -136,8 +277,9 @@ This can improve performance as FLOSS by perhaps one-third
  (on the order of seconds, so it is usually _not_ worth it
   to always manually identify decoding routines).
 Specify functions by using their hex-encoded virtual address.
+Since `--analyze-functions` accepts multiple arguments, end the command options with a double dash `--`.
 
-    floss.exe --functions 0x401000 0x402000 malware.exe
+    floss.exe --analyze-functions 0x401000 0x402000 -- malware.exe
 
 
 ### Install/Uninstall right click menu option for Windows (`--install-right-click-menu/--uninstall-right-click-menu`)
@@ -150,11 +292,47 @@ After this option is installed, you can right-click on any file and select `Open
  to quickly open the target file with FLOSS for analysis.
 
 
+### Shell completions (`--print-completion {bash,zsh,tcsh,fish,powershell}`)
+
+FLOSS can print a tab-completion script for your shell. The script is generated
+from FLOSS's argument definitions, so flags, choice values (such as
+`--string-type static`), and sample file paths all complete as you type.
+
+    floss --print-completion bash
+
+Install the output for your shell:
+
+bash:
+
+    mkdir -p ~/.local/share/bash_completion
+    floss --print-completion bash > ~/.local/share/bash_completion/floss
+    echo 'source ~/.local/share/bash_completion/floss' >> ~/.bashrc
+
+zsh (requires `compinit`, which most frameworks and default configs run):
+
+    mkdir -p ~/.local/share/zsh/site-functions
+    floss --print-completion zsh > ~/.local/share/zsh/site-functions/_floss
+
+fish:
+
+    mkdir -p ~/.config/fish/completions
+    floss --print-completion fish > ~/.config/fish/completions/floss.fish
+
+Then restart your shell or start a new one.
+
+
 ## <a name="shellcode"></a>Shellcode analysis options
 
 Malicious shellcode often times contains obfuscated strings or stackstrings.
 FLOSS can analyze raw binary files containing shellcode via the `-f/--format` switch. All
 options mentioned above can also be applied when analyzing shellcode.
 
-    floss.exe -f sc32 malware.raw32
-    floss.exe -f sc64 malware.raw64
+    floss -f sc32 malware.raw32
+    floss -f sc64 malware.raw64
+
+With `--format auto` (the default), FLOSS infers the sample format from its
+contents. Shellcode is detected from the file name extension when the extension
+matches `.sc32`/`.raw32` (32-bit) or `.sc64`/`.raw64` (64-bit); otherwise a file
+is treated as a PE or ELF. You only need `-f sc32`/`-f sc64` when the file name
+does not follow these conventions or the contents do not identify themselves as
+PE/ELF.

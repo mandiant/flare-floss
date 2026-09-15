@@ -15,6 +15,24 @@
 
 
 import subprocess
+from pathlib import Path
+
+from PyInstaller.utils.hooks import collect_submodules
+
+# layout/tags are imported lazily from floss.pipeline; collect them so the
+# standalone binary still bundles the full layout-aware static path.
+layout_tags_hiddenimports = (
+    collect_submodules("floss.layout")
+    + collect_submodules("floss.tags")
+    + [
+        "floss.ranges",
+        "elftools",
+        "lancelot",
+        "machofile",
+        "dnfile",
+        "msgspec",
+    ]
+)
 
 # when invoking pyinstaller from the project root,
 # this gets run from the project root.
@@ -33,6 +51,64 @@ with open("./floss/version.py", "wb") as f:
     )
     f.write(("__version__ = '%s'" % version).encode("utf-8"))
 
+datas = [
+    # when invoking pyinstaller from the project root,
+    # this gets invoked from the directory of the spec file,
+    # i.e. ./.github/pyinstaller
+    ('../../floss/sigs', 'sigs'),
+]
+if Path("viewer/dist/index.html").is_file():
+    # pre-built HTML viewer used by ``floss --html`` (from ``npm run build``)
+    datas.append(('../../viewer/dist/index.html', 'floss/render/templates'))
+else:
+    print(
+        "WARNING: missing viewer/dist/index.html; the standalone binary will not support --html. "
+        "Build the viewer with: cd viewer && npm install && npm run build"
+    )
+datas += [
+    # tag databases
+    ('../../floss/tags/data/crt/*.jsonl.gz', 'floss/tags/data/crt'),
+    ('../../floss/tags/data/expert/*.jsonl', 'floss/tags/data/expert'),
+    ('../../floss/tags/data/gp/*.jsonl.gz', 'floss/tags/data/gp'),
+    ('../../floss/tags/data/gp/*.bin', 'floss/tags/data/gp'),
+    ('../../floss/tags/data/oss/*.jsonl.gz', 'floss/tags/data/oss'),
+    ('../../floss/tags/data/winapi/*.txt.gz', 'floss/tags/data/winapi'),
+]
+
+excludes = [
+    # ignore packages that would otherwise be bundled with the .exe.
+    # review: build/pyinstaller/xref-pyinstaller.html
+    # we don't do any GUI stuff, so ignore these modules
+    "tkinter",
+    "_tkinter",
+    "Tkinter",
+
+    # tqdm provides renderers for ipython,
+    # however, this drags in a lot of dependencies.
+    # since we don't spawn a notebook, we can safely remove these.
+    "IPython",
+    "ipywidgets",
+
+    # these are pulled in by networkx
+    # but we don't need to compute the strongly connected components.
+    "numpy",
+    "scipy",
+    "matplotlib",
+    "pandas",
+    "pytest",
+
+    # deps from viv that we don't use.
+    # this duplicates the entries in `hook-vivisect`,
+    # but works better this way.
+    "vqt",
+    "vdb.qt",
+    "envi.qt",
+    "PyQt5",
+    "qt5",
+    "pyqtwebengine",
+    "pyasn1",
+]
+
 a = Analysis(
     # when invoking pyinstaller from the project root,
     # this gets invoked from the directory of the spec file,
@@ -40,48 +116,11 @@ a = Analysis(
     ["../../floss/main.py"],
     pathex=["floss"],
     binaries=[],
-    datas=[
-        # when invoking pyinstaller from the project root,
-        # this gets invoked from the directory of the spec file,
-        # i.e. ./.github/pyinstaller
-        ('../../floss/sigs', 'sigs'),
-    ],
-    hiddenimports=[],
+    datas=datas,
+    hiddenimports=layout_tags_hiddenimports,
     hookspath=[".github/pyinstaller/hooks"],
     runtime_hooks=[],
-    excludes=[
-        # ignore packages that would otherwise be bundled with the .exe.
-        # review: build/pyinstaller/xref-pyinstaller.html
-        # we don't do any GUI stuff, so ignore these modules
-        "tkinter",
-        "_tkinter",
-        "Tkinter",
-
-        # tqdm provides renderers for ipython,
-        # however, this drags in a lot of dependencies.
-        # since we don't spawn a notebook, we can safely remove these.
-        "IPython",
-        "ipywidgets",
-
-        # these are pulled in by networkx
-        # but we don't need to compute the strongly connected components.
-        "numpy",
-        "scipy",
-        "matplotlib",
-        "pandas",
-        "pytest",
-
-        # deps from viv that we don't use.
-        # this duplicates the entries in `hook-vivisect`,
-        # but works better this way.
-        "vqt",
-        "vdb.qt",
-        "envi.qt",
-        "PyQt5",
-        "qt5",
-        "pyqtwebengine",
-        "pyasn1",
-    ],
+    excludes=excludes,
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
     noarchive=False,

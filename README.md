@@ -30,18 +30,49 @@ FLOSS extracts all the following string types:
 
 Please review the theory behind FLOSS [here](doc/theory.md).
 
-Our [blog post](https://www.mandiant.com/resources/automatically-extracting-obfuscated-strings) talks more about the motivation behind FLOSS and details how the tool works.
+Our [blog post](https://cloud.google.com/blog/topics/threat-intelligence/automatically-extracting-obfuscated-strings/) talks more about the motivation behind FLOSS and details how the tool works.
 
-FLOSS version 2.0 updates are detailed in this [blog post](https://www.mandiant.com/resources/floss-version-2).
+FLOSS version 2.0 updates are detailed in this [blog post](https://cloud.google.com/blog/topics/threat-intelligence/floss-version-2/).
 
 ### Language-specific Strings
 Not all compilers use string formats that the classic `strings.exe` algorithm supports. For example, if strings are UTF-8 encoded or stored without a NULL-terminator. FLOSS can identify and extract strings from programs compiled from the following languages:
  1. Go
  2. Rust
 
-The strings FLOSS extracts specific to a compiler are much easier to inspect by humans. 
+The strings FLOSS extracts specific to a compiler are much easier to inspect by humans.
 
 Please consult the documentation to learn more about the [language-specific string extraction](doc/language_specific_strings.md).
+
+### Layout-aware static strings
+
+FLOSS enriches static strings by default with
+file structure context and tags (global prevalence, open-source libraries,
+expert rules, and more). Stack, tight, and decoded strings still appear after
+the layout-aware static listing when deobfuscation is enabled.
+
+```console
+$ floss sample.exe
+$ floss sample.exe -j
+```
+
+Features:
+
+- extract ASCII and UTF-16LE strings
+- show strings next to right-aligned, colored context, including tags and file offset
+- render strings within PE section range delimiters
+- annotate strings from known PE structures, like the import table
+- don't show junk strings that overlap with instructions
+- mute strings known to be globally prevalent, via an embedded database
+- mute strings from popular open source libraries, via embedded databases
+- highlight strings that match expert rules, via embedded databases
+
+![screenshot 1](https://github.com/mandiant/flare-floss/assets/156560/f2d471a3-2624-498c-aaa9-928e2909c338)
+![screenshot 2](https://github.com/mandiant/flare-floss/assets/156560/23bd20a1-7dff-46b5-be65-12582cb90d64)
+
+Tag databases and FLIRT signature files are tracked with Git LFS; contributors
+cloning the repo may need Git LFS installed to fetch those files. Maintenance of
+tag databases is documented in [scripts/tags/README.md](scripts/tags/README.md)
+and the per-database notes under `floss/tags/data/`.
 
 ## Installation
 To use FLOSS, download a standalone executable file from the releases page:
@@ -56,24 +87,49 @@ Extract obfuscated strings from a malware binary:
 
 Only extract stack and tight strings:
 
-    $ floss --only stack tight -- suspicious.exe
+    $ floss --string-type stack tight -- suspicious.exe
 
 Do not extract static strings:
 
-    $ floss --no static -- backdoor.exe
+    $ floss --no-string-type static -- backdoor.exe
 
 Display the help/usage screens:
 
-    $ floss -h  # show core arguments
-    $ floss -H  # show all supported arguments
+    $ floss -h  # show all supported arguments
+
+Enable tab completion for flags, choice values, and file paths with `floss --print-completion bash`
+(also zsh, fish); installation instructions are in [doc/usage.md](doc/usage.md#shell-completions).
 
 For a detailed description of using FLOSS, review the documentation
  [here](doc/usage.md).
 
 ## Scripts
-FLOSS also contains additional Python scripts in the [scripts](scripts) directory 
+FLOSS also contains additional Python scripts in the [scripts](scripts) directory
 which can be used to load its output into other tools such as Binary Ninja or IDA Pro.
 For detailed description of these scripts review the documentation [here](scripts/README.md).
+
+## Graphical viewer
+Explore `floss -j` output in the hosted [web viewer](https://mandiant.github.io/flare-floss/):
+upload the JSON, filter strings by search term, minimum length, tags, or
+structures, and copy what you keep.
+
+Emit a standalone HTML report directly and open it in a browser:
+
+    floss --html malware.exe > report.html
+
+You can also build the viewer yourself into a single, self-contained offline HTML
+file, see [viewer/README.md](viewer/README.md).
+
+## Documentation
+
+- [doc/usage.md](doc/usage.md) — CLI usage: extraction, filtering, rendering, and environment variables
+- [doc/results_document.md](doc/results_document.md) — the versioned JSON results schema
+- [doc/tags.md](doc/tags.md) — the semantic tag system and its tag families
+- [doc/language_specific_strings.md](doc/language_specific_strings.md) — Go and Rust string extraction
+- [doc/theory.md](doc/theory.md) — the deobfuscation algorithm
+- [doc/installation.md](doc/installation.md) — all installation methods
+- [doc/test.md](doc/test.md) — how to build and run the test suite
+- [viewer/README.md](viewer/README.md) — web viewer development
 
 ## Mailing List
 Subscribe to the FLARE mailing list for community announcements by sending an email with the subject "subscribe" to [flare-external@google.com](mailto:flare-external@google.com?subject=subscribe&body=subscribe).

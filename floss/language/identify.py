@@ -15,15 +15,15 @@
 
 import re
 from enum import Enum
-from typing import Tuple, Iterable
 from pathlib import Path
+from typing import Iterable, Tuple
 
 import pefile
 
 import floss.logging_
-from floss.results import StaticString
-from floss.language.utils import get_rdata_section
 from floss.language.rust.rust_version_database import rust_commit_hash
+from floss.language.utils import get_rdata_section
+from floss.results import StaticString
 
 logger = floss.logging_.getLogger(__name__)
 
@@ -32,6 +32,7 @@ VERSION_UNKNOWN_OR_NA = "version unknown"
 
 
 class Language(Enum):
+    AUTO = "auto"
     GO = "go"
     RUST = "rust"
     DOTNET = "dotnet"
@@ -40,7 +41,9 @@ class Language(Enum):
     DISABLED = "none"
 
 
-def identify_language_and_version(sample: Path, static_strings: Iterable[StaticString]) -> Tuple[Language, str]:
+def identify_language_and_version(
+    sample: Path, static_strings: Iterable[StaticString]
+) -> Tuple[Language, str]:
     is_rust, version = get_if_rust_and_version(static_strings)
     if is_rust:
         logger.info("Rust binary found with version: %s", version)
@@ -98,7 +101,9 @@ def get_if_rust_and_version(static_strings: Iterable[StaticString]) -> Tuple[boo
                 version = rust_commit_hash[matches["hash"]]
                 return True, version
             else:
-                logger.debug("hash %s not found in Rust commit hash database", matches["hash"])
+                logger.debug(
+                    "hash %s not found in Rust commit hash database", matches["hash"]
+                )
                 return True, VERSION_UNKNOWN_OR_NA
 
     return False, VERSION_UNKNOWN_OR_NA
@@ -121,7 +126,7 @@ def get_if_zig_and_version(pe: pefile.PE) -> Tuple[bool, str]:
     for descriptor in getattr(pe, "DIRECTORY_ENTRY_IMPORT", []):
         dll = descriptor.dll.decode("ascii", "replace").lower()
         imports[dll] = {
-            entry.name.decode("ascii", "replace")
+            entry.name.decode("ascii", "replace").lower()
             for entry in descriptor.imports
             if entry.name is not None
         }

@@ -15,27 +15,23 @@
 
 import re
 import json
+import time
 import datetime
+import contextlib
 from enum import Enum
-from typing import Dict, List
+from typing import TYPE_CHECKING, Dict, List, Iterator, Optional
 from pathlib import Path
-from dataclasses import field
+from dataclasses import field, dataclass
 
 from pydantic import TypeAdapter, ValidationError
-
-# we use pydantic for dataclasses so that we can
-# easily load and validate JSON reports.
-#
-# pydantic checks all the JSON fields look as they should
-# while using the nice and familiar dataclass syntax.
-#
-# really, you should just pretend we're using stock dataclasses.
-from pydantic.dataclasses import dataclass
 
 import floss.logging_
 from floss.render import Verbosity
 from floss.version import __version__
 from floss.render.sanitize import sanitize
+
+if TYPE_CHECKING:
+    from floss.layout.base import Layout
 
 logger = floss.logging_.getLogger(__name__)
 
@@ -58,10 +54,10 @@ class StringEncoding(str, Enum):
 class StackString:
     """
     here's what the following members represent:
-        
-        
+
+
         [smaller addresses]
-       
+
         +---------------+  <- stack_pointer (top of stack)
         |               | \
         +---------------+  | offset
@@ -75,7 +71,7 @@ class StackString:
         +---------------+  |
         |               | /
         +---------------+  <- original_stack_pointer (bottom of stack, probably bp)
-        
+
         [bigger addresses]
 
 
@@ -141,11 +137,17 @@ class StaticString:
         string: the string
         offset: the offset into the input where the string is found
         encoding: the string encoding, like ASCII or unicode
+        tags: classification tags (layout/content), when enriched
+        section: containing layout node name, when known
+        structure: PE/ELF/Mach-O structure name, when known
     """
 
     string: str
     offset: int
     encoding: StringEncoding
+    tags: List[str] = field(default_factory=list)
+    section: str = ""
+    structure: str = ""
 
     @classmethod
     def from_utf8(cls, buf, addr, min_length):
@@ -163,16 +165,97 @@ class StaticString:
 
 
 @dataclass
+class ResultString:
+    """Serializable layout-tree string (used for section-aware static render)."""
+
+    string: str
+    offset: int
+    size: int
+    encoding: str
+    tags: List[str] = field(default_factory=list)
+    structure: str = ""
+
+
+@dataclass
+class ResultLayout:
+    """Serializable binary layout tree for static string context."""
+
+    name: str
+    offset: int
+    length: int
+    strings: List[ResultString] = field(default_factory=list)
+    children: List["ResultLayout"] = field(default_factory=list)
+
+    @property
+    def end(self) -> int:
+        return self.offset + self.length
+
+    @classmethod
+    def from_layout(cls, layout: "Layout") -> "ResultLayout":
+        """Recursively convert a layout tree to the serializable form."""
+        from floss.layout.types import TaggedString, ExtractedString
+
+        result_strings: List[ResultString] = []
+        for s in layout.strings:
+            # after tagging, strings are TaggedString; before, ExtractedString
+            if isinstance(s, TaggedString):
+                extracted: ExtractedString = s.string
+                tags = sorted(list(s.tags))
+                structure = s.structure or ""
+            else:
+                assert isinstance(s, ExtractedString)
+                extracted = s
+                tags = []
+                structure = ""
+
+            result_strings.append(
+                ResultString(
+                    string=extracted.string,
+                    offset=extracted.slice.range.offset,
+                    size=extracted.slice.range.length,
+                    encoding=extracted.encoding,
+                    tags=tags,
+                    structure=structure,
+                )
+            )
+
+        result_children = [cls.from_layout(child) for child in (layout.children or [])]
+
+        return cls(
+            name=layout.name,
+            offset=layout.slice.range.offset,
+            length=layout.slice.range.length,
+            strings=result_strings,
+            children=result_children,
+        )
+
+
+@dataclass
 class Runtime:
-    start_date: datetime.datetime = datetime.datetime.now()
-    total: float = 0
-    vivisect: float = 0
-    find_features: float = 0
-    static_strings: float = 0
-    language_strings: float = 0
-    stack_strings: float = 0
-    decoded_strings: float = 0
-    tight_strings: float = 0
+    start_date: datetime.datetime = field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc))
+    total: float = 0.0
+    vivisect: float = 0.0
+    find_features: float = 0.0
+    static_strings: float = 0.0
+    layout: float = 0.0
+    tags: float = 0.0
+    language_strings: float = 0.0
+    stack_strings: float = 0.0
+    decoded_strings: float = 0.0
+    tight_strings: float = 0.0
+
+    @contextlib.contextmanager
+    def measure_and_set_time(self, field: str) -> Iterator[None]:
+        """
+        Record the elapsed time of the wrapped block into the given runtime field.
+        """
+        if not hasattr(self, field):
+            raise AttributeError(f"Runtime has no field {field!r}")
+        t0 = time.time()
+        try:
+            yield
+        finally:
+            setattr(self, field, round(time.time() - t0, 4))
 
 
 @dataclass
@@ -191,15 +274,28 @@ class Analysis:
     enable_stack_strings: bool = True
     enable_tight_strings: bool = True
     enable_decoded_strings: bool = True
+    enable_language_strings: bool = True
+    enable_layout: bool = True
+    enable_tags: bool = True
     functions: Functions = field(default_factory=Functions)
 
 
-STRING_TYPE_FIELDS = set([field for field in Analysis.__annotations__ if field.startswith("enable_")])
+# string-type enable flags only (layout/tags are separate product toggles)
+STRING_TYPE_FIELDS = {
+    "enable_static_strings",
+    "enable_stack_strings",
+    "enable_tight_strings",
+    "enable_decoded_strings",
+    "enable_language_strings",
+}
 
 
 @dataclass
 class Metadata:
     file_path: str
+    md5: str = ""
+    sha1: str = ""
+    sha256: str = ""
     version: str = __version__
     imagebase: int = 0
     min_length: int = 0
@@ -224,6 +320,7 @@ class ResultDocument:
     metadata: Metadata
     analysis: Analysis = field(default_factory=Analysis)
     strings: Strings = field(default_factory=Strings)
+    layout: Optional[ResultLayout] = None
 
     @classmethod
     def parse_file(cls, path: Path) -> "ResultDocument":
@@ -234,25 +331,25 @@ def log_result(decoded_string, verbosity):
     string = sanitize(decoded_string.string)
     if verbosity < Verbosity.VERBOSE:
         logger.info("%s", string)
+    elif isinstance(decoded_string, DecodedString):
+        logger.info(
+            "%s [%s] decoded by 0x%x called at 0x%x",
+            string,
+            decoded_string.encoding,
+            decoded_string.decoding_routine,
+            decoded_string.decoded_at,
+        )
     else:
-        if type(decoded_string) == DecodedString:
-            logger.info(
-                "%s [%s] decoded by 0x%x called at 0x%x",
-                string,
-                decoded_string.encoding,
-                decoded_string.decoding_routine,
-                decoded_string.decoded_at,
-            )
-        elif type(decoded_string) in (StackString, TightString):
-            logger.info(
-                "%s [%s] in 0x%x at address 0x%x",
-                string,
-                decoded_string.encoding,
-                decoded_string.function,
-                decoded_string.program_counter,
-            )
-        else:
+        # StackString and its TightString subclass
+        if not isinstance(decoded_string, StackString):
             raise ValueError("unknown decoded or extracted string type: %s" % type(decoded_string))
+        logger.info(
+            "%s [%s] in 0x%x at address 0x%x",
+            string,
+            decoded_string.encoding,
+            decoded_string.function,
+            decoded_string.program_counter,
+        )
 
 
 def load(sample: Path, analysis: Analysis, functions: List[int], min_length: int) -> ResultDocument:
@@ -276,7 +373,7 @@ def read(sample: Path) -> ResultDocument:
         raise InvalidResultsFile(f"{e}")
 
     try:
-        results = ResultDocument(**results)
+        results = TypeAdapter(ResultDocument).validate_python(results)
     except (TypeError, ValidationError) as e:
         raise InvalidResultsFile(f"{str(sample)} is not a valid FLOSS result document: {e}")
 
@@ -286,24 +383,35 @@ def read(sample: Path) -> ResultDocument:
 def check_set_string_types(results: ResultDocument, wanted_analysis: Analysis) -> None:
     for string_type in STRING_TYPE_FIELDS:
         if getattr(wanted_analysis, string_type) and not getattr(results.analysis, string_type):
-            logger.warning(f"{string_type} not in loaded data, use --only/--no to enable/disable type(s)")
+            logger.warning(
+                f"{string_type} not in loaded data, use --string-type/--no-string-type to enable/disable type(s)"
+            )
         setattr(results.analysis, string_type, getattr(wanted_analysis, string_type))
 
 
 def filter_functions(results: ResultDocument, functions: List[int]) -> None:
-    filtered_scores = dict()
+    # a function is valid if it appears in any string category; decoding
+    # functions additionally have a score. don't require a decoding score for
+    # stack/tight-only functions.
+    stack_fvas = {f.function for f in results.strings.stack_strings}
+    tight_fvas = {f.function for f in results.strings.tight_strings}
+    decoded_fvas = {f.decoding_routine for f in results.strings.decoded_strings}
+    known_fvas = stack_fvas | tight_fvas | decoded_fvas | set(results.analysis.functions.decoding_function_scores)
+
     for fva in functions:
-        try:
-            filtered_scores[fva] = results.analysis.functions.decoding_function_scores[fva]
-        except KeyError:
+        if fva not in known_fvas:
             raise InvalidLoadConfig(f"function 0x{fva:x} not found in loaded data")
+
+    filtered_scores = {
+        fva: results.analysis.functions.decoding_function_scores[fva]
+        for fva in functions
+        if fva in results.analysis.functions.decoding_function_scores
+    }
     results.analysis.functions.decoding_function_scores = filtered_scores
 
-    results.strings.stack_strings = list(filter(lambda f: f.function in functions, results.strings.stack_strings))
-    results.strings.tight_strings = list(filter(lambda f: f.function in functions, results.strings.tight_strings))
-    results.strings.decoded_strings = list(
-        filter(lambda f: f.decoding_routine in functions, results.strings.decoded_strings)
-    )
+    results.strings.stack_strings = [f for f in results.strings.stack_strings if f.function in functions]
+    results.strings.tight_strings = [f for f in results.strings.tight_strings if f.function in functions]
+    results.strings.decoded_strings = [f for f in results.strings.decoded_strings if f.decoding_routine in functions]
 
     results.analysis.functions.analyzed_stack_strings = len(results.strings.stack_strings)
     results.analysis.functions.analyzed_tight_strings = len(results.strings.tight_strings)
@@ -311,9 +419,43 @@ def filter_functions(results: ResultDocument, functions: List[int]) -> None:
 
 
 def filter_string_len(results: ResultDocument, min_length: int) -> None:
-    results.strings.static_strings = list(filter(lambda s: len(s.string) >= min_length, results.strings.static_strings))
-    results.strings.stack_strings = list(filter(lambda s: len(s.string) >= min_length, results.strings.stack_strings))
-    results.strings.tight_strings = list(filter(lambda s: len(s.string) >= min_length, results.strings.tight_strings))
-    results.strings.decoded_strings = list(
-        filter(lambda s: len(s.string) >= min_length, results.strings.decoded_strings)
+    """filter strings below min_length.
+
+    Applied when loading a saved results document (and future cache hits):
+    extraction already respects min_length, but a document loaded with a
+    different -n may contain shorter strings, so re-filter here.
+
+    Strings shorter than the stored extraction min_length were dropped at
+    extraction time and cannot be recovered, so abort when the requested
+    threshold is lower than what the document was built with.
+    """
+    stored_min_length = results.metadata.min_length
+    if min_length < stored_min_length:
+        raise InvalidLoadConfig(
+            "requested --minimum-length %d is below the %d used to build this "
+            "document, so strings between %d and %d were already dropped and "
+            "cannot be recovered" % (min_length, stored_min_length, min_length, stored_min_length)
+        )
+    results.strings.static_strings = [s for s in results.strings.static_strings if len(s.string) >= min_length]
+    results.strings.stack_strings = [s for s in results.strings.stack_strings if len(s.string) >= min_length]
+    results.strings.tight_strings = [s for s in results.strings.tight_strings if len(s.string) >= min_length]
+    results.strings.decoded_strings = [s for s in results.strings.decoded_strings if len(s.string) >= min_length]
+    results.strings.language_strings = [s for s in results.strings.language_strings if len(s.string) >= min_length]
+    results.strings.language_strings_missed = [
+        s for s in results.strings.language_strings_missed if len(s.string) >= min_length
+    ]
+    if results.layout is not None:
+        results.layout = _filter_layout_string_len(results.layout, min_length)
+
+
+def _filter_layout_string_len(layout: ResultLayout, min_length: int) -> ResultLayout:
+    """recursively drop layout-tree strings shorter than min_length."""
+    strings = [s for s in layout.strings if len(s.string) >= min_length]
+    children = [_filter_layout_string_len(child, min_length) for child in layout.children]
+    return ResultLayout(
+        name=layout.name,
+        offset=layout.offset,
+        length=layout.length,
+        strings=strings,
+        children=children,
     )

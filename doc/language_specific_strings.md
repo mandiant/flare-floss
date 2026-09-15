@@ -1,9 +1,10 @@
 ## Go String Extraction
+
 Programs compiled by the Go compiler use a string representation that is difficult to interpret by humans. Although they are UTF-8 encoded, and therefore show up in the output of `strings.exe`, program strings are not NULL-terminated. This means separate strings within the binary may appear as a large chunk of indistinguishable string data.
 
 FLOSS implements an algorithm to handle the unusual characteristics of strings in Go binaries. This approach analyzes instances of the `struct String` type to identify candidate strings and reasons about the length-sorted order to avoid false positives. Crucially, FLOSS automatically handles the complexities of Go strings and displays strings as written in the program's source code.
 
-It's important to mention that there are other types of strings, such as runtime strings, which are not derived from the program strings. 
+It's important to mention that there are other types of strings, such as runtime strings, which are not derived from the program strings.
 
 ### Algorithm:
 
@@ -15,23 +16,25 @@ It's important to mention that there are other types of strings, such as runtime
 4. Extract the string blob located between the identified boundaries.
 5. Split the identified string blob, based on the cross-references available in the binary to separate the individual strings.
 
-Please note that while FLOSS handles many scenarios effectively, there are certain optimizations, such as inlined constants, that may not be fully supported yet. 
+Please note that while FLOSS handles many scenarios effectively, there are certain optimizations, such as inlined constants, that may not be fully supported yet.
 For more information on Go strings, you can refer to the Go project's documentation and the source code of the struct String layout.
 
 Learn more:
 
     Go Project: [Go Project](https://github.com/golang/go)
     Blog post: [Unveiling Go Strings: A Google Summer of Code Journey](https://medium.com/p/92f6d9fee97c)
-    Source code: 
+    Source code:
     - https://github.com/golang/go/blob/36ea4f9680f8296f1c7d0cf7dbb1b3a9d572754a/src/builtin/builtin.go#L70-L73
     - https://github.com/golang/go/blob/38e2376f35907ebbb98419f1f4b8f28125bf6aaf/src/go/types/builtins.go#L824-L825
 
 ## Rust String Extraction
+
 Similar to Go, Rust binaries may contain strings that are not NULL terminated. Separate strings within the binary may appear as larger chunks of indistinguishable string data.
 
 FLOSS analyzes the data and code in Rust binaries to identify individual candidate strings.
 
 ### Algorithm:
+
 1. Extract all UTF-8 encoded strings
 2. Analyze data and code references to identify substring boundaries
 3. Split strings from step 1 into individual parts as found in step 2
@@ -41,7 +44,7 @@ For more information on Rust strings, you can refer to the Rust project's docume
 Learn more:
 
     Rust Project: [Rust Project](https://github.com/rust-lang/rust)
-    Source code: 
+    Source code:
     - https://github.com/rust-lang/rust/blob/3911a63b7777e19dad4043542f908018e70c0bdd/library/alloc/src/string.rs
 
 ## Zig String Extraction
@@ -53,13 +56,13 @@ The scoring method was derived from a controlled corpus of Zig 0.12 through 0.16
 
 The detector assigns the following weights:
 
-| Evidence | Score |
-| --- | ---: |
-| A `.tls` section and a populated TLS data directory | 4 |
-| An `ntdll!RtlExitUserProcess` import | 4 |
-| An exact observed Zig Windows section bundle | 2 |
-| At least three mapped Zig-like runtime markers | 2 |
-| `AcquireSRWLockExclusive`, `ReleaseSRWLockExclusive`, and `WriteFile` imports | 1 |
+| Evidence                                                                      | Score |
+| ----------------------------------------------------------------------------- | ----: |
+| A `.tls` section and a populated TLS data directory                           |     4 |
+| An `ntdll!RtlExitUserProcess` import                                          |     4 |
+| An exact observed Zig Windows section bundle                                  |     2 |
+| At least three mapped Zig-like runtime markers                                |     2 |
+| `AcquireSRWLockExclusive`, `ReleaseSRWLockExclusive`, and `WriteFile` imports |     1 |
 
 The observed section bundles are:
 
