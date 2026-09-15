@@ -48,7 +48,6 @@ Learn more:
     - https://github.com/rust-lang/rust/blob/3911a63b7777e19dad4043542f908018e70c0bdd/library/alloc/src/string.rs
 
 ## Zig String Extraction
-
 FLOSS identifies Zig binaries before applying language-specific string extraction. A single string such as `ZIG_PROGRESS` is not reliable evidence: it is absent from many normal Zig binaries and can be copied into non-Zig programs. The current detector therefore requires a weighted combination of PE structure, imports, and mapped runtime strings.
 
 ### Identification methodology

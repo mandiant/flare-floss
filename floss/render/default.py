@@ -486,6 +486,7 @@ def render(
     if results.analysis.enable_language_strings and results.metadata.language in (
         floss.language.identify.Language.GO.value,
         floss.language.identify.Language.RUST.value,
+        floss.language.identify.Language.ZIG.value,
     ):
         render_language_strings(
             results.metadata.language,
