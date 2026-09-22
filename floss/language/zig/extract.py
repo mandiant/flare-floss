@@ -183,7 +183,7 @@ def split_utf8_strings(
             except ValueError:
                 continue
 
-    return list(dict.fromkeys(extracted_strings))
+    return list({(s.string, s.offset, s.encoding): s for s in extracted_strings}.values())
 
 
 def get_string_blob_strings(pe: pefile.PE, min_length: int) -> Iterable[StaticString]:
@@ -234,7 +234,7 @@ def get_string_blob_strings(pe: pefile.PE, min_length: int) -> Iterable[StaticSt
                 )
             except ValueError:
                 continue
-        return list(dict.fromkeys(extracted_strings))
+        return list({(s.string, s.offset, s.encoding): s for s in extracted_strings}.values())
     except ValueError as error:
         logger.error("cannot extract Zig strings: %s", error)
         return []

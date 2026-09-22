@@ -4,7 +4,8 @@ from unittest.mock import Mock
 import pefile
 import pytest
 
-from floss.results import StaticString, StringEncoding
+from floss.results import Analysis, StaticString, StringEncoding
+from floss.pipeline import Options, analyze
 from floss.language.utils import StructString
 from floss.language.zig.extract import extract_zig_strings, get_string_blob_strings
 
@@ -67,6 +68,27 @@ def zig_slice_strings64():
         / "zig-slices64.exe"
     )
     return extract_zig_strings(path, n)
+
+
+def test_zig_extraction_runs_in_pipeline():
+    path = pathlib.Path(__file__).parent / "data/language/zig/zig-hello/bin/zig-hello64.exe"
+    results = analyze(
+        Options(
+            sample=path,
+            min_length=4,
+            analysis=Analysis(
+                enable_stack_strings=False,
+                enable_tight_strings=False,
+                enable_decoded_strings=False,
+                enable_layout=False,
+                enable_tags=False,
+            ),
+        )
+    )
+
+    assert results is not None
+    assert results.metadata.language == "zig"
+    assert any(string.string == "Hello, world!" for string in results.strings.language_strings)
 
 
 @pytest.mark.parametrize(
@@ -288,4 +310,4 @@ def test_overlapping_slices(monkeypatch, data, slices, min_length, expected):
             in strings
         )
     assert all(len(string.string) >= min_length for string in strings)
-    assert len(strings) == len(set(strings))
+    assert len(strings) == len({(s.string, s.offset, s.encoding) for s in strings})
