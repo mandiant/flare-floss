@@ -20,17 +20,19 @@ import struct
 import logging
 import pathlib
 import argparse
-from typing import List, Tuple, Iterable, Optional
+from typing import Dict, List, Tuple, Iterable, Optional
 from pathlib import Path
 from itertools import chain
 from dataclasses import dataclass
 
 import pefile
+import vivisect.const
 from typing_extensions import TypeAlias
 
 import floss.utils
 from floss.results import StaticString, StringEncoding
 from floss.language.utils import StructString, find_lea_xrefs, get_struct_string_candidates
+from floss.language.go.pclntab import find_runtime_functions
 
 logger = logging.getLogger(__name__)
 
@@ -422,6 +424,92 @@ def get_static_strings_from_blob_range(sample: pathlib.Path, static_strings: Lis
     string_blob_end = pe.get_offset_from_rva(string_blob_end - image_base)
 
     return list(filter(lambda s: string_blob_start <= s.offset < string_blob_end, static_strings))
+
+
+def find_slicebytetostring_callsites(vw, pe: Optional[pefile.PE] = None) -> Dict[int, List[int]]:
+    """
+    Locate all call sites to runtime.slicebytetostring within the vivisect workspace vw
+    Returns {callee_va: [caller_va, ...]}
+
+    Strategy
+    1. vivisect name table fast path that works for non-stripped binaries
+       where the Go toolchain embeds symbol names into the ELF/PE symbol table
+    2. pclntab resolver fallback for stripped/garble/gobfuscate binaries
+       pclntab is a runtime data structure that survives stripping, we parse it
+       directly from pe(or from vw.getFiles()[0] when pe is not given)
+       to build a name -> VA map and then look up xrefs in the vivisect workspace
+
+    The two approaches are complementary: step 1 is O(names) + fast; step 2
+    handles the obfuscated case that is the whole motivation for this work
+    """
+    _SLICEBYTETOSTRING_TOKENS = (
+        "runtime.slicebytetostring",
+        "runtime_slicebytetostring",
+        "slicebytetostring",
+    )
+
+    def _xrefs_to(callee_va: int) -> List[int]:
+        try:
+            xrefs = vw.getXrefsTo(callee_va, rtype=vivisect.const.REF_CODE)
+            return sorted({xr[0] for xr in xrefs})
+        except Exception:
+            return []
+
+    out: Dict[int, List[int]] = {}
+
+    ## step 1 vivisect name table (works for non-stripped binaries)
+    try:
+        names = vw.getNames()
+        items = names.items() if hasattr(names, "items") else names
+        for va, name in items:
+            lname = str(name).lower()
+            if any(tok in lname for tok in _SLICEBYTETOSTRING_TOKENS):
+                callers = _xrefs_to(va)
+                if callers:
+                    out[va] = callers
+    except Exception as exc:
+        logger.debug("vw.getNames() failed: %s", exc)
+
+    if out:
+        logger.debug(
+            "slicebytetostring: found %d callee(s) via vivisect names (%d total callsites)",
+            len(out),
+            sum(len(v) for v in out.values()),
+        )
+        return out
+
+    ## step 2 pclntab resolver (fallback for stripped/obfuscated binarie)
+    logger.debug("slicebytetostring: vivisect name table empty, falling back to pclntab scan")
+
+    try:
+        _pe = pe
+        if _pe is None:
+            # Derive PE path from the vivisect workspace file list
+            files = vw.getFiles()
+            if not files:
+                logger.debug("vw.getFiles() returned nothing, cannot open PE for pclntab scan")
+                return out
+            sample_path = files[0]
+            _pe = pefile.PE(sample_path, fast_load=True)
+
+        hits = find_runtime_functions(_pe, _SLICEBYTETOSTRING_TOKENS)
+        for name, callee_va in hits.items():
+            callers = _xrefs_to(callee_va)
+            if callers:
+                out[callee_va] = callers
+                logger.debug("pclntab: %s at 0x%x -> %d callsite(s)", name, callee_va, len(callers))
+            else:
+                logger.debug("pclntab: %s at 0x%x (no code xrefs found)", name, callee_va)
+
+    except Exception as exc:
+        logger.debug("pclntab resolver failed: %s", exc, exc_info=True)
+
+    logger.debug(
+        "slicebytetostring: pclntab found %d callee(s) (%d total callsites)",
+        len(out),
+        sum(len(v) for v in out.values()),
+    )
+    return out
 
 
 def main(argv=None):
