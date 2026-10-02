@@ -50,8 +50,9 @@ class Layout(BaseModel, abc.ABC):
     and accessor properties for the parent and children.
 
     each node has a nice human readable name.
-    each node has a list of strings that are contained by the node;
-    these strings don't overlap with any children strings, they're only found in the gaps.
+    each node has a list of strings that are assigned to it;
+    a string is assigned to the deepest descendant node whose range contains
+    the string's start offset, stopping at buffer domain boundaries.
 
     note that `Layout` is the abstract base class for nodes in the tree.
     subclasses are used to represent different types of regions,
@@ -128,70 +129,60 @@ class Layout(BaseModel, abc.ABC):
         "convenience"
         return self.slice.range.end
 
+    def _distribute_strings(self, strings: Iterable[ExtractedString]) -> None:
+        """
+        assign each string to the deepest descendant whose range contains the
+        string's start offset. children are sorted by offset but may overlap;
+        among overlapping children the last one that contains the offset wins.
+        a child over a different buffer (XOR-decoded nested layout) extracts
+        its own strings and receives nothing from here.
+        """
+        if not self.children:
+            self.strings.extend(strings)  # type: ignore
+            return
+
+        child_offsets = [c.offset for c in self.children]
+        child_strings: List[List[ExtractedString]] = [[] for _ in self.children]
+        max_end_so_far: List[int] = []
+        for c in self.children:
+            max_end_so_far.append(max(c.end, max_end_so_far[-1]) if max_end_so_far else c.end)
+
+        for s in strings:
+            offset = s.slice.range.offset
+            i = bisect.bisect_right(child_offsets, offset) - 1
+            if i < 0 or offset >= max_end_so_far[i]:
+                self.strings.append(s)  # type: ignore
+                continue
+            while offset >= self.children[i].end:
+                i -= 1
+            if self.children[i].slice.buf is self.slice.buf:
+                child_strings[i].append(s)
+
+        for child, assigned in zip(self.children, child_strings):
+            if assigned:
+                child._distribute_strings(assigned)
+
     def extract_strings(self, min_len: int) -> None:
         """
         find the strings in this layout and its children, recursively.
 
-        this finds strings in the gaps between the children (and before the
-        first and after the last child), so this method must run before
-        ``tag_strings``.
+        strings are extracted once over the whole slice of each buffer domain
+        root (the root node, or a node whose buffer differs from its parent's)
+        and then distributed to the deepest node containing their start offset,
+        so strings crossing node boundaries stay whole. this method must run
+        before ``tag_strings``.
         """
         # imported here to avoid a circular import with floss.layout.extract
         from floss.layout.extract import extract_strings as extract_gap_strings
 
-        if not self.children:
-            # at this moment, self.strings contains only ExtractedStrings
-            # after tag_strings, it will contain TaggedStrings.
-            self.strings = extract_gap_strings(self.slice, min_len)  # type: ignore
-            return
+        is_buffer_domain_root = (self.parent is None) or (self.slice.buf is not self.parent.slice.buf)
 
-        # we have children, so we need to recurse to find their strings,
-        # and also find strings in the gaps between children.
-        # lets find the gap strings first:
-        for i, child in enumerate(self.children):
-            if i == 0:
-                # find the strings before the first child
-                offset = 0
-                size = self.children[0].offset - self.offset
+        if is_buffer_domain_root:
+            all_strings = extract_gap_strings(self.slice, min_len)
+            self._distribute_strings(all_strings)
 
-            else:
-                # find strings between children
-                prior = self.children[i - 1]
-                offset = prior.end - self.offset
-                size = child.offset - prior.end
-
-            if size == 0:
-                # there is no gap here.
-                continue
-
-            gap = self.slice.slice(offset, size)
-            self.strings.extend(extract_gap_strings(gap, min_len))  # type: ignore
-
-        # finally, find strings after the last child
-        last_child = self.children[-1]
-        offset = last_child.end - self.offset
-        size = self.end - last_child.end
-
-        if size > 0:
-            gap = self.slice.slice(offset, size)
-            self.strings.extend(extract_gap_strings(gap, min_len))  # type: ignore
-
-        # now recurse to find the strings in the children.
         for child in self.children:
             child.extract_strings(min_len)
-
-        if self.strings:
-            child_ranges = [(child.offset, child.end) for child in self.children]
-            filtered = []
-            for string in self.strings:
-                if isinstance(string, TaggedString):
-                    offset = string.offset
-                else:
-                    offset = string.slice.range.offset
-                if any(start <= offset < end for start, end in child_ranges):
-                    continue
-                filtered.append(string)
-            self.strings = filtered
 
     def tag_strings(self, taggers: Sequence[Tagger]):
         """
