@@ -21,16 +21,21 @@ wraps those queries into ``Tagger`` callables applied during analysis.
 """
 
 import re
+import logging
 import pathlib
 import functools
 import importlib.resources
-from typing import Set, Dict, List, Tuple, Literal, Optional, Sequence
+from typing import Any, Set, Dict, List, Tuple, Literal, Optional, Sequence
 from dataclasses import dataclass
 
 import re2  # type: ignore
 import msgspec
 
 from floss.tags import data_root, ensure_not_lfs_pointer
+
+logger = logging.getLogger(__name__)
+
+RE2_MAX_MEM = 80 * 1024 * 1024
 
 
 class ExpertRule(msgspec.Struct):
@@ -63,32 +68,47 @@ class ExpertStringDatabase:
         return re.compile("|".join(parts)) if parts else None
 
     @functools.cached_property
-    def re2_prefilter(self):
+    def _regex_engines(self) -> Tuple[Optional[Any], List[ExpertRule], List[Tuple[ExpertRule, re.Pattern]]]:
+        """
+        Partition the regex rules into one RE2 set and a Python ``re`` fallback list.
 
-        valid_patterns = []
-        valid_rules = []
-        fallback_rules = []
-        for rule, regex in self.regex_rules:
-            val = regex.pattern
-            try:
-                re2.compile(val)
-                valid_patterns.append(val)
-                valid_rules.append((rule, regex))
-            except Exception:
-                fallback_rules.append((rule, regex))
+        Returns ``(re2_set, re2_rules, fallback_rules)`` where ``re2_rules[i]`` is the rule
+        for set index ``i``. ``re2_set`` is None when the set could not be built, in which
+        case ``fallback_rules`` holds every regex rule.
+        """
+        re2_rules: List[ExpertRule] = []
+        fallback_rules: List[Tuple[ExpertRule, re.Pattern]] = []
 
-        p = None
-        if valid_patterns:
-            try:
-                # bound maximum regex parsing aggressively to 80MB to prevent `capa` regex rule overflow halts
-                p = re2.compile("(?:" + ")|(?:".join(valid_patterns) + ")", max_mem=83886080)
-            except Exception:
-                # if the aggregated combined OR pattern is STILL too monolithic, abort the fast-path completely.
-                # gracefully fall back to native processing for valid_rules rather than crashing.
-                fallback_rules.extend(valid_rules)
-                valid_rules = []
+        try:
+            opts = re2.Options()
+            opts.max_mem = RE2_MAX_MEM
+            opts.log_errors = False
+            re2_set = re2.Set.SearchSet(opts)
+            for rule, regex in self.regex_rules:
+                try:
+                    re2_set.Add(regex.pattern)
+                except re2.error:
+                    fallback_rules.append((rule, regex))
+                    continue
+                re2_rules.append(rule)
 
-        return (p, valid_rules, fallback_rules)
+            if not re2_rules:
+                return None, [], fallback_rules
+
+            re2_set.Compile()
+        except Exception as e:
+            logger.warning("failed to build RE2 set for expert regex rules, falling back to Python re: %s", e)
+            return None, [], list(self.regex_rules)
+
+        return re2_set, re2_rules, fallback_rules
+
+    @property
+    def re2_rules(self) -> List[ExpertRule]:
+        return self._regex_engines[1]
+
+    @property
+    def fallback_rules(self) -> List[Tuple[ExpertRule, re.Pattern]]:
+        return self._regex_engines[2]
 
     def query(self, s: str) -> Set[str]:
         ret = set()
@@ -101,24 +121,15 @@ class ExpertStringDatabase:
                 if rule.value in s:
                     ret.add(rule.tag)
 
-        r2p, valid_rules, fallback_rules = self.re2_prefilter
+        re2_set, re2_rules, fallback_rules = self._regex_engines
 
-        # Always evaluate rules that RE2 rejected natively (like lookaheads)
         for rule, regex in fallback_rules:
             if regex.search(s):
                 ret.add(rule.tag)
 
-        # If RE2 hit, evaluate ONLY the valid rules (which RE2 covers) to find WHICH triggered it.
-        # If RE2 didn't hit, we skip checking the rules that RE2 covers.
-        if r2p is not None and r2p.search(s):
-            for rule, regex in valid_rules:
-                if regex.search(s):
-                    ret.add(rule.tag)
-        elif r2p is None:
-            # Full native fallback if re2 could not compile ANY rules
-            for rule, regex in valid_rules:
-                if regex.search(s):
-                    ret.add(rule.tag)
+        if re2_set is not None:
+            for index in re2_set.Match(s) or ():
+                ret.add(re2_rules[index].tag)
 
         return ret
 
