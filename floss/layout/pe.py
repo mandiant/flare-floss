@@ -412,12 +412,9 @@ def compute_pe_layout(slice_: Slice, xor_key: int | None) -> Layout:
             )
 
     # add segments for any gaps between sections.
-    # note that we append new items to the end of the list and then resort,
-    # to avoid mutating the list while we're iterating over it.
-    for i in range(1, len(layout.children)):
-        prior: Layout = layout.children[i - 1]
-        current: Layout = layout.children[i]
-
+    # iterate over a snapshot of the children, since add_child inserts into the live list.
+    children = list(layout.children)
+    for prior, current in zip(children, children[1:]):
         if prior.end != current.offset:
             offset = prior.end
             size = current.offset - prior.end
