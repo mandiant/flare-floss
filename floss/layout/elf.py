@@ -243,7 +243,9 @@ def compute_elf_layout(slice_: Slice, xor_key: int | None) -> Layout:
     # Build code_offsets from executable parts before constructing the layout.
     layout_elements.sort(key=lambda t: t[0])
     exec_ranges: List[Tuple[int, int]] = [
-        (offset, offset + size) for offset, size, _name, is_exec in layout_elements if is_exec
+        (slice_.offset + offset, slice_.offset + offset + size - 1)
+        for offset, size, _name, is_exec in layout_elements
+        if is_exec
     ]
     code_offsets = OffsetRanges.from_merged_ranges(merge_overlapping_ranges(exec_ranges))
 
