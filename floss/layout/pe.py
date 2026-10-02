@@ -65,6 +65,31 @@ PE_RESOURCE_TYPES = {
 }
 
 
+def get_physical_offset_from_rva(pe: pefile.PE, rva: int) -> int:
+    """
+    Map an RVA to a file offset, requiring the RVA to be backed by file bytes.
+
+    pefile maps RVAs in a section's virtual padding to offsets in the next section.
+    This helper raises PEFormatError if the RVA is beyond a section's SizeOfRawData
+    or the file length. RVAs not in any section map to themselves only when they
+    fall within the SizeOfHeaders and the file length.
+    """
+    section = pe.get_section_by_rva(rva)
+    if section is not None:
+        virtual_offset = rva - section.get_VirtualAddress_adj()
+        if virtual_offset >= section.SizeOfRawData:
+            raise pefile.PEFormatError(f"RVA 0x{rva:x} is in virtual padding (not backed by file)")
+        offset = section.get_PointerToRawData_adj() + virtual_offset
+        if offset >= len(pe.__data__):
+            raise pefile.PEFormatError(f"RVA 0x{rva:x} is beyond end of file")
+        return offset
+
+    if rva < len(pe.__data__) and (pe.OPTIONAL_HEADER is None or rva < pe.OPTIONAL_HEADER.SizeOfHeaders):
+        return rva
+
+    raise pefile.PEFormatError(f"RVA 0x{rva:x} cannot be mapped to a physical file offset")
+
+
 def get_reloc_offsets(slice: Slice, pe: pefile.PE) -> Set[int]:
     ret: Set[int] = set()
 
@@ -80,7 +105,7 @@ def get_reloc_offsets(slice: Slice, pe: pefile.PE) -> Set[int]:
 
     rva = dir_entry.VirtualAddress
     try:
-        offset = pe.get_offset_from_rva(rva)
+        offset = get_physical_offset_from_rva(pe, rva)
     except pefile.PEFormatError as e:
         logger.warning("failed to get offset for relocation directory RVA 0x%x: %s", rva, e)
         return ret
@@ -112,7 +137,7 @@ def _get_code_ranges(
     @functools.lru_cache(maxsize=None)
     def get_offset_from_rva_cached(rva):
         try:
-            return pe.get_offset_from_rva(rva)
+            return get_physical_offset_from_rva(pe, rva)
         except pefile.PEFormatError as e:
             logger.warning("%s", str(e))
             return None
@@ -191,7 +216,7 @@ def collect_pe_structures(slice_: Slice, pe: pefile.PE) -> Sequence[Structure]:
             rva = dll.struct.Name
             size = len(dll_name)
             try:
-                offset = pe.get_offset_from_rva(rva)
+                offset = get_physical_offset_from_rva(pe, rva)
             except pefile.PEFormatError as e:
                 logger.warning("failed to get offset for import DLL name RVA 0x%x: %s", rva, e)
                 continue
@@ -232,7 +257,7 @@ def collect_pe_structures(slice_: Slice, pe: pefile.PE) -> Sequence[Structure]:
                 dll_name = exp.name.decode("ascii")
                 rva = exp.struct.Name
                 size = len(dll_name)
-                offset = pe.get_offset_from_rva(rva)
+                offset = get_physical_offset_from_rva(pe, rva)
 
                 structures.append(
                     Structure(
@@ -448,7 +473,7 @@ def compute_pe_layout(slice_: Slice, xor_key: int | None) -> Layout:
                 else:
                     rva = entry.data.struct.OffsetToData
                     try:
-                        offset = pe.get_offset_from_rva(rva)
+                        offset = get_physical_offset_from_rva(pe, rva)
                     except pefile.PEFormatError as e:
                         logger.warning("failed to get offset for resource RVA 0x%x: %s", rva, e)
                         continue
