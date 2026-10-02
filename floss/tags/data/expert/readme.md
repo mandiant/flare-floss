@@ -2,7 +2,7 @@
 
 This directory contains databases of strings manually curated by experts.
 
-The format of the database is a gzip-compressed JSONL file (one JSON document per line).
+The format of the database is a JSONL file (one JSON document per line).
 Each document looks like:
 
 ```json
@@ -18,7 +18,18 @@ Each document looks like:
 }
 ```
 
+Regex rules store the bare pattern in `value`. Flags go into the optional `modifiers`
+field (default `""`); currently only `i` (case-insensitive) is used.
+
 The expert databases are:
 
-  - `capa.jsonl`: strings extracted from [capa](https://github.com/mandiant/capa) rules using the `import_from_capa.py` script.
-  - `capa_blocklist.json`: a list of noisy strings that are removed from the capa expert database to prevent false positives.
+  - `capa.jsonl`: strings extracted from [capa](https://github.com/mandiant/capa) rules.
+    Regenerate it from a checkout of the capa rules repository with
+    `python import_from_capa.py ~/code/capa/rules/ > capa.jsonl`.
+  - `capa_blocklist.json`: a list of noisy capa strings that the importer leaves out of
+    `capa.jsonl` to prevent false positives. Each entry has `type`, `value` and an
+    optional `modifiers` key (missing means `""`). A rule is skipped only if its
+    `type`, `value` and `modifiers` are all equal to an entry; an entry without
+    `modifiers` therefore does not match a rule with `modifiers: "i"`.
+    The importer resolves the blocklist relative to its own location, not the current
+    working directory.

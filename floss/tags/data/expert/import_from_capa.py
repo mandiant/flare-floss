@@ -1,4 +1,7 @@
 import sys
+import json
+import pathlib
+from typing import Set, Tuple
 
 import msgspec
 import capa.main
@@ -91,7 +94,20 @@ def walk_rule(rule: capa.rules.Rule):
     yield from walk_rule_logic(rule, rule.statement)
 
 
-rules = capa.main.get_rules([sys.argv[1]])
-for rule in rules.rules.values():
-    for er in walk_rule(rule):
-        print(msgspec.json.encode(er).decode("utf-8"))
+def load_blocklist(path: pathlib.Path) -> Set[Tuple[str, str, str]]:
+    entries = json.loads(path.read_text(encoding="utf-8"))
+    return {(e["type"], e["value"], e.get("modifiers", "")) for e in entries}
+
+
+def main():
+    blocklist = load_blocklist(pathlib.Path(__file__).parent / "capa_blocklist.json")
+    rules = capa.main.get_rules([sys.argv[1]])
+    for rule in rules.rules.values():
+        for er in walk_rule(rule):
+            if (er.type, er.value, er.modifiers) in blocklist:
+                continue
+            print(msgspec.json.encode(er).decode("utf-8"))
+
+
+if __name__ == "__main__":
+    main()
