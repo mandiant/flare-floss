@@ -1,20 +1,18 @@
 import sys
 
-import capa.engine
-import capa.features.basicblock
-import capa.features.common
-import capa.features.file
-import capa.features.insn
+import msgspec
 import capa.main
 import capa.rules
-import msgspec
+import capa.engine
+import capa.features.file
+import capa.features.insn
+import capa.features.common
+import capa.features.basicblock
 
 from floss.tags.expert import ExpertRule
 
 
-def walk_rule_logic(
-    rule: capa.rules.Rule, node: capa.engine.Statement | capa.engine.Feature
-):
+def walk_rule_logic(rule: capa.rules.Rule, node: capa.engine.Statement | capa.engine.Feature):
     match node:
         case (
             capa.features.common.Regex(name=type, value=value)

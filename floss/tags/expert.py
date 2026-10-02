@@ -20,15 +20,15 @@ serialized classification data and exposes a query interface. ``floss.tags.engin
 wraps those queries into ``Tagger`` callables applied during analysis.
 """
 
+import re
+import pathlib
 import functools
 import importlib.resources
-import pathlib
-import re
+from typing import Set, Dict, List, Tuple, Literal, Optional, Sequence
 from dataclasses import dataclass
-from typing import Dict, List, Literal, Optional, Sequence, Set, Tuple
 
-import msgspec
 import re2  # type: ignore
+import msgspec
 
 from floss.tags import data_root, ensure_not_lfs_pointer
 
@@ -54,9 +54,7 @@ class ExpertStringDatabase:
     regex_rules: List[Tuple[ExpertRule, re.Pattern]]
 
     def __len__(self) -> int:
-        return (
-            len(self.string_rules) + len(self.substring_rules) + len(self.regex_rules)
-        )
+        return len(self.string_rules) + len(self.substring_rules) + len(self.regex_rules)
 
     @functools.cached_property
     def combined_substring_pattern(self) -> Optional[re.Pattern]:
@@ -83,9 +81,7 @@ class ExpertStringDatabase:
         if valid_patterns:
             try:
                 # bound maximum regex parsing aggressively to 80MB to prevent `capa` regex rule overflow halts
-                p = re2.compile(
-                    "(?:" + ")|(?:".join(valid_patterns) + ")", max_mem=83886080
-                )
+                p = re2.compile("(?:" + ")|(?:".join(valid_patterns) + ")", max_mem=83886080)
             except Exception:
                 # if the aggregated combined OR pattern is STILL too monolithic, abort the fast-path completely.
                 # gracefully fall back to native processing for valid_rules rather than crashing.
@@ -100,10 +96,7 @@ class ExpertStringDatabase:
         if s in self.string_rules:
             ret.add(self.string_rules[s].tag)
 
-        if (
-            self.combined_substring_pattern is None
-            or self.combined_substring_pattern.search(s)
-        ):
+        if self.combined_substring_pattern is None or self.combined_substring_pattern.search(s):
             for rule in self.substring_rules:
                 if rule.value in s:
                     ret.add(rule.tag)
