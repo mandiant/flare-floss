@@ -95,7 +95,7 @@ def test_blocklist_parses_and_is_applied(default_db):
         assert isinstance(entry["value"], str)
         blocked.add((entry["type"], entry["value"], entry.get("modifiers", "")))
 
-    present = [rule for rule in default_db.string_rules.values()]
+    present = list(default_db.string_rules.values())
     present.extend(default_db.substring_rules)
     present.extend(rule for rule, _ in default_db.regex_rules)
 
