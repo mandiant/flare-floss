@@ -104,3 +104,25 @@ def test_elf_segment_fallback():
     for child in layout.children:
         assert isinstance(child, SegmentLayout)
         assert child.name.startswith("segment_")
+
+
+def test_elf_code_offsets_inclusive_end():
+    layout = _load_layout(X86_64_PIE)
+    # The last executable section (.fini) ends at 0x1275, so the last executable byte is 0x1274
+    assert 0x1274 in layout.code_offsets
+    assert 0x1275 not in layout.code_offsets
+
+
+def test_elf_code_offsets_nested_slice():
+    data = (ELF_DIR / X86_64_PIE).read_bytes()
+    standalone = compute_layout(Slice.from_bytes(data))
+    assert isinstance(standalone, ELFLayout)
+
+    k = 0x400
+    outer = b"\x00" * k + data + b"\x00" * 0x100
+    nested = compute_layout(Slice.from_bytes(outer).slice(k, len(data)))
+    assert isinstance(nested, ELFLayout)
+
+    expected = [(start + k, end + k) for start, end in standalone.code_offsets.ranges]
+    assert nested.code_offsets.ranges == expected
+    assert nested.relocation_offsets.ranges == [(s + k, e + k) for s, e in standalone.relocation_offsets.ranges]
