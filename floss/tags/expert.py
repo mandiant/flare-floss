@@ -144,11 +144,7 @@ class ExpertStringDatabase:
                     substring_rules.append(rule)
                 case ExpertRule(type="regex"):
                     val = rule.value
-                    if val.startswith("/") and val.endswith("/"):
-                        val = val[1:-1]
-                    elif val.startswith("/") and val.endswith("/i"):
-                        val = "(?i)" + val[1:-2]
-                    elif "i" in rule.modifiers:
+                    if "i" in rule.modifiers:
                         val = "(?i)" + val
                     regex_rules.append((rule, re.compile(val)))
                 case _:
