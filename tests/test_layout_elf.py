@@ -16,6 +16,7 @@ from pathlib import Path
 
 from floss.layout import compute_layout
 from floss.ranges import Slice
+from floss.layout.elf import compute_elf_layout
 from floss.layout.base import ELFLayout, SegmentLayout
 
 CD = Path(__file__).resolve().parent
@@ -104,3 +105,23 @@ def test_elf_segment_fallback():
     for child in layout.children:
         assert isinstance(child, SegmentLayout)
         assert child.name.startswith("segment_")
+
+
+def test_elf_code_offsets_inclusive_end():
+    layout = _load_layout(X86_64_PIE)
+    assert layout.code_offsets.ranges[-1] == (0x1268, 0x1274)
+
+
+def test_elf_code_offsets_nested_slice():
+    data = (ELF_DIR / X86_64_PIE).read_bytes()
+    standalone = compute_elf_layout(Slice.from_bytes(data), None)
+    assert isinstance(standalone, ELFLayout)
+
+    k = 0x400
+    outer = b"\x00" * k + data + b"\x00" * 0x100
+    nested = compute_elf_layout(Slice.from_bytes(outer).slice(k, len(data)), None)
+    assert isinstance(nested, ELFLayout)
+
+    expected = [(start + k, end + k) for start, end in standalone.code_offsets.ranges]
+    assert nested.code_offsets.ranges == expected
+    assert nested.relocation_offsets.ranges == [(s + k, e + k) for s, e in standalone.relocation_offsets.ranges]
