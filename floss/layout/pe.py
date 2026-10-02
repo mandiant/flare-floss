@@ -19,6 +19,7 @@ from __future__ import annotations
 import struct
 import logging
 import functools
+import itertools
 from typing import Any, Set, Dict, List, Tuple, Optional, Sequence
 
 import pefile
@@ -412,21 +413,17 @@ def compute_pe_layout(slice_: Slice, xor_key: int | None) -> Layout:
             )
 
     # add segments for any gaps between sections.
-    # note that we append new items to the end of the list and then resort,
-    # to avoid mutating the list while we're iterating over it.
-    for i in range(1, len(layout.children)):
-        prior: Layout = layout.children[i - 1]
-        current: Layout = layout.children[i]
-
-        if prior.end != current.offset:
-            offset = prior.end
-            size = current.offset - prior.end
-            layout.add_child(
-                SegmentLayout(
-                    slice=slice_.slice(offset, size),
-                    name="gap",
-                )
-            )
+    # overlapping children (malformed PEs) do not produce a gap.
+    gaps = [
+        SegmentLayout(
+            slice=slice_.slice(prior.end - layout.offset, current.offset - prior.end),
+            name="gap",
+        )
+        for prior, current in itertools.pairwise(layout.children)
+        if prior.end < current.offset
+    ]
+    for gap in gaps:
+        layout.add_child(gap)
 
     if hasattr(pe, "DIRECTORY_ENTRY_RESOURCE"):
 
