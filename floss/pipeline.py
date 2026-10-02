@@ -39,6 +39,7 @@ import floss.results
 import floss.logging_
 import floss.language.utils
 import floss.language.go.extract
+import floss.language.zig.extract
 import floss.language.rust.extract
 from floss.cli import WorkspaceLoadError
 from floss.const import (
@@ -417,7 +418,11 @@ def analyze(options: Options) -> Optional[ResultDocument]:
     # language-specific strings are independent of static strings: extract them
     # whenever enabled, reusing the classic extraction buffer (and layout, when
     # static+layout actually ran) for missed-string/enrichment.
-    if analysis.enable_language_strings and results.metadata.language in (Language.GO.value, Language.RUST.value):
+    if analysis.enable_language_strings and results.metadata.language in (
+        Language.GO.value,
+        Language.RUST.value,
+        Language.ZIG.value,
+    ):
         # one offset index for both language_strings and language_strings_missed
         layout_offset_index = None
         if layout_doc is not None:
@@ -427,10 +432,14 @@ def analyze(options: Options) -> Optional[ResultDocument]:
             logger.info("extracting language-specific Go strings")
             extractor = floss.language.go.extract.extract_go_strings
             range_strings = floss.language.go.extract.get_static_strings_from_blob_range
-        else:
+        elif results.metadata.language == Language.RUST.value:
             logger.info("extracting language-specific Rust strings")
             extractor = floss.language.rust.extract.extract_rust_strings
             range_strings = floss.language.rust.extract.get_static_strings_from_rdata
+        else:
+            logger.info("extracting language-specific Zig strings")
+            extractor = floss.language.zig.extract.extract_zig_strings
+            range_strings = floss.language.zig.extract.get_static_strings_from_rdata
 
         with results.metadata.runtime.measure_and_set_time("language_strings"):
             results.strings.language_strings = extractor(sample, options.min_length)

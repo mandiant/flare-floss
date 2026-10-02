@@ -43,3 +43,65 @@ Learn more:
     Rust Project: [Rust Project](https://github.com/rust-lang/rust)
     Source code: 
     - https://github.com/rust-lang/rust/blob/3911a63b7777e19dad4043542f908018e70c0bdd/library/alloc/src/string.rs
+
+## Zig String Extraction
+FLOSS identifies Zig binaries before applying language-specific string extraction. A single string such as `ZIG_PROGRESS` is not reliable evidence: it is absent from many normal Zig binaries and can be copied into non-Zig programs. The current detector therefore requires a weighted combination of PE structure, imports, and mapped runtime strings.
+
+### Identification methodology
+
+The scoring method was derived from a controlled corpus of Zig 0.12 through 0.16 `x86_64-windows` console executables covering Debug, ReleaseSafe, ReleaseFast, and ReleaseSmall. Other architectures, binary formats, custom runtime configurations, and future Zig versions are outside that validated scope.
+
+The detector assigns the following weights:
+
+| Evidence                                                                      | Score |
+| ----------------------------------------------------------------------------- | ----: |
+| A `.tls` section and a populated TLS data directory                           |     4 |
+| An `ntdll!RtlExitUserProcess` import                                          |     4 |
+| An exact observed Zig Windows section bundle                                  |     2 |
+| At least three mapped Zig-like runtime markers                                |     2 |
+| `AcquireSRWLockExclusive`, `ReleaseSRWLockExclusive`, and `WriteFile` imports |     1 |
+
+The observed section bundles are:
+
+```text
+.text .rdata .data .pdata .CRT .tls .reloc
+.text .rdata .buildid .data .pdata .tls .reloc
+```
+
+The runtime marker set is:
+
+```text
+integer overflow
+reached unreachable code
+index out of bounds
+thread\x20
+panic:\x20
+stack trace
+```
+
+A binary is identified as Zig only when it scores at least eight points, has both structural and runtime evidence, and has distinctive runtime evidence. Distinctive runtime evidence means either at least three runtime markers or the complete SRW-lock/`WriteFile` import trio. This final requirement rejects simple C programs built with `zig cc` that share Zig's linker characteristics but do not contain the Zig language runtime.
+
+Runtime strings are searched only in bytes mapped by PE sections, bounded by each section's virtual and raw sizes. Strings appended to the PE overlay or stored in certificates do not contribute evidence.
+
+This method identifies a match to the tested Zig Windows runtime lineage; it is not compiler attestation. Custom startup code, renamed sections, packing, obfuscation, alternate linkers, or removed runtime strings and imports may cause false negatives. Deliberately reproducing the same structure and runtime evidence may cause false positives. FLOSS does not infer a Zig compiler version or optimization mode from this evidence and reports the version as `version unknown`.
+
+Zig has no dedicated string type. Strings are commonly represented as UTF-8 encoded `[]const u8` slices, whose runtime representation consists of a pointer to the underlying bytes and an exact byte length. The bytes referenced by separate slices may be adjacent in `.rdata`, causing conventional string extraction tools to display them as a single UTF-8 blob. FLOSS analyzes these slices and code references to recover the original string boundaries.
+
+Currently, Zig language-specific string extraction supports 32-bit and 64-bit PE binaries. Automatic Zig identification does not support ELF or Mach-O binaries.
+
+### Extraction algorithm
+
+1. Locate the PE `.rdata` section and extract its candidate strings.
+2. Identify string boundaries from valid Zig slice candidates. Each slice provides both the start address and exact byte length of a UTF-8 string.
+3. Add boundaries discovered from code references:
+    - On 32-bit x86, inspect `LEA`, `PUSH`, and `MOV` references.
+    - On 64-bit x86, inspect `LEA` references.
+4. Correct cases where `binary2strings` interprets referenced UTF-8 bytes as wide strings.
+5. Split UTF-8 blobs at the collected boundaries, discard invalid or shorter-than-requested strings, and remove duplicates.
+
+Learn more:
+
+    Zig language reference: [Ziglang Org](https://ziglang.org/documentation/master/#Slices)
+    Strings in Zig: [Ziggit](https://ziggit.dev/t/working-with-strings-in-zig/2384)
+    Source code:
+    - https://codeberg.org/ziglang/zig/src/commit/7b02ab758845d553ef4399548274ef2e23eaeb2f/src/Air.zig#L710-L719
