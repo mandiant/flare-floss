@@ -409,6 +409,13 @@ def analyze(options: Options) -> Optional[ResultDocument]:
             # add the classic extraction time (done above for language ID)
             results.metadata.runtime.static_strings += static_runtime
         else:
+            if analysis.enable_tags:
+                with results.metadata.runtime.measure_and_set_time("tags"):
+                    from floss.tags import load_databases, tag_classic_strings
+
+                    taggers = load_databases()
+                    tag_classic_strings(static_strings, taggers)
+
             results.strings.static_strings = static_strings
             # add the elapsed time of the failed/skipped layout attempt, which
             # measure_and_set_time("static_strings") already recorded above
