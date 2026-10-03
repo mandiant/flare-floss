@@ -96,6 +96,70 @@ class ArgumentParser(argparse.ArgumentParser):
         raise ArgumentValueError("%(prog)s: error: %(message)s" % args)
 
 
+EXAMPLES = [
+    # (description, command, include_in_short_help)
+    ("extract all strings from an executable", "floss suspicious.exe", True),
+    ("classic flat list of strings without layout and tags", "floss --plain suspicious.exe", True),
+    ("do not extract static strings", "floss --no-string-type static -- suspicious.exe", False),
+    ("only extract stack and tight strings", "floss --string-type stack tight -- suspicious.exe", False),
+    ("extract strings from 32-bit shellcode", "floss -f sc32 shellcode.bin", False),
+    (
+        "only decode strings from the specified functions",
+        "floss --analyze-functions 0x401000 0x401100 -- suspicious.exe",
+        False,
+    ),
+    ("only show static strings from the .rdata section", "floss --section .rdata -- suspicious.exe", False),
+    ("only show strings tagged winapi or openssl", "floss --tag winapi openssl -- suspicious.exe", True),
+    (
+        "hide noisy strings and search for a pattern in the layout tree",
+        'floss --interesting --query "http://" -- suspicious.exe',
+        False,
+    ),
+    ("emit a concise summary instead of the full listing", "floss --summary suspicious.exe", True),
+    ("emit a standalone HTML report", "floss --html suspicious.exe > report.html", True),
+    (
+        "extract strings from a binary written in Go (if automatic language identification fails)",
+        "floss --language go program.exe",
+        False,
+    ),
+]
+
+# dynamically derived , no index juggling needed when EXAMPLES grows
+EXAMPLES_FULL = [(desc, cmd) for desc, cmd, short in EXAMPLES]
+SHORT_HELP_EXAMPLES = [(desc, cmd) for desc, cmd, short in EXAMPLES if short]
+
+ENV_VARS_HELP = textwrap.dedent("""\
+    environment variables:
+      FLOSS_CACHE_DIR       directory for the analysis result cache (default: platform cache directory)
+      FLOSS_CACHE_ENABLE    set to 0 to disable result caching (default: enabled)
+      FLOSS_CACHE_REFRESH   set to 1 to ignore cached results and overwrite the entry (default: disabled)
+    """)
+
+
+def format_examples(examples) -> str:
+    lines = ["examples:"]
+    for description, command in examples:
+        lines.append(f"  {description}")
+        lines.append(f"    {command}")
+        lines.append("")
+    return "\n".join(lines)
+
+
+def format_short_help() -> str:
+    """concise help shown when floss is run without arguments."""
+    return "\n".join(
+        [
+            f"floss {__version__} - extract ALL strings from malware (https://github.com/mandiant/flare-floss/)",
+            "",
+            "usage: floss [options] [--] sample",
+            "",
+            format_examples(SHORT_HELP_EXAMPLES),
+            "run `floss -h` for the full list of options.",
+            "",
+        ]
+    )
+
+
 def make_parser():
     desc = (
         "The FLARE team's open-source tool to extract ALL strings from malware.\n"
@@ -111,49 +175,7 @@ def make_parser():
         "By default, static strings are layout-aware with tags for PE/ELF/Mach-O\n"
         "(section context, prevalence/library/expert tags).\n"
     )
-    epilog = textwrap.dedent("""
-        examples:
-          extract all strings from an executable
-            floss suspicious.exe
-
-          classic flat list of strings without layout and tags
-            floss --plain suspicious.exe
-
-          do not extract static strings
-            floss --no-string-type static -- suspicious.exe
-
-          only extract stack and tight strings
-            floss --string-type stack tight -- suspicious.exe
-
-          extract strings from 32-bit shellcode
-            floss -f sc32 shellcode.bin
-
-          only decode strings from the specified functions
-            floss --analyze-functions 0x401000 0x401100 -- suspicious.exe
-
-          only show static strings from the .rdata section
-            floss --section .rdata -- suspicious.exe
-
-          only show strings tagged winapi or openssl
-            floss --tag winapi openssl -- suspicious.exe
-
-          hide noisy strings and search for a pattern in the layout tree
-            floss --interesting --query "http://" -- suspicious.exe
-
-          emit a concise summary instead of the full listing
-            floss --summary suspicious.exe
-
-          emit a standalone HTML report
-            floss --html suspicious.exe > report.html
-
-          extract strings from a binary written in Go (if automatic language identification fails)
-            floss --language go program.exe
-
-        environment variables:
-          FLOSS_CACHE_DIR       directory for the analysis result cache (default: platform cache directory)
-          FLOSS_CACHE_ENABLE    set to 0 to disable result caching (default: enabled)
-          FLOSS_CACHE_REFRESH   set to 1 to ignore cached results and overwrite the entry (default: disabled)
-        """)
+    epilog = format_examples(EXAMPLES_FULL) + "\n" + ENV_VARS_HELP
 
     parser = ArgumentParser(
         prog="floss",
