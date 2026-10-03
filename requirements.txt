@@ -10,7 +10,7 @@ distlib==0.4.0
 dncil==1.0.2
 dnfile==0.18.0
 filelock==3.32.0
-funcy==2.0
+funcy==2.1
 google-re2==1.1.20251105
 halo==0.0.31
 identify==2.6.1
