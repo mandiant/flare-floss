@@ -88,12 +88,6 @@ jobs:
           - os: ubuntu-22.04
             artifact_name: floss
             asset_name: linux
-          - os: ubuntu-22.04
-            artifact_name: floss
-            asset_name: linux
-          - os: windows-2022
-            artifact_name: floss.exe
-            asset_name: windows
           - os: windows-2022
             artifact_name: floss.exe
             asset_name: windows
