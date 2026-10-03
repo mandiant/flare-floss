@@ -111,7 +111,7 @@ dependencies = [
     "machofile==2026.2.4",
     "msgspec==0.21.1",
     "python-lancelot==0.10.0",
-    "pyelftools==0.31",
+    "pyelftools==0.33",
 ]
 dynamic = ["version", "readme"]
 
