@@ -19,7 +19,7 @@ import re2  # type: ignore
 import pytest
 
 from floss.tags import data_root
-from floss.tags.expert import DEFAULT_PATHS, ExpertStringDatabase
+from floss.tags.expert import DEFAULT_PATHS, ExpertStringDatabase, _normalize_regex_pattern
 
 BLOCKLIST_PATH = data_root() / "expert" / "capa_blocklist.json"
 
@@ -74,13 +74,13 @@ def test_default_db_loads(default_db):
 
 
 def test_default_db_has_no_slash_delimited_regex(default_db):
-    for rule, _ in default_db.regex_rules:
+    for rule in default_db.regex_rules:
         assert not (rule.value.startswith("/") and (rule.value.endswith("/") or rule.value.endswith("/i"))), rule.value
 
 
 def test_default_db_regex_rules_compile_with_re_and_re2(default_db):
-    for rule, _ in default_db.regex_rules:
-        pattern = ("(?i)" if "i" in rule.modifiers else "") + rule.value
+    for rule in default_db.regex_rules:
+        pattern = _normalize_regex_pattern(rule)
         re.compile(pattern)
         re2.compile(pattern)
 
@@ -97,7 +97,7 @@ def test_blocklist_parses_and_is_applied(default_db):
 
     present = list(default_db.string_rules.values())
     present.extend(default_db.substring_rules)
-    present.extend(rule for rule, _ in default_db.regex_rules)
+    present.extend(default_db.regex_rules)
 
     violations = [(r.type, r.value, r.modifiers) for r in present if (r.type, r.value, r.modifiers) in blocked]
     assert violations == []
