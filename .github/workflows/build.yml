@@ -84,20 +84,24 @@ jobs:
     needs: [build]
     strategy:
       matrix:
+        # test each binary on the OS it was built on and on a newer release
         include:
           - os: ubuntu-22.04
             artifact_name: floss
             asset_name: linux
-          - os: ubuntu-22.04
+          - os: ubuntu-24.04
             artifact_name: floss
             asset_name: linux
           - os: windows-2022
             artifact_name: floss.exe
             asset_name: windows
-          - os: windows-2022
+          - os: windows-2025
             artifact_name: floss.exe
             asset_name: windows
           - os: macos-14
+            artifact_name: floss
+            asset_name: macos
+          - os: macos-15
             artifact_name: floss
             asset_name: macos
     steps:
