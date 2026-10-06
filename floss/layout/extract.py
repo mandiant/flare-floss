@@ -28,7 +28,7 @@ from floss.layout.types import TaggedString, ExtractedString
 MIN_STR_LEN = floss_strings.MIN_LENGTH
 
 
-def _to_extracted(s: StaticString, slice: Slice) -> ExtractedString:
+def to_extracted(s: StaticString, slice: Slice) -> ExtractedString:
     encoding: Literal["ascii", "unicode"]
     if s.encoding == StringEncoding.UTF16LE:
         encoding = "unicode"
@@ -46,7 +46,7 @@ def extract_ascii_strings(slice: Slice, n: int = MIN_STR_LEN) -> Iterable[Extrac
         return
 
     for s in floss_strings.extract_ascii_strings(slice.data, n):
-        yield _to_extracted(s, slice)
+        yield to_extracted(s, slice)
 
 
 def extract_unicode_strings(slice: Slice, n: int = MIN_STR_LEN) -> Iterable[ExtractedString]:
@@ -55,7 +55,7 @@ def extract_unicode_strings(slice: Slice, n: int = MIN_STR_LEN) -> Iterable[Extr
         return
 
     for s in floss_strings.extract_unicode_strings(slice.data, n):
-        yield _to_extracted(s, slice)
+        yield to_extracted(s, slice)
 
 
 def extract_strings(slice: Slice, n: int = MIN_STR_LEN) -> Iterable[ExtractedString]:
