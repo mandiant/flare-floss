@@ -26,7 +26,7 @@ import hashlib
 from time import time
 from typing import Set, List, Optional
 from pathlib import Path
-from dataclasses import dataclass
+from dataclasses import replace, dataclass
 
 import halo
 import viv_utils
@@ -58,8 +58,9 @@ from floss.enrich import (
     static_strings_from_layout,
 )
 from floss.layout import Layout
+from floss.ranges import Slice
 from floss.render import Verbosity
-from floss.results import Runtime, Analysis, Metadata, ResultLayout, ResultDocument
+from floss.results import Runtime, Analysis, Metadata, ResultLayout, StaticString, ResultDocument
 from floss.strings import extract_ascii_unicode_strings
 from floss.version import __version__
 from floss.identify import (
@@ -71,8 +72,10 @@ from floss.identify import (
     find_decoding_function_features,
     get_functions_without_tightloops,
 )
+from floss.layout.base import SegmentLayout
 from floss.stackstrings import extract_stackstrings
 from floss.tightstrings import extract_tightstrings
+from floss.layout.extract import to_extracted
 from floss.string_decoder import decode_strings
 from floss.language.identify import Language, identify_language_and_version
 
@@ -250,6 +253,26 @@ def tag_layout(
         remove_false_positive_lib_strings(layout)
 
 
+def tag_static_strings(
+    buf: bytes,
+    strings: List[StaticString],
+    enable_tags: bool,
+) -> List[StaticString]:
+    """
+    Tag classic static strings when no structured layout is available.
+
+    The strings are wrapped in a single flat layout node so the same
+    content-based taggers and false positive filter as the layout path apply.
+    Tags that need a layout (#code, #reloc, #decoded) and the section and
+    structure fields cannot be derived here and stay empty.
+    """
+    file_slice = Slice.from_bytes(buf=buf)
+    layout = SegmentLayout(slice=file_slice, name="binary")
+    layout.strings.extend(to_extracted(s, file_slice) for s in strings)  # type: ignore
+    tag_layout(layout, enable_tags)
+    return [replace(s, tags=sorted(tagged.tags)) for s, tagged in zip(strings, layout.strings)]
+
+
 def try_layout_static(
     buf: bytes,
     min_length: int,
@@ -409,6 +432,8 @@ def analyze(options: Options) -> Optional[ResultDocument]:
             # add the classic extraction time (done above for language ID)
             results.metadata.runtime.static_strings += static_runtime
         else:
+            with results.metadata.runtime.measure_and_set_time("tags"):
+                static_strings = tag_static_strings(sample_buf, static_strings, analysis.enable_tags)
             results.strings.static_strings = static_strings
             # add the elapsed time of the failed/skipped layout attempt, which
             # measure_and_set_time("static_strings") already recorded above
