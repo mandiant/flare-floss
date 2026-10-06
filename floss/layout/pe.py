@@ -241,8 +241,13 @@ def collect_pe_structures(slice_: Slice, pe: pefile.PE) -> Sequence[Structure]:
                 except UnicodeDecodeError:
                     continue
 
-                offset = entry.name_offset
+                rva = entry.hint_name_table_rva + 2
                 size = len(symbol_name)
+                try:
+                    offset = get_physical_offset_from_rva(pe, rva)
+                except pefile.PEFormatError as e:
+                    logger.warning("failed to get offset for import symbol name RVA 0x%x: %s", rva, e)
+                    continue
 
                 structures.append(
                     Structure(
@@ -270,6 +275,19 @@ def collect_pe_structures(slice_: Slice, pe: pefile.PE) -> Sequence[Structure]:
                 logger.warning("failed to parse export table DLL name: %s", e)
 
         if hasattr(exp, "symbols"):
+            name_rvas = {}
+            if hasattr(exp, "struct") and exp.struct.AddressOfNames:
+                addr_of_names = exp.struct.AddressOfNames
+                num_names = exp.struct.NumberOfNames
+                for i in range(num_names):
+                    try:
+                        rva = pe.get_dword_at_rva(addr_of_names + i * 4)
+                        name = pe.get_string_at_rva(rva, pefile.MAX_SYMBOL_NAME_LENGTH)
+                        if name:
+                            name_rvas[name] = rva
+                    except pefile.PEFormatError:
+                        pass
+
             for entry in exp.symbols:
                 if entry.name is None:
                     continue
@@ -277,13 +295,21 @@ def collect_pe_structures(slice_: Slice, pe: pefile.PE) -> Sequence[Structure]:
                 if entry.name_offset is None:
                     continue
 
+                rva = name_rvas.get(entry.name)
+                if rva is None:
+                    continue
+
                 try:
                     symbol_name = entry.name.decode("ascii")
                 except UnicodeDecodeError:
                     continue
 
-                offset = entry.name_offset
                 size = len(symbol_name)
+                try:
+                    offset = get_physical_offset_from_rva(pe, rva)
+                except pefile.PEFormatError as e:
+                    logger.warning("failed to get offset for export symbol name RVA 0x%x: %s", rva, e)
+                    continue
 
                 structures.append(
                     Structure(
@@ -297,8 +323,15 @@ def collect_pe_structures(slice_: Slice, pe: pefile.PE) -> Sequence[Structure]:
                         forwarder_name = entry.forwarder.decode("ascii")
                     except UnicodeDecodeError:
                         continue
-                    offset = entry.forwarder_offset
+
+                    rva = entry.address
                     size = len(forwarder_name)
+                    try:
+                        offset = get_physical_offset_from_rva(pe, rva)
+                    except pefile.PEFormatError as e:
+                        logger.warning("failed to get offset for export forwarder RVA 0x%x: %s", rva, e)
+                        continue
+
                     structures.append(
                         Structure(
                             slice=slice_.slice(offset, size),
