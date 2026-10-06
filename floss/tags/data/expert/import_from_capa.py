@@ -1,10 +1,25 @@
+"""
+Extract string, substring and regex features from a capa rules checkout
+into the expert database format (one JSON document per line).
+
+Usage:
+    python import_from_capa.py /path/to/capa/rules > capa.jsonl
+
+Requires capa >= 7 (capa.rules.get_rules) and Python >= 3.10 (match statement).
+
+Output ordering is deterministic: rules are visited sorted by rule name and
+features within a rule in document order. The first rule that contributes a
+given (type, value, modifiers) key wins; later duplicates are dropped, so a
+string shared by several rules is attributed to the alphabetically first rule.
+Entries listed in capa_blocklist.json (next to this script) are skipped.
+"""
+
 import sys
 import json
 import pathlib
 from typing import Set, Tuple
 
 import msgspec
-import capa.main
 import capa.rules
 import capa.engine
 import capa.features.file
@@ -101,11 +116,14 @@ def load_blocklist(path: pathlib.Path) -> Set[Tuple[str, str, str]]:
 
 def main():
     blocklist = load_blocklist(pathlib.Path(__file__).parent / "capa_blocklist.json")
-    rules = capa.main.get_rules([sys.argv[1]])
-    for rule in rules.rules.values():
+    rules = capa.rules.get_rules([pathlib.Path(sys.argv[1])])
+    seen: Set[Tuple[str, str, str]] = set()
+    for rule in sorted(rules.rules.values(), key=lambda r: r.name):
         for er in walk_rule(rule):
-            if (er.type, er.value, er.modifiers) in blocklist:
+            key = (er.type, er.value, er.modifiers)
+            if key in blocklist or key in seen:
                 continue
+            seen.add(key)
             print(msgspec.json.encode(er).decode("utf-8"))
 
 
