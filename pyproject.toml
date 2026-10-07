@@ -31,7 +31,7 @@ authors = [
     {name = "Willi Ballenthin", email = "william.ballenthin@mandiant.com"},
     {name = "Moritz Raabe", email = "moritz.raabe@mandiant.com"},
 ]
-requires-python=">=3.10"
+requires-python=">=3.12"
 keywords = ["floss", "malware", "analysis", "obfuscation", "strings", "FLARE"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -40,6 +40,8 @@ classifiers = [
     "License :: OSI Approved :: Apache Software License",
     "Natural Language :: English",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Security",
 ]
 

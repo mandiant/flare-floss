@@ -34,11 +34,11 @@ If you'd like to use FLOSS as part of an automated analysis system,
 We designed FLOSS to be as easy to use from a client program as from
  the command line.
  
-:warning: **FLOSS requires Python >= 3.10.**
+:warning: **FLOSS requires Python >= 3.12.**
 
 ### Step 1: Install FLOSS module
 
-Use `pip` (Python >= 3.10) to install the `flare-floss` module to your local
+Use `pip` (Python >= 3.12) to install the `flare-floss` module to your local
  Python environment.
 This fetches the library code to your computer, but does not keep
  editable source files around for you to hack on.

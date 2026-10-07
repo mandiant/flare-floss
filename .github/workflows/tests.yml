@@ -29,7 +29,7 @@ env:
 
 jobs:
   code_style:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     # Pin action version by commit hash to maximize trust, ref: https://securitylab.github.com/research/github-actions-building-blocks/
     steps:
     - name: Checkout FLOSS
@@ -37,10 +37,10 @@ jobs:
       with:
         # tag DBs and FLIRT sigs are LFS; mypy does not need them but keep checkout consistent
         lfs: true
-    - name: Set up Python 3.10
+    - name: Set up Python 3.12
       uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c # v5.0.0
       with:
-        python-version: '3.10'
+        python-version: '3.12'
     - name: Install dependencies
       run: |
         pip install -r requirements.txt
@@ -58,14 +58,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04, windows-2022, macos-14]
+        os: [ubuntu-24.04, windows-2025, macos-15]
         # across all operating systems
         # version numbers are strings, not floats
-        python-version: ['3.10', '3.11']
-        include:
-          # on Ubuntu run these as well
-          - os: ubuntu-22.04
-            python-version: '3.12'
+        python-version: ['3.12', '3.13']
     steps:
     - name: Checkout FLOSS with submodule
       uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
@@ -78,7 +74,7 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install pyyaml
-      if: matrix.os == 'ubuntu-22.04'
+      if: startsWith(matrix.os, 'ubuntu')
       run: sudo apt-get install -y libyaml-dev
     - name: Install FLOSS
       run: |
