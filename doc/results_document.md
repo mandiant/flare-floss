@@ -87,7 +87,10 @@ decoding function (`decoding_routine`, `decoded_at`) or stack frame details.
 ### Layout
 
 When layout and static string extraction are enabled, `layout` is a tree whose
-nodes describe the binary structure. A node is:
+nodes describe the binary structure. Inputs that are not PE, ELF, or Mach-O
+files (or whose headers fail to parse) get a single root node named `binary`
+with no children that spans the whole file. `layout` is `null` only when layout
+analysis is disabled. A node is:
 
 ```jsonc
 {

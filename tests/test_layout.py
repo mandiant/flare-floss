@@ -119,19 +119,6 @@ def test_analysis_pipeline(pma_binary_path):
     assert parsed.name == "pe"
 
 
-def test_is_structured_layout():
-    import floss.enrich
-
-    assert floss.enrich.is_structured_layout("pe")
-    assert floss.enrich.is_structured_layout("elf")
-    assert floss.enrich.is_structured_layout("macho")
-    assert floss.enrich.is_structured_layout("macho (fat)")
-    # XOR-obfuscated PE/ELF headers append the XOR note to the name
-    assert floss.enrich.is_structured_layout("pe (XOR decoded with key: 0x41)")
-    assert floss.enrich.is_structured_layout("elf (XOR decoded with key: 0x42)")
-    assert not floss.enrich.is_structured_layout("binary")
-
-
 def _make_root_layout(cls, name, **extra):
     from floss.ranges import Range, Slice, OffsetRanges
     from floss.layout.base import Structure
