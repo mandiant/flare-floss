@@ -34,11 +34,20 @@ from floss.layout.macho import _get_u32_be, _is_macho_magic, compute_macho_layou
 logger = logging.getLogger("floss.layout")
 
 
+MAX_NESTING_DEPTH = 32
+
+
+class LayoutNestingError(Exception):
+    """Nested layouts (such as a PE inside a resource) exceed MAX_NESTING_DEPTH or refer to themselves."""
+
+
 def xor_static(data: bytes, i: int) -> bytes:
     return bytes(c ^ i for c in data)
 
 
-def compute_layout(slice_: Slice) -> Layout:
+def compute_layout(slice_: Slice, depth: int = 0) -> Layout:
+    if depth > MAX_NESTING_DEPTH:
+        raise LayoutNestingError(f"layout nesting deeper than {MAX_NESTING_DEPTH}")
 
     # TODO don't do this for text or other obvious non-xored data
 
@@ -78,7 +87,7 @@ def compute_layout(slice_: Slice) -> Layout:
     if decoded_slice.data.startswith(b"MZ"):
         try:
             # lancelot may panic here, which we can't currently catch from Python
-            return compute_pe_layout(decoded_slice, xor_key)
+            return compute_pe_layout(decoded_slice, xor_key, depth)
         except ValueError as e:
             logger.debug("failed to parse as PE file: %s", e)
     elif _is_macho_magic(_get_u32_be(slice_.data, 0)):
