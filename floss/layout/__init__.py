@@ -85,7 +85,6 @@ def compute_layout(slice_: Slice) -> Layout:
         try:
             return compute_macho_layout(slice_)
         except Exception as e:
-            # TODO: narrow exception handling once machofile error types are clearer.
             logger.debug("failed to parse as Mach-O file: %s", e)
     elif decoded_slice.data.startswith(b"\x7fELF"):
         try:

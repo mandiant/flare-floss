@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import struct
 from pathlib import Path
 
 from floss.layout import compute_layout
@@ -31,6 +32,31 @@ def test_thin_macho_layout():
     layout = _load_layout("ls")
     assert layout.name.startswith("macho:")
     assert layout.children
+
+
+def test_thin_macho_arch_name_from_header():
+    data = (MACHO_DIR / "ls").read_bytes()
+    assert compute_layout(Slice.from_bytes(data)).name == "macho: x86_64"
+
+
+def test_thin_macho_arch_name_survives_truncated_load_commands():
+    data = (MACHO_DIR / "ls").read_bytes()
+    layout = compute_layout(Slice.from_bytes(data[:52]))
+    assert layout.name == "macho: x86_64"
+    assert layout.children == []
+
+
+def test_thin_macho_arch_name_with_absurd_ncmds():
+    data = bytearray((MACHO_DIR / "ls").read_bytes())
+    struct.pack_into("<I", data, 16, 0xFFFFFFFF)
+    layout = compute_layout(Slice.from_bytes(bytes(data)))
+    assert layout.name == "macho: x86_64"
+    assert {child.name for child in layout.children} >= {"__TEXT", "__LINKEDIT"}
+
+
+def test_thin_macho_short_header_has_generic_name():
+    data = (MACHO_DIR / "ls").read_bytes()
+    assert compute_layout(Slice.from_bytes(data[:31])).name == "macho: macho"
 
 
 def test_thin_macho_segment_names():

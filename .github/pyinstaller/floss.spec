@@ -28,7 +28,6 @@ layout_tags_hiddenimports = (
         "floss.ranges",
         "elftools",
         "lancelot",
-        "machofile",
         "dnfile",
         "msgspec",
     ]
