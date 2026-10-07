@@ -16,7 +16,7 @@ from pathlib import Path
 
 from floss.layout import compute_layout
 from floss.ranges import Slice
-from floss.layout.base import ELFLayout, SegmentLayout
+from floss.layout.base import ELFLayout, SectionLayout, SegmentLayout
 
 CD = Path(__file__).resolve().parent
 ELF_DIR = CD / "data" / "elf"
@@ -104,6 +104,58 @@ def test_elf_segment_fallback():
     for child in layout.children:
         assert isinstance(child, SegmentLayout)
         assert child.name.startswith("segment_")
+
+
+def test_elf_truncated_shstrtab_header_segment_fallback():
+    path = ELF_DIR / X86_64_PIE
+    data = bytearray(path.read_bytes())
+
+    # Truncate right inside the .shstrtab section header entry so ELFFile._get_section_header_stringtable fails
+    e_shoff = int.from_bytes(data[40:48], "little")
+    e_shentsize = int.from_bytes(data[58:60], "little")
+    e_shstrndx = int.from_bytes(data[62:64], "little")
+    shstr_hdr_offset = e_shoff + e_shstrndx * e_shentsize
+    truncated = bytes(data[: shstr_hdr_offset + 16])
+
+    layout = compute_layout(Slice.from_bytes(truncated))
+    assert isinstance(layout, ELFLayout)
+    assert layout.children
+    for child in layout.children:
+        assert isinstance(child, SegmentLayout)
+        assert child.name.startswith("segment_")
+        assert child.name.endswith("_PT_LOAD")
+
+
+def test_elf_invalid_shstrndx_and_symtab_sh_link():
+    path = ELF_DIR / X86_64_PIE
+    data = bytearray(path.read_bytes())
+
+    e_shoff = int.from_bytes(data[40:48], "little")
+    e_shentsize = int.from_bytes(data[58:60], "little")
+    e_shnum = int.from_bytes(data[60:62], "little")
+    e_shstrndx = int.from_bytes(data[62:64], "little")
+
+    # Change .shstrtab sh_type (4 bytes at +4 in Elf64_Shdr) to SHT_NOBITS (8)
+    shstr_hdr_offset = e_shoff + e_shstrndx * e_shentsize
+    data[shstr_hdr_offset + 4 : shstr_hdr_offset + 8] = (8).to_bytes(4, "little")
+
+    # Set sh_link (4 bytes at +40 in Elf64_Shdr) on SHT_SYMTAB (2) and SHT_DYNSYM (11) to out-of-range index
+    for i in range(e_shnum):
+        hdr_off = e_shoff + i * e_shentsize
+        sh_type = int.from_bytes(data[hdr_off + 4 : hdr_off + 8], "little")
+        if sh_type in (2, 11):
+            data[hdr_off + 40 : hdr_off + 44] = (0xFFFF).to_bytes(4, "little")
+
+    layout = compute_layout(Slice.from_bytes(bytes(data)))
+    assert isinstance(layout, ELFLayout)
+    assert layout.children
+    for child in layout.children:
+        assert isinstance(child, SectionLayout)
+        assert child.name.startswith("unnamed_section_")
+
+    assert layout.structures_by_address[0x3C8].name == "symbol table"
+    assert layout.code_offsets.overlaps(0x10A0, 0x10A0 + 0x1C5 - 1)
+    assert (0x568, 0x66F) in layout.relocation_offsets.ranges
 
 
 def test_elf_code_offsets_inclusive_end():

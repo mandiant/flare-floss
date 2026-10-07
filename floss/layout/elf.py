@@ -21,6 +21,7 @@ import logging
 from typing import Any, Dict, List, Tuple, Iterable, Optional, Sequence
 
 from elftools.elf.elffile import ELFFile
+from elftools.elf.sections import Section, StringTableSection
 from elftools.elf.constants import P_FLAGS, SH_FLAGS
 from elftools.elf.relocation import RelocationSection
 from elftools.common.exceptions import ELFError
@@ -30,6 +31,39 @@ from floss.layout.base import Layout, ELFLayout, Structure, SectionLayout, Segme
 from floss.layout.types import Tag, ExtractedString
 
 logger = logging.getLogger("floss.layout.elf")
+
+
+class _RobustELFFile(ELFFile):
+    _shstrtab_loaded: bool = False
+    _shstrtab: Optional[StringTableSection] = None
+
+    def _get_section_header_stringtable(self) -> Any:
+        return None
+
+    def _get_section_name(self, section_header: Any) -> str:
+        if not self._shstrtab_loaded:
+            self._shstrtab_loaded = True
+            try:
+                shstrndx = self.get_shstrndx()
+                hdr = self._get_section_header(shstrndx)
+                if (
+                    hdr is not None
+                    and hdr["sh_type"] == "SHT_STRTAB"
+                    and hdr["sh_size"] > 0
+                    and hdr["sh_offset"] < self.stream_len
+                ):
+                    self._shstrtab = StringTableSection(header=hdr, name="", elffile=self)
+            except Exception as e:
+                logger.warning("failed to read section header string table: %s", e)
+
+        if self._shstrtab is None:
+            raise ELFError("String Table not found")
+
+        name_offset = section_header["sh_name"]
+        if name_offset < 0 or name_offset >= self._shstrtab["sh_size"]:
+            raise ELFError("String offset out of bounds")
+
+        return self._shstrtab.get_string(name_offset)
 
 
 def elf_has_valid_sections(elf: ELFFile, limit: int) -> bool:
@@ -82,8 +116,28 @@ def iter_sections_robust(elf: ELFFile) -> Iterable[Any]:
     for i in range(num_sections):
         try:
             yield elf.get_section(i)
+            continue
         except Exception as e:
             logger.warning("failed to parse section %d: %s", i, e)
+
+        try:
+            section_header = elf._get_section_header(i)
+            if section_header is None:
+                continue
+
+            try:
+                name = elf._get_section_name(section_header)
+            except Exception:
+                name = f"unnamed_section_{i}"
+
+            try:
+                yield Section(section_header, name, elf)
+            except ELFError:
+                header_copy = section_header.copy()
+                header_copy["sh_flags"] &= ~SH_FLAGS.SHF_COMPRESSED
+                yield Section(header_copy, name, elf)
+        except Exception as e:
+            logger.warning("failed to parse raw section header %d: %s", i, e)
             continue
 
 
@@ -94,7 +148,7 @@ def get_relocations_elf(slice_: Slice, elf: ELFFile) -> List[Tuple[int, int]]:
     ranges: List[Tuple[int, int]] = []
 
     for section in iter_sections_robust(elf):
-        if isinstance(section, RelocationSection):
+        if isinstance(section, RelocationSection) or section["sh_type"] in ("SHT_REL", "SHT_RELA", "SHT_RELR"):
             offset = section["sh_offset"]
             size = section["sh_size"]
 
@@ -157,7 +211,7 @@ def collect_elf_structures(slice_: Slice, elf: ELFFile) -> Sequence[Structure]:
 def compute_elf_layout(slice_: Slice, xor_key: int | None) -> Layout:
     data = slice_.data
 
-    elf = ELFFile(io.BytesIO(data))
+    elf = _RobustELFFile(io.BytesIO(data))
 
     structures = collect_elf_structures(slice_, elf)
     relocation_offsets = OffsetRanges.from_merged_ranges(get_relocations_elf(slice_, elf))
