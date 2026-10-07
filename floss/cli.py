@@ -433,6 +433,14 @@ def set_log_config(debug, quiet):
     else:
         set_vivisect_log_level(logging.DEBUG)
 
+    # goblin (the PE parser inside lancelot) logs a warning for every malformed import
+    # descriptor through Python's logging; a crafted import table with tens of thousands of
+    # descriptors makes that forwarding dominate the run (minutes instead of seconds).
+    if debug < DebugLevel.TRACE:
+        logging.getLogger("goblin").setLevel(logging.ERROR)
+    else:
+        logging.getLogger("goblin").setLevel(logging.DEBUG)
+
     # configure viv-utils logging
     if debug == DebugLevel.DEFAULT:
         logging.getLogger("viv_utils.emulator_drivers").setLevel(logging.DEBUG)
