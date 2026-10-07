@@ -74,13 +74,18 @@ def get_physical_offset_from_rva(pe: pefile.PE, rva: int) -> int:
     This helper raises PEFormatError if the RVA is beyond a section's SizeOfRawData
     or the file length. RVAs not in any section map to themselves only when they
     fall within the SizeOfHeaders and the file length.
+
+    The section's raw PointerToRawData is used as written in the section header.
+    pefile's get_PointerToRawData_adj rounds it down to FileAlignment, which moves
+    the section's file bytes when the pointer is not aligned (goblin and the
+    section node offsets in compute_pe_layout use the raw pointer).
     """
     section = pe.get_section_by_rva(rva)
     if section is not None:
         virtual_offset = rva - section.get_VirtualAddress_adj()
         if virtual_offset >= section.SizeOfRawData:
             raise pefile.PEFormatError(f"RVA 0x{rva:x} is in virtual padding (not backed by file)")
-        offset = section.get_PointerToRawData_adj() + virtual_offset
+        offset = section.PointerToRawData + virtual_offset
         if offset >= len(pe.__data__):
             raise pefile.PEFormatError(f"RVA 0x{rva:x} is beyond end of file")
         return offset
@@ -430,7 +435,9 @@ def compute_pe_layout(slice_: Slice, xor_key: int | None) -> Layout:
         except UnicodeDecodeError:
             name = "(invalid)"
 
-        offset = section.get_PointerToRawData_adj()
+        # raw file position of the section bytes; pefile's get_PointerToRawData_adj()
+        # rounds this down to FileAlignment, which is the loader's view, not the file's
+        offset = section.PointerToRawData
         size = section.SizeOfRawData
 
         if offset > slice_.range.end:
