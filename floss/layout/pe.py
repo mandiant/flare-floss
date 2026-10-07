@@ -123,6 +123,51 @@ def get_reloc_offsets(slice: Slice, pe: pefile.PE) -> Set[int]:
     return ret
 
 
+MAX_CODE_VIRTUAL_EXTENT = 1 << 30
+MAX_CODE_EXECUTABLE_EXTENT = 16 << 20
+PAGE_SIZE = 0x1000
+HEADER_ALIGNMENT = 0x200
+IMAGE_SCN_MEM_EXECUTE = 0x20000000
+
+
+def _align_up(value: int, alignment: int) -> int:
+    if alignment < 2:
+        return value
+    rem = value % alignment
+    return value if rem == 0 else value + alignment - rem
+
+
+def get_code_analysis_skip_reason(pe: pefile.PE, file_size: int) -> Optional[str]:
+    """
+    Decide from the section table whether lancelot's code analysis would be too expensive.
+
+    lancelot maps the image at its full virtual size and disassembles every executable
+    page, so the cost is driven by the virtual extent of the image and the sum of the
+    executable sections' virtual sizes, neither of which is bounded by the file size.
+    Returns a reason to skip the analysis, or None to run it.
+    """
+    opt = pe.OPTIONAL_HEADER
+    if opt is None:
+        return None
+
+    base = opt.ImageBase
+    section_alignment = opt.SectionAlignment
+    max_end = base + _align_up(min(opt.SizeOfHeaders, file_size), HEADER_ALIGNMENT)
+    executable = 0
+    for section in pe.sections:
+        vsize = _align_up(section.Misc_VirtualSize, section_alignment)
+        max_end = max(max_end, base + section.VirtualAddress + vsize)
+        if section.Characteristics & IMAGE_SCN_MEM_EXECUTE:
+            executable += vsize
+
+    extent = _align_up(max_end, PAGE_SIZE) - base
+    if extent > MAX_CODE_VIRTUAL_EXTENT:
+        return f"virtual extent 0x{extent:x} exceeds 0x{MAX_CODE_VIRTUAL_EXTENT:x}"
+    if executable > MAX_CODE_EXECUTABLE_EXTENT:
+        return f"executable extent 0x{executable:x} exceeds 0x{MAX_CODE_EXECUTABLE_EXTENT:x}"
+    return None
+
+
 def _get_code_ranges(
     be2: "lancelot.BinExport2",
     idx: "lancelot.be2utils.BinExport2Index",
@@ -340,15 +385,19 @@ def compute_pe_layout(slice_: Slice, xor_key: int | None) -> Layout:
             structures_by_address[offset] = structure
 
     be2: Optional[lancelot.BinExport2] = None
-    with timing("lancelot: load workspace"):
-        try:
-            be2 = lancelot.get_binexport2_from_bytes(data)
-        except ValueError as e:
-            logger.warning("lancelot failed to load workspace: %s", e)
-        except BaseException as e:
-            if isinstance(e, (KeyboardInterrupt, SystemExit)):
-                raise
-            logger.warning("lancelot failed critically (panic): %s", e)
+    skip_reason = get_code_analysis_skip_reason(pe, len(data))
+    if skip_reason is not None:
+        logger.warning("skipping lancelot code analysis: %s", skip_reason)
+    else:
+        with timing("lancelot: load workspace"):
+            try:
+                be2 = lancelot.get_binexport2_from_bytes(data)
+            except ValueError as e:
+                logger.warning("lancelot failed to load workspace: %s", e)
+            except BaseException as e:
+                if isinstance(e, (KeyboardInterrupt, SystemExit)):
+                    raise
+                logger.warning("lancelot failed critically (panic): %s", e)
 
     # contains the file offsets of bytes that are part of recognized instructions.
     code_offsets = OffsetRanges()
