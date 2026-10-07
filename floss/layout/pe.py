@@ -476,8 +476,14 @@ def compute_pe_layout(slice_: Slice, xor_key: int | None, depth: int = 0) -> Lay
         )
 
     # the "overlay" may contain Authenticode digital signatures
-    security = pe.OPTIONAL_HEADER.DATA_DIRECTORY[pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_SECURITY"]]
-    if security.VirtualAddress and security.Size - 1 > 0:
+    security = None
+    if pe.OPTIONAL_HEADER is not None and pe.OPTIONAL_HEADER.DATA_DIRECTORY is not None:
+        try:
+            security = pe.OPTIONAL_HEADER.DATA_DIRECTORY[pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_SECURITY"]]
+        except IndexError:
+            pass
+
+    if security is not None and security.VirtualAddress and security.Size - 1 > 0:
         overlay: Layout = layout.children[-1]
         if overlay.name != "overlay":
             logger.debug("expected overlay to be present")
