@@ -188,3 +188,13 @@ def test_pe_layout_overlapping_sections_do_not_create_gaps():
         ("gap", 0x800, 0xC00),
         (".reloc", 0xC00, 0xE00),
     ]
+
+
+def test_pe_layout_short_data_directory():
+    pe = pefile.PE(data=DOTNET_HELLO.read_bytes())
+    pe.OPTIONAL_HEADER.NumberOfRvaAndSizes = 2
+
+    layout = compute_layout(Slice.from_bytes(pe.write()))
+
+    assert layout.name == "pe"
+    assert [c.name for c in layout.children] == ["header", ".text", ".rsrc", ".reloc"]
