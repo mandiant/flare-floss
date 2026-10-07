@@ -14,6 +14,7 @@
 
 import floss.tags.winapi
 from floss.tags import data_root
+from floss.tags.engine import query_winapi_name_database
 
 
 def test_load_db():
@@ -31,3 +32,21 @@ def test_query_db():
 
     assert "CreateFileA" in db.api_names
     assert "CreateFileB" not in db.api_names
+
+
+def test_dll_names_are_lowercased_on_load():
+    path = data_root() / "winapi"
+    db = floss.tags.winapi.WindowsApiStringDatabase.from_dir(path)
+
+    assert all(name == name.lower() for name in db.dll_names)
+    assert "kernelbase.dll" in db.dll_names
+
+
+def test_mixed_case_dll_entries_match_in_any_case():
+    path = data_root() / "winapi"
+    db = floss.tags.winapi.WindowsApiStringDatabase.from_dir(path)
+
+    for string in ("KernelBase.dll", "kernelbase.dll", "KERNELBASE.DLL", "IPHLPAPI.DLL", "iphlpapi.dll"):
+        assert query_winapi_name_database(db, string) == ("#winapi",)
+
+    assert query_winapi_name_database(db, "kernel33.dll") == ()
