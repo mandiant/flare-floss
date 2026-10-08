@@ -34,7 +34,7 @@ pluggy==1.6.0
 pre-commit==4.6.0
 pyasn1==0.6.4
 pyasn1-modules==0.4.2
-pycodestyle==2.14.0
+pycodestyle==2.15.0
 pycparser==3.0
 pydantic==2.13.1
 # pydantic pins pydantic-core, 
