@@ -32,11 +32,13 @@ def test_main_help(capsys):
         assert "usage:" in out
         assert "--json" in out
 
-    # running without arguments prints the same help and exits with code 1
+    # running without arguments prints the SHORT help and exits with code 1
     assert floss.main.main([]) == 1
     out = capsys.readouterr().out
     assert "usage:" in out
-    assert "--json" in out
+    assert "floss -h" in out  # points user to full help
+    assert "examples:" in out  # shows curated examples
+    assert "--json" not in out  # short help does NOT dump all options
 
 
 def test_main_version(capsys):
