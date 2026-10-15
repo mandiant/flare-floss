@@ -180,7 +180,8 @@ FLOSS reads the following environment variables:
 | `FLOSS_CACHE_DIR` | directory for the analysis result cache (default: the platform cache directory) |
 | `FLOSS_CACHE_ENABLE` | set to `0` to disable result caching (enabled by default) |
 | `FLOSS_CACHE_REFRESH` | set to `1` to ignore the cached result and overwrite the entry (disabled by default) |
-| `FLOSS_SAVE_WORKSPACE` | set to `0`/`no` to prevent saving the vivisect workspace to disk during deobfuscation |
+| `FLOSS_SAVE_WORKSPACE` | set to `1` (or `true`/`yes`/`on`) to save the vivisect workspace next to the sample as `<sample>.viv` during deobfuscation (disabled by default) |
+| `FLOSS_LOAD_VIV_WORKSPACE` | set to `1` to load an existing `<sample>.viv` workspace instead of re-analyzing the sample (disabled by default). Workspaces are deserialized with pickle, so only enable this for `.viv` files you trust. Workspaces saved with a different format, vivisect version, or FLIRT signatures are discarded after loading and the sample is re-analyzed |
 
 Result caching is **enabled by default**. The full result document is cached on
 first run and reused on later runs, so repeated analyses of the same sample are
