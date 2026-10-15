@@ -81,6 +81,7 @@ logger = floss.logging_.getLogger("floss.pipeline")
 
 FLOSS_LOAD_VIV_WORKSPACE_ENV = "FLOSS_LOAD_VIV_WORKSPACE"
 FLOSS_SAVE_WORKSPACE_ENV = "FLOSS_SAVE_WORKSPACE"
+FLOSS_ANALYSIS_META = "FlossAnalysis"
 
 
 def _is_env_enabled(name: str) -> bool:
@@ -153,7 +154,17 @@ def select_functions(vw, asked_functions: Optional[List[int]]) -> Set[int]:
     return asked_functions_
 
 
-def _load_viv_workspace(sample_path: Path, file_type: FileType) -> VivWorkspace:
+def _new_viv_workspace(fmtname: str) -> VivWorkspace:
+    vw = VivWorkspace()
+    vw.verbose = False
+    if fmtname == "pe":
+        pe_config = vw.config.getSubConfig("viv").getSubConfig("parsers").getSubConfig("pe")
+        pe_config["loadresources"] = True
+        pe_config["nx"] = True
+    return vw
+
+
+def _load_viv_workspace(sample_path: Path, file_type: FileType, analysis_meta: List[str]) -> VivWorkspace:
     if file_type is FileType.PE:
         fmtname = "pe"
     elif file_type is FileType.ELF:
@@ -161,31 +172,34 @@ def _load_viv_workspace(sample_path: Path, file_type: FileType) -> VivWorkspace:
     else:
         raise WorkspaceLoadError("unsupported file type for vivisect workspace: %s" % file_type.value)
 
-    vw = VivWorkspace()
-    vw.verbose = False
-    if fmtname == "pe":
-        pe_config = vw.config.getSubConfig("viv").getSubConfig("parsers").getSubConfig("pe")
-        pe_config["loadresources"] = True
-        pe_config["nx"] = True
-
     viv_file = Path(f"{sample_path}.viv")
     if viv_file.exists():
         if is_load_viv_workspace_allowed():
             logger.debug("loading existing workspace %s", viv_file)
+            vw = _new_viv_workspace(fmtname)
             viv_utils.loadWorkspaceFromViv(vw, str(viv_file))
-            viv_utils.assertVwMatchesVivisectLibrary(vw)
-            return vw
+            if vw.getMeta(FLOSS_ANALYSIS_META) == analysis_meta:
+                return vw
+            logger.info(
+                "ignoring existing workspace %s: not analyzed with this format, vivisect version, and signatures",
+                viv_file,
+            )
+        else:
+            logger.info(
+                "ignoring existing workspace %s: loading .viv files uses pickle, set %s=1 to allow",
+                viv_file,
+                FLOSS_LOAD_VIV_WORKSPACE_ENV,
+            )
 
-        logger.info(
-            "ignoring existing workspace %s: loading .viv files uses pickle, set %s=1 to allow",
-            viv_file,
-            FLOSS_LOAD_VIV_WORKSPACE_ENV,
-        )
-
+    vw = _new_viv_workspace(fmtname)
     # pass fmtname explicitly so vivisect never treats the input as a serialized workspace
     vw.loadFromFile(str(sample_path), fmtname=fmtname)
     viv_utils.setVwVivisectLibraryVersion(vw)
     return vw
+
+
+def _get_analysis_meta(fmt: str, sigpaths: List[Path]) -> List[str]:
+    return [fmt, viv_utils.getVivisectLibraryVersion()] + [hashlib.sha256(p.read_bytes()).hexdigest() for p in sigpaths]
 
 
 def load_vw(
@@ -207,17 +221,27 @@ def load_vw(
     elif format == "auto" and sample_path.suffix.lower() in EXTENSIONS_SHELLCODE_64:
         format = "sc64"
 
+    sigpaths = sigpaths if file_type is FileType.PE else []
+    if format not in ("sc32", "sc64"):
+        format = "pe" if file_type is FileType.PE else "elf"
+    analysis_meta = _get_analysis_meta(format, sigpaths)
+
     if format == "sc32":
         vw = viv_utils.getShellcodeWorkspaceFromFile(str(sample_path), arch="i386", analyze=False)
     elif format == "sc64":
         vw = viv_utils.getShellcodeWorkspaceFromFile(str(sample_path), arch="amd64", analyze=False)
     else:
-        vw = _load_viv_workspace(sample_path, file_type)
+        vw = _load_viv_workspace(sample_path, file_type, analysis_meta)
+
+    if vw.getMeta(FLOSS_ANALYSIS_META) == analysis_meta:
+        logger.debug("workspace already analyzed, skipping analysis")
+        return vw
 
     if file_type is FileType.PE:
         viv_utils.flirt.register_flirt_signature_analyzers(vw, list(map(str, sigpaths)))
 
     vw.analyze()
+    vw.setMeta(FLOSS_ANALYSIS_META, analysis_meta)
 
     if should_save_workspace:
         logger.debug("saving workspace")
