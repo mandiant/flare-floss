@@ -18,6 +18,10 @@
 Run FLOSS to automatically extract obfuscated strings and apply them to the
 currently loaded module in IDA Pro.
 
+An existing <idb>.viv workspace is only loaded when FLOSS_LOAD_VIV_WORKSPACE=1,
+because .viv files are deserialized with pickle. Otherwise the workspace is
+built from the IDB.
+
 author: Willi Ballenthin
 email: willi.ballenthin@gmail.com
 """
@@ -29,6 +33,7 @@ from typing import List, Union
 from pathlib import Path
 
 import idc
+import vivisect
 import viv_utils
 
 import floss
@@ -36,6 +41,7 @@ import floss.main
 import floss.utils
 import floss.render
 import floss.identify
+import floss.pipeline
 import floss.stackstrings
 import floss.tightstrings
 import floss.string_decoder
@@ -172,9 +178,19 @@ def main(argv=None):
     idb_path = Path(idc.get_idb_path())
     fpath = idb_path.with_suffix("")
     viv_path = fpath.with_suffix(".viv")
-    if viv_path.exists():
+    load_viv = viv_path.exists() and floss.pipeline.is_load_viv_workspace_allowed()
+    if viv_path.exists() and not load_viv:
+        logger.info(
+            "ignoring existing workspace %r: loading .viv files uses pickle, set %s=1 to allow",
+            str(viv_path),
+            floss.pipeline.FLOSS_LOAD_VIV_WORKSPACE_ENV,
+        )
+
+    if load_viv:
         logger.info("loading vivisect workspace from %r", str(viv_path))
-        vw = viv_utils.getWorkspace(str(viv_path))
+        vw = vivisect.VivWorkspace()
+        viv_utils.loadWorkspaceFromViv(vw, str(viv_path))
+        viv_utils.assertVwMatchesVivisectLibrary(vw)
     else:
         logger.info("loading vivisect workspace from IDB...")
         vw = viv_utils.loadWorkspaceFromIdb()
