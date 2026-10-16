@@ -110,7 +110,7 @@ dependencies = [
     # layout / tagging
     "dnfile==0.18.0",
     "colorama==0.4.6",
-    "msgspec==0.21.1",
+    "msgspec==0.22.0",
     "python-lancelot==0.10.0",
     "pyelftools==0.33",
 ]
