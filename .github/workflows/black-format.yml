@@ -2,7 +2,7 @@ name: black auto-format
 
 on:
   pull_request:
-    branches: [ master ]
+    branches: [ master, 'release/**' ]
     paths-ignore:
       - 'web/**'
       - 'doc/**'
