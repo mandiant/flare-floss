@@ -9,6 +9,7 @@ on:
 # save workspaces to speed up testing
 env:
   FLOSS_SAVE_WORKSPACE: "True"
+  FLOSS_LOAD_VIV_WORKSPACE: "True"
 
 jobs:
   code_style:
