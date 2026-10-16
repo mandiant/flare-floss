@@ -8,6 +8,8 @@ First, make sure that `pytest` is installed:
 
     pip install pytest
 
+Set `FLOSS_SAVE_WORKSPACE=1 FLOSS_LOAD_VIV_WORKSPACE=1` to cache the vivisect workspaces of the binary test cases as `<sample>.viv` (CI sets both).
+
 
 ## Binary Test Cases
 

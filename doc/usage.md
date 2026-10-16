@@ -150,6 +150,14 @@ After this option is installed, you can right-click on any file and select `Open
  to quickly open the target file with FLOSS for analysis.
 
 
+### Environment variables
+
+| Variable | Effect |
+|---|---|
+| `FLOSS_SAVE_WORKSPACE` | set to `1` (or `true`/`yes`/`on`) to save the vivisect workspace next to the sample as `<sample>.viv` during deobfuscation (disabled by default) |
+| `FLOSS_LOAD_VIV_WORKSPACE` | set to `1` to load an existing `<sample>.viv` workspace instead of parsing the sample (disabled by default). Workspaces are deserialized with pickle, so only enable this for `.viv` files you trust |
+
+
 ## <a name="shellcode"></a>Shellcode analysis options
 
 Malicious shellcode often times contains obfuscated strings or stackstrings.
