@@ -149,6 +149,10 @@ def make_parser(argv):
         
           extract strings from a binary written in Go (if automatic language identification fails)
             floss --language go program.exe
+
+        environment variables:
+          FLOSS_SAVE_WORKSPACE      set to 1 to save the vivisect workspace as <sample>.viv (default: disabled)
+          FLOSS_LOAD_VIV_WORKSPACE  set to 1 to load a trusted <sample>.viv workspace, uses pickle (default: disabled)
         """)
 
     show_all_options = "-H" in argv
@@ -408,6 +412,57 @@ def get_file_type(sample_file_path: Path) -> bytes:
         return UNSUPPORTED_FILE_MAGIC
 
 
+FLOSS_LOAD_VIV_WORKSPACE_ENV = "FLOSS_LOAD_VIV_WORKSPACE"
+FLOSS_SAVE_WORKSPACE_ENV = "FLOSS_SAVE_WORKSPACE"
+
+
+def _is_env_enabled(name: str) -> bool:
+    return os.environ.get(name, "").strip().lower() in ("1", "true", "yes", "on")
+
+
+def is_load_viv_workspace_allowed() -> bool:
+    return _is_env_enabled(FLOSS_LOAD_VIV_WORKSPACE_ENV)
+
+
+def is_save_workspace_enabled() -> bool:
+    return _is_env_enabled(FLOSS_SAVE_WORKSPACE_ENV)
+
+
+def _load_viv_workspace(sample_path: Path, file_type: bytes) -> VivWorkspace:
+    if file_type == SUPPORTED_FILE_MAGIC_PE:
+        fmtname = "pe"
+    elif file_type == SUPPORTED_FILE_MAGIC_ELF:
+        fmtname = "elf"
+    else:
+        raise WorkspaceLoadError("unsupported file type for vivisect workspace")
+
+    vw = VivWorkspace()
+    vw.verbose = False
+    if fmtname == "pe":
+        pe_config = vw.config.getSubConfig("viv").getSubConfig("parsers").getSubConfig("pe")
+        pe_config["loadresources"] = True
+        pe_config["nx"] = True
+
+    viv_file = Path(f"{sample_path}.viv")
+    if viv_file.exists():
+        if is_load_viv_workspace_allowed():
+            logger.debug("loading existing workspace %s", viv_file)
+            viv_utils.loadWorkspaceFromViv(vw, str(viv_file))
+            viv_utils.assertVwMatchesVivisectLibrary(vw)
+            return vw
+
+        logger.info(
+            "ignoring existing workspace %s: loading .viv files uses pickle, set %s=1 to allow",
+            viv_file,
+            FLOSS_LOAD_VIV_WORKSPACE_ENV,
+        )
+
+    # pass fmtname explicitly so vivisect never treats the input as a serialized workspace
+    vw.loadFromFile(str(sample_path), fmtname=fmtname)
+    viv_utils.setVwVivisectLibraryVersion(vw)
+    return vw
+
+
 def load_vw(
     sample_path: Path,
     format: str,
@@ -433,7 +488,7 @@ def load_vw(
     elif format == "sc64":
         vw = viv_utils.getShellcodeWorkspaceFromFile(str(sample_path), arch="amd64", analyze=False)
     else:
-        vw = viv_utils.getWorkspace(str(sample_path), analyze=False, should_save=False)
+        vw = _load_viv_workspace(sample_path, file_type)
 
     if file_type == SUPPORTED_FILE_MAGIC_PE:
         viv_utils.flirt.register_flirt_signature_analyzers(vw, list(map(str, sigpaths)))
@@ -726,7 +781,7 @@ def main(argv=None) -> int:
 
         sigpaths = get_signatures(args.signatures)
 
-        should_save_workspace = os.environ.get("FLOSS_SAVE_WORKSPACE") not in ("0", "no", "NO", "n", None)
+        should_save_workspace = is_save_workspace_enabled()
         try:
             with halo.Halo(
                 text="analyzing program",

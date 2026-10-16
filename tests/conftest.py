@@ -116,6 +116,10 @@ class FLOSSDecodingFunctionNotFound(Exception):
     pass
 
 
+def _load_test_vw(test_path: str):
+    return floss_main.load_vw(Path(test_path), "auto", [], should_save_workspace=floss_main.is_save_workspace_enabled())
+
+
 class FLOSSTest(pytest.Item):
     def __init__(self, parent, path, platform, arch, filename, spec):
         name = "{name:s}::{platform:s}::{arch:s}".format(name=spec["Test Name"], platform=platform, arch=arch)
@@ -135,8 +139,7 @@ class FLOSSTest(pytest.Item):
             vw = viv_utils.getShellcodeWorkspaceFromFile(test_path, arch)
             found_strings = set(extract_strings(vw))
         else:
-            # default assumes pe
-            vw = viv_utils.getWorkspace(test_path)
+            vw = _load_test_vw(test_path)
             found_strings = set(extract_strings(vw))
 
         if not (expected_strings <= found_strings):
@@ -151,7 +154,7 @@ class FLOSSTest(pytest.Item):
         if not expected_functions:
             return
 
-        vw = viv_utils.getWorkspace(test_path)
+        vw = _load_test_vw(test_path)
         top_functions, _ = identify_decoding_functions(vw)
         found_functions = set(top_functions)
 
