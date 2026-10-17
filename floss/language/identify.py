@@ -36,6 +36,7 @@ class Language(Enum):
     GO = "go"
     RUST = "rust"
     DOTNET = "dotnet"
+    ZIG = "zig"
     UNKNOWN = "unknown"
     DISABLED = "none"
 
@@ -55,6 +56,11 @@ def identify_language_and_version(sample: Path, static_strings: Iterable[StaticS
             f"This is not a valid PE file: {err}"
         )
         return Language.UNKNOWN, VERSION_UNKNOWN_OR_NA
+
+    is_zig, version = get_if_zig_and_version(pe)
+    if is_zig:
+        logger.info("Zig binary found")
+        return Language.ZIG, version
 
     is_go, version = get_if_go_and_version(pe)
     if is_go:
@@ -95,6 +101,115 @@ def get_if_rust_and_version(static_strings: Iterable[StaticString]) -> Tuple[boo
             else:
                 logger.debug("hash %s not found in Rust commit hash database", matches["hash"])
                 return True, VERSION_UNKNOWN_OR_NA
+
+    return False, VERSION_UNKNOWN_OR_NA
+
+
+def get_if_zig_and_version(pe: pefile.PE) -> Tuple[bool, str]:
+    """
+    Return whether the PE matches the tested Zig Windows runtime signatures.
+
+    This combines PE structure, imports, and mapped .rdata runtime strings. Tested for Zig 0.12 to 0.16.
+    """
+
+    sections = {
+        section.Name.rstrip(b"\0").decode("ascii", "replace"): section
+        for section in pe.sections
+    }
+    section_names = set(sections)
+
+    imports = {}
+    for descriptor in getattr(pe, "DIRECTORY_ENTRY_IMPORT", []):
+        dll = descriptor.dll.decode("ascii", "replace").lower()
+        imports[dll] = {
+            entry.name.decode("ascii", "replace").lower()
+            for entry in descriptor.imports
+            if entry.name is not None
+        }
+    all_imports = set().union(*imports.values()) if imports else set()
+
+    score = 0
+    has_structure = False
+    has_runtime = False
+
+    try:
+        tls_index = pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_TLS"]
+        tls_directory = pe.OPTIONAL_HEADER.DATA_DIRECTORY[tls_index]
+    except IndexError:
+        tls_directory = None
+    if (
+        ".tls" in sections
+        and tls_directory
+        and tls_directory.VirtualAddress
+        and tls_directory.Size
+    ):
+        score += 4
+        has_structure = True
+
+    if "rtlexituserprocess" in imports.get("ntdll.dll", set()):
+        score += 4
+        has_runtime = True
+
+    legacy_sections = {
+        ".text", 
+        ".rdata", 
+        ".data", 
+        ".pdata", 
+        ".CRT", 
+        ".tls", 
+        ".reloc"
+    }
+    modern_sections = {
+        ".text",
+        ".rdata",
+        ".buildid",
+        ".data",
+        ".pdata",
+        ".tls",
+        ".reloc",
+    }
+
+    # Allow additional sections while requiring a complete known section bundle.
+    if legacy_sections.issubset(section_names) or modern_sections.issubset(section_names):
+        score += 2
+        has_structure = True
+
+    rdata = b"".join(
+        section.get_data()[
+            : min(int(section.Misc_VirtualSize), int(section.SizeOfRawData))
+        ]
+        for section in pe.sections
+        if section.Name.rstrip(b"\0") == b".rdata"
+    )
+    runtime_markers = (
+        b"integer overflow",
+        b"reached unreachable code",
+        b"index out of bounds",
+        b"thread ",
+        b"panic: ",
+        b"stack trace",
+    )
+    runtime_hits = sum(marker in rdata for marker in runtime_markers)
+    if runtime_hits >= 3:
+        score += 2
+        has_runtime = True
+
+    lock_write_imports = {
+        "acquiresrwlockexclusive",
+        "releasesrwlockexclusive",
+        "writefile",
+    }
+
+    # Runtime markers and lock/write imports may be absent in some Zig binaries,
+    # particularly in ReleaseFast and ReleaseSmall builds. Keep this requirement
+    # for now to reduce false positives, accepting false negatives for those binaries.
+    has_distinctive_runtime = runtime_hits >= 3 or lock_write_imports <= all_imports
+    if lock_write_imports <= all_imports:
+        score += 1
+        has_runtime = True
+
+    if score >= 8 and has_structure and has_runtime and has_distinctive_runtime:
+        return True, VERSION_UNKNOWN_OR_NA
 
     return False, VERSION_UNKNOWN_OR_NA
 
