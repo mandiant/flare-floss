@@ -35,6 +35,10 @@ and `-n/--minimum-length` are re-applied on load, and a `-n` looser than the one
 used to build the document is an error, because those shorter strings were
 already dropped at extraction time.
 
+A document written with layout-aware filter flags (e.g. `floss -j --interesting`)
+contains only the filtered `layout` and `strings.static_strings`; loading it later
+cannot restore the dropped strings.
+
 ## Top-level structure
 
 ```jsonc

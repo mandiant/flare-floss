@@ -16,9 +16,11 @@
 
 import json
 
+import pytest
 from fixtures import exefile
 
 import floss.main
+import floss.render.json
 import floss.render.filter
 import floss.render.summary
 from floss.results import (
@@ -824,3 +826,62 @@ def test_render_single_child_collapse_keeps_own_strings():
     out = _render_layout(layout)
     assert "ownstring" in out
     assert "childstr" in out
+
+
+def test_filter_results_narrows_layout_and_static_strings():
+    doc = make_results()
+    out = floss.render.filter.filter_results(doc, floss.render.filter.LayoutFilter(interesting=True))
+    assert collect_layout_strings(out.layout) == ["CreateFileA", "kcp://url"]
+    assert [s.string for s in out.strings.static_strings] == ["CreateFileA", "kcp://url"]
+    assert collect_layout_strings(doc.layout) == ["junk code", "CreateFileA", "hello world", "kcp://url"]
+    assert len(doc.strings.static_strings) == 3
+
+
+def test_filter_results_inactive_or_no_layout_unchanged():
+    doc = make_results()
+    assert floss.render.filter.filter_results(doc, floss.render.filter.LayoutFilter()) is doc
+    doc.layout = None
+    assert floss.render.filter.filter_results(doc, floss.render.filter.LayoutFilter(interesting=True)) is doc
+
+
+def test_filter_results_nothing_matches_keeps_empty_root():
+    doc = make_results()
+    out = floss.render.filter.filter_results(doc, floss.render.filter.LayoutFilter(queries=["nomatch"]))
+    assert out.layout is not None
+    assert out.layout.name == "pe"
+    assert collect_layout_strings(out.layout) == []
+    assert out.strings.static_strings == []
+
+
+@pytest.mark.parametrize(
+    "args,expected",
+    [
+        (["--interesting"], ["CreateFileA", "kcp://url"]),
+        (["--tag", "kcp"], ["kcp://url"]),
+        (["--section", ".text"], ["junk code"]),
+        (["--max-strings", "1"], ["junk code", "CreateFileA"]),
+    ],
+)
+def test_main_json_applies_filters(tmp_path, capsys, args, expected):
+    path = tmp_path / "results.json"
+    path.write_text(floss.render.json.render(make_results()), encoding="utf-8")
+    assert floss.main.main([str(path), "-j"] + args) == 0
+    doc = json.loads(capsys.readouterr().out)
+    assert collect_json_layout_strings(doc["layout"]) == expected
+    assert sorted(s["string"] for s in doc["strings"]["static_strings"]) == sorted(expected)
+
+
+def test_main_json_without_filters_is_unchanged(tmp_path, capsys):
+    path = tmp_path / "results.json"
+    path.write_text(floss.render.json.render(make_results()), encoding="utf-8")
+    assert floss.main.main([str(path), "-j"]) == 0
+    doc = json.loads(capsys.readouterr().out)
+    assert collect_json_layout_strings(doc["layout"]) == ["junk code", "CreateFileA", "hello world", "kcp://url"]
+    assert [s["string"] for s in doc["strings"]["static_strings"]] == ["CreateFileA", "hello world", "kcp://url"]
+
+
+def collect_json_layout_strings(layout):
+    out = [s["string"] for s in layout["strings"]]
+    for child in layout["children"]:
+        out.extend(collect_json_layout_strings(child))
+    return out

@@ -23,9 +23,11 @@ new pruned tree, so the original result document is never mutated.
 from __future__ import annotations
 
 import re
+import dataclasses
 from typing import Set, List, Tuple, Optional, Sequence
 
-from floss.results import ResultLayout, ResultString
+from floss.enrich import static_strings_from_layout
+from floss.results import ResultLayout, ResultString, ResultDocument
 from floss.tags.oss import DEFAULT_FILENAMES
 from floss.tags.filter import TagRules
 
@@ -365,3 +367,18 @@ class LayoutFilter:
             strings=strings,
             children=children,
         )
+
+
+def filter_results(results: ResultDocument, layout_filter: LayoutFilter) -> ResultDocument:
+    """return a copy of ``results`` whose layout and static strings are narrowed by ``layout_filter``.
+
+    the input document is not mutated. documents without a layout tree, or an
+    inactive filter, are returned unchanged.
+    """
+    if not layout_filter.active or results.layout is None:
+        return results
+    layout = layout_filter.apply(results.layout)
+    if layout is None:
+        layout = ResultLayout(name=results.layout.name, offset=results.layout.offset, length=results.layout.length)
+    strings = dataclasses.replace(results.strings, static_strings=static_strings_from_layout(layout))
+    return dataclasses.replace(results, strings=strings, layout=layout)

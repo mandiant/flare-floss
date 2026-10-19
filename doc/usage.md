@@ -200,6 +200,14 @@ The easiest way to explore this output is the hosted
 filter by tag, structure, or search term, and copy the strings you keep. See
 [results_document.md](results_document.md) for the schema itself.
 
+The layout-aware filters (`--section`, `--structure`, `--tag`, `--interesting`,
+`--query`, `--max-strings`, and their `--no-` variants) also apply to JSON
+output: `layout` and `strings.static_strings` then contain only the strings
+that pass the filters. Other string types are not filtered. Without filter
+flags, the full document is written.
+
+    floss.exe -j --interesting -- malware.exe > malware_interesting.json
+
 ### Write a standalone HTML report (`--html`)
 
 Write a self-contained HTML file that opens in a browser with the results already

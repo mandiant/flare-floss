@@ -37,7 +37,7 @@ from floss.cli import (
 from floss.utils import FileType, detect_file_type, expand_string_types, is_string_type_enabled
 from floss.results import Analysis, load
 from floss.pipeline import Options, PipelineError, analyze
-from floss.render.filter import LayoutFilter
+from floss.render.filter import LayoutFilter, filter_results
 from floss.language.identify import Language
 
 logger = floss.logging_.getLogger("floss")
@@ -99,6 +99,17 @@ def build_layout_filter(args) -> LayoutFilter:
         max_strings=args.max_strings,
         tag_rules=floss.render.default.DEFAULT_TAG_RULES,
     )
+
+
+def render_json(args, results: floss.results.ResultDocument) -> str:
+    """render results as JSON, narrowed by the layout-aware filters when any are given."""
+    layout_filter = build_layout_filter(args)
+    if layout_filter.active and results.layout is None:
+        logger.warning(
+            "layout analysis is disabled or failed, so there is no layout tree: layout-aware filters "
+            "(--section, --structure, --tag, --query, --max-strings, --interesting) are ignored"
+        )
+    return floss.render.json.render(filter_results(results, layout_filter))
 
 
 def render_text(args, results: floss.results.ResultDocument, stream=None):
@@ -270,7 +281,7 @@ def main(argv=None) -> int:
             return -1
 
         if args.json:
-            r = floss.render.json.render(results)
+            r = render_json(args, results)
         elif args.html:
             r = floss.render.html.render(results)
         else:
@@ -311,7 +322,7 @@ def main(argv=None) -> int:
         return 0
 
     if args.json:
-        r = floss.render.json.render(analysis_results)
+        r = render_json(args, analysis_results)
     elif args.html:
         r = floss.render.html.render(analysis_results)
     else:
