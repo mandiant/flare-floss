@@ -46,6 +46,15 @@ so `winapi`, `#WinAPI`, and `#winapi` all match the stored tag `#winapi`. Values
 that do not name a family are compared directly. A string matches a `--tag` filter
 if any of its tags matches any of the requested tags/families.
 
+## Default rendering
+
+Without `--tag` or `--interesting`, the text view hides strings tagged `#code`,
+`#reloc`, or `#code-junk` (known instruction-byte sequences such as `D$0H`, which
+supplement code range recovery), mutes `#common`, `#duplicate`, and other tags,
+and highlights `#capa`. The HTML viewer deselects the same three tags by default.
+JSON output is not affected. To see hidden strings in the text view, select them
+explicitly, e.g. `--tag code-junk`.
+
 ## Noisy tags and `--interesting`
 
 Some tags mark strings that are rarely interesting during analysis — prevalent
