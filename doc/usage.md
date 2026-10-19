@@ -122,7 +122,11 @@ Convenience shortcuts:
 - `--query REGEX` keeps only strings matching the given regular expression(s).
   Repeatable; patterns are ORed.
 - `--max-strings N` caps the emitted strings per section to the top `N` by
-  relevance (highlighted first, then untagged, then tagged, ascending by offset).
+  relevance: highlighted first, then untagged, then tagged, then noisy-only
+  strings (`#decoded` does not affect the group). Within a group, strings over
+  160 characters rank last, strings shorter than 16 characters rank by length,
+  and remaining ties go by ascending offset. The kept strings are printed in
+  offset order.
 
 `--interesting` is a shorthand for the noisy-tag exclusion; the section,
 structure, and tag filters can all be combined with each other and with

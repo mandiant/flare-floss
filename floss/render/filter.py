@@ -116,6 +116,14 @@ def tag_matches(user_tag: str, string_tags: Sequence[str]) -> bool:
     return any(normalize_tag(tag) == normalized for tag in string_tags)
 
 
+# provenance tags describe where a string came from, not what it is, so they
+# don't move a string between relevance groups
+PROVENANCE_TAGS: Set[str] = {"#decoded"}
+
+RELEVANCE_SATURATION_LENGTH = 16
+RELEVANCE_MAX_LENGTH = 160
+
+
 def relevance_key(s: ResultString, tag_rules: TagRules) -> Tuple[int, int, int, int]:
     """sort key for --max-strings and high-value string ordering.
 
@@ -124,15 +132,17 @@ def relevance_key(s: ResultString, tag_rules: TagRules) -> Tuple[int, int, int, 
       2. then untagged strings
       3. then strings with any non-noisy tag
       4. then the rest (only noisy tags)
-    within each group, strings up to 256 chars are sorted descending by length,
-    then strings over 256 chars are sorted ascending by length,
-    and finally ascending by offset.
+    provenance tags (#decoded) are ignored when grouping.
+    within each group, strings over 160 chars come last; shorter strings are
+    sorted descending by length up to 16 chars, so strings of 16 to 160 chars
+    are considered equal. ties are broken by ascending offset.
     """
-    has_highlight = any(tag_rules.get(tag) == "highlight" for tag in s.tags)
-    has_non_noisy = any(tag not in NOISY_TAGS for tag in s.tags)
+    tags = [tag for tag in s.tags if tag not in PROVENANCE_TAGS]
+    has_highlight = any(tag_rules.get(tag) == "highlight" for tag in tags)
+    has_non_noisy = any(tag not in NOISY_TAGS for tag in tags)
     if has_highlight:
         group = 0
-    elif not s.tags:
+    elif not tags:
         group = 1
     elif has_non_noisy:
         group = 2
@@ -140,10 +150,10 @@ def relevance_key(s: ResultString, tag_rules: TagRules) -> Tuple[int, int, int, 
         group = 3
 
     length = len(s.string)
-    len_tier = 0 if length <= 256 else 1
-    len_score = -length if length <= 256 else length
+    is_blob = 1 if length > RELEVANCE_MAX_LENGTH else 0
+    len_score = -min(length, RELEVANCE_SATURATION_LENGTH)
 
-    return (group, len_tier, len_score, s.offset)
+    return (group, is_blob, len_score, s.offset)
 
 
 def is_macho_arch_wrapper(layout: ResultLayout) -> bool:
@@ -299,10 +309,9 @@ class LayoutFilter:
     def prune(self, layout: ResultLayout, keep: set) -> Optional[ResultLayout]:
         """rebuild a layout subtree keeping only strings in ``keep`` (by id).
 
-        kept strings within a node are emitted in relevance order.
+        kept strings within a node stay in their original (offset) order.
         """
         strings = [s for s in layout.strings if id(s) in keep]
-        strings.sort(key=lambda s: relevance_key(s, self.tag_rules))
         children: List[ResultLayout] = []
         for child in layout.children:
             pruned = self.prune(child, keep)
@@ -318,13 +327,20 @@ class LayoutFilter:
             children=children,
         )
 
+    def top_strings(self, strings: Sequence[ResultString]) -> List[ResultString]:
+        """the top N ``strings`` by relevance, in their original order."""
+        if self.max_strings is None or len(strings) <= self.max_strings:
+            return list(strings)
+        ranked = sorted(strings, key=lambda s: relevance_key(s, self.tag_rules))
+        keep = {id(s) for s in ranked[: self.max_strings]}
+        return [s for s in strings if id(s) in keep]
+
     def cap_node(self, layout: ResultLayout) -> Optional[ResultLayout]:
         """cap a top-level section subtree to the top N strings by relevance."""
         all_strings = self.collect_strings(layout)
         if self.max_strings is None or len(all_strings) <= self.max_strings:
             return layout
-        ranked = sorted(all_strings, key=lambda s: relevance_key(s, self.tag_rules))
-        keep = {id(s) for s in ranked[: self.max_strings]}
+        keep = {id(s) for s in self.top_strings(all_strings)}
         return self.prune(layout, keep)
 
     def apply(self, layout: ResultLayout) -> Optional[ResultLayout]:
@@ -348,13 +364,12 @@ class LayoutFilter:
                     capped = self.cap_node(section)
                     if capped is not None:
                         arch_children.append(capped)
-                ranked_wrapper = sorted(child.strings, key=lambda s: relevance_key(s, self.tag_rules))
                 children.append(
                     ResultLayout(
                         name=child.name,
                         offset=child.offset,
                         length=child.length,
-                        strings=ranked_wrapper[: self.max_strings],
+                        strings=self.top_strings(child.strings),
                         children=arch_children,
                     )
                 )
@@ -362,8 +377,7 @@ class LayoutFilter:
                 capped = self.cap_node(child)
                 if capped is not None:
                     children.append(capped)
-        ranked_root = sorted(filtered.strings, key=lambda s: relevance_key(s, self.tag_rules))
-        strings = ranked_root[: self.max_strings]
+        strings = self.top_strings(filtered.strings)
 
         if not strings and not children:
             return None

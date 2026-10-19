@@ -444,6 +444,7 @@ def test_filter_query_ored():
 def test_filter_max_strings_relevance():
     # highlighted tags (#capa) sort first, then untagged, then non-noisy tags,
     # then only-noisy tags; within a group, ascending offset.
+    # kept strings are emitted in their original order.
     layout = ResultLayout(
         name=".rdata",
         offset=0x800,
@@ -460,7 +461,68 @@ def test_filter_max_strings_relevance():
     f = floss.render.filter.LayoutFilter(max_strings=3, tag_rules=tag_rules)
     filtered = f.apply(layout)
     assert filtered is not None
-    assert [s.string for s in filtered.strings] == ["c-highlighted", "a-untagged", "b-untagged"]
+    assert [s.string for s in filtered.strings] == ["a-untagged", "b-untagged", "c-highlighted"]
+
+
+def make_string(string: str, offset: int, tags=None) -> ResultString:
+    return ResultString(string=string, offset=offset, size=len(string), encoding="ascii", tags=tags or [])
+
+
+def test_relevance_key_length_buckets():
+    url = make_string("http://evil.example/gate.php", 0x30)
+    path = make_string("C:\\Windows\\Temp\\a.exe", 0x40)
+    mangled = make_string("?" + "A" * 199, 0x10)
+    short = make_string("abcdefgh", 0x05)
+    shorter = make_string("abcd", 0x01)
+    strings = [shorter, mangled, path, short, url]
+    ranked = sorted(strings, key=lambda s: floss.render.filter.relevance_key(s, {}))
+    # 16..160 chars tie and sort by offset, shorter strings by descending length, blobs last
+    assert ranked == [url, path, short, shorter, mangled]
+
+
+def test_relevance_key_decoded_is_neutral():
+    tag_rules: TagRules = {"#capa": "highlight", "#common": "mute"}
+    capa = make_string("capa-matched-string", 0x50, ["#capa"])
+    decoded = make_string("decoded-payload-string", 0x10, ["#decoded"])
+    untagged = make_string("untagged-outer-string", 0x20)
+    decoded_winapi = make_string("CreateRemoteThread", 0x05, ["#decoded", "#winapi"])
+    decoded_common = make_string("decoded-common-string", 0x01, ["#decoded", "#common"])
+    strings = [decoded_common, decoded_winapi, untagged, decoded, capa]
+    ranked = sorted(strings, key=lambda s: floss.render.filter.relevance_key(s, tag_rules))
+    assert ranked == [capa, decoded, untagged, decoded_winapi, decoded_common]
+
+
+def test_filter_max_strings_keeps_offset_order():
+    """kept strings are emitted in offset order, not relevance order."""
+    layout = ResultLayout(
+        name="pe",
+        offset=0,
+        length=0x1000,
+        strings=[
+            make_string("root-untagged-string", 0x10),
+            make_string("root-highlighted", 0x20, ["#capa"]),
+            make_string("root-common", 0x30, ["#common"]),
+        ],
+        children=[
+            ResultLayout(
+                name=".rdata",
+                offset=0x800,
+                length=0x400,
+                strings=[
+                    make_string("first-untagged-string", 0x800),
+                    make_string("noisy-common-string", 0x810, ["#common"]),
+                    make_string("second-untagged-string", 0x820),
+                    make_string("highlighted-string", 0x830, ["#capa"]),
+                ],
+            ),
+        ],
+    )
+    tag_rules: TagRules = {"#capa": "highlight", "#common": "mute"}
+    f = floss.render.filter.LayoutFilter(max_strings=2, tag_rules=tag_rules)
+    filtered = f.apply(layout)
+    assert filtered is not None
+    assert [s.string for s in filtered.strings] == ["root-untagged-string", "root-highlighted"]
+    assert [s.string for s in filtered.children[0].strings] == ["first-untagged-string", "highlighted-string"]
 
 
 def test_filter_max_strings_caps_per_section():
