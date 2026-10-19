@@ -54,6 +54,28 @@ def is_interesting(tags: Sequence[str], tag_rules: TagRules, structure: Optional
     return not any(tag in noisy for tag in tags)
 
 
+def strip_duplicate_tag(tags: Sequence[str]) -> List[str]:
+    """drop ``#duplicate``, whose meaning depends on which occurrences are kept.
+
+    ``#duplicate`` marks the 2nd+ occurrence of a value within a layout node,
+    regardless of whether the 1st occurrence is itself noisy (e.g. ``#reloc``).
+    callers that select occurrences evaluate the remaining tags and
+    deduplicate on their own.
+    """
+    return [tag for tag in tags if tag != "#duplicate"]
+
+
+def dedupe_strings(strings: Sequence[ResultString]) -> List[ResultString]:
+    """keep the first occurrence of each string value, preserving order."""
+    seen: Set[str] = set()
+    out: List[ResultString] = []
+    for s in strings:
+        if s.string not in seen:
+            seen.add(s.string)
+            out.append(s)
+    return out
+
+
 # tag families, one per tag-source directory under floss/tags/data. a meta tag
 # matches any tag in its family, so --tag winapi / --tag oss / --tag gp etc.
 # work as selectors.
@@ -190,7 +212,9 @@ class LayoutFilter:
         include_tags: keep strings with any matching tag.
         exclude_tags: drop strings with any matching tag.
         interesting: drop any string carrying a noisy tag, even when it also has
-            a non-noisy tag (e.g. #winapi #common is dropped).
+            a non-noisy tag (e.g. #winapi #common is dropped). #duplicate is
+            handled by keeping only the first otherwise-interesting occurrence
+            of each value per layout node.
         queries: regex patterns ORed against string content.
         max_strings: cap emitted strings per top-level section to the top N by
             relevance.
@@ -252,7 +276,7 @@ class LayoutFilter:
             return False
         if self.exclude_tags and any(tag_matches(t, s.tags) for t in self.exclude_tags):
             return False
-        if self.interesting and not is_interesting(s.tags, self.tag_rules, s.structure):
+        if self.interesting and not is_interesting(strip_duplicate_tag(s.tags), self.tag_rules, s.structure):
             return False
 
         if self.queries and not any(pattern.search(s.string) for pattern in self.queries):
@@ -277,6 +301,8 @@ class LayoutFilter:
             section = layout.name
 
         strings = [s for s in layout.strings if self.string_matches(section, s)]
+        if self.interesting:
+            strings = dedupe_strings(strings)
 
         children: List[ResultLayout] = []
         for child in layout.children:

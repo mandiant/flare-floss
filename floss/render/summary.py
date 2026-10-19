@@ -38,6 +38,7 @@ from floss.render.filter import (
     relevance_key,
     is_interesting,
     is_section_child,
+    strip_duplicate_tag,
     is_macho_arch_wrapper,
 )
 from floss.render.layout import get_visible_tags
@@ -72,15 +73,16 @@ def analyze_layout(layout: ResultLayout):
         section_counts[section] += len(node.strings)
         for s in node.strings:
             tag_histogram.update(s.tags)
-            if is_interesting(s.tags, DEFAULT_TAG_RULES, s.structure):
+            tags = strip_duplicate_tag(s.tags)
+            if is_interesting(tags, DEFAULT_TAG_RULES, s.structure):
                 key = (s.string, section)
                 if key not in interesting_map:
-                    interesting_map[key] = (s, 1, set(s.tags))
+                    interesting_map[key] = (s, 1, set(tags))
                 else:
-                    existing_s, count, tags = interesting_map[key]
-                    tags.update(s.tags)
+                    existing_s, count, merged_tags = interesting_map[key]
+                    merged_tags.update(tags)
                     best_s = s if s.offset < existing_s.offset else existing_s
-                    interesting_map[key] = (best_s, count + 1, tags)
+                    interesting_map[key] = (best_s, count + 1, merged_tags)
         for child in node.children:
             if is_section_child(node, child, depth):
                 child_section = child.name

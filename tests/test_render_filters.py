@@ -380,7 +380,7 @@ def make_winapi_common_layout() -> ResultLayout:
                         offset=0x850,
                         size=12,
                         encoding="ascii",
-                        tags=[*winapi_common, "#duplicate"],
+                        tags=[*winapi_common, "#reloc"],
                     ),
                 ],
             ),
@@ -424,6 +424,40 @@ def test_filter_max_strings_ranks_winapi_common_as_tagged():
 def test_summary_keeps_winapi_common_outside_import_table():
     _, _, interesting = floss.render.summary.analyze_layout(make_winapi_common_layout())
     assert sorted(s.string for s, _, _ in interesting) == ["GetProcAddress", "untagged string"]
+
+
+def test_filter_interesting_keeps_clean_duplicate_of_noisy_first_occurrence():
+    layout = ResultLayout(
+        name=".data",
+        offset=0,
+        length=0x400,
+        strings=[
+            ResultString(string="evil.example", offset=0x100, size=12, encoding="ascii", tags=["#reloc"]),
+            ResultString(string="evil.example", offset=0x200, size=12, encoding="ascii", tags=["#duplicate"]),
+            ResultString(string="evil.example", offset=0x300, size=12, encoding="ascii", tags=["#duplicate"]),
+        ],
+    )
+    f = floss.render.filter.LayoutFilter(interesting=True)
+    filtered = f.apply(layout)
+    assert filtered is not None
+    assert [s.offset for s in filtered.strings] == [0x200]
+
+
+def test_filter_interesting_drops_duplicates_of_kept_string():
+    layout = ResultLayout(
+        name=".data",
+        offset=0,
+        length=0x400,
+        strings=[
+            ResultString(string="evil.example", offset=0x100, size=12, encoding="ascii"),
+            ResultString(string="evil.example", offset=0x200, size=12, encoding="ascii", tags=["#duplicate"]),
+            ResultString(string="other", offset=0x300, size=5, encoding="ascii", tags=["#duplicate", "#code"]),
+        ],
+    )
+    f = floss.render.filter.LayoutFilter(interesting=True)
+    filtered = f.apply(layout)
+    assert filtered is not None
+    assert [s.offset for s in filtered.strings] == [0x100]
 
 
 def test_filter_query():
@@ -694,6 +728,37 @@ def test_summary_section_counts_thread_fat_macho():
     counts, _, _ = floss.render.summary.analyze_layout(layout)
     assert counts == {"macho (fat)": 1, "__TEXT": 1, "macho: x86_64": 1}
     assert sum(counts.values()) == 3
+
+
+def test_summary_counts_duplicates_within_section_node():
+    layout = ResultLayout(
+        name="pe",
+        offset=0,
+        length=0x1000,
+        children=[
+            ResultLayout(
+                name=".data",
+                offset=0,
+                length=0x400,
+                strings=[
+                    ResultString(string="evil.example", offset=0x100, size=12, encoding="ascii", tags=["#reloc"]),
+                    ResultString(string="evil.example", offset=0x200, size=12, encoding="ascii", tags=["#duplicate"]),
+                    ResultString(string="evil.example", offset=0x300, size=12, encoding="ascii", tags=["#duplicate"]),
+                    ResultString(string="beacon", offset=0x380, size=6, encoding="ascii"),
+                    ResultString(string="beacon", offset=0x390, size=6, encoding="ascii", tags=["#duplicate"]),
+                ],
+            )
+        ],
+    )
+    _, _, interesting = floss.render.summary.analyze_layout(layout)
+    by_value = {s.string: (s.offset, count, s.tags) for s, count, _ in interesting}
+    assert by_value == {"evil.example": (0x200, 2, []), "beacon": (0x380, 2, [])}
+
+    doc = make_results()
+    doc.layout = layout
+    out = floss.render.summary.render_summary(doc)
+    assert "evil.example (count: 2)" in out
+    assert "beacon (count: 2)" in out
 
 
 def test_main_summary_flag(exefile, capsys):

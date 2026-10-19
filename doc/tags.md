@@ -67,6 +67,12 @@ the same names elsewhere in a binary (for example, passed to `GetProcAddress`)
 indicate dynamic API resolution. Import table entries (including delay-load
 imports) are still dropped, as are strings with any other noisy tag.
 
+`#duplicate` marks the second and later occurrences of a value within one layout
+node. `--interesting` shows only the first occurrence of each value per node that
+is otherwise interesting, so a clean duplicate is still shown when the first
+occurrence overlaps code or a relocation. `--summary` counts all otherwise
+interesting occurrences of a value within a section, shown as `(count: N)`.
+
 ## Where tags come from
 
 Tagging is implemented in [`floss/tags/`](../floss/tags/):
