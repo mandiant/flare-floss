@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import io
+import re
 import logging
 from typing import Any, Dict, List, Tuple, Iterable, Optional, Sequence
 
@@ -26,6 +27,7 @@ from elftools.elf.relocation import RelocationSection
 from elftools.common.exceptions import ELFError
 
 from floss.ranges import Range, Slice, OffsetRanges, merge_overlapping_ranges
+from floss.strings import ASCII_BYTE, extract_unicode_strings
 from floss.layout.base import Layout, ELFLayout, Structure, SectionLayout, SegmentLayout
 from floss.layout.types import Tag, ExtractedString
 
@@ -106,6 +108,37 @@ def get_relocations_elf(slice_: Slice, elf: ELFFile) -> List[Tuple[int, int]]:
     return merge_overlapping_ranges(ranges)
 
 
+# printable text, including line breaks, as in "HTTP/1.1\r\nHost: %s\r\n"
+TEXT_RE = re.compile(rb"[%s\r\n]{4,}" % ASCII_BYTE)
+
+
+def get_text_segment_code_ranges(data: bytes, offset: int, size: int) -> List[Tuple[int, int]]:
+    """
+    Guess the code in a classic text segment: everything but NUL-terminated strings.
+
+    Without section headers, the executable segment of the classic layout maps the headers,
+    .dynstr, the code, and .rodata together, and the code can't be told apart from the data.
+    C strings are NUL-terminated, while printable runs in instruction bytes mostly are not.
+    Returns inclusive ranges relative to the ELF file.
+    """
+    buf = data[offset : offset + size]
+    strings = [(m.start(), m.end()) for m in TEXT_RE.finditer(buf) if buf[m.end() : m.end() + 1] == b"\x00"]
+    for s in extract_unicode_strings(buf, 4):
+        end = s.offset + 2 * len(s.string)
+        if buf[end : end + 2] == b"\x00\x00":
+            strings.append((s.offset, end))
+
+    ranges: List[Tuple[int, int]] = []
+    cursor = 0
+    for start, end in sorted(strings):
+        if start > cursor:
+            ranges.append((offset + cursor, offset + start - 1))
+        cursor = max(cursor, end)
+    if cursor < len(buf):
+        ranges.append((offset + cursor, offset + len(buf) - 1))
+    return ranges
+
+
 def collect_elf_structures(slice_: Slice, elf: ELFFile) -> Sequence[Structure]:
     structures: List[Structure] = []
 
@@ -172,6 +205,8 @@ def compute_elf_layout(slice_: Slice, xor_key: int | None) -> Layout:
     # For segments: PT_LOAD segments are main focus.
     # Also track executable parts (SHF_EXECINSTR or PF_X) for #code tagging.
     layout_elements: List[Tuple[int, int, str, bool]] = []  # (offset, size, name, is_exec)
+    # executable segments that also map the ELF header: classic text segments (offset, size)
+    text_segments: List[Tuple[int, int]] = []
 
     use_sections = elf_has_valid_sections(elf, slice_.range.length)
     if use_sections:
@@ -235,6 +270,10 @@ def compute_elf_layout(slice_: Slice, xor_key: int | None) -> Layout:
                         "segment size %s out of range, truncating from 0x%x to 0x%x bytes", name, size_orig, size
                     )
 
+                if is_exec and offset == 0:
+                    text_segments.append((offset, size))
+                    is_exec = False
+
                 layout_elements.append((offset, size, name, is_exec))
             except Exception as e:
                 logger.warning("failed to parse segment %d: %s", i, e)
@@ -247,6 +286,11 @@ def compute_elf_layout(slice_: Slice, xor_key: int | None) -> Layout:
         for offset, size, _name, is_exec in layout_elements
         if is_exec
     ]
+    for offset, size in text_segments:
+        exec_ranges.extend(
+            (slice_.offset + start, slice_.offset + end)
+            for start, end in get_text_segment_code_ranges(data, offset, size)
+        )
     code_offsets = OffsetRanges.from_merged_ranges(merge_overlapping_ranges(exec_ranges))
 
     layout = ELFLayout(

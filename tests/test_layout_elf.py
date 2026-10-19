@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import struct
 from pathlib import Path
 
 from floss.layout import compute_layout
@@ -104,6 +105,41 @@ def test_elf_segment_fallback():
     for child in layout.children:
         assert isinstance(child, SegmentLayout)
         assert child.name.startswith("segment_")
+
+    # the code-only PF_X segment at 0x1000 (size 0x275) is code as a whole
+    assert layout.code_offsets.ranges == [(0x1000, 0x1274)]
+
+
+def _elf64_with_load_segments(segments):
+    phoff = 64
+    header = b"\x7fELF" + bytes([2, 1, 1]) + b"\x00" * 9
+    header += struct.pack("<HHIQQQIHHHHHH", 2, 0x3E, 1, 0x401000, phoff, 0, 0, 64, 56, len(segments), 0, 0, 0)
+    phdrs = b"".join(
+        struct.pack("<IIQQQQQQ", 1, flags, offset, 0, 0, size, size, 0x1000) for offset, size, flags in segments
+    )
+    data = header + phdrs
+    end = max(offset + size for offset, size, _ in segments)
+    return data + b"\x00" * (end - len(data))
+
+
+def test_elf_segment_fallback_text_segment_excludes_terminated_strings():
+    # classic layout: one R+X segment maps the ELF header, code, and .rodata
+    data = bytearray(_elf64_with_load_segments([(0, 0x200, 5), (0x200, 0x100, 6)]))
+    data[0x100:0x10C] = b"Mozilla/5.0\x00"
+    data[0x140:0x14C] = b"AWAVAUATUSH\x89"
+    data[0x160:0x170] = b"GET / HTTP\r\n\r\n\x00\x00"
+    data[0x180:0x18A] = "path".encode("utf-16le") + b"\x00\x00"
+    layout = compute_layout(Slice.from_bytes(bytes(data)))
+    assert isinstance(layout, ELFLayout)
+    assert [c.name for c in layout.children] == ["segment_0_PT_LOAD", "segment_1_PT_LOAD"]
+    assert layout.code_offsets.ranges == [(0, 0xFF), (0x10B, 0x15F), (0x16E, 0x17F), (0x188, 0x1FF)]
+
+
+def test_elf_segment_fallback_code_only_segment_is_code():
+    data = _elf64_with_load_segments([(0, 0x100, 4), (0x100, 0x100, 5), (0x200, 0x100, 6)])
+    layout = compute_layout(Slice.from_bytes(data))
+    assert isinstance(layout, ELFLayout)
+    assert layout.code_offsets.ranges == [(0x100, 0x1FF)]
 
 
 def test_elf_code_offsets_inclusive_end():
