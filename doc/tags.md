@@ -5,6 +5,12 @@ with **tags**. Tags come from embedded databases and expert rules, and let you
 filter the listing down to the strings that matter using `--tag`, `--no-tag`, and
 `--interesting` (see [usage.md](usage.md#filtering-arguments)).
 
+When the input is not a PE, ELF, or Mach-O file (or its layout cannot be parsed),
+FLOSS places all static strings in a single layout node named `binary` that
+covers the whole file. Tags, filters, the summary, and the viewer work the same
+as for structured inputs; only the layout-derived tags (`#code`, `#reloc`,
+`#decoded`) and the section and structure context are unavailable.
+
 This document covers tag consumption: which tags exist and how to filter with
 them. Rebuilding and installing the databases is maintenance, documented in
 [scripts/tags/README.md](../scripts/tags/README.md). Per-database notes sit next

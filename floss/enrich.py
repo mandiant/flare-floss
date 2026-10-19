@@ -28,18 +28,6 @@ def layout_encoding_to_string_encoding(encoding: str) -> StringEncoding:
     return StringEncoding.ASCII
 
 
-def is_structured_layout(layout_name: str) -> bool:
-    """True when compute_layout produced PE/ELF/Mach-O (not the binary fallback).
-
-    An XOR-obfuscated PE/ELF header appends `` (XOR decoded with key: 0x...)``
-    to the layout name, so strip any parenthetical suffix before matching.
-    """
-    name = layout_name.lower()
-    if " (" in name:
-        name = name.split(" (", 1)[0]
-    return name in ("pe", "elf") or name.startswith("macho")
-
-
 def _walk_offset_index(
     layout: ResultLayout,
     index: Dict[int, Tuple[ResultString, str]],

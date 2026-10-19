@@ -16,6 +16,7 @@ import copy
 import tempfile
 from pathlib import Path
 
+import pefile
 import pytest
 
 import floss.render.json
@@ -118,19 +119,6 @@ def test_analysis_pipeline(pma_binary_path):
     assert parsed.name == "pe"
 
 
-def test_is_structured_layout():
-    import floss.enrich
-
-    assert floss.enrich.is_structured_layout("pe")
-    assert floss.enrich.is_structured_layout("elf")
-    assert floss.enrich.is_structured_layout("macho")
-    assert floss.enrich.is_structured_layout("macho (fat)")
-    # XOR-obfuscated PE/ELF headers append the XOR note to the name
-    assert floss.enrich.is_structured_layout("pe (XOR decoded with key: 0x41)")
-    assert floss.enrich.is_structured_layout("elf (XOR decoded with key: 0x42)")
-    assert not floss.enrich.is_structured_layout("binary")
-
-
 def _make_root_layout(cls, name, **extra):
     from floss.ranges import Range, Slice, OffsetRanges
     from floss.layout.base import Structure
@@ -165,3 +153,48 @@ def test_elf_root_strings_get_structure_annotations():
     layout = _make_root_layout(ELFLayout, "elf", xor_key=None, relocation_offsets=OffsetRanges(ranges=[]))
     layout.mark_structures()
     assert layout.strings[0].structure == "pe/elf header"
+
+
+DOTNET_HELLO = CD / "data" / "language" / "dotnet" / "dotnet-hello" / "bin" / "dotnet-hello.exe"
+
+
+@pytest.mark.parametrize("prefix", [0, 0x1000])
+def test_pe_layout_fills_all_section_gaps(prefix):
+    pe = pefile.PE(data=DOTNET_HELLO.read_bytes())
+    for section in pe.sections[:2]:
+        section.SizeOfRawData = 0x200
+    buf = pe.write()
+
+    layout = compute_layout(Slice.from_bytes(b"\x00" * prefix + buf).slice(prefix, len(buf)))
+
+    children = layout.children
+    assert [c.name for c in children] == ["header", ".text", "gap", ".rsrc", "gap", ".reloc"]
+    assert children[0].offset == prefix
+    assert children[-1].end == prefix + len(buf)
+    for prior, current in zip(children, children[1:]):
+        assert prior.end == current.offset, f"hole between {prior.name} and {current.name}"
+
+
+def test_pe_layout_overlapping_sections_do_not_create_gaps():
+    pe = pefile.PE(data=DOTNET_HELLO.read_bytes())
+    pe.sections[1].PointerToRawData = pe.sections[0].PointerToRawData
+
+    layout = compute_layout(Slice.from_bytes(pe.write()))
+
+    assert [(c.name, c.offset, c.end) for c in layout.children] == [
+        ("header", 0x0, 0x200),
+        (".text", 0x200, 0x600),
+        (".rsrc", 0x200, 0x800),
+        ("gap", 0x800, 0xC00),
+        (".reloc", 0xC00, 0xE00),
+    ]
+
+
+def test_pe_layout_short_data_directory():
+    pe = pefile.PE(data=DOTNET_HELLO.read_bytes())
+    pe.OPTIONAL_HEADER.NumberOfRvaAndSizes = 2
+
+    layout = compute_layout(Slice.from_bytes(pe.write()))
+
+    assert layout.name == "pe"
+    assert [c.name for c in layout.children] == ["header", ".text", ".rsrc", ".reloc"]

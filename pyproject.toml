@@ -31,7 +31,7 @@ authors = [
     {name = "Willi Ballenthin", email = "william.ballenthin@mandiant.com"},
     {name = "Moritz Raabe", email = "moritz.raabe@mandiant.com"},
 ]
-requires-python=">=3.10"
+requires-python=">=3.12"
 keywords = ["floss", "malware", "analysis", "obfuscation", "strings", "FLARE"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -40,6 +40,8 @@ classifiers = [
     "License :: OSI Approved :: Apache Software License",
     "Natural Language :: English",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Security",
 ]
 
@@ -108,10 +110,9 @@ dependencies = [
     # layout / tagging
     "dnfile==0.18.0",
     "colorama==0.4.6",
-    "machofile==2026.2.4",
-    "msgspec==0.21.1",
+    "msgspec==0.22.0",
     "python-lancelot==0.10.0",
-    "pyelftools==0.31",
+    "pyelftools==0.33",
 ]
 dynamic = ["version", "readme"]
 
@@ -141,8 +142,8 @@ dev = [
     "pytest-sugar==1.1.1",
     "pytest-instafail==0.5.0",
     "pytest-cov==7.1.0",
-    "pycodestyle==2.14.0",
-    "black==26.5.1",
+    "pycodestyle==2.15.0",
+    "black==26.10.1",
     "isort==9.0.1",
     "mypy==2.3.0",
     # type stubs for mypy
@@ -152,7 +153,7 @@ dev = [
 build = [
     "pyinstaller==6.22.1",
     "setuptools==84.0.0",
-    "build==1.5.0"
+    "build==1.6.1"
 ]
 
 

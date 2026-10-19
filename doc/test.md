@@ -19,6 +19,8 @@ then run:
 
 Add `-k <name>` to select specific tests or `-x` to stop at the first failure.
 
+Set `FLOSS_SAVE_WORKSPACE=1 FLOSS_LOAD_VIV_WORKSPACE=1` to cache the vivisect workspaces of the binary test cases as `<sample>.viv` and skip re-analysis on later runs (CI sets both).
+
 ## Continuous integration
 
 The [tests.yml](../.github/workflows/tests.yml) workflow runs on every push and

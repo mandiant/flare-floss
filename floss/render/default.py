@@ -435,8 +435,8 @@ def render(
 
     if layout_filter is not None and layout_filter.active and results.layout is None:
         logger.warning(
-            "layout-aware filters (--section, --structure, --tag, --query, --max-strings, --interesting) "
-            "have no layout tree to apply to and are ignored"
+            "layout analysis is disabled or failed, so there is no layout tree: layout-aware filters "
+            "(--section, --structure, --tag, --query, --max-strings, --interesting) are ignored"
         )
 
     # layout-aware path: no classic meta table (spec 1.2/2.4). the layout tree

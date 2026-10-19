@@ -21,16 +21,21 @@ wraps those queries into ``Tagger`` callables applied during analysis.
 """
 
 import re
+import logging
 import pathlib
 import functools
 import importlib.resources
-from typing import Set, Dict, List, Tuple, Literal, Optional, Sequence
+from typing import Any, Set, Dict, List, Tuple, Literal, Optional, Sequence
 from dataclasses import dataclass
 
 import re2  # type: ignore
 import msgspec
 
 from floss.tags import data_root, ensure_not_lfs_pointer
+
+logger = logging.getLogger(__name__)
+
+RE2_MAX_MEM = 80 * 1024 * 1024
 
 
 class ExpertRule(msgspec.Struct):
@@ -47,11 +52,53 @@ class ExpertRule(msgspec.Struct):
     modifiers: str = ""
 
 
+def _normalize_regex_pattern(rule: ExpertRule) -> str:
+    val = rule.value
+    if "i" in rule.modifiers:
+        val = "(?i)" + val
+    return val
+
+
+def _build_regex_engines(
+    rules: List[ExpertRule], max_mem: int = RE2_MAX_MEM
+) -> Tuple[Optional[Any], List[ExpertRule], List[Tuple[ExpertRule, re.Pattern]]]:
+    re2_rules: List[ExpertRule] = []
+    fallback_rules: List[Tuple[ExpertRule, re.Pattern]] = []
+
+    opts = re2.Options()
+    opts.max_mem = max_mem
+    opts.log_errors = False
+    re2_set = re2.Set.SearchSet(opts)
+
+    for rule in rules:
+        norm_pat = _normalize_regex_pattern(rule)
+        try:
+            re2_set.Add(norm_pat)
+        except re2.error:
+            fallback_rules.append((rule, re.compile(norm_pat)))
+            continue
+        re2_rules.append(rule)
+
+    if not re2_rules:
+        return None, [], fallback_rules
+
+    try:
+        re2_set.Compile()
+    except re2.error as e:
+        logger.warning("failed to build RE2 set for expert regex rules, falling back to Python re: %s", e)
+        return None, [], [(r, re.compile(_normalize_regex_pattern(r))) for r in rules]
+
+    return re2_set, re2_rules, fallback_rules
+
+
 @dataclass
 class ExpertStringDatabase:
     string_rules: Dict[str, ExpertRule]
     substring_rules: List[ExpertRule]
-    regex_rules: List[Tuple[ExpertRule, re.Pattern]]
+    regex_rules: List[ExpertRule]
+    re2_set: Optional[Any]
+    re2_rules: List[ExpertRule]
+    fallback_rules: List[Tuple[ExpertRule, re.Pattern]]
 
     def __len__(self) -> int:
         return len(self.string_rules) + len(self.substring_rules) + len(self.regex_rules)
@@ -61,34 +108,6 @@ class ExpertStringDatabase:
         parts = [re.escape(r.value) for r in self.substring_rules if r.value]
         parts.sort(key=len, reverse=True)
         return re.compile("|".join(parts)) if parts else None
-
-    @functools.cached_property
-    def re2_prefilter(self):
-
-        valid_patterns = []
-        valid_rules = []
-        fallback_rules = []
-        for rule, regex in self.regex_rules:
-            val = regex.pattern
-            try:
-                re2.compile(val)
-                valid_patterns.append(val)
-                valid_rules.append((rule, regex))
-            except Exception:
-                fallback_rules.append((rule, regex))
-
-        p = None
-        if valid_patterns:
-            try:
-                # bound maximum regex parsing aggressively to 80MB to prevent `capa` regex rule overflow halts
-                p = re2.compile("(?:" + ")|(?:".join(valid_patterns) + ")", max_mem=83886080)
-            except Exception:
-                # if the aggregated combined OR pattern is STILL too monolithic, abort the fast-path completely.
-                # gracefully fall back to native processing for valid_rules rather than crashing.
-                fallback_rules.extend(valid_rules)
-                valid_rules = []
-
-        return (p, valid_rules, fallback_rules)
 
     def query(self, s: str) -> Set[str]:
         ret = set()
@@ -101,24 +120,13 @@ class ExpertStringDatabase:
                 if rule.value in s:
                     ret.add(rule.tag)
 
-        r2p, valid_rules, fallback_rules = self.re2_prefilter
-
-        # Always evaluate rules that RE2 rejected natively (like lookaheads)
-        for rule, regex in fallback_rules:
+        for rule, regex in self.fallback_rules:
             if regex.search(s):
                 ret.add(rule.tag)
 
-        # If RE2 hit, evaluate ONLY the valid rules (which RE2 covers) to find WHICH triggered it.
-        # If RE2 didn't hit, we skip checking the rules that RE2 covers.
-        if r2p is not None and r2p.search(s):
-            for rule, regex in valid_rules:
-                if regex.search(s):
-                    ret.add(rule.tag)
-        elif r2p is None:
-            # Full native fallback if re2 could not compile ANY rules
-            for rule, regex in valid_rules:
-                if regex.search(s):
-                    ret.add(rule.tag)
+        if self.re2_set is not None:
+            for index in self.re2_set.Match(s) or ():
+                ret.add(self.re2_rules[index].tag)
 
         return ret
 
@@ -126,7 +134,7 @@ class ExpertStringDatabase:
     def from_file(cls, path: pathlib.Path) -> "ExpertStringDatabase":
         string_rules: Dict[str, ExpertRule] = {}
         substring_rules: List[ExpertRule] = []
-        regex_rules: List[Tuple[ExpertRule, re.Pattern]] = []
+        regex_rules: List[ExpertRule] = []
 
         ensure_not_lfs_pointer(path)
         decoder = msgspec.json.Decoder(type=ExpertRule)
@@ -143,17 +151,18 @@ class ExpertStringDatabase:
                 case ExpertRule(type="substring"):
                     substring_rules.append(rule)
                 case ExpertRule(type="regex"):
-                    val = rule.value
-                    if "i" in rule.modifiers:
-                        val = "(?i)" + val
-                    regex_rules.append((rule, re.compile(val)))
+                    regex_rules.append(rule)
                 case _:
                     raise ValueError(f"unexpected rule type: {rule.type}")
 
+        re2_set, re2_rules, fallback_rules = _build_regex_engines(regex_rules)
         return cls(
             string_rules=string_rules,
             substring_rules=substring_rules,
             regex_rules=regex_rules,
+            re2_set=re2_set,
+            re2_rules=re2_rules,
+            fallback_rules=fallback_rules,
         )
 
 

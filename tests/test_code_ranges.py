@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from pathlib import Path
 from unittest.mock import Mock, MagicMock
 
 import pefile
@@ -19,6 +20,8 @@ import pytest
 
 from floss.ranges import Range, Slice, merge_overlapping_ranges
 from floss.layout.pe import _get_code_ranges
+
+CD = Path(__file__).resolve().parent
 
 
 # Tests for merge_overlapping_ranges
@@ -62,17 +65,12 @@ def test_merge_complex_mix():
 
 
 # Tests for _get_code_ranges
-@pytest.fixture
-def mock_pe():
-    """Fixture for a mocked pefile.PE object."""
-    pe = MagicMock(spec=pefile.PE)
-
-    def get_offset_from_rva(rva):
-        # Simple mapping for testing: offset is just rva + 0x1000
-        return rva + 0x1000
-
-    pe.get_offset_from_rva.side_effect = get_offset_from_rva
-    return pe
+@pytest.fixture(scope="module")
+def pe():
+    """dotnet-hello.exe: .text RVA 0x2000 -> file offset 0x200, .rsrc RVA 0x4000 -> file offset 0x600."""
+    return pefile.PE(
+        data=(CD / "data" / "language" / "dotnet" / "dotnet-hello" / "bin" / "dotnet-hello.exe").read_bytes()
+    )
 
 
 def _make_instr(size: int) -> Mock:
@@ -110,85 +108,78 @@ def _make_be2_mocks(bb_instructions: list):
     return be2, idx
 
 
-def test_get_code_ranges_basic(mock_pe):
+def test_get_code_ranges_basic(pe):
     """Test basic extraction of code ranges."""
     # base_address = 0x400000, rva = va - base
-    # bb1: va 0x401000, size 0x10 -> rva 0x1000, offset 0x2000 -> range (0x2000, 0x200F)
-    # bb2: va 0x401020, size 0x15 -> rva 0x1020, offset 0x2020 -> range (0x2020, 0x2034)
-    # bb3: va 0x402000, size 0x20 -> rva 0x2000, offset 0x3000 -> range (0x3000, 0x301F)
+    # bb1: va 0x402000, size 0x10 -> rva 0x2000, offset 0x200 -> range (0x200, 0x20F)
+    # bb2: va 0x402020, size 0x15 -> rva 0x2020, offset 0x220 -> range (0x220, 0x234)
+    # bb3: va 0x404000, size 0x20 -> rva 0x4000, offset 0x600 -> range (0x600, 0x61F)
     be2, idx = _make_be2_mocks(
         [
-            [(0x401000, 0x10)],
-            [(0x401020, 0x15)],
-            [(0x402000, 0x20)],
+            [(0x402000, 0x10)],
+            [(0x402020, 0x15)],
+            [(0x404000, 0x20)],
         ]
     )
 
     slice_ = Slice(buf=b"", range=Range(offset=0, length=0x5000))
 
-    ranges = _get_code_ranges(be2, idx, 0x400000, mock_pe, slice_)
+    ranges = _get_code_ranges(be2, idx, 0x400000, pe, slice_)
 
     assert ranges == [
-        (0x2000, 0x200F),  # bb1: offset 0x2000, size 0x10
-        (0x2020, 0x2034),  # bb2: offset 0x2020, size 0x15
-        (0x3000, 0x301F),  # bb3: offset 0x3000, size 0x20
+        (0x200, 0x20F),  # bb1: offset 0x200, size 0x10
+        (0x220, 0x234),  # bb2: offset 0x220, size 0x15
+        (0x600, 0x61F),  # bb3: offset 0x600, size 0x20
     ]
 
 
-def test_get_code_ranges_skips_invalid_offset(mock_pe):
+def test_get_code_ranges_skips_invalid_offset(pe):
     """Test that it skips instructions that fall outside the slice."""
     be2, idx = _make_be2_mocks(
         [
-            [(0x401000, 0x10)],  # offset 0x2000, fits in slice
-            [(0x401020, 0x15)],  # offset 0x2020, outside slice
-            [(0x402000, 0x20)],  # offset 0x3000, outside slice
+            [(0x402000, 0x10)],  # offset 0x200, fits in slice
+            [(0x402020, 0x15)],  # offset 0x220, outside slice
+            [(0x404000, 0x20)],  # offset 0x600, outside slice
         ]
     )
 
-    # Slice only covers through offset 0x2010
-    slice_ = Slice(buf=b"", range=Range(offset=0, length=0x2010))
+    # Slice only covers through offset 0x210
+    slice_ = Slice(buf=b"", range=Range(offset=0, length=0x210))
 
-    ranges = _get_code_ranges(be2, idx, 0x400000, mock_pe, slice_)
+    ranges = _get_code_ranges(be2, idx, 0x400000, pe, slice_)
 
     # Only bb1 should be included
-    assert ranges == [(0x2000, 0x200F)]
+    assert ranges == [(0x200, 0x20F)]
 
 
-def test_get_code_ranges_handles_pe_error(mock_pe):
+def test_get_code_ranges_handles_pe_error(pe):
     """Test that it handles PEFormatError when getting an offset."""
-
-    def get_offset_from_rva_with_error(rva):
-        if rva == 0x1020:  # Corresponds to bb2
-            raise pefile.PEFormatError("Test Error")
-        return rva + 0x1000
-
-    mock_pe.get_offset_from_rva.side_effect = get_offset_from_rva_with_error
 
     be2, idx = _make_be2_mocks(
         [
-            [(0x401000, 0x10)],
-            [(0x401020, 0x15)],
-            [(0x402000, 0x20)],
+            [(0x402000, 0x10)],
+            [(0x500000, 0x15)],  # RVA 0x100000 is not in any section
+            [(0x404000, 0x20)],
         ]
     )
 
     slice_ = Slice(buf=b"", range=Range(offset=0, length=0x5000))
 
-    ranges = _get_code_ranges(be2, idx, 0x400000, mock_pe, slice_)
+    ranges = _get_code_ranges(be2, idx, 0x400000, pe, slice_)
 
     # bb2 should be skipped due to PEFormatError
     assert ranges == [
-        (0x2000, 0x200F),
-        (0x3000, 0x301F),
+        (0x200, 0x20F),
+        (0x600, 0x61F),
     ]
 
 
-def test_get_code_ranges_deduplicates_shared_basic_blocks(mock_pe):
+def test_get_code_ranges_deduplicates_shared_basic_blocks(pe):
     """Test that basic blocks referenced in multiple flow graphs are only processed once."""
     be2, idx = _make_be2_mocks(
         [
-            [(0x401000, 0x10)],
-            [(0x401020, 0x15)],
+            [(0x402000, 0x10)],
+            [(0x402020, 0x15)],
         ]
     )
 
@@ -199,10 +190,10 @@ def test_get_code_ranges_deduplicates_shared_basic_blocks(mock_pe):
 
     slice_ = Slice(buf=b"", range=Range(offset=0, length=0x5000))
 
-    ranges = _get_code_ranges(be2, idx, 0x400000, mock_pe, slice_)
+    ranges = _get_code_ranges(be2, idx, 0x400000, pe, slice_)
 
     # Should only contain 2 ranges, not duplicated to 4
     assert ranges == [
-        (0x2000, 0x200F),
-        (0x2020, 0x2034),
+        (0x200, 0x20F),
+        (0x220, 0x234),
     ]

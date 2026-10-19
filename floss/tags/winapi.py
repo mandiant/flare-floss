@@ -43,7 +43,7 @@ class WindowsApiStringDatabase:
         for line in gzip.decompress((path / "dlls.txt.gz").read_bytes()).decode("utf-8").splitlines():
             if not line:
                 continue
-            dll_names.add(line)
+            dll_names.add(line.lower())
 
         ensure_not_lfs_pointer(path / "apis.txt.gz")
         for line in gzip.decompress((path / "apis.txt.gz").read_bytes()).decode("utf-8").splitlines():

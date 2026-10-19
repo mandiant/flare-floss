@@ -133,6 +133,8 @@ ENV_VARS_HELP = textwrap.dedent("""\
       FLOSS_CACHE_DIR       directory for the analysis result cache (default: platform cache directory)
       FLOSS_CACHE_ENABLE    set to 0 to disable result caching (default: enabled)
       FLOSS_CACHE_REFRESH   set to 1 to ignore cached results and overwrite the entry (default: disabled)
+      FLOSS_SAVE_WORKSPACE      set to 1 to save the vivisect workspace as <sample>.viv (default: disabled)
+      FLOSS_LOAD_VIV_WORKSPACE  set to 1 to load a trusted <sample>.viv workspace, uses pickle (default: disabled)
     """)
 
 
@@ -454,6 +456,14 @@ def set_log_config(debug, quiet):
         set_vivisect_log_level(logging.CRITICAL)
     else:
         set_vivisect_log_level(logging.DEBUG)
+
+    # goblin (the PE parser inside lancelot) logs a warning for every malformed import
+    # descriptor through Python's logging; a crafted import table with tens of thousands of
+    # descriptors makes that forwarding dominate the run (minutes instead of seconds).
+    if debug < DebugLevel.TRACE:
+        logging.getLogger("goblin").setLevel(logging.ERROR)
+    else:
+        logging.getLogger("goblin").setLevel(logging.DEBUG)
 
     # configure viv-utils logging
     if debug == DebugLevel.DEFAULT:

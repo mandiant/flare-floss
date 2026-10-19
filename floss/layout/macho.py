@@ -20,8 +20,6 @@ import struct
 import logging
 from typing import Any, Dict, List, Tuple, Optional, Sequence
 
-import machofile  # type: ignore[import-untyped]
-
 from floss.ranges import Range, Slice
 from floss.layout.base import Layout, Structure, MachOLayout, SegmentLayout, MachOFatLayout
 from floss.layout.types import Tag
@@ -154,6 +152,20 @@ def _parse_macho_endian_and_cmds(data: bytes) -> Tuple[str, bool, int, int]:
     ncmds = struct.unpack(endian + "I", data[16:20])[0]
     sizeofcmds = struct.unpack(endian + "I", data[20:24])[0]
     return endian, is_64, ncmds, sizeofcmds
+
+
+def _parse_macho_arch_name(data: bytes) -> Optional[str]:
+    """
+    Name the architecture of a thin Mach-O from the cputype and cpusubtype header fields.
+    Returns None when the header is not a complete thin Mach-O header.
+    """
+    try:
+        endian, _is_64, _ncmds, _sizeofcmds = _parse_macho_endian_and_cmds(data)
+    except ValueError:
+        return None
+
+    cputype, cpusubtype = struct.unpack(endian + "II", data[4:12])
+    return _format_macho_arch(cputype, cpusubtype)
 
 
 def _parse_macho_load_commands(
@@ -452,18 +464,7 @@ def compute_macho_layout(slice_: Slice) -> Layout:
 
         return layout
 
-    arch_name = "macho"
-    try:
-        macho = machofile.UniversalMachO(data=data)
-        macho.parse()
-        header = macho.get_macho_header()
-        if isinstance(header, dict):
-            cputype = header.get("cputype")
-            cpusubtype = header.get("cpusubtype")
-            if isinstance(cputype, int) and isinstance(cpusubtype, int):
-                arch_name = _format_macho_arch(cputype, cpusubtype)
-    except Exception as e:
-        logger.debug("failed to parse Mach-O header via machofile: %s", e)
+    arch_name = _parse_macho_arch_name(data) or "macho"
 
     thin_layout = MachOLayout(slice=slice_, name=f"macho: {arch_name}", arch=arch_name)
 

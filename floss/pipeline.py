@@ -53,11 +53,11 @@ from floss.utils import (
 )
 from floss.enrich import (
     build_offset_index,
-    is_structured_layout,
     enrich_static_strings,
     static_strings_from_layout,
 )
 from floss.layout import Layout
+from floss.ranges import Slice
 from floss.render import Verbosity
 from floss.results import Runtime, Analysis, Metadata, ResultLayout, ResultDocument
 from floss.strings import extract_ascii_unicode_strings
@@ -71,12 +71,30 @@ from floss.identify import (
     find_decoding_function_features,
     get_functions_without_tightloops,
 )
+from floss.layout.base import SegmentLayout
 from floss.stackstrings import extract_stackstrings
 from floss.tightstrings import extract_tightstrings
 from floss.string_decoder import decode_strings
 from floss.language.identify import Language, identify_language_and_version
 
 logger = floss.logging_.getLogger("floss.pipeline")
+
+FLOSS_LOAD_VIV_WORKSPACE_ENV = "FLOSS_LOAD_VIV_WORKSPACE"
+FLOSS_SAVE_WORKSPACE_ENV = "FLOSS_SAVE_WORKSPACE"
+FLOSS_ANALYSIS_META = "FlossAnalysis"
+
+
+def _is_env_enabled(name: str) -> bool:
+    return os.environ.get(name, "").strip().lower() in ("1", "true", "yes", "on")
+
+
+def is_load_viv_workspace_allowed() -> bool:
+    return _is_env_enabled(FLOSS_LOAD_VIV_WORKSPACE_ENV)
+
+
+def is_save_workspace_enabled() -> bool:
+    return _is_env_enabled(FLOSS_SAVE_WORKSPACE_ENV)
+
 
 EXTENSIONS_SHELLCODE_32 = ("sc32", "raw32")
 EXTENSIONS_SHELLCODE_64 = ("sc64", "raw64")
@@ -136,6 +154,54 @@ def select_functions(vw, asked_functions: Optional[List[int]]) -> Set[int]:
     return asked_functions_
 
 
+def _new_viv_workspace(fmtname: str) -> VivWorkspace:
+    vw = VivWorkspace()
+    vw.verbose = False
+    if fmtname == "pe":
+        pe_config = vw.config.getSubConfig("viv").getSubConfig("parsers").getSubConfig("pe")
+        pe_config["loadresources"] = True
+        pe_config["nx"] = True
+    return vw
+
+
+def _load_viv_workspace(sample_path: Path, file_type: FileType, analysis_meta: List[str]) -> VivWorkspace:
+    if file_type is FileType.PE:
+        fmtname = "pe"
+    elif file_type is FileType.ELF:
+        fmtname = "elf"
+    else:
+        raise WorkspaceLoadError("unsupported file type for vivisect workspace: %s" % file_type.value)
+
+    viv_file = Path(f"{sample_path}.viv")
+    if viv_file.exists():
+        if is_load_viv_workspace_allowed():
+            logger.debug("loading existing workspace %s", viv_file)
+            vw = _new_viv_workspace(fmtname)
+            viv_utils.loadWorkspaceFromViv(vw, str(viv_file))
+            if vw.getMeta(FLOSS_ANALYSIS_META) == analysis_meta:
+                return vw
+            logger.info(
+                "ignoring existing workspace %s: not analyzed with this format, vivisect version, and signatures",
+                viv_file,
+            )
+        else:
+            logger.info(
+                "ignoring existing workspace %s: loading .viv files uses pickle, set %s=1 to allow",
+                viv_file,
+                FLOSS_LOAD_VIV_WORKSPACE_ENV,
+            )
+
+    vw = _new_viv_workspace(fmtname)
+    # pass fmtname explicitly so vivisect never treats the input as a serialized workspace
+    vw.loadFromFile(str(sample_path), fmtname=fmtname)
+    viv_utils.setVwVivisectLibraryVersion(vw)
+    return vw
+
+
+def _get_analysis_meta(fmt: str, sigpaths: List[Path]) -> List[str]:
+    return [fmt, viv_utils.getVivisectLibraryVersion()] + [hashlib.sha256(p.read_bytes()).hexdigest() for p in sigpaths]
+
+
 def load_vw(
     sample_path: Path,
     format: str,
@@ -155,17 +221,27 @@ def load_vw(
     elif format == "auto" and sample_path.suffix.lower() in EXTENSIONS_SHELLCODE_64:
         format = "sc64"
 
+    sigpaths = sigpaths if file_type is FileType.PE else []
+    if format not in ("sc32", "sc64"):
+        format = "pe" if file_type is FileType.PE else "elf"
+    analysis_meta = _get_analysis_meta(format, sigpaths)
+
     if format == "sc32":
         vw = viv_utils.getShellcodeWorkspaceFromFile(str(sample_path), arch="i386", analyze=False)
     elif format == "sc64":
         vw = viv_utils.getShellcodeWorkspaceFromFile(str(sample_path), arch="amd64", analyze=False)
     else:
-        vw = viv_utils.getWorkspace(str(sample_path), analyze=False, should_save=False)
+        vw = _load_viv_workspace(sample_path, file_type, analysis_meta)
+
+    if vw.getMeta(FLOSS_ANALYSIS_META) == analysis_meta:
+        logger.debug("workspace already analyzed, skipping analysis")
+        return vw
 
     if file_type is FileType.PE:
         viv_utils.flirt.register_flirt_signature_analyzers(vw, list(map(str, sigpaths)))
 
     vw.analyze()
+    vw.setMeta(FLOSS_ANALYSIS_META, analysis_meta)
 
     if should_save_workspace:
         logger.debug("saving workspace")
@@ -207,30 +283,26 @@ def get_signatures(sigs_path: Path) -> List[Path]:
 def compute_layout(
     buf: bytes,
     min_length: int,
-) -> Optional[Layout]:
+) -> Layout:
     """
-    Compute a structured layout and extract static strings.
+    Compute the layout and extract static strings over it.
 
-    Returns the populated layout tree, or None to fall back to classic statics when
-    the layout does not parse or any step fails. Default-on layout must not
-    crash the whole run.
+    PE, ELF, and Mach-O inputs get a structured layout tree. Any other input,
+    and any input whose structured parser raises, gets a single ``binary``
+    segment covering the whole file so that tagging, filtering, and rendering
+    always operate on a layout.
     """
     from floss.layout import compute_layout as layout_compute
-    from floss.ranges import Slice
 
+    file_slice = Slice.from_bytes(buf=buf)
     try:
-        file_slice = Slice.from_bytes(buf=buf)
-        parsed_layout = layout_compute(file_slice)
-
-        if not is_structured_layout(parsed_layout.name):
-            logger.debug("no structured layout (got %r); using classic static strings", parsed_layout.name)
-            return None
-
-        parsed_layout.extract_strings(min_length)
-        return parsed_layout
+        layout = layout_compute(file_slice)
     except Exception as e:
-        logger.warning("layout-aware static analysis failed; using classic statics: %s", e)
-        return None
+        logger.warning("structured layout analysis failed; using a single binary segment: %s", e)
+        layout = SegmentLayout(slice=file_slice, name="binary")
+
+    layout.extract_strings(min_length)
+    return layout
 
 
 def tag_layout(
@@ -264,14 +336,13 @@ def try_layout_static(
     the layout computation only, ``runtime.tags`` covers the tag matching
     step only.
 
-    Returns a serializable ResultLayout, or None to fall back to classic
-    statics. Default-on layout must not crash the whole run.
+    Returns a serializable ResultLayout, or None to fall back to untagged
+    classic statics if even the binary fallback fails. Default-on layout
+    must not crash the whole run.
     """
     try:
         with runtime.measure_and_set_time("layout"):
             layout = compute_layout(buf, min_length)
-            if layout is None:
-                return None
 
         with runtime.measure_and_set_time("tags"):
             tag_layout(layout, enable_tags)
@@ -472,7 +543,7 @@ def analyze(options: Options) -> Optional[ResultDocument]:
 
         sigpaths = get_signatures(options.signatures)
 
-        should_save_workspace = os.environ.get("FLOSS_SAVE_WORKSPACE") not in ("0", "no", "NO", "n", None)
+        should_save_workspace = is_save_workspace_enabled()
         try:
             with halo.Halo(
                 text="analyzing program",

@@ -19,6 +19,7 @@ from __future__ import annotations
 import struct
 import logging
 import functools
+import itertools
 from typing import Any, Set, Dict, List, Tuple, Optional, Sequence
 
 import pefile
@@ -65,6 +66,36 @@ PE_RESOURCE_TYPES = {
 }
 
 
+def get_physical_offset_from_rva(pe: pefile.PE, rva: int) -> int:
+    """
+    Map an RVA to a file offset, requiring the RVA to be backed by file bytes.
+
+    pefile maps RVAs in a section's virtual padding to offsets in the next section.
+    This helper raises PEFormatError if the RVA is beyond a section's SizeOfRawData
+    or the file length. RVAs not in any section map to themselves only when they
+    fall within the SizeOfHeaders and the file length.
+
+    The section's raw PointerToRawData is used as written in the section header.
+    pefile's get_PointerToRawData_adj rounds it down to FileAlignment, which moves
+    the section's file bytes when the pointer is not aligned (goblin and the
+    section node offsets in compute_pe_layout use the raw pointer).
+    """
+    section = pe.get_section_by_rva(rva)
+    if section is not None:
+        virtual_offset = rva - section.get_VirtualAddress_adj()
+        if virtual_offset >= section.SizeOfRawData:
+            raise pefile.PEFormatError(f"RVA 0x{rva:x} is in virtual padding (not backed by file)")
+        offset = section.PointerToRawData + virtual_offset
+        if offset >= len(pe.__data__):
+            raise pefile.PEFormatError(f"RVA 0x{rva:x} is beyond end of file")
+        return offset
+
+    if rva < len(pe.__data__) and (pe.OPTIONAL_HEADER is None or rva < pe.OPTIONAL_HEADER.SizeOfHeaders):
+        return rva
+
+    raise pefile.PEFormatError(f"RVA 0x{rva:x} cannot be mapped to a physical file offset")
+
+
 def get_reloc_offsets(slice: Slice, pe: pefile.PE) -> Set[int]:
     ret: Set[int] = set()
 
@@ -80,7 +111,7 @@ def get_reloc_offsets(slice: Slice, pe: pefile.PE) -> Set[int]:
 
     rva = dir_entry.VirtualAddress
     try:
-        offset = pe.get_offset_from_rva(rva)
+        offset = get_physical_offset_from_rva(pe, rva)
     except pefile.PEFormatError as e:
         logger.warning("failed to get offset for relocation directory RVA 0x%x: %s", rva, e)
         return ret
@@ -95,6 +126,51 @@ def get_reloc_offsets(slice: Slice, pe: pefile.PE) -> Set[int]:
         ret.add(fo)
 
     return ret
+
+
+MAX_CODE_VIRTUAL_EXTENT = 1 << 30
+MAX_CODE_EXECUTABLE_EXTENT = 16 << 20
+PAGE_SIZE = 0x1000
+HEADER_ALIGNMENT = 0x200
+IMAGE_SCN_MEM_EXECUTE = 0x20000000
+
+
+def _align_up(value: int, alignment: int) -> int:
+    if alignment < 2:
+        return value
+    rem = value % alignment
+    return value if rem == 0 else value + alignment - rem
+
+
+def get_code_analysis_skip_reason(pe: pefile.PE, file_size: int) -> Optional[str]:
+    """
+    Decide from the section table whether lancelot's code analysis would be too expensive.
+
+    lancelot maps the image at its full virtual size and disassembles every executable
+    page, so the cost is driven by the virtual extent of the image and the sum of the
+    executable sections' virtual sizes, neither of which is bounded by the file size.
+    Returns a reason to skip the analysis, or None to run it.
+    """
+    opt = pe.OPTIONAL_HEADER
+    if opt is None:
+        return None
+
+    base = opt.ImageBase
+    section_alignment = opt.SectionAlignment
+    max_end = base + _align_up(min(opt.SizeOfHeaders, file_size), HEADER_ALIGNMENT)
+    executable = 0
+    for section in pe.sections:
+        vsize = _align_up(section.Misc_VirtualSize, section_alignment)
+        max_end = max(max_end, base + section.VirtualAddress + vsize)
+        if section.Characteristics & IMAGE_SCN_MEM_EXECUTE:
+            executable += vsize
+
+    extent = _align_up(max_end, PAGE_SIZE) - base
+    if extent > MAX_CODE_VIRTUAL_EXTENT:
+        return f"virtual extent 0x{extent:x} exceeds 0x{MAX_CODE_VIRTUAL_EXTENT:x}"
+    if executable > MAX_CODE_EXECUTABLE_EXTENT:
+        return f"executable extent 0x{executable:x} exceeds 0x{MAX_CODE_EXECUTABLE_EXTENT:x}"
+    return None
 
 
 def _get_code_ranges(
@@ -112,7 +188,7 @@ def _get_code_ranges(
     @functools.lru_cache(maxsize=None)
     def get_offset_from_rva_cached(rva):
         try:
-            return pe.get_offset_from_rva(rva)
+            return get_physical_offset_from_rva(pe, rva)
         except pefile.PEFormatError as e:
             logger.warning("%s", str(e))
             return None
@@ -191,7 +267,7 @@ def collect_pe_structures(slice_: Slice, pe: pefile.PE) -> Sequence[Structure]:
             rva = dll.struct.Name
             size = len(dll_name)
             try:
-                offset = pe.get_offset_from_rva(rva)
+                offset = get_physical_offset_from_rva(pe, rva)
             except pefile.PEFormatError as e:
                 logger.warning("failed to get offset for import DLL name RVA 0x%x: %s", rva, e)
                 continue
@@ -232,7 +308,7 @@ def collect_pe_structures(slice_: Slice, pe: pefile.PE) -> Sequence[Structure]:
                 dll_name = exp.name.decode("ascii")
                 rva = exp.struct.Name
                 size = len(dll_name)
-                offset = pe.get_offset_from_rva(rva)
+                offset = get_physical_offset_from_rva(pe, rva)
 
                 structures.append(
                     Structure(
@@ -297,7 +373,7 @@ def collect_pe_structures(slice_: Slice, pe: pefile.PE) -> Sequence[Structure]:
     return structures
 
 
-def compute_pe_layout(slice_: Slice, xor_key: int | None) -> Layout:
+def compute_pe_layout(slice_: Slice, xor_key: int | None, depth: int = 0) -> Layout:
     data = slice_.data
 
     try:
@@ -314,15 +390,19 @@ def compute_pe_layout(slice_: Slice, xor_key: int | None) -> Layout:
             structures_by_address[offset] = structure
 
     be2: Optional[lancelot.BinExport2] = None
-    with timing("lancelot: load workspace"):
-        try:
-            be2 = lancelot.get_binexport2_from_bytes(data)
-        except ValueError as e:
-            logger.warning("lancelot failed to load workspace: %s", e)
-        except BaseException as e:
-            if isinstance(e, (KeyboardInterrupt, SystemExit)):
-                raise
-            logger.warning("lancelot failed critically (panic): %s", e)
+    skip_reason = get_code_analysis_skip_reason(pe, len(data))
+    if skip_reason is not None:
+        logger.warning("skipping lancelot code analysis: %s", skip_reason)
+    else:
+        with timing("lancelot: load workspace"):
+            try:
+                be2 = lancelot.get_binexport2_from_bytes(data)
+            except ValueError as e:
+                logger.warning("lancelot failed to load workspace: %s", e)
+            except BaseException as e:
+                if isinstance(e, (KeyboardInterrupt, SystemExit)):
+                    raise
+                logger.warning("lancelot failed critically (panic): %s", e)
 
     # contains the file offsets of bytes that are part of recognized instructions.
     code_offsets = OffsetRanges()
@@ -355,7 +435,9 @@ def compute_pe_layout(slice_: Slice, xor_key: int | None) -> Layout:
         except UnicodeDecodeError:
             name = "(invalid)"
 
-        offset = section.get_PointerToRawData_adj()
+        # raw file position of the section bytes; pefile's get_PointerToRawData_adj()
+        # rounds this down to FileAlignment, which is the loader's view, not the file's
+        offset = section.PointerToRawData
         size = section.SizeOfRawData
 
         if offset > slice_.range.end:
@@ -394,8 +476,14 @@ def compute_pe_layout(slice_: Slice, xor_key: int | None) -> Layout:
         )
 
     # the "overlay" may contain Authenticode digital signatures
-    security = pe.OPTIONAL_HEADER.DATA_DIRECTORY[pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_SECURITY"]]
-    if security.VirtualAddress and security.Size - 1 > 0:
+    security = None
+    if pe.OPTIONAL_HEADER is not None and pe.OPTIONAL_HEADER.DATA_DIRECTORY is not None:
+        try:
+            security = pe.OPTIONAL_HEADER.DATA_DIRECTORY[pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_SECURITY"]]
+        except IndexError:
+            pass
+
+    if security is not None and security.VirtualAddress and security.Size - 1 > 0:
         overlay: Layout = layout.children[-1]
         if overlay.name != "overlay":
             logger.debug("expected overlay to be present")
@@ -412,21 +500,17 @@ def compute_pe_layout(slice_: Slice, xor_key: int | None) -> Layout:
             )
 
     # add segments for any gaps between sections.
-    # note that we append new items to the end of the list and then resort,
-    # to avoid mutating the list while we're iterating over it.
-    for i in range(1, len(layout.children)):
-        prior: Layout = layout.children[i - 1]
-        current: Layout = layout.children[i]
-
-        if prior.end != current.offset:
-            offset = prior.end
-            size = current.offset - prior.end
-            layout.add_child(
-                SegmentLayout(
-                    slice=slice_.slice(offset, size),
-                    name="gap",
-                )
-            )
+    # overlapping children (malformed PEs) do not produce a gap.
+    gaps = [
+        SegmentLayout(
+            slice=slice_.slice(prior.end - layout.offset, current.offset - prior.end),
+            name="gap",
+        )
+        for prior, current in itertools.pairwise(layout.children)
+        if prior.end < current.offset
+    ]
+    for gap in gaps:
+        layout.add_child(gap)
 
     if hasattr(pe, "DIRECTORY_ENTRY_RESOURCE"):
 
@@ -448,7 +532,7 @@ def compute_pe_layout(slice_: Slice, xor_key: int | None) -> Layout:
                 else:
                     rva = entry.data.struct.OffsetToData
                     try:
-                        offset = pe.get_offset_from_rva(rva)
+                        offset = get_physical_offset_from_rva(pe, rva)
                     except pefile.PEFormatError as e:
                         logger.warning("failed to get offset for resource RVA 0x%x: %s", rva, e)
                         continue
@@ -474,9 +558,12 @@ def compute_pe_layout(slice_: Slice, xor_key: int | None) -> Layout:
 
         for resource in resources:
             # parse content of resources, such as embedded PE files
-            from floss.layout import compute_layout
+            from floss.layout import LayoutNestingError, compute_layout
 
-            resource.add_child(compute_layout(resource.slice))
+            if resource.slice.range == slice_.range:
+                raise LayoutNestingError(f"resource '{resource.name}' covers the enclosing PE")
+
+            resource.add_child(compute_layout(resource.slice, depth + 1))
 
         for resource in resources:
             # place resources into their parent section, usually .rsrc
