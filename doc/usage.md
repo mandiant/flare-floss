@@ -95,8 +95,9 @@ table, section headers, etc.):
     floss.exe --no-structure symbol-table -- malware.exe
 
 Structure names are slugs and match regardless of separators, so `import-table`,
-`import_table`, and `import table` are equivalent. Run `--summary` to see the
-structures present in a specific sample.
+`import_table`, and `import table` are equivalent. In PE files, `import-table`
+covers both the regular and the delay-load import directory. Run `--summary` to
+see the structures present in a specific sample.
 
 Filtering by semantic tag:
 
