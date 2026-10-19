@@ -72,7 +72,7 @@ def analyze_layout(layout: ResultLayout):
         section_counts[section] += len(node.strings)
         for s in node.strings:
             tag_histogram.update(s.tags)
-            if is_interesting(s.tags, DEFAULT_TAG_RULES):
+            if is_interesting(s.tags, DEFAULT_TAG_RULES, s.structure):
                 key = (s.string, section)
                 if key not in interesting_map:
                     interesting_map[key] = (s, 1, set(s.tags))

@@ -115,7 +115,9 @@ Convenience shortcuts:
 
 - `--interesting` drops strings that carry a "noisy" tag (prevalent, duplicated,
   code, or relocation-related strings, e.g. `#common`, `#duplicate`, `#code`),
-  unless they also carry a highlight tag (such as `#capa`).
+  unless they also carry a highlight tag (such as `#capa`). `#winapi` strings
+  outside the import table are kept even if they are `#common`; see
+  [tags.md](tags.md#noisy-tags-and---interesting).
 - `--query REGEX` keeps only strings matching the given regular expression(s).
   Repeatable; patterns are ORed.
 - `--max-strings N` caps the emitted strings per section to the top `N` by

@@ -156,7 +156,8 @@ def test_main_non_pe_interesting_filter_applies(tmp_path, capsys, caplog):
     assert "ignored" not in caplog.text
     assert "binary" in out
     assert "This program cannot be run in DOS mode." in out
-    assert "kernel32.dll" not in out
+    # #winapi #common outside an import table is kept
+    assert "kernel32.dll" in out
     assert out.count("zzzz-not-in-any-database") == 1
     assert "#duplicate" not in out
 

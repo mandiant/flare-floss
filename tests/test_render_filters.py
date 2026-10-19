@@ -333,13 +333,13 @@ def test_filter_interesting():
 
 def test_filter_interesting_drops_strings_with_any_noisy_tag():
     """--interesting drops a string if it carries any noisy tag, even alongside
-    a non-noisy tag (e.g. #winapi #common is dropped)."""
+    a non-noisy tag (e.g. #msvc #common is dropped)."""
     layout = ResultLayout(
         name=".rdata",
         offset=0,
         length=0x10,
         strings=[
-            ResultString(string="CreateFileA", offset=1, size=11, encoding="ascii", tags=["#winapi", "#common"]),
+            ResultString(string="_initterm", offset=1, size=9, encoding="ascii", tags=["#msvc", "#common"]),
             ResultString(string="only winapi", offset=2, size=11, encoding="ascii", tags=["#winapi"]),
         ],
     )
@@ -347,6 +347,82 @@ def test_filter_interesting_drops_strings_with_any_noisy_tag():
     filtered = f.apply(layout)
     assert filtered is not None
     assert [s.string for s in filtered.strings] == ["only winapi"]
+
+
+def make_winapi_common_layout() -> ResultLayout:
+    """#winapi #common strings inside and outside the import table."""
+    winapi_common = ["#winapi", "#common"]
+    return ResultLayout(
+        name="pe",
+        offset=0,
+        length=0x1000,
+        children=[
+            ResultLayout(
+                name=".rdata",
+                offset=0x800,
+                length=0x800,
+                strings=[
+                    ResultString(
+                        string="VirtualAlloc",
+                        offset=0x810,
+                        size=12,
+                        encoding="ascii",
+                        tags=winapi_common,
+                        structure="import table",
+                    ),
+                    ResultString(string="GetProcAddress", offset=0x820, size=14, encoding="ascii", tags=winapi_common),
+                    ResultString(string="untagged string", offset=0x830, size=15, encoding="ascii", tags=[]),
+                    ResultString(
+                        string="LoadLibraryA", offset=0x840, size=12, encoding="ascii", tags=[*winapi_common, "#code"]
+                    ),
+                    ResultString(
+                        string="kernel32.dll",
+                        offset=0x850,
+                        size=12,
+                        encoding="ascii",
+                        tags=[*winapi_common, "#duplicate"],
+                    ),
+                ],
+            ),
+        ],
+    )
+
+
+def test_is_interesting_winapi_common_by_structure():
+    rules: TagRules = {}
+    tags = ["#winapi", "#common"]
+    assert floss.render.filter.is_interesting(tags, rules)
+    assert floss.render.filter.is_interesting(tags, rules, "")
+    assert floss.render.filter.is_interesting(tags, rules, "export table")
+    for structure in ("import table", "import-table", "symbol table", "string table"):
+        assert not floss.render.filter.is_interesting(tags, rules, structure), structure
+    assert not floss.render.filter.is_interesting(["#common"], rules, "")
+    assert not floss.render.filter.is_interesting(["#winapi", "#common", "#reloc"], rules, "")
+
+
+def test_filter_interesting_keeps_winapi_common_outside_import_table():
+    """--interesting keeps #winapi #common strings outside the import table
+    (e.g. API names resolved via GetProcAddress) but drops import table entries
+    and strings with other noisy tags."""
+    f = floss.render.filter.LayoutFilter(interesting=True)
+    filtered = f.apply(make_winapi_common_layout())
+    assert collect_layout_strings(filtered) == ["GetProcAddress", "untagged string"]
+
+
+def test_filter_max_strings_ranks_winapi_common_as_tagged():
+    """kept #winapi #common strings rank with the tagged non-noisy group, after
+    untagged strings."""
+    f = floss.render.filter.LayoutFilter(interesting=True, max_strings=1)
+    filtered = f.apply(make_winapi_common_layout())
+    assert collect_layout_strings(filtered) == ["untagged string"]
+
+    s = ResultString(string="GetProcAddress", offset=0, size=14, encoding="ascii", tags=["#winapi", "#common"])
+    assert floss.render.filter.relevance_key(s, {})[0] == 2
+
+
+def test_summary_keeps_winapi_common_outside_import_table():
+    _, _, interesting = floss.render.summary.analyze_layout(make_winapi_common_layout())
+    assert sorted(s.string for s, _, _ in interesting) == ["GetProcAddress", "untagged string"]
 
 
 def test_filter_query():

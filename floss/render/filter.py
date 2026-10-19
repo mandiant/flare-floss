@@ -32,16 +32,26 @@ from floss.tags.filter import TagRules
 # noisy tags that the --interesting shortcut excludes
 NOISY_TAGS: Set[str] = {"#common", "#duplicate", "#code", "#reloc", "#code-junk"}
 
+# structures where Windows API names are expected linker/loader metadata
+IMPORT_STRUCTURES: Set[str] = {"import-table", "symbol-table", "string-table"}
 
-def is_interesting(tags: Sequence[str], tag_rules: TagRules) -> bool:
+
+def is_interesting(tags: Sequence[str], tag_rules: TagRules, structure: Optional[str] = None) -> bool:
     """
     Determine if a string is considered 'interesting' for human analysis.
     Uses Option A (Strict): Drops all strings containing a noisy tag,
     UNLESS the string has an active 'highlight' tag (e.g., #capa rules).
+
+    Exception: #common is not considered noisy for #winapi strings outside an
+    import/symbol/string table, since API names referenced from data (e.g.
+    for GetProcAddress resolution) are high-signal even though they are common.
     """
     if any(tag_rules.get(tag) == "highlight" for tag in tags):
         return True
-    return not any(tag in NOISY_TAGS for tag in tags)
+    noisy = NOISY_TAGS
+    if "#winapi" in tags and normalize_structure(structure or "") not in IMPORT_STRUCTURES:
+        noisy = NOISY_TAGS - {"#common"}
+    return not any(tag in noisy for tag in tags)
 
 
 # tag families, one per tag-source directory under floss/tags/data. a meta tag
@@ -232,7 +242,7 @@ class LayoutFilter:
             return False
         if self.exclude_tags and any(tag_matches(t, s.tags) for t in self.exclude_tags):
             return False
-        if self.interesting and not is_interesting(s.tags, self.tag_rules):
+        if self.interesting and not is_interesting(s.tags, self.tag_rules, s.structure):
             return False
 
         if self.queries and not any(pattern.search(s.string) for pattern in self.queries):
