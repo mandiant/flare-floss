@@ -39,6 +39,11 @@ The remaining tags are single tags, not families, and can be filtered directly:
 | `#msvc` | Microsoft C runtime library (`floss/tags/data/crt/`) |
 | `#capa` | Expert / capa rules (`floss/tags/data/expert/`) |
 
+A library tag (`oss` family or `#msvc`) is dropped from a file's strings when
+fewer than 5 strings in the file carry it. A handful of hits are usually generic
+strings such as `System`, `signal`, or `kernel32.dll` that also appear in the
+library, not evidence that the library is linked in.
+
 ## Match behavior
 
 Tag matching is normalized: a leading `#` is stripped and the tag is lowercased,
