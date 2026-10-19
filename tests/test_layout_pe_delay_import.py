@@ -17,6 +17,7 @@ import struct
 import pytest
 
 from floss.pipeline import tag_layout, compute_layout
+from floss.layout.base import PELayout
 from floss.layout.extract import collect_strings
 
 IMAGE_BASE = 0x400000
@@ -24,6 +25,7 @@ ALIGNMENT = 0x200
 HEADERS_SIZE = 0x200
 RDATA_RVA = 0x1000
 RDATA_SIZE = 0x200
+IMAGE_DIRECTORY_ENTRY_IMPORT = 1
 IMAGE_DIRECTORY_ENTRY_DELAY_IMPORT = 13
 
 # offsets within .rdata
@@ -33,6 +35,7 @@ IAT = 0x60
 DLL_NAME = 0x100
 HINT_NAME = 0x120
 HMODULE = 0x180
+INVALID_DLL_NAME = RDATA_SIZE - 4
 
 
 def build_pe(rdata: bytes, directories: dict[int, tuple[int, int]]) -> bytes:
@@ -136,6 +139,44 @@ def build_delay_import_pe(old_style: bool) -> bytes:
     return build_pe(bytes(rdata), {IMAGE_DIRECTORY_ENTRY_DELAY_IMPORT: (RDATA_RVA + DESCRIPTOR, 0x40)})
 
 
+def build_invalid_dll_name_pe(delay: bool) -> bytes:
+    """PE32 importing MessageBoxA from a DLL whose name pefile rejects, stored in the last bytes of the file.
+
+    pefile reports the name as the 9-byte placeholder b"*invalid*", which would extend past the end of the file.
+    """
+    rdata = bytearray(RDATA_SIZE)
+    if delay:
+        descriptor = struct.pack(
+            "<8I",
+            1,  # grAttrs: dlattrRva
+            RDATA_RVA + INVALID_DLL_NAME,  # szName
+            RDATA_RVA + HMODULE,  # phmod
+            RDATA_RVA + IAT,  # pIAT
+            RDATA_RVA + INT,  # pINT
+            0,  # pBoundIAT
+            0,  # pUnloadIAT
+            0,  # dwTimeStamp
+        )
+        directory = IMAGE_DIRECTORY_ENTRY_DELAY_IMPORT
+    else:
+        descriptor = struct.pack(
+            "<5I",
+            RDATA_RVA + INT,  # OriginalFirstThunk
+            0,  # TimeDateStamp
+            0,  # ForwarderChain
+            RDATA_RVA + INVALID_DLL_NAME,  # Name
+            RDATA_RVA + IAT,  # FirstThunk
+        )
+        directory = IMAGE_DIRECTORY_ENTRY_IMPORT
+    rdata[DESCRIPTOR : DESCRIPTOR + len(descriptor)] = descriptor
+    rdata[INT : INT + 8] = struct.pack("<II", RDATA_RVA + HINT_NAME, 0)
+    rdata[IAT : IAT + 8] = struct.pack("<II", RDATA_RVA + HINT_NAME, 0)
+    rdata[HINT_NAME : HINT_NAME + 14] = b"\x00\x00MessageBoxA\x00"
+    rdata[INVALID_DLL_NAME:] = b"\x01AB\x00"
+
+    return build_pe(bytes(rdata), {directory: (RDATA_RVA + DESCRIPTOR, 0x40)})
+
+
 @pytest.mark.parametrize("old_style", [False, True])
 def test_delay_import_names_are_marked_as_import_table(old_style):
     layout = compute_layout(build_delay_import_pe(old_style), 4)
@@ -143,3 +184,12 @@ def test_delay_import_names_are_marked_as_import_table(old_style):
     structures = {s.string.string: s.structure for s in collect_strings(layout)}
     assert structures["USER32.dll"] == "import table"
     assert structures["MessageBoxA"] == "import table"
+
+
+@pytest.mark.parametrize("delay", [False, True])
+def test_invalid_import_dll_name_keeps_pe_layout(delay):
+    buf = build_invalid_dll_name_pe(delay)
+    layout = compute_layout(buf, 4)
+    assert isinstance(layout, PELayout)
+    assert HEADERS_SIZE + INVALID_DLL_NAME not in layout.structures_by_address
+    assert layout.structures_by_address[HEADERS_SIZE + HINT_NAME + 2].name == "import table"

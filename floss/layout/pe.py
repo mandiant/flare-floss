@@ -272,12 +272,14 @@ def collect_pe_structures(slice_: Slice, pe: pefile.PE) -> Sequence[Structure]:
             logger.warning("failed to get offset for import DLL name RVA 0x%x: %s", rva, e)
             continue
 
-        structures.append(
-            Structure(
-                slice=slice_.slice(offset, size),
-                name="import table",
+        # pefile substitutes this placeholder for DLL names it rejects; it is not the file content
+        if dll.dll != b"*invalid*" and slice_.contains_range(offset, size):
+            structures.append(
+                Structure(
+                    slice=slice_.slice(offset, size),
+                    name="import table",
+                )
             )
-        )
 
         for entry in dll.imports:
             if entry.name is None:
@@ -293,6 +295,8 @@ def collect_pe_structures(slice_: Slice, pe: pefile.PE) -> Sequence[Structure]:
 
             offset = entry.name_offset
             size = len(symbol_name)
+            if not slice_.contains_range(offset, size):
+                continue
 
             structures.append(
                 Structure(
