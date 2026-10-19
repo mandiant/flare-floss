@@ -35,6 +35,13 @@ and `-n/--minimum-length` are re-applied on load, and a `-n` looser than the one
 used to build the document is an error, because those shorter strings were
 already dropped at extraction time.
 
+An empty file still produces a document and exit code 0: the hashes, the
+layout tree without strings, and empty string lists. There is no program to
+deobfuscate, so FLOSS records `enable_stack_strings`, `enable_tight_strings`,
+and `enable_decoded_strings` as `false`, as it does for .NET binaries. Earlier
+versions printed nothing. Errors, such as an unsupported file format, still exit
+non-zero and report the error on stderr.
+
 ## Top-level structure
 
 ```jsonc
