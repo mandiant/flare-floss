@@ -392,6 +392,7 @@ def test_is_interesting_winapi_common_by_structure():
     rules: TagRules = {}
     tags = ["#winapi", "#common"]
     assert floss.render.filter.is_interesting(tags, rules)
+    assert floss.render.filter.is_interesting(tags, rules, None)
     assert floss.render.filter.is_interesting(tags, rules, "")
     assert floss.render.filter.is_interesting(tags, rules, "export table")
     for structure in ("import table", "import-table", "symbol table", "string table"):

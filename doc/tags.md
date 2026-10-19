@@ -64,8 +64,8 @@ One exception: `#common` does not count as noisy for `#winapi` strings outside
 an import, symbol, or string table. Windows API names such as `VirtualAlloc` or
 `NtUnmapViewOfSection` are prevalent because they appear in import tables, but
 the same names elsewhere in a binary (for example, passed to `GetProcAddress`)
-indicate dynamic API resolution. Import table entries are still dropped, as are
-strings with any other noisy tag.
+indicate dynamic API resolution. Import table entries (including delay-load
+imports) are still dropped, as are strings with any other noisy tag.
 
 ## Where tags come from
 

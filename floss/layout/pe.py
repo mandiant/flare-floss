@@ -257,20 +257,42 @@ def collect_pe_structures(slice_: Slice, pe: pefile.PE) -> Sequence[Structure]:
             )
         )
 
-    if hasattr(pe, "DIRECTORY_ENTRY_IMPORT"):
-        for dll in pe.DIRECTORY_ENTRY_IMPORT:
+    import_descriptors = [(dll, dll.struct.Name) for dll in getattr(pe, "DIRECTORY_ENTRY_IMPORT", [])]
+    import_descriptors += [(dll, dll.struct.szName) for dll in getattr(pe, "DIRECTORY_ENTRY_DELAY_IMPORT", [])]
+    for dll, rva in import_descriptors:
+        try:
+            dll_name = dll.dll.decode("ascii")
+        except UnicodeDecodeError:
+            continue
+
+        size = len(dll_name)
+        try:
+            offset = get_physical_offset_from_rva(pe, rva)
+        except pefile.PEFormatError as e:
+            logger.warning("failed to get offset for import DLL name RVA 0x%x: %s", rva, e)
+            continue
+
+        structures.append(
+            Structure(
+                slice=slice_.slice(offset, size),
+                name="import table",
+            )
+        )
+
+        for entry in dll.imports:
+            if entry.name is None:
+                continue
+
+            if entry.name_offset is None:
+                continue
+
             try:
-                dll_name = dll.dll.decode("ascii")
+                symbol_name = entry.name.decode("ascii")
             except UnicodeDecodeError:
                 continue
 
-            rva = dll.struct.Name
-            size = len(dll_name)
-            try:
-                offset = get_physical_offset_from_rva(pe, rva)
-            except pefile.PEFormatError as e:
-                logger.warning("failed to get offset for import DLL name RVA 0x%x: %s", rva, e)
-                continue
+            offset = entry.name_offset
+            size = len(symbol_name)
 
             structures.append(
                 Structure(
@@ -278,28 +300,6 @@ def collect_pe_structures(slice_: Slice, pe: pefile.PE) -> Sequence[Structure]:
                     name="import table",
                 )
             )
-
-            for entry in dll.imports:
-                if entry.name is None:
-                    continue
-
-                if entry.name_offset is None:
-                    continue
-
-                try:
-                    symbol_name = entry.name.decode("ascii")
-                except UnicodeDecodeError:
-                    continue
-
-                offset = entry.name_offset
-                size = len(symbol_name)
-
-                structures.append(
-                    Structure(
-                        slice=slice_.slice(offset, size),
-                        name="import table",
-                    )
-                )
 
     if hasattr(pe, "DIRECTORY_ENTRY_EXPORT"):
         exp = pe.DIRECTORY_ENTRY_EXPORT

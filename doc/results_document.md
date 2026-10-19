@@ -104,7 +104,7 @@ analysis is disabled. A node is:
       "size": 4,
       "encoding": "ASCII",
       "tags": ["#winapi"],
-      "structure": "import-table"
+      "structure": "import table"
     }
   ],
   "children": [ { "...": "..." } ]
@@ -115,6 +115,10 @@ analysis is disabled. A node is:
   structure like `import-table`).
 - `offset`/`length` give the node's byte range; each string records its `offset`,
   `size`, `encoding`, `tag` list, and the `structure` it lives in.
+- `structure` is the name of the file format structure that contains the string,
+  such as `import table` (which includes delay-load imports), `export table`,
+  `section header`, or `string table`. It is the empty string `""`, never
+  `null`, when the string is not part of a known structure.
 
 ## Stability
 
