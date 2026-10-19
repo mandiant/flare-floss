@@ -594,7 +594,7 @@ const App: React.FC = () => {
     }
 
     const defaultTags = Array.from(allTags).filter(
-      tag => tag !== '#code' && tag !== '#reloc'
+      tag => tag !== '#code' && tag !== '#reloc' && tag !== '#code-junk'
     );
     setSelectedTags(defaultTags);
     setSelectedStructures(Array.from(allStructures));
