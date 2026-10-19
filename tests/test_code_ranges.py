@@ -12,11 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from types import SimpleNamespace
+from typing import Optional
 from pathlib import Path
 from unittest.mock import Mock, MagicMock
 
 import pefile
 import pytest
+from lancelot.be2utils.binexport2_pb2 import BinExport2
 
 from floss.ranges import Range, Slice, merge_overlapping_ranges
 from floss.layout.pe import _get_code_ranges
@@ -73,17 +76,21 @@ def pe():
     )
 
 
-def _make_instr(size: int) -> Mock:
+def _make_instr(code, call_target=None, operand_index=()) -> Mock:
     instr = Mock()
-    instr.raw_bytes = b"\x90" * size
+    instr.operand_index = list(operand_index)
+    instr.raw_bytes = b"\x90" * code if isinstance(code, int) else code
+    instr.mnemonic_index = 0 if call_target is None else 1
+    instr.call_target = [] if call_target is None else [call_target]
     return instr
 
 
-def _make_be2_mocks(bb_instructions: list):
+def _make_be2_mocks(bb_instructions: list, flow_graphs: Optional[list] = None):
     """
     Build mock be2 and idx objects.
 
-    bb_instructions: list of lists of (va, size) tuples, one sub-list per basic block.
+    bb_instructions: list of lists of (va, size or raw bytes[, call target]) tuples, one sub-list per basic block.
+    flow_graphs: list of (entry basic block index, basic block indices), default: one flow graph over all blocks.
     """
     be2 = MagicMock()
     idx = MagicMock()
@@ -93,12 +100,23 @@ def _make_be2_mocks(bb_instructions: list):
     for bb_i, instrs in enumerate(bb_instructions):
         bb = Mock()
         basic_blocks[bb_i] = bb
-        instr_map[id(bb)] = [(i, _make_instr(sz), va) for i, (va, sz) in enumerate(instrs)]
+        instr_map[id(bb)] = [(i, _make_instr(*rest), va) for i, (va, *rest) in enumerate(instrs)]
 
-    fg = Mock()
-    fg.basic_block_index = list(range(len(basic_blocks)))
-    be2.flow_graph = [fg]
+    if flow_graphs is None:
+        flow_graphs = [(0, list(range(len(basic_blocks))))]
+    be2.flow_graph = []
+    for entry, indices in flow_graphs:
+        fg = Mock()
+        fg.entry_basic_block_index = entry
+        fg.basic_block_index = indices
+        be2.flow_graph.append(fg)
     be2.basic_block = basic_blocks
+    be2.mnemonic = [SimpleNamespace(name="nop"), SimpleNamespace(name="call")]
+    be2.operand = [SimpleNamespace(expression_index=[0, 1])]
+    be2.expression = [
+        SimpleNamespace(type=BinExport2.Expression.DEREFERENCE),
+        SimpleNamespace(type=BinExport2.Expression.IMMEDIATE_INT),
+    ]
 
     def _bb_instructions(bb):
         return iter(instr_map.get(id(bb), []))
@@ -185,6 +203,7 @@ def test_get_code_ranges_deduplicates_shared_basic_blocks(pe):
 
     # Add a second flow graph that shares basic block 0 and basic block 1
     fg2 = Mock()
+    fg2.entry_basic_block_index = 0
     fg2.basic_block_index = [0, 1]
     be2.flow_graph.append(fg2)
 
@@ -197,3 +216,49 @@ def test_get_code_ranges_deduplicates_shared_basic_blocks(pe):
         (0x200, 0x20F),
         (0x220, 0x234),
     ]
+
+
+# 0x402000: code that calls 0x402100, 0x402040: data with zero bytes, 0x402100: data with zero bytes
+DATA_BLOCKS = [
+    [(0x402000, 5, 0x402100), (0x402005, 3)],
+    [(0x402040, b"\x41"), (0x402041, b"\x00\x00")],
+    [(0x402100, b"\x00\x00"), (0x402102, 4)],
+]
+
+
+def test_get_code_ranges_skips_uncalled_function_with_zero_instruction(pe):
+    be2, idx = _make_be2_mocks(DATA_BLOCKS, flow_graphs=[(0, [0]), (1, [1])])
+    slice_ = Slice(buf=b"", range=Range(offset=0, length=0x5000))
+    assert _get_code_ranges(be2, idx, 0x400000, pe, slice_) == [(0x200, 0x207)]
+
+
+def test_get_code_ranges_keeps_called_function_with_zero_instruction(pe):
+    be2, idx = _make_be2_mocks(DATA_BLOCKS, flow_graphs=[(0, [0]), (2, [2])])
+    slice_ = Slice(buf=b"", range=Range(offset=0, length=0x5000))
+    assert _get_code_ranges(be2, idx, 0x400000, pe, slice_) == [(0x200, 0x207), (0x300, 0x305)]
+
+
+def test_get_code_ranges_ignores_indirect_calls(pe):
+    # `call [0x402100]` reads a pointer at 0x402100, it does not call 0x402100
+    blocks = [[(0x402000, b"\xff\x15\x00\x21\x40\x00", 0x402100, [0]), (0x402006, 2)], DATA_BLOCKS[1], DATA_BLOCKS[2]]
+    be2, idx = _make_be2_mocks(blocks, flow_graphs=[(0, [0]), (2, [2])])
+    slice_ = Slice(buf=b"", range=Range(offset=0, length=0x5000))
+    assert _get_code_ranges(be2, idx, 0x400000, pe, slice_) == [(0x200, 0x207)]
+
+
+def test_get_code_ranges_ignores_return_address(pe):
+    be2, idx = _make_be2_mocks(
+        [
+            [(0x402000, 5, 0x402005)],
+            [(0x402005, b"\x00\x00"), (0x402007, 5)],
+        ],
+        flow_graphs=[(0, [0]), (1, [1])],
+    )
+    slice_ = Slice(buf=b"", range=Range(offset=0, length=0x5000))
+    assert _get_code_ranges(be2, idx, 0x400000, pe, slice_) == [(0x200, 0x204)]
+
+
+def test_get_code_ranges_keeps_blocks_shared_with_code(pe):
+    be2, idx = _make_be2_mocks(DATA_BLOCKS, flow_graphs=[(1, [1, 0]), (0, [0])])
+    slice_ = Slice(buf=b"", range=Range(offset=0, length=0x5000))
+    assert _get_code_ranges(be2, idx, 0x400000, pe, slice_) == [(0x200, 0x207)]

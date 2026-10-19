@@ -60,6 +60,28 @@ carries a highlight tag (such as `#capa` from the expert rules), which is
 preserved. This is a fast way to hide boilerplate and focus on distinctive
 strings.
 
+## Layout tags
+
+`#code`, `#reloc`, and `#decoded` depend on where a string sits in the file, not
+on its text:
+
+- `#decoded`: the string is inside a PE or ELF that FLOSS XOR-decoded.
+- `#reloc`: the string overlaps the PE base relocation directory or an ELF
+  `SHT_REL`/`SHT_RELA` section.
+- `#code`: the string overlaps bytes that are probably instructions. The tag is
+  meant to hide printable runs of instruction bytes, such as `D$XHcD$(HcL$(L`.
+  - PE: the instructions of the functions lancelot recovers. lancelot also
+    starts functions at addresses that operands reference, which inside `.text`
+    are often strings and tables (Delphi `CODE`, VB6, MSVC binaries that merge
+    `.rdata` into `.text`). A function that decodes two zero bytes
+    (`add byte ptr [eax], al`) and that no other function calls is treated as
+    such data, and its instructions are not code.
+  - ELF with section headers: the `SHF_EXECINSTR` sections.
+  - ELF without section headers: executable `PT_LOAD` segments. When such a
+    segment also maps the ELF header (the classic layout, where `.rodata` and
+    `.dynstr` share the segment with the code), NUL-terminated strings in it are
+    not code; printable runs in instructions are rarely NUL-terminated.
+
 ## Where tags come from
 
 Tagging is implemented in [`floss/tags/`](../floss/tags/):

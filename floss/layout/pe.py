@@ -20,10 +20,11 @@ import struct
 import logging
 import functools
 import itertools
-from typing import Any, Set, Dict, List, Tuple, Optional, Sequence
+from typing import Any, Set, Dict, List, Tuple, Optional, Sequence, NamedTuple
 
 import pefile
 import lancelot
+from lancelot.be2utils.binexport2_pb2 import BinExport2
 
 from floss.ranges import Range, Slice, OffsetRanges, timing, merge_overlapping_ranges
 from floss.layout.base import (
@@ -173,6 +174,13 @@ def get_code_analysis_skip_reason(pe: pefile.PE, file_size: int) -> Optional[str
     return None
 
 
+class _BasicBlockCode(NamedTuple):
+    address: Optional[int]
+    ranges: List[Tuple[int, int]]
+    has_zero_instruction: bool
+    call_targets: Set[int]
+
+
 def _get_code_ranges(
     be2: "lancelot.BinExport2",
     idx: "lancelot.be2utils.BinExport2Index",
@@ -182,6 +190,13 @@ def _get_code_ranges(
 ) -> List[Tuple[int, int]]:
     """
     Extract and return the raw, unmerged code ranges from a PE file.
+
+    lancelot also starts functions at addresses that instruction operands reference and that look
+    like code. Inside an executable section these are often strings and tables (Delphi CODE, VB6,
+    MSVC binaries with .rdata merged into .text), and lancelot then decodes the data as instructions.
+    A function that decodes two zero bytes (`add byte ptr [eax], al`) and that no function calls
+    directly is such data, so its instructions are not code ranges, unless another function also
+    reaches them.
     """
 
     # cache because getting the offset is slow
@@ -193,53 +208,113 @@ def _get_code_ranges(
             logger.warning("%s", str(e))
             return None
 
+    mnemonics = [mnemonic.name for mnemonic in be2.mnemonic]
+
+    def is_indirect(instruction) -> bool:
+        # for `call [ptr]`, BinExport2 lists the address of the pointer as the call target
+        return any(
+            be2.expression[expression_index].type == BinExport2.Expression.DEREFERENCE
+            for operand_index in instruction.operand_index
+            for expression_index in be2.operand[operand_index].expression_index
+        )
+
+    basic_blocks: Dict[int, Optional[_BasicBlockCode]] = {}
+
+    def get_basic_block(basic_block_index: int) -> Optional[_BasicBlockCode]:
+        if basic_block_index in basic_blocks:
+            return basic_blocks[basic_block_index]
+
+        try:
+            basic_block = be2.basic_block[basic_block_index]
+        except IndexError:
+            logger.warning("lancelot basic block index %d out of range, skipping", basic_block_index)
+            basic_blocks[basic_block_index] = None
+            return None
+
+        address: Optional[int] = None
+        ranges: List[Tuple[int, int]] = []
+        has_zero_instruction = False
+        call_targets: Set[int] = set()
+        current_range: Optional[Tuple[int, int]] = None
+        for _instruction_index, instruction, instruction_address in idx.basic_block_instructions(basic_block):
+            if address is None:
+                address = instruction_address
+            size = len(instruction.raw_bytes)
+            if instruction.raw_bytes[:2] == b"\x00\x00":
+                has_zero_instruction = True
+            if mnemonics[instruction.mnemonic_index].startswith("call") and not is_indirect(instruction):
+                # BinExport2 also lists the return address when a function starts there
+                call_targets.update(
+                    target for target in instruction.call_target if target != instruction_address + size
+                )
+
+            va = instruction_address
+            rva = va - base_address
+            offset = get_offset_from_rva_cached(rva)
+            if offset is None:
+                if current_range is not None:
+                    ranges.append(current_range)
+                    current_range = None
+                continue
+
+            if size == 0:
+                continue
+
+            if not slice_.contains_range(offset, size):
+                logger.warning("lancelot identified code at an invalid location, skipping instruction at 0x%x", rva)
+                if current_range is not None:
+                    ranges.append(current_range)
+                    current_range = None
+                continue
+
+            start = slice_.offset + offset
+            end = slice_.offset + offset + size - 1
+            if current_range is None:
+                current_range = (start, end)
+            elif start == current_range[1] + 1:
+                current_range = (current_range[0], end)
+            else:
+                ranges.append(current_range)
+                current_range = (start, end)
+        if current_range is not None:
+            ranges.append(current_range)
+
+        code = _BasicBlockCode(address, ranges, has_zero_instruction, call_targets)
+        basic_blocks[basic_block_index] = code
+        return code
+
+    called: Set[int] = set()
+    data_functions: List[int] = []
+    for flow_graph in be2.flow_graph:
+        entry = get_basic_block(flow_graph.entry_basic_block_index)
+        function_address = entry.address if entry is not None else None
+        has_zero_instruction = False
+        for basic_block_index in flow_graph.basic_block_index:
+            code = get_basic_block(basic_block_index)
+            if code is None:
+                continue
+            has_zero_instruction |= code.has_zero_instruction
+            called.update(code.call_targets)
+        if has_zero_instruction and function_address is not None:
+            data_functions.append(function_address)
+
+    data = {address for address in data_functions if address not in called}
+
     code_ranges: List[Tuple[int, int]] = []
     seen_basic_blocks: Set[int] = set()
     for flow_graph in be2.flow_graph:
+        entry = get_basic_block(flow_graph.entry_basic_block_index)
+        if entry is not None and entry.address in data:
+            continue
+
         for basic_block_index in flow_graph.basic_block_index:
             if basic_block_index in seen_basic_blocks:
                 continue
             seen_basic_blocks.add(basic_block_index)
 
-            try:
-                basic_block = be2.basic_block[basic_block_index]
-            except IndexError:
-                logger.warning("lancelot basic block index %d out of range, skipping", basic_block_index)
-                continue
-
-            current_range: Optional[Tuple[int, int]] = None
-            for _instruction_index, instruction, instruction_address in idx.basic_block_instructions(basic_block):
-                va = instruction_address
-                rva = va - base_address
-                offset = get_offset_from_rva_cached(rva)
-                if offset is None:
-                    if current_range is not None:
-                        code_ranges.append(current_range)
-                        current_range = None
-                    continue
-
-                size = len(instruction.raw_bytes)
-                if size == 0:
-                    continue
-
-                if not slice_.contains_range(offset, size):
-                    logger.warning("lancelot identified code at an invalid location, skipping instruction at 0x%x", rva)
-                    if current_range is not None:
-                        code_ranges.append(current_range)
-                        current_range = None
-                    continue
-
-                start = slice_.offset + offset
-                end = slice_.offset + offset + size - 1
-                if current_range is None:
-                    current_range = (start, end)
-                elif start == current_range[1] + 1:
-                    current_range = (current_range[0], end)
-                else:
-                    code_ranges.append(current_range)
-                    current_range = (start, end)
-            if current_range is not None:
-                code_ranges.append(current_range)
+            code = get_basic_block(basic_block_index)
+            if code is not None:
+                code_ranges.extend(code.ranges)
     return code_ranges
 
 
