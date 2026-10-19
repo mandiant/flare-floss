@@ -111,8 +111,9 @@ analysis is disabled. A node is:
 }
 ```
 
-- `name` is the section or structure name (e.g. `.text`, `.rdata`, or a
-  structure like `import-table`).
+- `name` is the file format, section, or segment name (e.g. `pe`, `.text`,
+  `.rdata`, `header`, `overlay`). Structures such as the import table are not
+  nodes; they are reported in each string's `structure` field.
 - `offset`/`length` give the node's byte range; each string records its `offset`,
   `size`, `encoding`, `tag` list, and the `structure` it lives in.
 - `structure` is the name of the file format structure that contains the string,
