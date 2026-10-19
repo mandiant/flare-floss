@@ -200,6 +200,12 @@ The easiest way to explore this output is the hosted
 filter by tag, structure, or search term, and copy the strings you keep. See
 [results_document.md](results_document.md) for the schema itself.
 
+An empty file yields a document with empty string lists and exit code 0. A file
+without static strings is analyzed like any other, so shellcode can still yield
+stack strings. Errors, such as an unsupported file format, exit non-zero with
+the error on stderr, whether or not the file contains strings; earlier versions
+exited 0 silently for a string-less file.
+
 ### Write a standalone HTML report (`--html`)
 
 Write a self-contained HTML file that opens in a browser with the results already

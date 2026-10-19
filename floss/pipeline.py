@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import os
 import sys
+import copy
 import hashlib
 from time import time
 from typing import Set, List, Optional
@@ -353,13 +354,14 @@ def try_layout_static(
         return None
 
 
-def analyze(options: Options) -> Optional[ResultDocument]:
+def analyze(options: Options) -> ResultDocument:
     """
-    Run full analysis. Returns None when there are no static strings to start from
-    (matches historical CLI early-exit with code 0).
+    Run full analysis. An empty file yields a document with its hashes, the
+    layout tree, and no strings; deobfuscation is recorded as disabled because
+    there is no program to emulate.
     """
     sample = options.sample
-    analysis = options.analysis
+    analysis = copy.deepcopy(options.analysis)
 
     results = ResultDocument(
         metadata=Metadata(file_path=str(sample), min_length=options.min_length),
@@ -376,8 +378,10 @@ def analyze(options: Options) -> Optional[ResultDocument]:
     # TODO: mmap-only classic path if layout is ever optional-only again
     sample_buf = sample.read_bytes()
     if not sample_buf:
-        logger.warning("file is empty")
-        return None
+        logger.warning("file is empty, skipping string deobfuscation")
+        analysis.enable_stack_strings = False
+        analysis.enable_tight_strings = False
+        analysis.enable_decoded_strings = False
 
     results.metadata.md5 = hashlib.md5(sample_buf).hexdigest()
     results.metadata.sha1 = hashlib.sha1(sample_buf).hexdigest()
@@ -400,8 +404,6 @@ def analyze(options: Options) -> Optional[ResultDocument]:
             logger.debug("FLOSS_CACHE_REFRESH set; re-analyzing and overwriting cache entry %s", cache_key)
 
     static_strings = list(extract_ascii_unicode_strings(sample_buf, options.min_length))
-    if not static_strings:
-        return None
 
     static_runtime = get_runtime_diff(time0)
 
@@ -488,7 +490,12 @@ def analyze(options: Options) -> Optional[ResultDocument]:
     # language-specific strings are independent of static strings: extract them
     # whenever enabled, reusing the classic extraction buffer (and layout, when
     # static+layout actually ran) for missed-string/enrichment.
-    if analysis.enable_language_strings and results.metadata.language in (Language.GO.value, Language.RUST.value):
+    # an empty file has no PE to parse; a forced --language go/rust must not crash on it
+    if (
+        sample_buf
+        and analysis.enable_language_strings
+        and results.metadata.language in (Language.GO.value, Language.RUST.value)
+    ):
         # one offset index for both language_strings and language_strings_missed
         layout_offset_index = None
         if layout_doc is not None:
