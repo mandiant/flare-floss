@@ -208,6 +208,10 @@ flags, the full document is written.
 
     floss.exe -j --interesting -- malware.exe > malware_interesting.json
 
+An empty file, or one without any static string, still yields a valid document
+with empty string lists and exit code 0, so scripts can parse the output
+unconditionally.
+
 ### Write a standalone HTML report (`--html`)
 
 Write a self-contained HTML file that opens in a browser with the results already

@@ -353,10 +353,28 @@ def try_layout_static(
         return None
 
 
-def analyze(options: Options) -> Optional[ResultDocument]:
+def finish_without_strings(results: ResultDocument, buf: bytes, min_length: int, time0: float) -> ResultDocument:
     """
-    Run full analysis. Returns None when there are no static strings to start from
-    (matches historical CLI early-exit with code 0).
+    Complete the document of an input without static strings: an empty or
+    string-less file gets its layout tree (when enabled) but no language
+    identification and no deobfuscation, so the deobfuscation types are
+    recorded as disabled.
+    """
+    results.analysis.enable_stack_strings = False
+    results.analysis.enable_tight_strings = False
+    results.analysis.enable_decoded_strings = False
+    if results.analysis.enable_static_strings and results.analysis.enable_layout:
+        with results.metadata.runtime.measure_and_set_time("static_strings"):
+            # there are no strings to tag, so skip loading the tag databases
+            results.layout = try_layout_static(buf, min_length, False, results.metadata.runtime)
+    results.metadata.runtime.total = get_runtime_diff(time0)
+    return results
+
+
+def analyze(options: Options) -> ResultDocument:
+    """
+    Run full analysis. An input without static strings (including an empty file)
+    yields a document with empty string lists; see finish_without_strings.
     """
     sample = options.sample
     analysis = options.analysis
@@ -375,13 +393,13 @@ def analyze(options: Options) -> Optional[ResultDocument]:
     # one read for classic statics + layout (layout is default and needs a full buffer)
     # TODO: mmap-only classic path if layout is ever optional-only again
     sample_buf = sample.read_bytes()
-    if not sample_buf:
-        logger.warning("file is empty")
-        return None
-
     results.metadata.md5 = hashlib.md5(sample_buf).hexdigest()
     results.metadata.sha1 = hashlib.sha1(sample_buf).hexdigest()
     results.metadata.sha256 = hashlib.sha256(sample_buf).hexdigest()
+
+    if not sample_buf:
+        logger.warning("file is empty")
+        return finish_without_strings(results, sample_buf, options.min_length, time0)
 
     # result caching: keyed on the sample bytes + FLOSS version. on a valid hit
     # we skip extraction, layout, and tagging entirely and render from the cache.
@@ -401,7 +419,7 @@ def analyze(options: Options) -> Optional[ResultDocument]:
 
     static_strings = list(extract_ascii_unicode_strings(sample_buf, options.min_length))
     if not static_strings:
-        return None
+        return finish_without_strings(results, sample_buf, options.min_length, time0)
 
     static_runtime = get_runtime_diff(time0)
 

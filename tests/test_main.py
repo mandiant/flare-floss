@@ -50,3 +50,38 @@ def test_main_version(capsys):
 
 def test_main(exefile):
     assert floss.main.main([exefile]) == 0
+
+
+@pytest.mark.parametrize("content", [b"", b"\x01\x02\x03abc"], ids=["empty", "no-strings"])
+def test_main_json_without_strings_emits_empty_document(tmp_path, capsys, content):
+    import json
+    import hashlib
+
+    from floss.results import ResultDocument
+
+    sample = tmp_path / "sample.bin"
+    sample.write_bytes(content)
+
+    assert floss.main.main([str(sample), "-j"]) == 0
+    out = capsys.readouterr().out
+    results = tmp_path / "sample.json"
+    results.write_text(out)
+    doc = ResultDocument.parse_file(results)
+    assert doc.metadata.sha256 == hashlib.sha256(content).hexdigest()
+    assert doc.strings.static_strings == []
+    assert doc.strings.stack_strings == []
+    assert not doc.analysis.enable_stack_strings
+    assert not doc.analysis.enable_tight_strings
+    assert not doc.analysis.enable_decoded_strings
+    assert doc.layout is not None
+    assert (doc.layout.name, doc.layout.offset, doc.layout.length) == ("binary", 0, len(content))
+    assert doc.layout.strings == []
+    assert doc.layout.children == []
+
+    assert floss.main.main([str(results), "-j"]) == 0
+    reloaded = json.loads(capsys.readouterr().out)
+    original = json.loads(out)
+    for key in ("strings", "layout"):
+        assert reloaded[key] == original[key]
+    assert reloaded["metadata"]["sha256"] == original["metadata"]["sha256"]
+    assert floss.main.main([str(results)]) == 0

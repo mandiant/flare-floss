@@ -318,9 +318,6 @@ def main(argv=None) -> int:
             logger.error("%s", e)
         return e.exit_code
 
-    if analysis_results is None:
-        return 0
-
     if args.json:
         r = render_json(args, analysis_results)
     elif args.html:

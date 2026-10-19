@@ -39,6 +39,13 @@ A document written with layout-aware filter flags (e.g. `floss -j --interesting`
 contains only the filtered `layout` and `strings.static_strings`; loading it later
 cannot restore the dropped strings.
 
+An empty file, or a file without any string of at least `-n/--minimum-length`
+characters, still produces a document and exit code 0: the hashes, the layout
+tree without strings, and empty string lists. FLOSS skips language
+identification and deobfuscation for such input and records
+`enable_stack_strings`, `enable_tight_strings`, and `enable_decoded_strings` as
+`false`. Earlier versions printed nothing in this case.
+
 ## Top-level structure
 
 ```jsonc
