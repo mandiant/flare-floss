@@ -494,6 +494,32 @@ def test_tag_filter_overrides_default_hide_rules():
     assert "junk code" not in out
 
 
+def test_default_render_hides_code_junk():
+    layout = ResultLayout(
+        name=".text",
+        offset=0,
+        length=0x20,
+        strings=[
+            ResultString(string="D$0H", offset=1, size=4, encoding="ascii", tags=["#code-junk"]),
+            ResultString(string="kcp://url", offset=0x10, size=9, encoding="ascii"),
+        ],
+    )
+    doc = ResultDocument(
+        metadata=Metadata(file_path="x", min_length=4),
+        analysis=Analysis(enable_stack_strings=False, enable_tight_strings=False, enable_decoded_strings=False),
+        strings=Strings(),
+        layout=layout,
+    )
+
+    out = render(doc, True, False, "auto")
+    assert "D$0H" not in out
+    assert "kcp://url" in out
+
+    out = render(doc, True, False, "auto", layout_filter=floss.render.filter.LayoutFilter(include_tags=["code-junk"]))
+    assert "D$0H" in out
+    assert "kcp://url" not in out
+
+
 def test_summary_output():
     out = floss.render.summary.render_summary(make_results())
     assert "FLOSS SUMMARY" in out

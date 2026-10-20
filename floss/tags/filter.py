@@ -27,6 +27,11 @@ if TYPE_CHECKING:
 Tag = str
 TagRules = Dict[Tag, Literal["mute"] | Literal["highlight"] | Literal["default"] | Literal["hide"]]
 
+# hack: assume the libname is embedded in the filename.
+# otherwise, we don't have an easy way to recover the library tag names.
+# the CRT database file (crt/msvc_v143.jsonl.gz) tags its strings as #msvc.
+LIBRARY_TAGS = tuple(f"#{filename.partition('.')[0]}" for filename in DEFAULT_FILENAMES) + ("#msvc",)
+
 
 def remove_false_positive_lib_strings(layout: "Layout"):
     from floss.layout.extract import collect_strings
@@ -35,15 +40,9 @@ def remove_false_positive_lib_strings(layout: "Layout"):
     # we can (carefully) manipulate the tags here.
     tagged_strings = collect_strings(layout)
 
-    # open source libraries should have at least 5 strings,
+    # libraries (open source and the MSVC CRT) should have at least 5 strings,
     # or don't show their tag, since the couple hits are probably false positives.
-    #
-    # hack: assume the libname is embedded in the filename.
-    # otherwise, we don't have an easy way to recover the library tag names.
-    for filename in DEFAULT_FILENAMES:
-        libname = filename.partition(".")[0]
-        tagname = f"#{libname}"
-
+    for tagname in LIBRARY_TAGS:
         count = 0
         for string in tagged_strings:
             if tagname in string.tags:

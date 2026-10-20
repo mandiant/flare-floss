@@ -35,6 +35,13 @@ and `-n/--minimum-length` are re-applied on load, and a `-n` looser than the one
 used to build the document is an error, because those shorter strings were
 already dropped at extraction time.
 
+An empty file still produces a document and exit code 0: the hashes, the
+layout tree without strings, and empty string lists. There is no program to
+deobfuscate, so FLOSS records `enable_stack_strings`, `enable_tight_strings`,
+and `enable_decoded_strings` as `false`, as it does for .NET binaries. Earlier
+versions printed nothing. Errors, such as an unsupported file format, still exit
+non-zero and report the error on stderr.
+
 ## Top-level structure
 
 ```jsonc
@@ -104,17 +111,22 @@ analysis is disabled. A node is:
       "size": 4,
       "encoding": "ASCII",
       "tags": ["#winapi"],
-      "structure": "import-table"
+      "structure": "import table"
     }
   ],
   "children": [ { "...": "..." } ]
 }
 ```
 
-- `name` is the section or structure name (e.g. `.text`, `.rdata`, or a
-  structure like `import-table`).
+- `name` is the file format, section, or segment name (e.g. `pe`, `.text`,
+  `.rdata`, `header`, `overlay`). Structures such as the import table are not
+  nodes; they are reported in each string's `structure` field.
 - `offset`/`length` give the node's byte range; each string records its `offset`,
   `size`, `encoding`, `tag` list, and the `structure` it lives in.
+- `structure` is the name of the file format structure that contains the string,
+  such as `import table` (which includes delay-load imports), `export table`,
+  `section header`, or `string table`. It is the empty string `""`, never
+  `null`, when the string is not part of a known structure.
 
 ## Stability
 

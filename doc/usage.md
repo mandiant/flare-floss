@@ -95,8 +95,9 @@ table, section headers, etc.):
     floss.exe --no-structure symbol-table -- malware.exe
 
 Structure names are slugs and match regardless of separators, so `import-table`,
-`import_table`, and `import table` are equivalent. Run `--summary` to see the
-structures present in a specific sample.
+`import_table`, and `import table` are equivalent. In PE files, `import-table`
+covers both the regular and the delay-load import directory. Run `--summary` to
+see the structures present in a specific sample.
 
 Filtering by semantic tag:
 
@@ -199,6 +200,12 @@ The easiest way to explore this output is the hosted
 [web viewer](https://mandiant.github.io/flare-floss/): upload the JSON file, then
 filter by tag, structure, or search term, and copy the strings you keep. See
 [results_document.md](results_document.md) for the schema itself.
+
+An empty file yields a document with empty string lists and exit code 0. A file
+without static strings is analyzed like any other, so shellcode can still yield
+stack strings. Errors, such as an unsupported file format, exit non-zero with
+the error on stderr, whether or not the file contains strings; earlier versions
+exited 0 silently for a string-less file.
 
 ### Write a standalone HTML report (`--html`)
 

@@ -46,9 +46,7 @@ BLOB = (
 
 def analyze_static(path: Path):
     options = floss.pipeline.Options(sample=path, min_length=4, analysis=STATIC_ONLY, language="none")
-    results = floss.pipeline.analyze(options)
-    assert results is not None
-    return results
+    return floss.pipeline.analyze(options)
 
 
 def assert_binary_layout(results, size: int):

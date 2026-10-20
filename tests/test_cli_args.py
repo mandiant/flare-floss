@@ -141,7 +141,6 @@ def test_no_layout_yields_classic_static(exefile):
             ),
         )
     )
-    assert results is not None
     assert results.layout is None
     assert len(results.strings.static_strings) > 0
 
@@ -170,7 +169,6 @@ def test_no_tags_skips_tag_databases(exefile):
             ),
         )
     )
-    assert results is not None
     assert results.layout is not None
     assert isinstance(results.layout, ResultLayout)
 

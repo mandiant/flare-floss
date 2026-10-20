@@ -57,6 +57,7 @@ DEFAULT_TAG_RULES: TagRules = {
     "#duplicate": "mute",
     "#code": "hide",
     "#reloc": "hide",
+    "#code-junk": "hide",
 }
 
 

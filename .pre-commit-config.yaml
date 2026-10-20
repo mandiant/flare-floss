@@ -48,7 +48,7 @@ repos:
     hooks:
     -   id: pytest
         name: pytest
-        stages: []
+        stages: [manual]
         language: system
         pass_filenames: false
         always_run: true

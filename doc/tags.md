@@ -39,12 +39,26 @@ The remaining tags are single tags, not families, and can be filtered directly:
 | `#msvc` | Microsoft C runtime library (`floss/tags/data/crt/`) |
 | `#capa` | Expert / capa rules (`floss/tags/data/expert/`) |
 
+A library tag (`oss` family or `#msvc`) is dropped from a file's strings when
+fewer than 5 strings in the file carry it. A handful of hits are usually generic
+strings such as `System`, `signal`, or `kernel32.dll` that also appear in the
+library, not evidence that the library is linked in.
+
 ## Match behavior
 
 Tag matching is normalized: a leading `#` is stripped and the tag is lowercased,
 so `winapi`, `#WinAPI`, and `#winapi` all match the stored tag `#winapi`. Values
 that do not name a family are compared directly. A string matches a `--tag` filter
 if any of its tags matches any of the requested tags/families.
+
+## Default rendering
+
+Without `--tag` or `--interesting`, the text view hides strings tagged `#code`,
+`#reloc`, or `#code-junk` (known instruction-byte sequences such as `D$0H`, which
+supplement code range recovery), mutes `#common`, `#duplicate`, and other tags,
+and highlights `#capa`. The HTML viewer deselects the same three tags by default.
+JSON output is not affected. To see hidden strings in the text view, select them
+explicitly, e.g. `--tag code-junk`.
 
 ## Noisy tags and `--interesting`
 
