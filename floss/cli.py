@@ -96,6 +96,20 @@ class ArgumentParser(argparse.ArgumentParser):
         raise ArgumentValueError("%(prog)s: error: %(message)s" % args)
 
 
+SHORT_HELP = textwrap.dedent(f"""\
+    FLOSS {__version__} - extract all strings from malware
+
+    usage: floss [options] [--] sample
+
+    examples:
+      floss suspicious.exe
+      floss --summary suspicious.exe
+      floss --interesting suspicious.exe
+
+    run "floss -h" to list all options
+    """)
+
+
 def make_parser():
     desc = (
         "The FLARE team's open-source tool to extract ALL strings from malware.\n"
@@ -136,6 +150,9 @@ def make_parser():
 
           only show strings tagged winapi or openssl
             floss --tag winapi openssl -- suspicious.exe
+
+          hide noisy strings
+            floss --interesting suspicious.exe
 
           hide noisy strings and search for a pattern in the layout tree
             floss --interesting --query "http://" -- suspicious.exe

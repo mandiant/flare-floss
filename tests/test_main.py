@@ -26,22 +26,30 @@ from floss.version import __version__
 from floss.pipeline import Options, analyze
 
 
-def test_main_help(capsys):
-    for help_str in ("-h", "--help"):
-        # via https://medium.com/python-pandemonium/testing-sys-exit-with-pytest-10c6e5f7726f
-        with pytest.raises(SystemExit) as pytest_wrapped_e:
-            floss.main.main([help_str])
-        assert pytest_wrapped_e.type == SystemExit
-        assert pytest_wrapped_e.value.code == 0
-        out = capsys.readouterr().out
-        assert "usage:" in out
-        assert "--json" in out
-
-    # running without arguments prints the same help and exits with code 1
-    assert floss.main.main([]) == 1
+@pytest.mark.parametrize("arg", ["-h", "--help"])
+def test_main_help(capsys, arg):
+    with pytest.raises(SystemExit) as e:
+        floss.main.main([arg])
+    assert e.value.code == 0
     out = capsys.readouterr().out
-    assert "usage:" in out
+    assert "usage: floss" in out
     assert "--json" in out
+    assert "FLOSS_CACHE_DIR" in out
+
+
+def test_main_no_args_prints_short_help(capsys):
+    assert floss.main.main([]) == 1
+    short = capsys.readouterr().out
+    with pytest.raises(SystemExit):
+        floss.main.main(["-h"])
+    full = capsys.readouterr().out
+
+    assert "usage: floss" in short
+    assert "floss -h" in short
+    assert "--json" not in short
+    examples = [line.strip() for line in short.splitlines() if line.startswith("  floss ")]
+    assert examples
+    assert all(example in full for example in examples)
 
 
 def test_main_version(capsys):

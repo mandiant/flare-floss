@@ -28,6 +28,7 @@ import floss.render.json
 import floss.render.default
 import floss.render.summary
 from floss.cli import (
+    SHORT_HELP,
     SIGNATURES_PATH_DEFAULT_STRING,
     StringType,
     ArgumentValueError,
@@ -132,8 +133,7 @@ def main(argv=None) -> int:
     parser.json_mode = json_requested(argv)
     try:
         if not argv:
-            # no arguments: print the full option list and exit with code 1
-            parser.print_help()
+            print(SHORT_HELP, end="")
             return 1
         args = parser.parse_args(args=argv)
         for flag, include, exclude in (
