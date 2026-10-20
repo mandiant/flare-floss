@@ -193,3 +193,10 @@ def test_elf_compressed_section_without_chdr_is_dropped():
     names = _child_names(layout)
     assert ".rodata" not in names
     assert ".text" in names
+
+
+def test_elf_empty_relocation_section_does_not_hide_the_next_one():
+    # .rela.dyn: offset 0x568, now empty; .rela.plt: offset 0x628, size 0x48
+    layout = _load_patched_pie(".rela.dyn", sh_size=0)
+    assert isinstance(layout, ELFLayout)
+    assert layout.relocation_offsets.overlaps(0x560, 0x630)

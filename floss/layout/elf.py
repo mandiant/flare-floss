@@ -123,6 +123,10 @@ def get_relocations_elf(slice_: Slice, elf: ELFFile) -> List[Tuple[int, int]]:
             offset = section["sh_offset"]
             size = section["sh_size"]
 
+            if size == 0:
+                # would become an inverted range that hides the following relocation range
+                continue
+
             if not slice_.contains_range(offset, size):
                 logger.warning("relocation directory points to an invalid location, skipping")
                 continue
