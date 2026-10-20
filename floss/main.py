@@ -28,12 +28,12 @@ import floss.render.json
 import floss.render.default
 import floss.render.summary
 from floss.cli import (
+    SHORT_HELP,
     SIGNATURES_PATH_DEFAULT_STRING,
     StringType,
     ArgumentValueError,
     make_parser,
     set_log_config,
-    format_short_help,
 )
 from floss.utils import FileType, detect_file_type, expand_string_types, is_string_type_enabled
 from floss.results import Analysis, load
@@ -133,8 +133,7 @@ def main(argv=None) -> int:
     parser.json_mode = json_requested(argv)
     try:
         if not argv:
-            # no arguments: print a short TLDR help and exit with code 1
-            print(format_short_help())
+            print(SHORT_HELP, end="")
             return 1
         args = parser.parse_args(args=argv)
         for flag, include, exclude in (
