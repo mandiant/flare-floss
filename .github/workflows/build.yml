@@ -140,6 +140,11 @@ jobs:
           - asset_name: macos
             artifact_name: floss
     steps:
+      - name: Checkout LICENSE.txt
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          sparse-checkout: LICENSE.txt
+          sparse-checkout-cone-mode: false
       - name: Download ${{ matrix.asset_name }}
         uses: actions/download-artifact@c850b930e6ba138125429b7e5c93fc707a7f8427 # v4.1.4
         with:
@@ -148,8 +153,8 @@ jobs:
         run: chmod +x ${{ matrix.artifact_name }}
       - name: Set zip name
         run: echo "zip_name=floss-${GITHUB_REF#refs/tags/}-${{ matrix.asset_name }}.zip" >> $GITHUB_ENV
-      - name: Zip ${{ matrix.artifact_name }} into ${{ env.zip_name }}
-        run: zip "$zip_name" "${{ matrix.artifact_name }}"
+      - name: Zip ${{ matrix.artifact_name }} and LICENSE.txt into ${{ env.zip_name }}
+        run: zip "$zip_name" "${{ matrix.artifact_name }}" LICENSE.txt
       - name: Upload ${{ env.zip_name }} to GH Release
         uses: svenstaro/upload-release-action@29e53e917877a24fad85510ded594ab3c9ca12de # 2.11.5
         with:
