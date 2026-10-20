@@ -187,6 +187,8 @@ pre-commit installed at .git/hooks/pre-push
 This way you can ensure that you don't commit code style or formatting offenses.
 You can always temporarily skip the checks by using the `-n`/`--no-verify` git option.
 
+The test suite is not part of these hooks because it is slow. Run it with `pytest tests/` or `pre-commit run pytest --hook-stage manual`.
+
 The linters and tests run in CI must all pass before a pull request is merged.
 
 
