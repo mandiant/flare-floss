@@ -13,4 +13,4 @@
 # limitations under the License.
 
 # caution: this file gets overwritten when building using PyInstaller, don't add required data in here without handling
-__version__ = "4.0.0a1"
+__version__ = "4.0.0a2"
