@@ -85,7 +85,7 @@ def generate_gp_db(path: str, min_count: int, type_: str) -> "StringGlobalPreval
             continue
         gpdb.insert(StringGlobalPrevalence(string, encoding, n, location))
 
-    print(f"final db contains {len(gpdb):,} strings (more than {MIN_COUNT} occurrences)")
+    print(f"final db contains {len(gpdb):,} strings (at least {min_count} occurrences)")
     return gpdb
 
 

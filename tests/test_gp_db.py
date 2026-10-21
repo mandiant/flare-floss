@@ -12,13 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import sys
 import json
 import dataclasses
+
+import pytest
 
 import floss.tags.gp
 from floss.tags import data_root
 from scripts.tags.generate_gp_db import generate_gp_db
 from scripts.tags.extract_strings import PeStrings, FileString
+from scripts.tags.extract_strings import main as extract_strings_main
 
 
 def test_load_db():
@@ -113,3 +117,19 @@ def test_generate_gp_db_deduplicates_sha256_and_filters_type(tmp_path):
     entries_all = db_all.query("common_str")
     assert len(entries_all) == 1
     assert entries_all[0].global_count == 2
+
+
+@pytest.mark.parametrize(
+    "extra_args",
+    [
+        ["--min-len", "0"],
+        ["--min-len", "-1"],
+        ["--max-len", "-1"],
+        ["--min-len", "10", "--max-len", "5"],
+    ],
+)
+def test_extract_strings_rejects_invalid_lengths(monkeypatch, tmp_path, extra_args):
+    monkeypatch.setattr(sys, "argv", ["extract_strings.py", str(tmp_path), str(tmp_path / "out"), *extra_args])
+    with pytest.raises(SystemExit) as excinfo:
+        extract_strings_main()
+    assert excinfo.value.code == 2

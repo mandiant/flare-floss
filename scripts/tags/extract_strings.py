@@ -207,12 +207,6 @@ def main():
     parser = argparse.ArgumentParser(description="Extract raw strings from PE files.")
     parser.add_argument("path", help="file or path to analyze")
     parser.add_argument("outdir", help="directory to store results to")
-    parser.add_argument(
-        "--pes",
-        action="store_true",
-        default=True,
-        help="recursively search and extract string from PE files under path, e.g., C:\\Windows",
-    )
     parser.add_argument("--min-len", type=int, default=MIN_LEN, help="minimum string length")
     parser.add_argument("--max-len", type=int, default=MAX_LEN_PES, help="maximum string length")
 
@@ -222,6 +216,11 @@ def main():
         "-q", "--quiet", action="store_true", help="disable all status output except fatal errors"
     )
     args = parser.parse_args()
+
+    if args.min_len < 1:
+        parser.error("--min-len must be at least 1")
+    if args.max_len < args.min_len:
+        parser.error("--max-len must be greater than or equal to --min-len")
 
     if args.quiet:
         logging.basicConfig(level=logging.WARNING)
@@ -244,8 +243,7 @@ def main():
     else:
         os.mkdir(args.outdir)
 
-    max_len = MAX_LEN_PES if args.max_len == -1 else args.max_len
-    extract_pes(args.path, args.outdir, args.min_len, max_len)
+    extract_pes(args.path, args.outdir, args.min_len, args.max_len)
 
     return 0
 
