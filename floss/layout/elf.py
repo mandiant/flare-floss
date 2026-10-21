@@ -21,8 +21,8 @@ import logging
 from typing import Any, Dict, List, Tuple, Iterable, Optional, Sequence
 
 from elftools.elf.elffile import ELFFile
+from elftools.elf.sections import Section
 from elftools.elf.constants import P_FLAGS, SH_FLAGS
-from elftools.elf.relocation import RelocationSection
 from elftools.common.exceptions import ELFError
 
 from floss.ranges import Range, Slice, OffsetRanges, merge_overlapping_ranges
@@ -83,8 +83,33 @@ def iter_sections_robust(elf: ELFFile) -> Iterable[Any]:
         try:
             yield elf.get_section(i)
         except Exception as e:
-            logger.warning("failed to parse section %d: %s", i, e)
-            continue
+            # the typed section classes validate more than we need (e.g. the sh_link target type),
+            # but only the header fields are used here, so fall back to a plain section.
+            section = get_raw_section(elf, i)
+            if section is None:
+                logger.warning("failed to parse section %d: %s", i, e)
+                continue
+
+            logger.warning("failed to parse section %d, using its raw header: %s", i, e)
+            yield section
+
+
+def get_raw_section(elf: ELFFile, index: int) -> Optional[Section]:
+    try:
+        header = elf._get_section_header(index)  # type: ignore[attr-defined]
+    except Exception:
+        return None
+
+    try:
+        name = elf._get_section_name(header)  # type: ignore[attr-defined]
+    except Exception:
+        name = f"unnamed_section_{index}"
+
+    try:
+        # reads the Elf_Chdr of a SHF_COMPRESSED section, which may be missing
+        return Section(header, name, elf)
+    except Exception:
+        return None
 
 
 def get_relocations_elf(slice_: Slice, elf: ELFFile) -> List[Tuple[int, int]]:
@@ -94,9 +119,13 @@ def get_relocations_elf(slice_: Slice, elf: ELFFile) -> List[Tuple[int, int]]:
     ranges: List[Tuple[int, int]] = []
 
     for section in iter_sections_robust(elf):
-        if isinstance(section, RelocationSection):
+        if section["sh_type"] in ("SHT_REL", "SHT_RELA"):
             offset = section["sh_offset"]
             size = section["sh_size"]
+
+            if size == 0:
+                # would become an inverted range that hides the following relocation range
+                continue
 
             if not slice_.contains_range(offset, size):
                 logger.warning("relocation directory points to an invalid location, skipping")

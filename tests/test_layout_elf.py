@@ -12,7 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import io
 from pathlib import Path
+
+from elftools.elf.elffile import ELFFile
 
 from floss.layout import compute_layout
 from floss.ranges import Slice
@@ -126,3 +129,74 @@ def test_elf_code_offsets_nested_slice():
     expected = [(start + k, end + k) for start, end in standalone.code_offsets.ranges]
     assert nested.code_offsets.ranges == expected
     assert nested.relocation_offsets.ranges == [(s + k, e + k) for s, e in standalone.relocation_offsets.ranges]
+
+
+# (offset, size) of Elf64_Shdr fields
+SHDR64_FIELDS = {
+    "sh_type": (4, 4),
+    "sh_flags": (8, 8),
+    "sh_offset": (24, 8),
+    "sh_size": (32, 8),
+    "sh_link": (40, 4),
+    "sh_entsize": (56, 8),
+}
+
+
+def _load_patched_pie(section_name: str, **fields: int):
+    """load X86_64_PIE with the given section header fields overwritten"""
+    data = bytearray((ELF_DIR / X86_64_PIE).read_bytes())
+    elf = ELFFile(io.BytesIO(bytes(data)))
+    header = elf.header["e_shoff"] + elf.get_section_index(section_name) * elf.header["e_shentsize"]
+    for field, value in fields.items():
+        offset, size = SHDR64_FIELDS[field]
+        data[header + offset : header + offset + size] = value.to_bytes(size, "little")
+    return compute_layout(Slice.from_bytes(bytes(data)))
+
+
+def _child_names(layout) -> set:
+    return {child.name for child in layout.children}
+
+
+def test_elf_symtab_with_bad_link_is_kept():
+    # pyelftools rejects a symbol table whose sh_link is not a string table
+    layout = _load_patched_pie(".symtab", sh_link=0)
+    assert isinstance(layout, ELFLayout)
+    assert ".symtab" in _child_names(layout)
+    assert "symbol table" in {s.name for s in layout.structures_by_address.values()}
+
+
+def test_elf_relr_with_bad_entsize_is_kept():
+    SHT_RELR = 19
+    layout = _load_patched_pie(".rela.dyn", sh_type=SHT_RELR, sh_entsize=0)
+    assert isinstance(layout, ELFLayout)
+    assert ".rela.dyn" in _child_names(layout)
+
+
+def test_elf_rela_with_bad_entsize_keeps_relocations():
+    layout = _load_patched_pie(".rela.plt", sh_entsize=8)
+    assert isinstance(layout, ELFLayout)
+    assert ".rela.plt" in _child_names(layout)
+    # .rela.plt: offset 0x628, size 0x48
+    assert layout.relocation_offsets.overlaps(0x628, 0x628 + 0x48 - 1)
+
+
+def test_elf_compressed_section_without_chdr_is_dropped():
+    # neither the typed nor the raw section can be built when the Elf_Chdr is missing,
+    # which must drop only this section, not the whole ELF layout
+    data = (ELF_DIR / X86_64_PIE).read_bytes()
+    rodata = ELFFile(io.BytesIO(data)).get_section_by_name(".rodata")
+    assert rodata is not None
+    flags = rodata["sh_flags"]
+    SHF_COMPRESSED = 0x800
+    layout = _load_patched_pie(".rodata", sh_flags=flags | SHF_COMPRESSED, sh_offset=len(data) - 4)
+    assert isinstance(layout, ELFLayout)
+    names = _child_names(layout)
+    assert ".rodata" not in names
+    assert ".text" in names
+
+
+def test_elf_empty_relocation_section_does_not_hide_the_next_one():
+    # .rela.dyn: offset 0x568, now empty; .rela.plt: offset 0x628, size 0x48
+    layout = _load_patched_pie(".rela.dyn", sh_size=0)
+    assert isinstance(layout, ELFLayout)
+    assert layout.relocation_offsets.overlaps(0x560, 0x630)
