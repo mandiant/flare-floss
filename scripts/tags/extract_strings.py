@@ -13,7 +13,7 @@
 # limitations under the License.
 
 # examples:
-# $ extract_strings.py -d --pes C:\Windows cwinpes
+# $ extract_strings.py -d C:\Windows cwinpes
 
 import os
 import sys
@@ -22,9 +22,8 @@ import hashlib
 import logging
 import argparse
 import datetime
-import collections
 import dataclasses
-from typing import List, Tuple, Mapping
+from typing import Any, Dict, List, Tuple
 from collections.abc import Iterator
 
 import dnfile
@@ -35,7 +34,6 @@ from floss.tags.gp import Encoding, Location
 
 MIN_LEN = 6
 MAX_LEN_PES = 100
-MAX_LEN_LIBS = 64  # TODO check, but these tend to contain long strings, focus on actual string data via better parsing
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +53,16 @@ class PeStrings:
     timestamp: str
     dotnet: bool
     strings: List[FileString]
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> "PeStrings":
+        return cls(
+            path=d["path"],
+            sha256=d["sha256"],
+            timestamp=d["timestamp"],
+            dotnet=d["dotnet"],
+            strings=[FileString(**s) for s in d["strings"]],
+        )
 
 
 def match(path: str, suffixes: Tuple[str, ...], prefixes: Tuple[str, ...]):
@@ -84,25 +92,6 @@ def find_file_paths(path: str, suffixes: Tuple[str, ...] = (), prefixes: Tuple[s
                     file_path = os.path.join(root, file)
                     logger.debug("found file: %s", os.path.abspath(os.path.normpath(file_path)))
                     yield file_path
-
-
-# TODO adjust to new JSON format
-def extract_libs(dir_path: str, outdir: str, min_len: int, max_len: int):
-    for file_path in find_file_paths(dir_path, suffixes=(".lib",)):
-        with open(file_path, "rb") as f:
-            binary_data = f.read()
-
-        extracted_strings = floss.strings.extract_ascii_unicode_strings(binary_data, min_len)
-        filtered_strings = filter(lambda s: len(s.string) <= max_len, extracted_strings)
-        sorted_strings = sorted(filtered_strings, key=lambda s: (s.string, len(s.string)))
-
-        outfile = os.path.join(outdir, f"{file_path.replace(os.sep, '--')}.json")
-        d: Mapping[str, Mapping[str, List[str]]] = collections.defaultdict(lambda: collections.defaultdict(list))
-        for s in sorted_strings:
-            if s.string not in d[file_path][s.encoding]:
-                d[file_path][s.encoding.value].append(s.string)
-        with open(outfile, "w", encoding="utf-8") as f:
-            json.dump(d, f, indent=2)
 
 
 def get_section(offset: int, sections: List):
@@ -215,21 +204,17 @@ def get_section_boundaries(pe: pefile.PE, file_size: int):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Extract raw strings from select files.")
+    parser = argparse.ArgumentParser(description="Extract raw strings from PE files.")
     parser.add_argument("path", help="file or path to analyze")
     parser.add_argument("outdir", help="directory to store results to")
     parser.add_argument(
-        "--libs",
-        action="store_true",
-        help=r"recursively search and extract string from .lib files under path, e.g., C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.35.32215\crt\src\i386",
-    )
-    parser.add_argument(
         "--pes",
         action="store_true",
+        default=True,
         help="recursively search and extract string from PE files under path, e.g., C:\\Windows",
     )
     parser.add_argument("--min-len", type=int, default=MIN_LEN, help="minimum string length")
-    parser.add_argument("--max-len", type=int, default=-1, help="maximum string length")
+    parser.add_argument("--max-len", type=int, default=MAX_LEN_PES, help="maximum string length")
 
     logging_group = parser.add_argument_group("logging arguments")
     logging_group.add_argument("-d", "--debug", action="store_true", help="enable debugging output on STDERR")
@@ -259,19 +244,8 @@ def main():
     else:
         os.mkdir(args.outdir)
 
-    max_len = args.max_len
-    if max_len == -1:
-        if args.libs:
-            max_len = MAX_LEN_LIBS
-        elif args.pes:
-            max_len = MAX_LEN_PES
-        else:
-            raise ValueError("unknown extraction type")
-
-    if args.libs:
-        extract_libs(args.path, args.outdir, args.min_len, max_len)
-    elif args.pes:
-        extract_pes(args.path, args.outdir, args.min_len, max_len)
+    max_len = MAX_LEN_PES if args.max_len == -1 else args.max_len
+    extract_pes(args.path, args.outdir, args.min_len, max_len)
 
     return 0
 
