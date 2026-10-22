@@ -30,11 +30,35 @@ TagRules = Dict[Tag, Literal["mute"] | Literal["highlight"] | Literal["default"]
 # hack: assume the libname is embedded in the filename.
 # otherwise, we don't have an easy way to recover the library tag names.
 # the CRT database file (crt/msvc_v143.jsonl.gz) tags its strings as #msvc.
-LIBRARY_TAGS = tuple(f"#{filename.partition('.')[0]}" for filename in DEFAULT_FILENAMES) + ("#msvc",)
+MSVC_TAG = "#msvc"
+LIBRARY_TAGS = tuple(f"#{filename.partition('.')[0]}" for filename in DEFAULT_FILENAMES) + (MSVC_TAG,)
+
+
+def remove_msvc_tags_outside_pe(layout: "Layout", in_non_pe: bool = False):
+    """Drop #msvc from strings of ELF and Mach-O files, which are never linked against the MSVC CRT.
+
+    The CRT database holds common words, like "name" or "error", that otherwise match in any binary.
+    A PE embedded in such a file keeps its tags: the nearest enclosing file format decides.
+    """
+    from floss.layout.base import PELayout, ELFLayout, MachOLayout, MachOFatLayout
+
+    if isinstance(layout, PELayout):
+        in_non_pe = False
+    elif isinstance(layout, (ELFLayout, MachOLayout, MachOFatLayout)):
+        in_non_pe = True
+
+    if in_non_pe:
+        for string in layout.strings:
+            string.tags.discard(MSVC_TAG)
+
+    for child in layout.children:
+        remove_msvc_tags_outside_pe(child, in_non_pe)
 
 
 def remove_false_positive_lib_strings(layout: "Layout"):
     from floss.layout.extract import collect_strings
+
+    remove_msvc_tags_outside_pe(layout)
 
     # list of references to all the tagged strings across the layout.
     # we can (carefully) manipulate the tags here.
