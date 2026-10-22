@@ -249,6 +249,8 @@ def collect_pe_structures(slice_: Slice, pe: pefile.PE) -> Sequence[Structure]:
     for section in sorted(pe.sections, key=lambda s: s.PointerToRawData):
         offset = section.get_file_offset()
         size = section.sizeof()
+        if not slice_.contains_range(offset, size):
+            continue
 
         structures.append(
             Structure(
@@ -314,12 +316,15 @@ def collect_pe_structures(slice_: Slice, pe: pefile.PE) -> Sequence[Structure]:
                 size = len(dll_name)
                 offset = get_physical_offset_from_rva(pe, rva)
 
-                structures.append(
-                    Structure(
-                        slice=slice_.slice(offset, size),
-                        name="export table",
+                # pefile reads the name via the FileAlignment-rounded PointerToRawData, so on an
+                # unaligned section the raw offset can put a name near EOF past the end of the slice
+                if exp.name != b"*invalid*" and slice_.contains_range(offset, size):
+                    structures.append(
+                        Structure(
+                            slice=slice_.slice(offset, size),
+                            name="export table",
+                        )
                     )
-                )
             except (UnicodeDecodeError, pefile.PEFormatError) as e:
                 logger.warning("failed to parse export table DLL name: %s", e)
 
@@ -339,26 +344,30 @@ def collect_pe_structures(slice_: Slice, pe: pefile.PE) -> Sequence[Structure]:
                 offset = entry.name_offset
                 size = len(symbol_name)
 
-                structures.append(
-                    Structure(
-                        slice=slice_.slice(offset, size),
-                        name="export table",
-                    )
-                )
-
-                if entry.forwarder:
-                    try:
-                        forwarder_name = entry.forwarder.decode("ascii")
-                    except UnicodeDecodeError:
-                        continue
-                    offset = entry.forwarder_offset
-                    size = len(forwarder_name)
+                # pefile computes name_offset against VirtualSize, not the file bytes, and substitutes
+                # this placeholder for names it rejects; neither is guaranteed to lie within the slice
+                if entry.name != b"*invalid*" and slice_.contains_range(offset, size):
                     structures.append(
                         Structure(
                             slice=slice_.slice(offset, size),
                             name="export table",
                         )
                     )
+
+                if entry.forwarder and entry.forwarder_offset is not None:
+                    try:
+                        forwarder_name = entry.forwarder.decode("ascii")
+                    except UnicodeDecodeError:
+                        continue
+                    offset = entry.forwarder_offset
+                    size = len(forwarder_name)
+                    if slice_.contains_range(offset, size):
+                        structures.append(
+                            Structure(
+                                slice=slice_.slice(offset, size),
+                                name="export table",
+                            )
+                        )
 
     if hasattr(pe, "RICH_HEADER") and pe.RICH_HEADER:
         key_bytes = pe.RICH_HEADER.key
@@ -371,7 +380,7 @@ def collect_pe_structures(slice_: Slice, pe: pefile.PE) -> Sequence[Structure]:
         xor_dans = bytes(a ^ b for a, b in zip(b"DanS", key_bytes))
         rich_start = pe.__data__.rfind(xor_dans, 0x40, rich_sig_offset)
 
-        if rich_sig_offset != -1 and rich_start != -1:
+        if rich_sig_offset != -1 and rich_start != -1 and slice_.contains_range(rich_start, rich_end - rich_start):
             structures.append(Structure(slice=slice_.slice(rich_start, rich_end - rich_start), name="rich header"))
 
     return structures

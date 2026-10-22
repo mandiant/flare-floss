@@ -193,3 +193,44 @@ def test_invalid_import_dll_name_keeps_pe_layout(delay):
     assert isinstance(layout, PELayout)
     assert HEADERS_SIZE + INVALID_DLL_NAME not in layout.structures_by_address
     assert layout.structures_by_address[HEADERS_SIZE + HINT_NAME + 2].name == "import table"
+
+
+UNALIGNED_SHIFT = 0x10
+EXPORT_DIRECTORY = 0x20
+OVERFLOWING_EXPORT_NAME = RDATA_SIZE - 8
+
+
+def build_unaligned_export_name_pe() -> bytes:
+    """PE32 whose .rdata starts at an unaligned PointerToRawData (0x210) and exports a DLL name near EOF.
+
+    pefile reads the export DLL name through the FileAlignment-rounded pointer (0x200), so it finds
+    "ABCDE.dll"; FLOSS maps the same RVA through the raw pointer, 0x10 bytes later, where the 9-byte
+    name would extend past the end of the file.
+    """
+    rdata = bytearray(RDATA_SIZE)
+
+    def put(rva_offset: int, data: bytes) -> None:
+        # pefile reads RVA RDATA_RVA + rva_offset at file offset HEADERS_SIZE + rva_offset
+        start = rva_offset - UNALIGNED_SHIFT
+        rdata[start : start + len(data)] = data
+
+    put(
+        EXPORT_DIRECTORY,
+        struct.pack("<IIHHIIIIIII", 0, 0, 0, 0, RDATA_RVA + OVERFLOWING_EXPORT_NAME, 1, 0, 0, 0, 0, 0),
+    )
+    put(OVERFLOWING_EXPORT_NAME, b"ABCDE.dll\x00")
+
+    IMAGE_DIRECTORY_ENTRY_EXPORT = 0
+    buf = bytearray(build_pe(bytes(rdata), {IMAGE_DIRECTORY_ENTRY_EXPORT: (RDATA_RVA + EXPORT_DIRECTORY, 0x28)}))
+    section_header = buf.find(b".rdata\x00")
+    struct.pack_into("<I", buf, section_header + 20, HEADERS_SIZE + UNALIGNED_SHIFT)  # PointerToRawData
+    return bytes(buf[:HEADERS_SIZE]) + b"\x00" * UNALIGNED_SHIFT + bytes(buf[HEADERS_SIZE:])
+
+
+def test_export_name_past_end_of_file_keeps_pe_layout():
+    buf = build_unaligned_export_name_pe()
+    layout = compute_layout(buf, 4)
+    # an out-of-bounds export name used to raise in Range.slice and collapse the whole file to one segment
+    assert isinstance(layout, PELayout)
+    assert HEADERS_SIZE + UNALIGNED_SHIFT + OVERFLOWING_EXPORT_NAME not in layout.structures_by_address
+    assert layout.structures_by_address[0x40 + 4 + 20 + 0xE0].name == "section header"
