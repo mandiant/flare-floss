@@ -78,7 +78,10 @@ def get_if_rust_and_version(static_strings: Iterable[StaticString]) -> Tuple[boo
     regex_hash = re.compile(r"rustc/(?P<hash>[a-z0-9]{40})[\\\/]library")
 
     # matches strings like "rustc/version/library" e.g. "rustc/1.54.0/library"
-    regex_version = re.compile(r"rustc/(?P<version>[0-9]{1,2}\.[0-9]{1,2}\.[0-9]{1,2})")
+    # each field is [0-9]+ (not {1,2}) so a 3+ digit minor/patch is not missed or truncated
+    # (e.g. "rustc/1.100.0/library"), and the trailing path separator anchors the version end
+    # so a longer number is captured in full ("rustc/1.9.123/library" -> "1.9.123", not "1.9.12")
+    regex_version = re.compile(r"rustc/(?P<version>[0-9]+\.[0-9]+\.[0-9]+)[\\/]")
 
     for static_string_obj in static_strings:
         string = static_string_obj.string
