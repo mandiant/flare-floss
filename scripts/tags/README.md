@@ -18,10 +18,10 @@ query_string.py     →  lookup GP tags     (debug / inspection)
 
 ## Global prevalence (GP)
 
-1. **Extract** raw strings from PEs or `.lib` archives:
+1. **Extract** raw strings from PEs:
 
    ```console
-   $ python scripts/tags/extract_strings.py C:\Windows outdir --pes
+   $ python scripts/tags/extract_strings.py C:\Windows outdir
    ```
 
 2. **Generate** the global-prevalence database from extracted JSON:

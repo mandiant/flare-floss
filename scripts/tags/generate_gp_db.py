@@ -61,7 +61,7 @@ def generate_gp_db(path: str, min_count: int, type_: str) -> "StringGlobalPreval
 
             with open(file_path, "r", encoding="utf-8") as f:
                 d = json.load(f)
-                pestrings = PeStrings(**d)
+                pestrings = PeStrings.from_dict(d)
 
                 dotnative = "dotnet" if pestrings.dotnet else "native"
                 if type_ != "all" and dotnative != type_:
@@ -70,6 +70,7 @@ def generate_gp_db(path: str, min_count: int, type_: str) -> "StringGlobalPreval
 
                 if pestrings.sha256 in seen_hashes:
                     logger.debug("skipping already indexed file with sha256 hash %s: %s", pestrings.sha256, file_path)
+                    continue
                 seen_hashes.add(pestrings.sha256)
 
                 nstrings += len(pestrings.strings)
@@ -84,7 +85,7 @@ def generate_gp_db(path: str, min_count: int, type_: str) -> "StringGlobalPreval
             continue
         gpdb.insert(StringGlobalPrevalence(string, encoding, n, location))
 
-    print(f"final db contains {len(gpdb):,} strings (more than {MIN_COUNT} occurrences)")
+    print(f"final db contains {len(gpdb):,} strings (at least {min_count} occurrences)")
     return gpdb
 
 
