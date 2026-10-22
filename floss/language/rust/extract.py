@@ -85,8 +85,8 @@ def filter_and_transform_utf8_strings(
         if string_type != "UTF8":
             continue
 
-        # our static algorithm does not extract new lines either
-        s = s.replace("\n", "")
+        # keep newlines for now: the text must stay byte-aligned with `offset` until the
+        # strings have been split at cross-references (see get_string_blob_strings)
         transformed_strings.append(StaticString(string=s, offset=start, encoding=StringEncoding.UTF8))
 
     return transformed_strings
@@ -204,7 +204,19 @@ def get_string_blob_strings(pe: pefile.PE, min_length: int) -> Iterable[StaticSt
 
         split_strings(static_strings, address, min_length)
 
-    return static_strings
+    # our static algorithm does not extract new lines either. Remove them only now: split
+    # positions are byte offsets, and every newline removed before splitting shifted each
+    # later split in that string one byte to the right.
+    return strip_newlines(static_strings, min_length)
+
+
+def strip_newlines(static_strings: List[StaticString], min_length: int) -> List[StaticString]:
+    stripped = []
+    for string in static_strings:
+        s = string.string.replace("\n", "")
+        if len(s) >= min_length:
+            stripped.append(StaticString(string=s, offset=string.offset, encoding=string.encoding))
+    return stripped
 
 
 def main(argv=None):
