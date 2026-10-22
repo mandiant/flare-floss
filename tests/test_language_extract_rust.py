@@ -3,7 +3,7 @@ import pathlib
 import pytest
 
 from floss.results import StaticString, StringEncoding
-from floss.language.rust.extract import extract_rust_strings
+from floss.language.rust.extract import split_strings, extract_rust_strings
 
 
 @pytest.fixture(scope="module")
@@ -80,3 +80,43 @@ def test_push(request, string, offset, encoding, rust_strings):
 )
 def test_mov_jmp(request, string, offset, encoding, rust_strings):
     assert StaticString(string=string, offset=offset, encoding=encoding) in request.getfixturevalue(rust_strings)
+
+
+def _split_once(s: str, offset: int, split_substr: str, min_length: int = 4):
+    """Build a single StaticString, split it at the file offset of ``split_substr``, and
+    return the resulting (offset, string) pairs sorted by offset."""
+    address = offset + s.encode("utf-8").index(split_substr.encode("utf-8"))
+    static_strings = [StaticString(string=s, offset=offset, encoding=StringEncoding.UTF8)]
+    split_strings(static_strings, address, min_length)
+    return [(ss.offset, ss.string) for ss in sorted(static_strings, key=lambda x: x.offset)]
+
+
+@pytest.mark.parametrize(
+    "s,offset,split_substr,expected",
+    [
+        # ASCII: byte offset == character index, so this is the pre-existing behavior
+        pytest.param("hello_world_foo", 0x1000, "_world_foo", [(0x1000, "hello"), (0x1005, "_world_foo")], id="ascii"),
+        # a multi-byte character (é = 2 UTF-8 bytes) before the split point: splitting on the
+        # character index would cut one byte late ("café_" / "endpoint" at a drifted offset)
+        pytest.param("café_endpoint", 0x1000, "_endpoint", [(0x1000, "café"), (0x1005, "_endpoint")], id="utf8-before"),
+        # the split falls past the character count (8) but within the byte length (16): the
+        # character-index containment test ended the string early and skipped the split entirely
+        pytest.param("€€€€xyzw", 0x2000, "xyzw", [(0x2000, "€€€€"), (0x200C, "xyzw")], id="utf8-past-charcount"),
+    ],
+)
+def test_split_strings_utf8_offsets(s, offset, split_substr, expected):
+    # split points are byte offsets into the file while the string is decoded text, so the
+    # split must be computed on the UTF-8 bytes (regression test for the char-index bug)
+    assert _split_once(s, offset, split_substr) == expected
+
+
+def test_split_strings_respects_min_length():
+    # the leading piece "ab" (2 chars) is shorter than min_length and must be dropped, while
+    # the remainder is kept; offsets stay byte-accurate across the multi-byte "é"
+    s = "abé_long_enough_tail"
+    address = 0x1000 + s.encode("utf-8").index(b"_long_enough_tail")
+    static_strings = [StaticString(string=s, offset=0x1000, encoding=StringEncoding.UTF8)]
+    split_strings(static_strings, address, min_length=4)
+    results = [(ss.offset, ss.string) for ss in static_strings]
+    assert (address, "_long_enough_tail") in results
+    assert all(len(ss) >= 4 for _, ss in results)

@@ -96,12 +96,23 @@ def split_strings(static_strings: List[StaticString], address: int, min_length: 
     """
     if address is in between start and end of a string in ref data then split the string
     this modifies the elements of the static strings list directly
+
+    ``address`` and ``string.offset`` are byte offsets into the file, but ``string.string`` is
+    the decoded str. A Rust string blob routinely holds multi-byte UTF-8 (non-ASCII paths,
+    panic messages, identifiers), so the split must be computed on the UTF-8 bytes, not the
+    character index: ``address - string.offset`` is a byte delta, and ``len(string.string)``
+    counts characters, not bytes. Slicing the str directly cuts at the wrong character and
+    leaves the ``rest`` piece with an offset that drifts by the number of multi-byte characters
+    before the cut; the containment test likewise ends the string too early and misses splits
+    that fall past the character count but within the byte length.
     """
 
     for string in static_strings:
-        if string.offset < address < string.offset + len(string.string):
-            rust_string = string.string[0 : address - string.offset]
-            rest = string.string[address - string.offset :]
+        buffer = string.string.encode("utf-8")
+        if string.offset < address < string.offset + len(buffer):
+            boundary = address - string.offset
+            rust_string = buffer[:boundary].decode("utf-8", "replace")
+            rest = buffer[boundary:].decode("utf-8", "replace")
 
             if len(rust_string) >= min_length:
                 static_strings.append(
