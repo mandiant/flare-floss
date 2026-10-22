@@ -3,7 +3,7 @@ import pathlib
 import pytest
 
 from floss.results import StaticString, StringEncoding
-from floss.language.rust.extract import extract_rust_strings
+from floss.language.rust.extract import extract_rust_strings, get_static_strings_from_rdata
 
 
 @pytest.fixture(scope="module")
@@ -80,3 +80,21 @@ def test_push(request, string, offset, encoding, rust_strings):
 )
 def test_mov_jmp(request, string, offset, encoding, rust_strings):
     assert StaticString(string=string, offset=offset, encoding=encoding) in request.getfixturevalue(rust_strings)
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        pytest.param(b"\x7fELF" + b"\x00" * 128, id="elf-magic"),
+        pytest.param(b"\xcf\xfa\xed\xfe" + b"\x00" * 128, id="macho-magic"),
+        pytest.param(b"not an executable at all", id="garbage"),
+    ],
+)
+def test_extract_rust_strings_non_pe_does_not_crash(tmp_path, content):
+    # a Rust ELF/Mach-O is classified as Rust by the string-based detector (which runs before
+    # any PE parse), so it reaches the PE-only extractor; it must return no Rust-specific
+    # strings instead of raising pefile.PEFormatError and crashing the pipeline
+    sample = tmp_path / "sample.bin"
+    sample.write_bytes(content)
+    assert extract_rust_strings(sample, 6) == []
+    assert get_static_strings_from_rdata(sample, []) == []
