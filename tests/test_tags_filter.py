@@ -19,6 +19,7 @@ from types import SimpleNamespace
 import pytest
 
 from floss.tags.oss import DEFAULT_PATHS
+from floss.layout.base import PELayout, ELFLayout, MachOLayout, SegmentLayout, MachOFatLayout
 from floss.tags.filter import LIBRARY_TAGS, remove_false_positive_lib_strings
 
 
@@ -59,3 +60,41 @@ def test_library_tags_match_database_library_names():
         with gzip.open(path, "rt") as f:
             names.add(json.loads(f.readline())["library_name"])
     assert set(LIBRARY_TAGS) == {f"#{name}" for name in names}
+
+
+def make_typed_layout(cls, *tag_sets, children=()):
+    # model_construct skips validation, so only the fields the filter walks are needed
+    return cls.model_construct(
+        strings=[SimpleNamespace(tags=set(tags)) for tags in tag_sets],
+        children=list(children),
+    )
+
+
+@pytest.mark.parametrize("cls", [ELFLayout, MachOLayout, MachOFatLayout])
+def test_msvc_tag_is_removed_outside_pe(cls):
+    # ELF and Mach-O files are never linked against the MSVC CRT; enough generic words match its database
+    # ("name", "error", "data", ...) to pass the threshold, so drop the tag regardless of the hit count
+    msvc = [{"#msvc", "#common"} for _ in range(10)]
+    layout = make_typed_layout(cls, *msvc, children=[make_typed_layout(SegmentLayout, *msvc)])
+    remove_false_positive_lib_strings(layout)
+    assert tags_of(layout) == [{"#common"}] * 20
+
+
+def test_other_library_tags_are_kept_outside_pe():
+    layout = make_typed_layout(ELFLayout, *[{"#zlib"} for _ in range(5)])
+    remove_false_positive_lib_strings(layout)
+    assert tags_of(layout) == [{"#zlib"}] * 5
+
+
+def test_msvc_tag_is_kept_in_pe():
+    layout = make_typed_layout(PELayout, *[{"#msvc"} for _ in range(5)])
+    remove_false_positive_lib_strings(layout)
+    assert tags_of(layout) == [{"#msvc"}] * 5
+
+
+def test_msvc_tag_is_kept_in_pe_embedded_in_elf():
+    # the nearest enclosing file format decides
+    pe = make_typed_layout(PELayout, *[{"#msvc"} for _ in range(5)])
+    layout = make_typed_layout(ELFLayout, {"#msvc"}, children=[pe])
+    remove_false_positive_lib_strings(layout)
+    assert tags_of(layout) == [set()] + [{"#msvc"}] * 5
