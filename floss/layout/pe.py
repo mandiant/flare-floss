@@ -173,9 +173,31 @@ def get_code_analysis_skip_reason(pe: pefile.PE, file_size: int) -> Optional[str
     return None
 
 
+class InstructionAddressIndex:
+    """
+    The part of lancelot.be2utils.BinExport2Index that _get_code_ranges uses.
+
+    BinExport2Index also indexes every flow graph edge, which takes many minutes
+    on large binaries (millions of edges with python-lancelot 0.10.1).
+    """
+
+    def __init__(self, be2: "lancelot.BinExport2"):
+        self.be2 = be2
+        self.addresses: List[int] = []
+        next_address = 0
+        for instruction in be2.instruction:
+            address = instruction.address if instruction.HasField("address") else next_address
+            self.addresses.append(address)
+            next_address = address + len(instruction.raw_bytes)
+
+    def basic_block_instructions(self, basic_block):
+        for index in lancelot.be2utils.BinExport2Index.instruction_indices(basic_block):
+            yield index, self.be2.instruction[index], self.addresses[index]
+
+
 def _get_code_ranges(
     be2: "lancelot.BinExport2",
-    idx: "lancelot.be2utils.BinExport2Index",
+    idx: InstructionAddressIndex,
     base_address: int,
     pe: pefile.PE,
     slice_: Slice,
@@ -413,7 +435,7 @@ def compute_pe_layout(slice_: Slice, xor_key: int | None, depth: int = 0) -> Lay
     if be2:
         with timing("lancelot: find code"):
             base_address = lancelot.be2utils.find_be2_base_address(be2)
-            idx = lancelot.be2utils.BinExport2Index(be2)
+            idx = InstructionAddressIndex(be2)
             code_ranges = _get_code_ranges(be2, idx, base_address, pe, slice_)
             merged_code_ranges = merge_overlapping_ranges(code_ranges)
             code_offsets = OffsetRanges.from_merged_ranges(merged_code_ranges)
