@@ -145,7 +145,7 @@ dev = [
     "pycodestyle==2.15.0",
     "black==26.10.1",
     "isort==9.0.1",
-    "mypy==2.3.0",
+    "mypy==2.4.0",
     # type stubs for mypy
     "types-PyYAML==6.0.10",
     "types-tabulate==0.10.0.20260408",
