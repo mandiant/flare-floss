@@ -24,7 +24,7 @@ msgpack==1.2.1
 msgspec==0.22.0
 mypy==2.3.0
 networkx==3.7
-nodeenv==1.10.0
+nodeenv==1.11.0
 packaging==26.3
 pathspec==1.1.0
 pefile==2024.8.26
