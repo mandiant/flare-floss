@@ -31,7 +31,7 @@ pefile==2024.8.26
 pip==26.2.1
 platformdirs==4.13.0
 pluggy==1.6.0
-pre-commit==4.6.0
+pre-commit==4.7.0
 pyasn1==0.6.4
 pyasn1-modules==0.4.2
 pycodestyle==2.15.0
