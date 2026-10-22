@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import io
 import sys
 import logging
 import pathlib
@@ -21,6 +22,9 @@ from typing import List, Tuple, Iterable, Optional
 
 import pefile
 import binary2strings as b2s
+from elftools.elf.elffile import ELFFile
+from elftools.elf.relocation import RelocationSection
+from elftools.common.exceptions import ELFError
 
 from floss.results import StaticString, StringEncoding
 from floss.language.utils import (
@@ -121,12 +125,22 @@ def split_strings(static_strings: List[StaticString], address: int, min_length: 
 
 def extract_rust_strings(sample: pathlib.Path, min_length: int) -> List[StaticString]:
     """
-    Extract Rust strings from a sample
+    Extract Rust strings from a sample (PE or ELF).
     """
 
-    p = pathlib.Path(sample)
-    buf = p.read_bytes()
-    pe = pefile.PE(data=buf, fast_load=True)
+    buf = pathlib.Path(sample).read_bytes()
+
+    if buf[:4] == b"\x7fELF":
+        return list(get_string_blob_strings_elf(buf, min_length))
+
+    try:
+        pe = pefile.PE(data=buf, fast_load=True)
+    except pefile.PEFormatError as e:
+        # Rust detection is string-based and runs before any PE parse, so a Rust Mach-O (or
+        # any non-PE, non-ELF input) can reach here; blob recovery for those is not implemented,
+        # so return nothing rather than crashing the pipeline with PEFormatError.
+        logger.debug("cannot extract rust strings: unsupported format (%s)", e)
+        return []
 
     rust_strings: List[StaticString] = list()
     rust_strings.extend(get_string_blob_strings(pe, min_length))
@@ -135,7 +149,20 @@ def extract_rust_strings(sample: pathlib.Path, min_length: int) -> List[StaticSt
 
 
 def get_static_strings_from_rdata(sample, static_strings) -> List[StaticString]:
-    pe = pefile.PE(data=pathlib.Path(sample).read_bytes(), fast_load=True)
+    buf = pathlib.Path(sample).read_bytes()
+
+    if buf[:4] == b"\x7fELF":
+        rodata = _elf_rodata_range(buf)
+        if rodata is None:
+            return []
+        start_ro, end_ro = rodata
+        return list(filter(lambda s: start_ro <= s.offset < end_ro, static_strings))
+
+    try:
+        pe = pefile.PE(data=buf, fast_load=True)
+    except pefile.PEFormatError as e:
+        logger.debug("cannot filter rust .rdata strings: unsupported format (%s)", e)
+        return []
 
     try:
         rdata_section = get_rdata_section(pe)
@@ -146,6 +173,93 @@ def get_static_strings_from_rdata(sample, static_strings) -> List[StaticString]:
     end_rdata = start_rdata + rdata_section.SizeOfRawData
 
     return list(filter(lambda s: start_rdata <= s.offset < end_rdata, static_strings))
+
+
+# ELF relocation types that store an absolute target VA in the addend (RELA): on a
+# position-independent Rust ELF the `&str` slice pointers are stored as 0 and fixed up at load,
+# so the real slice-start address is the relocation addend, not a value in the file bytes.
+_ELF_RELATIVE_RELOC = {
+    "EM_X86_64": 8,  # R_X86_64_RELATIVE
+    "EM_AARCH64": 1027,  # R_AARCH64_RELATIVE
+    "EM_386": 8,  # R_386_RELATIVE
+    "EM_ARM": 23,  # R_ARM_RELATIVE
+}
+
+
+def _elf_rodata_range(buf: bytes) -> Optional[Tuple[int, int]]:
+    """Return the (file-offset start, end) of the ELF .rodata section, or None."""
+    try:
+        elf = ELFFile(io.BytesIO(buf))
+        rodata = elf.get_section_by_name(".rodata")
+    except ELFError as e:
+        logger.debug("cannot read ELF .rodata: %s", e)
+        return None
+    if rodata is None:
+        return None
+    off = rodata["sh_offset"]
+    return off, off + rodata["sh_size"]
+
+
+def _elf_slice_target_vas(elf: ELFFile, lo: int, hi: int) -> set:
+    """Virtual addresses in [lo, hi) referenced by a RELATIVE relocation -- i.e. the `&str`
+    slice-start pointers of a PIE Rust ELF, recovered from the relocation addends."""
+    targets: set = set()
+    reloc_type = _ELF_RELATIVE_RELOC.get(elf.header["e_machine"])
+    for section in elf.iter_sections():
+        if not isinstance(section, RelocationSection):
+            continue
+        if not section.is_RELA():
+            # REL sections (e.g. 32-bit) store the addend at the target location, not in the
+            # reloc; the absolute-pointer scan below handles non-PIE, so skip these here.
+            continue
+        for reloc in section.iter_relocations():
+            if reloc_type is not None and reloc["r_info_type"] != reloc_type:
+                continue
+            addend = reloc["r_addend"]
+            if lo <= addend < hi:
+                targets.add(addend)
+    return targets
+
+
+def get_string_blob_strings_elf(buf: bytes, min_length: int) -> Iterable[StaticString]:
+    """
+    Extract Rust strings from an ELF, mirroring the PE path: recover the concatenated `&str`
+    blob in .rodata with binary2strings, then split it at the slice boundaries.
+
+    On a position-independent ELF the slice pointers are relocated (stored as 0, with an
+    `R_*_RELATIVE` relocation whose addend is the real target VA), so the split points come
+    from the relocation addends that land inside .rodata rather than from pointer values read
+    out of the file (which is how PE absolute pointers are found).
+    """
+    try:
+        elf = ELFFile(io.BytesIO(buf))
+    except ELFError as e:
+        logger.error("cannot extract rust strings: %s", e)
+        return []
+
+    rodata = elf.get_section_by_name(".rodata")
+    if rodata is None:
+        logger.error("cannot extract rust strings: no .rodata section")
+        return []
+
+    blob = rodata.data()
+    rodata_offset = rodata["sh_offset"]
+    rodata_va = rodata["sh_addr"]
+    rodata_va_end = rodata_va + len(blob)
+
+    strings = b2s.extract_all_strings(blob, min_length)
+    fixed_strings = fix_b2s_wide_strings(strings, min_length, blob)
+
+    # offsets become file offsets (rodata_offset + offset-within-blob), as on the PE path
+    static_strings = filter_and_transform_utf8_strings(fixed_strings, rodata_offset)
+
+    for va in _elf_slice_target_vas(elf, rodata_va, rodata_va_end):
+        address = rodata_offset + (va - rodata_va)
+        if not (rodata_offset <= address < rodata_offset + len(blob)):
+            continue
+        split_strings(static_strings, address, min_length)
+
+    return static_strings
 
 
 def get_string_blob_strings(pe: pefile.PE, min_length: int) -> Iterable[StaticString]:

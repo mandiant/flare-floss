@@ -3,7 +3,7 @@ import pathlib
 import pytest
 
 from floss.results import StaticString, StringEncoding
-from floss.language.rust.extract import extract_rust_strings
+from floss.language.rust.extract import extract_rust_strings, get_static_strings_from_rdata
 
 
 @pytest.fixture(scope="module")
@@ -80,3 +80,61 @@ def test_push(request, string, offset, encoding, rust_strings):
 )
 def test_mov_jmp(request, string, offset, encoding, rust_strings):
     assert StaticString(string=string, offset=offset, encoding=encoding) in request.getfixturevalue(rust_strings)
+
+
+import struct as _struct
+
+
+def _make_elf64(blob: bytes, rodata_va: int, addends, machine: int = 62) -> bytes:
+    """Build a minimal ET_DYN ELF64 LSB with NULL, .rodata (holding ``blob``), .rela.dyn
+    (one R_*_RELATIVE per addend) and .shstrtab sections -- enough for the Rust ELF extractor
+    to find the string blob and its relocation-derived slice boundaries, with no real toolchain."""
+    ehdr_size = 64
+    ro_off = ehdr_size
+    rela_off = (ro_off + len(blob) + 7) & ~7
+    rela = b"".join(_struct.pack("<QQq", 0x1000 + 8 * i, (0 << 32) | 8, a) for i, a in enumerate(addends))
+    shstr_off = rela_off + len(rela)
+    names = b"\x00.rodata\x00.rela.dyn\x00.shstrtab\x00"
+    shoff = (shstr_off + len(names) + 7) & ~7
+
+    def shdr(name, typ, flags, addr, off, size, link, info, align, entsize):
+        return _struct.pack("<IIQQQQIIQQ", name, typ, flags, addr, off, size, link, info, align, entsize)
+
+    sections = (
+        shdr(0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+        + shdr(names.index(b".rodata"), 1, 2, rodata_va, ro_off, len(blob), 0, 0, 1, 0)
+        + shdr(names.index(b".rela.dyn"), 4, 0, 0, rela_off, len(rela), 0, 0, 8, 24)
+        + shdr(names.index(b".shstrtab"), 3, 0, 0, shstr_off, len(names), 0, 0, 1, 0)
+    )
+    ehdr = b"\x7fELF" + bytes([2, 1, 1, 0]) + b"\x00" * 8
+    ehdr += _struct.pack("<HHIQQQIHHHHHH", 3, machine, 1, 0, 0, shoff, 0, ehdr_size, 0, 0, 64, 4, 3)
+
+    data = bytearray(shoff + len(sections))
+    data[0:64] = ehdr
+    data[ro_off : ro_off + len(blob)] = blob
+    data[rela_off : rela_off + len(rela)] = rela
+    data[shstr_off : shstr_off + len(names)] = names
+    data[shoff : shoff + len(sections)] = sections
+    return bytes(data)
+
+
+def test_extract_rust_strings_elf_splits_blob(tmp_path):
+    # two logical strings concatenated with no separator in .rodata; a RELATIVE relocation
+    # points at the second one, so the extractor must split the b2s run there (issue #1286)
+    blob = b"canary-one-endpointcanary-two-config"
+    rodata_va = 0x2000
+    split_va = rodata_va + blob.index(b"canary-two")
+    sample = tmp_path / "rust.elf"
+    sample.write_bytes(_make_elf64(blob, rodata_va, [split_va]))
+
+    strings = sorted(extract_rust_strings(sample, 4), key=lambda s: s.offset)
+    recovered = {s.string for s in strings}
+    assert "canary-one-endpoint" in recovered
+    assert "canary-two-config" in recovered
+
+    # the split piece carries the correct file offset (.rodata starts at file offset 64 here)
+    off = next(s.offset for s in strings if s.string == "canary-two-config")
+    assert off == 64 + blob.index(b"canary-two")
+
+    # the .rodata-range filter keeps these ELF strings
+    assert get_static_strings_from_rdata(sample, strings)
