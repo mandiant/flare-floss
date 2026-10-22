@@ -47,6 +47,7 @@ from floss.results import (
     ResultDocument,
     filter_string_len,
     check_set_string_types,
+    not_applicable_string_types,
 )
 
 logger = floss.logging_.getLogger(__name__)
@@ -210,7 +211,8 @@ def covers(cached: ResultDocument, wanted: Analysis, min_length: int) -> bool:
     """Whether a cached document satisfies the requested analysis.
 
     Every string type the user wants enabled must be present in the cached
-    document, and the requested ``--minimum-length`` must not be below what the
+    document, except types FLOSS never runs for the sample's language (see
+    ``NOT_APPLICABLE_STRING_TYPES``), and the requested ``--minimum-length`` must not be below what the
     document was built with (shorter strings were dropped at extraction time
     and cannot be recovered). Layout and tags are not part of the match: a
     cached layout/tags document can satisfy a request without them because
@@ -218,7 +220,12 @@ def covers(cached: ResultDocument, wanted: Analysis, min_length: int) -> bool:
     wanted. The reverse (requesting layout/tags the cache was not built with) is
     a miss.
     """
+    not_applicable = not_applicable_string_types(cached)
     for field in STRING_TYPE_FIELDS:
+        if field in not_applicable:
+            # FLOSS never runs this type for the sample (e.g. deobfuscation of .NET), so a fresh
+            # analysis would not produce it either
+            continue
         if getattr(wanted, field) and not getattr(cached.analysis, field):
             return False
 

@@ -85,3 +85,22 @@ def test_analysis_variant_disables_cache(capsys, tmp_path, monkeypatch, scfile):
     # an explicit --format is a non-default analysis variant, so no caching
     assert floss.main.main([scfile, "-f", "sc32", "--summary"]) == 0
     assert cache_entries(cache_dir) == []
+
+
+DOTNET_HELLO = Path(__file__).parent / "data" / "language" / "dotnet" / "dotnet-hello" / "bin" / "dotnet-hello.exe"
+
+
+def test_cache_hit_for_dotnet_with_default_flags(capsys, caplog, tmp_path, monkeypatch):
+    # .NET samples are stored with deobfuscation disabled; a default run must still reuse them
+    caplog.set_level(logging.DEBUG)
+    cache_dir = tmp_path / "cache"
+    monkeypatch.setenv(floss.cache.ENV_CACHE_DIR, str(cache_dir))
+
+    assert floss.main.main([str(DOTNET_HELLO), "--json"]) == 0
+    out1 = capsys.readouterr().out
+    assert len(cache_entries(cache_dir)) == 1
+
+    caplog.clear()
+    assert floss.main.main([str(DOTNET_HELLO), "--json", "-d"]) == 0
+    assert any("using cached results" in r.getMessage() for r in caplog.records)
+    assert capsys.readouterr().out == out1

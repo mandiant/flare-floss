@@ -19,7 +19,7 @@ import time
 import datetime
 import contextlib
 from enum import Enum
-from typing import TYPE_CHECKING, Dict, List, Iterator, Optional
+from typing import TYPE_CHECKING, Dict, List, Tuple, Iterator, Optional
 from pathlib import Path
 from dataclasses import field, dataclass
 
@@ -289,6 +289,20 @@ STRING_TYPE_FIELDS = {
     "enable_language_strings",
 }
 
+# deobfuscation string types: emulation-based, run per function
+DEOBFUSCATION_STRING_TYPES = (
+    "enable_stack_strings",
+    "enable_tight_strings",
+    "enable_decoded_strings",
+)
+
+# string types FLOSS never runs for samples of a given language (keyed by `Metadata.language`).
+# a document without them is complete, so a request for them is satisfied by their absence.
+NOT_APPLICABLE_STRING_TYPES: Dict[str, Tuple[str, ...]] = {
+    # FLOSS does not deobfuscate strings from .NET binaries
+    "dotnet": DEOBFUSCATION_STRING_TYPES,
+}
+
 
 @dataclass
 class Metadata:
@@ -380,8 +394,17 @@ def read(sample: Path) -> ResultDocument:
     return results
 
 
+def not_applicable_string_types(results: ResultDocument) -> Tuple[str, ...]:
+    """String types that FLOSS does not run for this document's sample, e.g. deobfuscation for .NET."""
+    return NOT_APPLICABLE_STRING_TYPES.get(results.metadata.language, ())
+
+
 def check_set_string_types(results: ResultDocument, wanted_analysis: Analysis) -> None:
+    not_applicable = not_applicable_string_types(results)
     for string_type in STRING_TYPE_FIELDS:
+        if string_type in not_applicable and not getattr(results.analysis, string_type):
+            # this type never runs for the sample, so nothing is missing: keep reporting it as not run
+            continue
         if getattr(wanted_analysis, string_type) and not getattr(results.analysis, string_type):
             logger.warning(
                 f"{string_type} not in loaded data, use --string-type/--no-string-type to enable/disable type(s)"
