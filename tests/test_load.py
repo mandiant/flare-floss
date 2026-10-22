@@ -107,6 +107,22 @@ def test_load(tmp_path):
     )
 
 
+def test_load_dotnet_results_keeps_deobfuscation_disabled(caplog):
+    from floss.results import Strings, Analysis, Metadata, ResultDocument, check_set_string_types
+
+    # a .NET document as analyze() writes it: deobfuscation never runs for .NET
+    doc = ResultDocument(
+        metadata=Metadata(file_path="dotnet-hello.exe", language="dotnet", min_length=4),
+        analysis=Analysis(enable_stack_strings=False, enable_tight_strings=False, enable_decoded_strings=False),
+        strings=Strings(),
+    )
+    check_set_string_types(doc, Analysis())
+    assert doc.analysis.enable_stack_strings is False
+    assert doc.analysis.enable_tight_strings is False
+    assert doc.analysis.enable_decoded_strings is False
+    assert "not in loaded data" not in caplog.text
+
+
 def test_detect_file_type_returns_results_for_results_json(tmp_path):
     p = tmp_path / "results.json"
     p.write_text(RESULTS)

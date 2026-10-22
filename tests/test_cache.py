@@ -378,6 +378,43 @@ def test_covers_tags_disabled_is_hit():
     assert floss.cache.covers(doc, wanted(enable_tags=False), 4)
 
 
+def make_dotnet_doc():
+    # what analyze() stores for a .NET sample: deobfuscation is not run, so its types are disabled
+    doc = make_doc(enable_language=True)
+    doc.metadata.language = "dotnet"
+    return doc
+
+
+def test_covers_dotnet_without_deobfuscation_is_hit():
+    # a default run wants every string type, but FLOSS never deobfuscates .NET strings
+    doc = make_dotnet_doc()
+    assert floss.cache.covers(doc, Analysis(), 4)
+
+
+def test_covers_dotnet_still_requires_applicable_types():
+    doc = make_dotnet_doc()
+    doc.analysis.enable_language_strings = False
+    assert not floss.cache.covers(doc, Analysis(), 4)
+
+
+@pytest.mark.parametrize("language", ["", "go", "rust", "unknown"])
+def test_covers_other_languages_without_deobfuscation_is_miss(language):
+    doc = make_doc(enable_language=True)
+    doc.metadata.language = language
+    assert not floss.cache.covers(doc, Analysis(), 4)
+
+
+def test_materialize_dotnet_keeps_deobfuscation_disabled(caplog):
+    mat = floss.cache.materialize(make_dotnet_doc(), Path("sample.exe"), Analysis(), 4)
+    # mirror a fresh .NET run: the document must not claim deobfuscation ran
+    assert mat.analysis.enable_stack_strings is False
+    assert mat.analysis.enable_tight_strings is False
+    assert mat.analysis.enable_decoded_strings is False
+    assert mat.analysis.enable_static_strings is True
+    assert mat.analysis.enable_language_strings is True
+    assert "not in loaded data" not in caplog.text
+
+
 def test_materialize_sets_file_path_and_filters(tmp_path):
     doc = make_doc(min_length=4)
     key = floss.cache.compute_key(doc.metadata.sha256, __version__)

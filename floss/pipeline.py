@@ -60,7 +60,14 @@ from floss.enrich import (
 from floss.layout import Layout
 from floss.ranges import Slice
 from floss.render import Verbosity
-from floss.results import Runtime, Analysis, Metadata, ResultLayout, ResultDocument
+from floss.results import (
+    NOT_APPLICABLE_STRING_TYPES,
+    Runtime,
+    Analysis,
+    Metadata,
+    ResultLayout,
+    ResultDocument,
+)
 from floss.strings import extract_ascii_unicode_strings
 from floss.version import __version__
 from floss.identify import (
@@ -455,9 +462,8 @@ def analyze(options: Options) -> ResultDocument:
         # enable .NET strings once we can extract them
         # results.metadata.language = Language.DOTNET.value
         # TODO for pure .NET binaries our deobfuscation algorithms do nothing, but for mixed-mode assemblies they may
-        analysis.enable_stack_strings = False
-        analysis.enable_tight_strings = False
-        analysis.enable_decoded_strings = False
+        for string_type in NOT_APPLICABLE_STRING_TYPES[Language.DOTNET.value]:
+            setattr(analysis, string_type, False)
 
     # in order of expected run time, fast to slow
     # 1. static strings (done above for language ID; layout-aware replace below when enabled)
