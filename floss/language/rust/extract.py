@@ -122,11 +122,23 @@ def split_strings(static_strings: List[StaticString], address: int, min_length: 
 def extract_rust_strings(sample: pathlib.Path, min_length: int) -> List[StaticString]:
     """
     Extract Rust strings from a sample
+
+    The Rust string-blob recovery is implemented for PE only. Rust detection
+    (``get_if_rust_and_version``) is purely string-based and runs before any PE
+    parse, so a Rust ELF or Mach-O binary is classified as Rust and reaches this
+    function; parsing it as a PE would raise ``PEFormatError`` and crash the
+    pipeline. Until an ELF/Mach-O path exists, return no Rust-specific strings for
+    non-PE inputs rather than failing (the format-agnostic static strings are
+    unaffected).
     """
 
     p = pathlib.Path(sample)
     buf = p.read_bytes()
-    pe = pefile.PE(data=buf, fast_load=True)
+    try:
+        pe = pefile.PE(data=buf, fast_load=True)
+    except pefile.PEFormatError as e:
+        logger.debug("cannot extract rust strings: Rust blob recovery is PE-only (%s)", e)
+        return []
 
     rust_strings: List[StaticString] = list()
     rust_strings.extend(get_string_blob_strings(pe, min_length))
@@ -135,7 +147,11 @@ def extract_rust_strings(sample: pathlib.Path, min_length: int) -> List[StaticSt
 
 
 def get_static_strings_from_rdata(sample, static_strings) -> List[StaticString]:
-    pe = pefile.PE(data=pathlib.Path(sample).read_bytes(), fast_load=True)
+    try:
+        pe = pefile.PE(data=pathlib.Path(sample).read_bytes(), fast_load=True)
+    except pefile.PEFormatError as e:
+        logger.debug("cannot filter rust .rdata strings: Rust blob recovery is PE-only (%s)", e)
+        return []
 
     try:
         rdata_section = get_rdata_section(pe)

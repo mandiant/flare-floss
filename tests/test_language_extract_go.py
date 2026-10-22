@@ -3,7 +3,7 @@ import pathlib
 import pytest
 
 from floss.results import StaticString, StringEncoding
-from floss.language.go.extract import extract_go_strings
+from floss.language.go.extract import extract_go_strings, get_static_strings_from_blob_range
 
 
 @pytest.fixture(scope="module")
@@ -153,3 +153,20 @@ def test_strings_with_newline_char_0A(request, string, offset, encoding, go_stri
 )
 def test_import_data(request, string, offset, encoding, go_strings):
     assert StaticString(string=string, offset=offset, encoding=encoding) in request.getfixturevalue(go_strings)
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        pytest.param(b"\x7fELF" + b"\x00" * 128, id="elf-magic"),
+        pytest.param(b"\xcf\xfa\xed\xfe" + b"\x00" * 128, id="macho-magic"),
+        pytest.param(b"not an executable at all", id="garbage"),
+    ],
+)
+def test_extract_go_strings_non_pe_does_not_crash(tmp_path, content):
+    # a forced `--language go` on a non-PE input must not crash the pipeline with
+    # pefile.PEFormatError; Go blob recovery is PE-only, so return [] instead (issue #1502)
+    sample = tmp_path / "sample.bin"
+    sample.write_bytes(content)
+    assert extract_go_strings(sample, 6) == []
+    assert get_static_strings_from_blob_range(sample, []) == []

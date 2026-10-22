@@ -392,11 +392,21 @@ def get_string_blob_strings(pe: pefile.PE, min_length) -> Iterable[StaticString]
 def extract_go_strings(sample, min_length) -> List[StaticString]:
     """
     extract Go strings from the given PE file
+
+    Go string recovery is implemented for PE only. Go detection parses the sample
+    as a PE first, so under ``--language auto`` a non-PE never reaches here; but a
+    forced ``--language go`` on an ELF or raw blob would, and parsing it as a PE
+    raises ``PEFormatError`` and crashes the pipeline (see issue #1502). Return no
+    Go-specific strings for non-PE inputs instead of failing.
     """
 
     p = pathlib.Path(sample)
     buf = p.read_bytes()
-    pe = pefile.PE(data=buf, fast_load=True)
+    try:
+        pe = pefile.PE(data=buf, fast_load=True)
+    except pefile.PEFormatError as e:
+        logger.debug("cannot extract go strings: Go blob recovery is PE-only (%s)", e)
+        return []
 
     go_strings: List[StaticString] = list()
     go_strings.extend(get_string_blob_strings(pe, min_length))
@@ -406,7 +416,11 @@ def extract_go_strings(sample, min_length) -> List[StaticString]:
 
 
 def get_static_strings_from_blob_range(sample: pathlib.Path, static_strings: List[StaticString]) -> List[StaticString]:
-    pe = pefile.PE(data=pathlib.Path(sample).read_bytes(), fast_load=True)
+    try:
+        pe = pefile.PE(data=pathlib.Path(sample).read_bytes(), fast_load=True)
+    except pefile.PEFormatError as e:
+        logger.debug("cannot filter go blob-range strings: Go blob recovery is PE-only (%s)", e)
+        return []
 
     struct_strings = list(sorted(set(get_struct_string_candidates(pe)), key=lambda s: s.address))
     if not struct_strings:
