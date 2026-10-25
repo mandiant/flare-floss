@@ -37,6 +37,11 @@ from dataclasses import field
 
 from pydantic.dataclasses import dataclass
 
+try:
+    from va_map import load_pe_image, load_sample_path, resolve_static_strings  # type: ignore[import-not-found]
+except ImportError:
+    from scripts.disassemblers.va_map import load_pe_image, resolve_static_strings, load_sample_path
+
 from floss.results import AddressType, ResultDocument
 
 logger = logging.getLogger("floss.render-x64dbg-import-script")
@@ -62,20 +67,32 @@ def render_x64dbg_database(result_document: ResultDocument) -> str:
     export = Export()
     module = Path(result_document.metadata.file_path).name
     processed: Dict[str, str] = {}
+
+    def add_comment(rva: int, text: str) -> None:
+        address = hex(rva)
+        if address in processed:
+            processed[address] += "\t" + text
+        else:
+            processed[address] = "FLOSS: " + text
+
     for ds in result_document.strings.decoded_strings:
         if ds.string != "":
             if ds.address_type == AddressType.GLOBAL:
-                rva = hex(ds.address - result_document.metadata.imagebase)
-                try:
-                    processed[rva] += "\t" + ds.string
-                except BaseException:
-                    processed[rva] = "FLOSS: " + ds.string
+                add_comment(ds.address - result_document.metadata.imagebase, ds.string)
             else:
-                rva = hex(ds.decoded_at - result_document.metadata.imagebase)
-                try:
-                    processed[rva] += "\t" + ds.string
-                except BaseException:
-                    processed[rva] = "FLOSS: " + ds.string
+                add_comment(ds.decoded_at - result_document.metadata.imagebase, ds.string)
+
+    sample_path = load_sample_path(result_document)
+    pe_image = load_pe_image(sample_path) if sample_path else None
+    mapped_static_strings, unmapped = resolve_static_strings(result_document, pe_image)
+    for static_string in mapped_static_strings:
+        add_comment(static_string.rva, static_string.string)
+
+    if unmapped:
+        logger.warning(
+            "%d static and language strings could not be translated to VAs, and are not imported",
+            unmapped,
+        )
 
     for i in list(processed.keys()):
         comment = Comment(text=processed[i], manual=False, module=module, address=i)

@@ -33,6 +33,11 @@ import logging
 import argparse
 from pathlib import Path
 
+try:
+    from va_map import load_pe_image, load_sample_path, resolve_static_strings  # type: ignore[import-not-found]
+except ImportError:
+    from scripts.disassemblers.va_map import load_pe_image, resolve_static_strings, load_sample_path
+
 from floss.results import AddressType, ResultDocument
 
 logger = logging.getLogger("floss.render-r2-import-script")
@@ -42,6 +47,10 @@ def render_r2_script(result_document: ResultDocument) -> str:
     """
     Create r2script contents for r2 session annotations.
     """
+    sample_path = load_sample_path(result_document)
+    pe_image = load_pe_image(sample_path) if sample_path else None
+    mapped_static_strings, unmapped = resolve_static_strings(result_document, pe_image)
+
     main_commands = []
     fvas = []
     for ds in result_document.strings.decoded_strings:
@@ -69,6 +78,17 @@ def render_r2_script(result_document: ResultDocument) -> str:
         if ts.string != "":
             sanitized_string = base64.b64encode(b'"FLOSS: %s"' % ts.string.encode("utf-8")).decode("ascii")
             main_commands.append("Ca -0x%x base64:%s @ %d" % (ts.frame_offset, sanitized_string, ts.function))
+
+    for static_string in mapped_static_strings:
+        sanitized_string = base64.b64encode(b'"FLOSS: %s"' % static_string.string.encode("utf-8")).decode("ascii")
+        main_commands.append("CCu base64:%s @ %d" % (sanitized_string, static_string.va))
+
+    if unmapped:
+        main_commands.insert(
+            0,
+            "# FLOSS: %d static and language strings could not be translated to VAs, and are not imported"
+            % (unmapped,),
+        )
 
     return "\n".join(main_commands)
 

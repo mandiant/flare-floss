@@ -40,6 +40,11 @@ import logging
 import argparse
 from pathlib import Path
 
+try:
+    from va_map import load_pe_image, load_sample_path, resolve_static_strings  # type: ignore[import-not-found]
+except ImportError:
+    from scripts.disassemblers.va_map import load_pe_image, resolve_static_strings, load_sample_path
+
 from floss.results import AddressType, ResultDocument
 
 logger = logging.getLogger("floss.render-ida-import-script")
@@ -49,6 +54,10 @@ def render_ida_script(result_document: ResultDocument) -> str:
     """
     Create IDAPython script contents for IDB file annotations.
     """
+    sample_path = load_sample_path(result_document)
+    pe_image = load_pe_image(sample_path) if sample_path else None
+    mapped_static_strings, unmapped = resolve_static_strings(result_document, pe_image)
+
     main_commands = []
     for ds in result_document.strings.decoded_strings:
         if ds.string != "":
@@ -82,12 +91,24 @@ def render_ida_script(result_document: ResultDocument) -> str:
             )
     main_commands.append('print("Imported tightstrings from FLOSS")')
 
+    for static_string in mapped_static_strings:
+        b64 = base64.b64encode(static_string.string.encode("utf-8")).decode("ascii")
+        b64 = 'base64.b64decode("%s").decode("utf-8")' % b64
+        main_commands.append('print("FLOSS: string \\"%%s\\" at VA 0x%x" %% (%s))' % (static_string.va, b64))
+        main_commands.append('AppendComment(%d, "FLOSS: " + %s)' % (static_string.va, b64))
+    main_commands.append('print("Imported static and language strings from FLOSS")')
+
+    if unmapped:
+        main_commands.append(
+            'print("FLOSS: %d static and language strings could not be translated to VAs, and are not imported")'
+            % (unmapped,)
+        )
+
     script_content = """
 import base64
 
 def AppendComment(ea, string, repeatable=False):
     current_string = get_cmt(ea, repeatable)
-
     if not current_string:
         cmt = string
     else:
@@ -125,7 +146,8 @@ if __name__ == "__main__":
 """ % (
         len(result_document.strings.decoded_strings)
         + len(result_document.strings.stack_strings)
-        + len(result_document.strings.tight_strings),
+        + len(result_document.strings.tight_strings)
+        + len(mapped_static_strings),
         result_document.metadata.file_path,
         "\n    ".join(main_commands),
     )

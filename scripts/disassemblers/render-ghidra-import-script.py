@@ -37,6 +37,11 @@ import logging
 import argparse
 from pathlib import Path
 
+try:
+    from va_map import load_pe_image, load_sample_path, resolve_static_strings  # type: ignore[import-not-found]
+except ImportError:
+    from scripts.disassemblers.va_map import load_pe_image, resolve_static_strings, load_sample_path
+
 from floss.results import AddressType, ResultDocument
 
 logger = logging.getLogger("floss.render-ghidra-import-script")
@@ -216,6 +221,10 @@ def render_ghidra_script(result_document: ResultDocument) -> str:
 
     This generates a script that works with Ghidra 12.0+ PyGhidra environment.
     """
+    sample_path = load_sample_path(result_document)
+    pe_image = load_pe_image(sample_path) if sample_path else None
+    mapped_static_strings, unmapped = resolve_static_strings(result_document, pe_image)
+
     main_commands = []
 
     for ds in result_document.strings.decoded_strings:
@@ -223,12 +232,12 @@ def render_ghidra_script(result_document: ResultDocument) -> str:
             b64 = base64.b64encode(ds.string.encode("utf-8")).decode("ascii")
             if ds.address_type == AddressType.GLOBAL:
                 main_commands.append(
-                    f'    print(f"FLOSS: string \\"{{decode_string(\\"{b64}\\")}}\\" at global VA 0x{ds.address:x}")'
+                    f'    print("FLOSS: string \\"%s\\" at global VA 0x{ds.address:x}" % decode_string("{b64}"))'
                 )
                 main_commands.append(f'    append_comment(0x{ds.address:x}, "FLOSS: " + decode_string("{b64}"))')
             else:
                 main_commands.append(
-                    f'    print(f"FLOSS: string \\"{{decode_string(\\"{b64}\\")}}\\" decoded at VA 0x{ds.decoded_at:x}")'
+                    f'    print("FLOSS: string \\"%s\\" decoded at VA 0x{ds.decoded_at:x}" % decode_string("{b64}"))'
                 )
                 main_commands.append(f'    append_comment(0x{ds.decoded_at:x}, "FLOSS: " + decode_string("{b64}"))')
     main_commands.append('    print("Imported decoded strings from FLOSS")')
@@ -249,10 +258,25 @@ def render_ghidra_script(result_document: ResultDocument) -> str:
             )
     main_commands.append('    print("Imported tightstrings from FLOSS")')
 
+    for static_string in mapped_static_strings:
+        b64 = base64.b64encode(static_string.string.encode("utf-8")).decode("ascii")
+        main_commands.append(
+            f'    print("FLOSS: string \\"%s\\" at VA 0x{static_string.va:x}" % decode_string("{b64}"))'
+        )
+        main_commands.append(f'    append_comment(0x{static_string.va:x}, "FLOSS: " + decode_string("{b64}"))')
+    main_commands.append('    print("Imported static and language strings from FLOSS")')
+
+    if unmapped:
+        main_commands.append(
+            f'    print("FLOSS: {unmapped} static and language strings could not be translated to VAs, '
+            'and are not imported")'
+        )
+
     total_strings = (
         len(result_document.strings.decoded_strings)
         + len(result_document.strings.stack_strings)
         + len(result_document.strings.tight_strings)
+        + len(mapped_static_strings)
     )
     file_path = result_document.metadata.file_path
 
