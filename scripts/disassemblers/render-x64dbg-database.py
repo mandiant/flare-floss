@@ -38,9 +38,11 @@ from dataclasses import field
 from pydantic.dataclasses import dataclass
 
 try:
-    from va_map import load_pe_image, load_sample_path, resolve_static_strings  # type: ignore[import-not-found]
-except ImportError:
-    from scripts.disassemblers.va_map import load_pe_image, resolve_static_strings, load_sample_path
+    from va_map import load_and_resolve_static_strings  # type: ignore[import-not-found]
+except ModuleNotFoundError as e:
+    if e.name != "va_map":
+        raise
+    from scripts.disassemblers.va_map import load_and_resolve_static_strings
 
 from floss.results import AddressType, ResultDocument
 
@@ -60,7 +62,7 @@ class Export:
     comments: List[Comment] = field(default_factory=list)
 
 
-def render_x64dbg_database(result_document: ResultDocument) -> str:
+def render_x64dbg_database(result_document: ResultDocument, sample_override=None) -> str:
     """
     Create x64dbg database/json file contents for file annotations.
     """
@@ -82,9 +84,7 @@ def render_x64dbg_database(result_document: ResultDocument) -> str:
             else:
                 add_comment(ds.decoded_at - result_document.metadata.imagebase, ds.string)
 
-    sample_path = load_sample_path(result_document)
-    pe_image = load_pe_image(sample_path) if sample_path else None
-    mapped_static_strings, unmapped = resolve_static_strings(result_document, pe_image)
+    mapped_static_strings, unmapped = load_and_resolve_static_strings(result_document, sample_override)
     for static_string in mapped_static_strings:
         add_comment(static_string.rva, static_string.string)
 
@@ -104,6 +104,12 @@ def render_x64dbg_database(result_document: ResultDocument) -> str:
 def main():
     parser = argparse.ArgumentParser(description="Generate an x64dbg script to apply FLOSS results.")
     parser.add_argument("/path/to/report.json", help="path to JSON document from `floss --json`")
+    parser.add_argument(
+        "--sample",
+        metavar="PATH",
+        default=None,
+        help="path to the analyzed sample if it is not available at the path recorded in the result document",
+    )
 
     logging_group = parser.add_argument_group("logging arguments")
 
@@ -127,7 +133,7 @@ def main():
 
     result_document = ResultDocument.parse_file(Path(args.report_path))
 
-    print(render_x64dbg_database(result_document))
+    print(render_x64dbg_database(result_document, args.sample))
     return 0
 
 
