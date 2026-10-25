@@ -95,7 +95,10 @@ def append_comment(ea: int, comment_text: str, bookmark_category: str = "decoded
             pass
         cu = listing.getCodeUnitAt(addr)
     if cu is None:
-        createBookmark(addr, bookmark_category, comment_text)
+        try:
+            createBookmark(addr, bookmark_category, comment_text)
+        except Exception:
+            pass
         return False
 
     existing_comment = cu.getComment(CodeUnit.EOL_COMMENT)
@@ -108,8 +111,18 @@ def append_comment(ea: int, comment_text: str, bookmark_category: str = "decoded
             return True
         new_comment = existing_comment + "\\n" + comment_text
 
-    cu.setComment(CodeUnit.EOL_COMMENT, new_comment)
-    createBookmark(addr, bookmark_category, comment_text)
+    try:
+        cu.setComment(CodeUnit.EOL_COMMENT, new_comment)
+    except Exception:
+        try:
+            createBookmark(addr, bookmark_category, comment_text)
+        except Exception:
+            pass
+        return False
+    try:
+        createBookmark(addr, bookmark_category, comment_text)
+    except Exception:
+        pass
     return True
 
 
