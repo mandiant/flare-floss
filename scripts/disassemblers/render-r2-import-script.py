@@ -33,15 +33,24 @@ import logging
 import argparse
 from pathlib import Path
 
+try:
+    from va_map import load_and_resolve_static_strings  # type: ignore[import-not-found]
+except ModuleNotFoundError as e:
+    if e.name != "va_map":
+        raise
+    from scripts.disassemblers.va_map import load_and_resolve_static_strings
+
 from floss.results import AddressType, ResultDocument
 
 logger = logging.getLogger("floss.render-r2-import-script")
 
 
-def render_r2_script(result_document: ResultDocument) -> str:
+def render_r2_script(result_document: ResultDocument, sample_override=None) -> str:
     """
     Create r2script contents for r2 session annotations.
     """
+    mapped_static_strings, unmapped = load_and_resolve_static_strings(result_document, sample_override)
+
     main_commands = []
     fvas = []
     for ds in result_document.strings.decoded_strings:
@@ -70,12 +79,29 @@ def render_r2_script(result_document: ResultDocument) -> str:
             sanitized_string = base64.b64encode(b'"FLOSS: %s"' % ts.string.encode("utf-8")).decode("ascii")
             main_commands.append("Ca -0x%x base64:%s @ %d" % (ts.frame_offset, sanitized_string, ts.function))
 
+    for static_string in mapped_static_strings:
+        sanitized_string = base64.b64encode(b'"FLOSS: %s"' % static_string.string.encode("utf-8")).decode("ascii")
+        main_commands.append("CCu base64:%s @ %d" % (sanitized_string, static_string.va))
+
+    if unmapped:
+        main_commands.insert(
+            0,
+            "# FLOSS: %d static and language strings could not be translated to VAs, and are not imported"
+            % (unmapped,),
+        )
+
     return "\n".join(main_commands)
 
 
 def main():
     parser = argparse.ArgumentParser(description="Generate an radare2 script to apply FLOSS results.")
     parser.add_argument("/path/to/report.json", help="path to JSON document from `floss --json`")
+    parser.add_argument(
+        "--sample",
+        metavar="PATH",
+        default=None,
+        help="path to the analyzed sample if it is not available at the path recorded in the result document",
+    )
 
     logging_group = parser.add_argument_group("logging arguments")
 
@@ -99,7 +125,7 @@ def main():
 
     result_document = ResultDocument.parse_file(Path(args.report_path))
 
-    print(render_r2_script(result_document))
+    print(render_r2_script(result_document, args.sample))
     return 0
 
 

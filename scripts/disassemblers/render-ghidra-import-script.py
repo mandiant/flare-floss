@@ -37,6 +37,13 @@ import logging
 import argparse
 from pathlib import Path
 
+try:
+    from va_map import load_and_resolve_static_strings  # type: ignore[import-not-found]
+except ModuleNotFoundError as e:
+    if e.name != "va_map":
+        raise
+    from scripts.disassemblers.va_map import load_and_resolve_static_strings
+
 from floss.results import AddressType, ResultDocument
 
 logger = logging.getLogger("floss.render-ghidra-import-script")
@@ -50,6 +57,7 @@ SCRIPT_TEMPLATE = '''# PyGhidra-compatible FLOSS import script
 
 import base64
 
+from ghidra.program.model.data import ByteDataType
 from ghidra.program.model.listing import CodeUnit
 
 
@@ -58,23 +66,40 @@ def decode_string(b64_encoded: str) -> str:
     return base64.b64decode(b64_encoded).decode("utf-8")
 
 
-def append_comment(ea: int, comment_text: str) -> None:
+def append_comment(ea: int, comment_text: str, bookmark_category: str = "decoded_string") -> bool:
     """
     Append an EOL comment at the specified address.
 
     Args:
         ea: The effective address (as integer)
         comment_text: The comment text to append
+        bookmark_category: Bookmark category to use
+
+    Returns:
+        True if a comment was applied (or already existed), False if only a
+        bookmark could be created.
     """
     addr = toAddr(ea)
     if addr is None:
         print(f"Warning: Could not resolve address 0x{{ea:x}}")
-        return
+        return False
 
-    cu = currentProgram.getListing().getCodeUnitAt(addr)
+    listing = currentProgram.getListing()
+    cu = listing.getCodeUnitAt(addr)
     if cu is None:
-        print(f"Warning: No code unit at address 0x{{ea:x}}")
-        return
+        # Static strings frequently have no data item at their exact address.
+        # Create a byte so the comment has an item head to attach to.
+        try:
+            listing.createData(addr, ByteDataType.dataType)
+        except Exception:
+            pass
+        cu = listing.getCodeUnitAt(addr)
+    if cu is None:
+        try:
+            createBookmark(addr, bookmark_category, comment_text)
+        except Exception:
+            pass
+        return False
 
     existing_comment = cu.getComment(CodeUnit.EOL_COMMENT)
 
@@ -83,11 +108,22 @@ def append_comment(ea: int, comment_text: str) -> None:
     else:
         # Ignore duplicates
         if comment_text in existing_comment:
-            return
+            return True
         new_comment = existing_comment + "\\n" + comment_text
 
-    cu.setComment(CodeUnit.EOL_COMMENT, new_comment)
-    createBookmark(addr, "decoded_string", comment_text)
+    try:
+        cu.setComment(CodeUnit.EOL_COMMENT, new_comment)
+    except Exception:
+        try:
+            createBookmark(addr, bookmark_category, comment_text)
+        except Exception:
+            pass
+        return False
+    try:
+        createBookmark(addr, bookmark_category, comment_text)
+    except Exception:
+        pass
+    return True
 
 
 def append_eol_comment_at_address(addr, comment_text: str) -> bool:
@@ -210,12 +246,14 @@ run()
 '''
 
 
-def render_ghidra_script(result_document: ResultDocument) -> str:
+def render_ghidra_script(result_document: ResultDocument, sample_override=None) -> str:
     """
     Create PyGhidra-compatible script contents for Ghidra file annotations.
 
     This generates a script that works with Ghidra 12.0+ PyGhidra environment.
     """
+    mapped_static_strings, unmapped = load_and_resolve_static_strings(result_document, sample_override)
+
     main_commands = []
 
     for ds in result_document.strings.decoded_strings:
@@ -223,12 +261,12 @@ def render_ghidra_script(result_document: ResultDocument) -> str:
             b64 = base64.b64encode(ds.string.encode("utf-8")).decode("ascii")
             if ds.address_type == AddressType.GLOBAL:
                 main_commands.append(
-                    f'    print(f"FLOSS: string \\"{{decode_string(\\"{b64}\\")}}\\" at global VA 0x{ds.address:x}")'
+                    f'    print("FLOSS: string \\"%s\\" at global VA 0x{ds.address:x}" % decode_string("{b64}"))'
                 )
                 main_commands.append(f'    append_comment(0x{ds.address:x}, "FLOSS: " + decode_string("{b64}"))')
             else:
                 main_commands.append(
-                    f'    print(f"FLOSS: string \\"{{decode_string(\\"{b64}\\")}}\\" decoded at VA 0x{ds.decoded_at:x}")'
+                    f'    print("FLOSS: string \\"%s\\" decoded at VA 0x{ds.decoded_at:x}" % decode_string("{b64}"))'
                 )
                 main_commands.append(f'    append_comment(0x{ds.decoded_at:x}, "FLOSS: " + decode_string("{b64}"))')
     main_commands.append('    print("Imported decoded strings from FLOSS")')
@@ -249,10 +287,31 @@ def render_ghidra_script(result_document: ResultDocument) -> str:
             )
     main_commands.append('    print("Imported tightstrings from FLOSS")')
 
+    if mapped_static_strings:
+        main_commands.append("    static_strings_applied = 0")
+        for static_string in mapped_static_strings:
+            b64 = base64.b64encode(static_string.string.encode("utf-8")).decode("ascii")
+            main_commands.append(
+                f'    if append_comment(0x{static_string.va:x}, "FLOSS: " + decode_string("{b64}"), '
+                f'"static_string"): static_strings_applied += 1'
+            )
+        main_commands.append(
+            f'    print("FLOSS: applied %d of {len(mapped_static_strings)} static and language comments" '
+            "% static_strings_applied)"
+        )
+    main_commands.append('    print("Imported static and language strings from FLOSS")')
+
+    if unmapped:
+        main_commands.append(
+            f'    print("FLOSS: {unmapped} static and language strings could not be translated to VAs, '
+            'and are not imported")'
+        )
+
     total_strings = (
         len(result_document.strings.decoded_strings)
         + len(result_document.strings.stack_strings)
         + len(result_document.strings.tight_strings)
+        + len(mapped_static_strings)
     )
     file_path = result_document.metadata.file_path
 
@@ -268,6 +327,12 @@ def render_ghidra_script(result_document: ResultDocument) -> str:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Generate a PyGhidra script to apply FLOSS results (Ghidra 12.0+).")
     parser.add_argument("/path/to/report.json", help="path to JSON document from `floss --json`")
+    parser.add_argument(
+        "--sample",
+        metavar="PATH",
+        default=None,
+        help="path to the analyzed sample if it is not available at the path recorded in the result document",
+    )
 
     logging_group = parser.add_argument_group("logging arguments")
     logging_group.add_argument("-d", "--debug", action="store_true", help="enable debugging output on STDERR")
@@ -297,7 +362,7 @@ def main() -> int:
         # Pydantic v1
         result_document = ResultDocument.parse_file(json_path)
 
-    print(render_ghidra_script(result_document))
+    print(render_ghidra_script(result_document, args.sample))
     return 0
 
 

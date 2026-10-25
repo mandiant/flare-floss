@@ -37,6 +37,13 @@ from dataclasses import field
 
 from pydantic.dataclasses import dataclass
 
+try:
+    from va_map import load_and_resolve_static_strings  # type: ignore[import-not-found]
+except ModuleNotFoundError as e:
+    if e.name != "va_map":
+        raise
+    from scripts.disassemblers.va_map import load_and_resolve_static_strings
+
 from floss.results import AddressType, ResultDocument
 
 logger = logging.getLogger("floss.render-x64dbg-import-script")
@@ -55,27 +62,37 @@ class Export:
     comments: List[Comment] = field(default_factory=list)
 
 
-def render_x64dbg_database(result_document: ResultDocument) -> str:
+def render_x64dbg_database(result_document: ResultDocument, sample_override=None) -> str:
     """
     Create x64dbg database/json file contents for file annotations.
     """
     export = Export()
     module = Path(result_document.metadata.file_path).name
     processed: Dict[str, str] = {}
+
+    def add_comment(rva: int, text: str) -> None:
+        address = hex(rva)
+        if address in processed:
+            processed[address] += "\t" + text
+        else:
+            processed[address] = "FLOSS: " + text
+
     for ds in result_document.strings.decoded_strings:
         if ds.string != "":
             if ds.address_type == AddressType.GLOBAL:
-                rva = hex(ds.address - result_document.metadata.imagebase)
-                try:
-                    processed[rva] += "\t" + ds.string
-                except BaseException:
-                    processed[rva] = "FLOSS: " + ds.string
+                add_comment(ds.address - result_document.metadata.imagebase, ds.string)
             else:
-                rva = hex(ds.decoded_at - result_document.metadata.imagebase)
-                try:
-                    processed[rva] += "\t" + ds.string
-                except BaseException:
-                    processed[rva] = "FLOSS: " + ds.string
+                add_comment(ds.decoded_at - result_document.metadata.imagebase, ds.string)
+
+    mapped_static_strings, unmapped = load_and_resolve_static_strings(result_document, sample_override)
+    for static_string in mapped_static_strings:
+        add_comment(static_string.rva, static_string.string)
+
+    if unmapped:
+        logger.warning(
+            "%d static and language strings could not be translated to VAs, and are not imported",
+            unmapped,
+        )
 
     for i in list(processed.keys()):
         comment = Comment(text=processed[i], manual=False, module=module, address=i)
@@ -87,6 +104,12 @@ def render_x64dbg_database(result_document: ResultDocument) -> str:
 def main():
     parser = argparse.ArgumentParser(description="Generate an x64dbg script to apply FLOSS results.")
     parser.add_argument("/path/to/report.json", help="path to JSON document from `floss --json`")
+    parser.add_argument(
+        "--sample",
+        metavar="PATH",
+        default=None,
+        help="path to the analyzed sample if it is not available at the path recorded in the result document",
+    )
 
     logging_group = parser.add_argument_group("logging arguments")
 
@@ -110,7 +133,7 @@ def main():
 
     result_document = ResultDocument.parse_file(Path(args.report_path))
 
-    print(render_x64dbg_database(result_document))
+    print(render_x64dbg_database(result_document, args.sample))
     return 0
 
 

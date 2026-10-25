@@ -40,15 +40,24 @@ import logging
 import argparse
 from pathlib import Path
 
+try:
+    from va_map import load_and_resolve_static_strings  # type: ignore[import-not-found]
+except ModuleNotFoundError as e:
+    if e.name != "va_map":
+        raise
+    from scripts.disassemblers.va_map import load_and_resolve_static_strings
+
 from floss.results import AddressType, ResultDocument
 
 logger = logging.getLogger("floss.render-ida-import-script")
 
 
-def render_ida_script(result_document: ResultDocument) -> str:
+def render_ida_script(result_document: ResultDocument, sample_override=None) -> str:
     """
     Create IDAPython script contents for IDB file annotations.
     """
+    mapped_static_strings, unmapped = load_and_resolve_static_strings(result_document, sample_override)
+
     main_commands = []
     for ds in result_document.strings.decoded_strings:
         if ds.string != "":
@@ -82,19 +91,58 @@ def render_ida_script(result_document: ResultDocument) -> str:
             )
     main_commands.append('print("Imported tightstrings from FLOSS")')
 
+    if mapped_static_strings:
+        main_commands.append("static_strings_applied = 0")
+        for static_string in mapped_static_strings:
+            b64 = base64.b64encode(static_string.string.encode("utf-8")).decode("ascii")
+            b64 = 'base64.b64decode("%s").decode("utf-8")' % b64
+            main_commands.append(
+                'if AppendComment(%d, "FLOSS: " + %s): static_strings_applied += 1' % (static_string.va, b64)
+            )
+        main_commands.append(
+            f'print("FLOSS: applied %d of {len(mapped_static_strings)} static and language comments" '
+            "% static_strings_applied)"
+        )
+    main_commands.append('print("Imported static and language strings from FLOSS")')
+
+    if unmapped:
+        main_commands.append(
+            'print("FLOSS: %d static and language strings could not be translated to VAs, and are not imported")'
+            % (unmapped,)
+        )
+
     script_content = """
 import base64
+import ida_mark
 
 def AppendComment(ea, string, repeatable=False):
     current_string = get_cmt(ea, repeatable)
-
     if not current_string:
         cmt = string
     else:
         if string in current_string:  # ignore duplicates
-            return
+            return True
         cmt = current_string + "\\n" + string
     set_cmt(ea, cmt, repeatable)
+    if get_cmt(ea, repeatable) == cmt:
+        return True
+
+    # static strings often have no data item at their exact address.
+    # create one so set_cmt has an item head to attach to.
+    try:
+        if create_data(ea, FF_BYTE, 1, BADADDR) != BADADDR:
+            set_cmt(ea, cmt, repeatable)
+            if get_cmt(ea, repeatable) == cmt:
+                return True
+    except Exception:
+        pass
+
+    # fall back to a bookmark, which works at any mapped address.
+    try:
+        ida_mark.put_bookmark(ea, 0, 0, string)
+    except Exception:
+        pass
+    return False
 
 
 def AppendLvarComment(fva, frame_offset, s, repeatable=False):
@@ -125,7 +173,8 @@ if __name__ == "__main__":
 """ % (
         len(result_document.strings.decoded_strings)
         + len(result_document.strings.stack_strings)
-        + len(result_document.strings.tight_strings),
+        + len(result_document.strings.tight_strings)
+        + len(mapped_static_strings),
         result_document.metadata.file_path,
         "\n    ".join(main_commands),
     )
@@ -135,6 +184,12 @@ if __name__ == "__main__":
 def main():
     parser = argparse.ArgumentParser(description="Generate an IDA Python script to apply FLOSS results.")
     parser.add_argument("/path/to/report.json", help="path to JSON document from `floss --json`")
+    parser.add_argument(
+        "--sample",
+        metavar="PATH",
+        default=None,
+        help="path to the analyzed sample if it is not available at the path recorded in the result document",
+    )
 
     logging_group = parser.add_argument_group("logging arguments")
 
@@ -158,7 +213,7 @@ def main():
 
     result_document = ResultDocument.parse_file(Path(args.report_path))
 
-    print(render_ida_script(result_document))
+    print(render_ida_script(result_document, args.sample))
     return 0
 
 
