@@ -41,7 +41,7 @@ renderers can use.
 
 import logging
 import itertools
-from typing import List, Tuple, Optional, NamedTuple
+from typing import Set, List, Tuple, Optional, NamedTuple
 from pathlib import Path
 
 import pefile
@@ -117,6 +117,11 @@ def load_pe_image(path: str) -> Optional[PeImage]:
         if not raw_start or not raw_size:
             # virtual-only sections (e.g. .bss) do not contribute file offsets
             continue
+        # file bytes past VirtualSize are not mapped into memory. some linkers
+        # pad sections to FileAlignment, so clamping avoids translating padding
+        # into a neighboring section's VA range.
+        if section.Misc_VirtualSize:
+            raw_size = min(raw_size, section.Misc_VirtualSize)
         regions.append(ImageRegion(raw_start, raw_start + raw_size, section.VirtualAddress))
 
     # headers (DOS header, PE headers, section table) are mapped at the image base.
@@ -161,6 +166,7 @@ def resolve_static_strings(
 
     mapped: List[MappedString] = []
     unmapped = 0
+    seen: Set[Tuple[int, str]] = set()
     for static_string in itertools.chain(
         result_document.strings.static_strings, result_document.strings.language_strings
     ):
@@ -176,6 +182,12 @@ def resolve_static_strings(
             unmapped += 1
             continue
 
+        # static and language extraction can surface the same string at the
+        # same address. keep one copy so renderers don't emit duplicate commands.
+        key = (rva, static_string.string)
+        if key in seen:
+            continue
+        seen.add(key)
         mapped.append(MappedString(rva, imagebase + rva, static_string.string))
 
     return mapped, unmapped
@@ -194,3 +206,34 @@ def load_sample_path(result_document: ResultDocument) -> Optional[str]:
         path,
     )
     return None
+
+
+def load_and_resolve_static_strings(
+    result_document: ResultDocument,
+    sample_override: Optional[str] = None,
+) -> Tuple[List[MappedString], int]:
+    """
+    Load the sample referenced by the document and resolve its static and
+    language strings.
+
+    Avoids warning about a missing sample when there is nothing to translate,
+    such as when FLOSS was run with --no-string-type static language.
+    A non-empty `sample_override` (render scripts' --sample option) takes
+    precedence over the path recorded in the document.
+    """
+    has_strings = any(
+        static_string.string != ""
+        for static_string in itertools.chain(
+            result_document.strings.static_strings, result_document.strings.language_strings
+        )
+    )
+    if not has_strings:
+        return [], 0
+
+    sample_path: Optional[str]
+    if sample_override:
+        sample_path = sample_override
+    else:
+        sample_path = load_sample_path(result_document)
+    pe_image = load_pe_image(sample_path) if sample_path else None
+    return resolve_static_strings(result_document, pe_image)
