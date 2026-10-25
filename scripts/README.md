@@ -23,14 +23,18 @@ $ python render-ghidra-import-script.py results.json > apply_floss.py
 
 See [`disassemblers/`](disassemblers/) for per-tool scripts and the [IDA plugin](disassemblers/idaplugin.py) (`File → Script file…` in IDA Pro).
 
-Static and language-specific strings store file offsets in the JSON. The render
-scripts translate those offsets to virtual addresses using the PE section table,
-which requires the original sample to still exist at the path recorded in the
-JSON. Strings that are not backed by a PE section (for example overlay data,
-shellcode, ELF, or Mach-O samples) cannot be mapped and are skipped with a
-warning.
-
 Install FLOSS from source first; see [installation](../doc/installation.md).
+
+> **Note**: Static and language-specific strings store file offsets in the JSON.
+> The render scripts translate those offsets to virtual addresses using the PE
+> section table, which requires the original sample to still exist at the path
+> recorded in the JSON (or pass `--sample PATH` to the render script). Relative
+> `file_path` values resolve against the render command's current working
+> directory. VAs assume the sample is loaded at its preferred base; if your
+> database is rebased, annotations must be subtracted/adjusted by the rebase
+> delta. Strings that cannot be mapped (for example overlay data, or
+> samples that are not PE files such as shellcode, ELF, or Mach-O) are skipped
+> with a warning.
 
 ## tags/
 
