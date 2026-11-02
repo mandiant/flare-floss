@@ -19,12 +19,16 @@
 #  is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and limitations under the License.
 
+import ast
 import sys
 import subprocess
+import importlib.util
 from pathlib import Path
 from functools import lru_cache
 
 import pytest
+
+from floss.results import Metadata, ResultDocument
 
 CD = Path(__file__).resolve().parent
 
@@ -66,3 +70,19 @@ def test_disassembler_scripts(script, args):
     script_path = get_disassembler_script_path(script)
     p = run_program(script_path, args)
     assert p.returncode == 0
+
+
+def test_ghidra_script_uses_one_transaction():
+    path = get_disassembler_script_path("render-ghidra-import-script.py")
+    spec = importlib.util.spec_from_file_location("render_ghidra_import_script", path)
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    script = module.render_ghidra_script(ResultDocument(metadata=Metadata(file_path="sample.exe")))
+
+    assert script.count("startTransaction(") == 1
+    assert script.count("endTransaction(") == 1
+    assert "endTransaction(transaction_id, commit)" in script
+    ast.parse(script)
