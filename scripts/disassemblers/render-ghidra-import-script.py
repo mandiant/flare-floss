@@ -202,7 +202,13 @@ def append_lvar_comment(fva: int, frame_offset: int, comment_text: str) -> None:
 def run() -> None:
     """Main entry point for the FLOSS annotation script."""
     print("Annotating {total_strings} strings from FLOSS for {file_path}")
+    transaction_id = currentProgram.startTransaction("Apply FLOSS strings")
+    commit = False
+    try:
 {main_commands}
+        commit = True
+    finally:
+        currentProgram.endTransaction(transaction_id, commit)
 
 
 # Script execution
@@ -259,7 +265,7 @@ def render_ghidra_script(result_document: ResultDocument) -> str:
     script_content = SCRIPT_TEMPLATE.format(
         total_strings=total_strings,
         file_path=file_path,
-        main_commands="\n".join(main_commands),
+        main_commands="\n".join(f"    {command}" for command in main_commands),
     )
 
     return script_content
