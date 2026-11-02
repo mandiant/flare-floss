@@ -111,6 +111,18 @@ def collect_layout_strings(layout):
     return out
 
 
+def test_structured_output_filters_layout_and_static_strings():
+    args = floss.main.make_parser().parse_args([__file__, "--json", "--tag", "winapi"])
+    results = make_results()
+
+    floss.main.filter_structured_results(args, results)
+
+    assert results.layout is not None
+    assert collect_layout_strings(results.layout) == ["CreateFileA"]
+    assert [string.string for string in results.strings.static_strings] == ["CreateFileA"]
+    assert results.strings.static_strings[0].tags == ["#winapi"]
+
+
 def test_filter_by_section():
     f = floss.render.filter.LayoutFilter(include_sections=[".rdata"])
     filtered = f.apply(make_layout())

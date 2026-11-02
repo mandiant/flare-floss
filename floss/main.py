@@ -36,6 +36,7 @@ from floss.cli import (
     set_log_config,
 )
 from floss.utils import FileType, detect_file_type, expand_string_types, is_string_type_enabled
+from floss.enrich import static_strings_from_layout
 from floss.results import Analysis, load
 from floss.pipeline import Options, PipelineError, analyze
 from floss.render.filter import LayoutFilter
@@ -100,6 +101,32 @@ def build_layout_filter(args) -> LayoutFilter:
         max_strings=args.max_strings,
         tag_rules=floss.render.default.DEFAULT_TAG_RULES,
     )
+
+
+def filter_structured_results(args, results: floss.results.ResultDocument) -> None:
+    """Apply layout-aware filters to JSON and HTML output in place."""
+    layout_filter = build_layout_filter(args)
+    if not layout_filter.active:
+        return
+
+    if results.layout is None:
+        logger.warning(
+            "layout analysis is disabled or failed, so there is no layout tree: layout-aware filters "
+            "(--section, --structure, --tag, --query, --max-strings, --interesting) are ignored"
+        )
+        return
+
+    filtered = layout_filter.apply(results.layout)
+    if filtered is None:
+        filtered = floss.results.ResultLayout(
+            name=results.layout.name,
+            offset=results.layout.offset,
+            length=results.layout.length,
+        )
+
+    results.layout = filtered
+    if results.analysis.enable_static_strings:
+        results.strings.static_strings = static_strings_from_layout(filtered)
 
 
 def render_text(args, results: floss.results.ResultDocument, stream=None):
@@ -269,6 +296,9 @@ def main(argv=None) -> int:
                 logger.error("%s", e)
             return -1
 
+        if args.json or args.html:
+            filter_structured_results(args, results)
+
         if args.json:
             r = floss.render.json.render(results)
         elif args.html:
@@ -306,6 +336,9 @@ def main(argv=None) -> int:
         else:
             logger.error("%s", e)
         return e.exit_code
+
+    if args.json or args.html:
+        filter_structured_results(args, analysis_results)
 
     if args.json:
         r = floss.render.json.render(analysis_results)
