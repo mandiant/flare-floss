@@ -53,86 +53,22 @@ REG_R13 = 13
 REG_R14 = 14
 REG_R15 = 15
 
-PRINTABLE_CHARS = set(bytes(string.printable, "ascii")) - set(b"\x0b\x0c")
-TEXT_CHARS = set(
-    bytes(
-        "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 ._/:@%+=-",
-        "ascii",
-    )
-)
-
-_COMMON_TRIGRAMS = set(
-    "the and ing ion tio ent ati for her ter tha ere ate his con res ver all ons nce men ith "
-    "ted ers pro thi wit are ess not ive was ect rea com eve per int est sta cti ica ist ear "
-    "ain one our iti rat ell ont end ure nte tur nde ant ome ult lin sch dat ild fig onf nfi "
-    "poi dpo oin sou urc rce emo tel lem eme etr try eat atu fea net get set key tok sys reg "
-    "log src lib run man app use new old add del str num idx cmd nam pat fil hos por use pas "
-    "loa sav rea wri sen rec ini exi mai fun can ana nar ary bra rav avo bui uil cha har arl "
-    "rli lie del elt lta ech cho vel elo opm pme men nta tal tab abl ble ser erv vic ice cli "
-    "ien ent tion ersi rsi sio ver ersi onf nfig figu gur ura rat tio ion def efa fau aul ult "
-    "set ett tti tin ing pat ath con nfi onf fig set sta tab chan hann anne nnel el- sta tab "
-    "sch hem ema mav ver ers rsi sio on- num mbe ber get tin ing all wit hin out abo ut- per "
-    "ata tab tas tes tex typ val var vec web xml yes zip url uri uid utf ascii json http host "
-    "dir doc dow dri env err evt fmt gen hex idx img inp key lab lst map max min mod msg obj "
-    "opt out pkg pos pre ptr que ref req res ret row siz src std sum sys tab tag tmp top txt "
-    "upd usr val vec ver win xml abc def ghi code data file name path user admin login token "
-    "endp ndpo dpoi poin oint conf onfi nfig figu bui uil ild ld- d-i -id id- 201 026 261 "
-    "rel ele lea eas ase chan hann rele leas ease stab tabl able ble- le-2 anne nnel ault efau "
-    "resou esour sourc ource data data- a.bin .bin opt /opt app /app reso settin tting tings "
-    "toml .toml onfig fig/ ig/n start arte rted rt-g -gui guid uide star getti ettin tting "
-    "flag lag- feat eatu atur ture elem lem- emet metr etry fla ff- off tele emet".split()
-)
-
 
 def _canon_reg(reg_id: Optional[int]) -> Optional[int]:
     """Map any sub-register (e.g. edx, dl) to its 64-bit parent ID in envi."""
     return (reg_id & 0xFFFF) if reg_id is not None else None
 
 
-def english_score(t: str) -> float:
-    """Fraction of 3-grams that match common English/identifier trigrams."""
-    low = t.lower()
-    grams = [low[i : i + 3] for i in range(len(low) - 2)]
-    if not grams:
-        return 0.0
-    hits = sum(1 for g in grams if g in _COMMON_TRIGRAMS)
-    return hits / len(grams)
-
-
-def looks_like_text(dec: bytes) -> bool:
-    """Validate whether decrypted bytes represent plausible string data."""
-    if len(dec) < 4:
+def is_printable_utf8(dec: bytes, min_length: int = 4) -> bool:
+    """Validate whether decrypted bytes represent valid, printable UTF-8 string data."""
+    if len(dec) < min_length:
         return False
     try:
-        t = dec.decode("utf-8")
+        s = dec.decode("utf-8")
     except UnicodeDecodeError:
-        try:
-            t = dec.decode("ascii")
-        except UnicodeDecodeError:
-            return False
-
-    # Check for ASCII indicators / URLs / paths
-    if any(
-        prefix in t for prefix in ("http://", "https://", "canary::", "/", "\\", "::")
-    ):
-        return True
-
-    texty = sum(1 for c in dec if c in TEXT_CHARS)
-    if texty / len(dec) < 0.85:
         return False
 
-    alnum = sum(1 for c in t if c.isalnum())
-    if alnum / len(dec) < 0.50:
-        return False
-
-    if not any(c.isalpha() for c in t):
-        return False
-
-    es = english_score(t)
-    if es < 0.08 and len(t) >= 8:
-        return False
-
-    return True
+    return re.sub(r"[\r\n\t]", "", s).isprintable()
 
 
 class BinaryView:
@@ -485,15 +421,11 @@ def extract_litcrypt_strings(
             else:
                 dec = bytes((blob[k] - key[k % kl]) & 0xFF for k in range(len(blob)))
 
-            if dec and looks_like_text(dec):
-                s = dec.decode("utf-8", "ignore")
-                if len(s) >= min_length:
-                    decoder_strings.append((s, binary.va_to_offset(blob_va)))
+            if dec and is_printable_utf8(dec, min_length):
+                s = dec.decode("utf-8")
+                decoder_strings.append((s, binary.va_to_offset(blob_va)))
 
-        # Corroboration: accept if >= 2 call sites decode cleanly (or single high confidence IOC)
-        if len(decoder_strings) >= 2 or any(
-            "::" in s or "http" in s for s, _ in decoder_strings
-        ):
+        if decoder_strings:
             for s, off in decoder_strings:
                 recovered_strings.append(
                     StaticString(string=s, offset=off, encoding=StringEncoding.UTF8)
@@ -687,14 +619,11 @@ def _recover_litcrypt2(
             if blob_va and length:
                 ct = binary.read_va(blob_va, length)
                 dec = decode_litcrypt2(ct)
-                if dec and looks_like_text(dec):
-                    s = dec.decode("utf-8", "ignore")
-                    if len(s) >= min_length:
-                        lit2_strings.append((s, binary.va_to_offset(blob_va)))
+                if dec and is_printable_utf8(dec, min_length):
+                    s = dec.decode("utf-8")
+                    lit2_strings.append((s, binary.va_to_offset(blob_va)))
 
-        if len(lit2_strings) >= 2 or any(
-            "::" in s or "http" in s for s, _ in lit2_strings
-        ):
+        if lit2_strings:
             for s, off in lit2_strings:
                 out.append(
                     StaticString(string=s, offset=off, encoding=StringEncoding.UTF8)

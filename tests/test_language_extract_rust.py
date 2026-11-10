@@ -2,11 +2,7 @@ import pathlib
 
 import pytest
 from floss.language.rust.extract import extract_rust_strings
-from floss.language.rust.litcrypt import (
-    english_score,
-    extract_litcrypt_strings,
-    looks_like_text,
-)
+from floss.language.rust.litcrypt import extract_litcrypt_strings, is_printable_utf8
 from floss.results import StaticString, StringEncoding
 
 
@@ -139,10 +135,10 @@ def test_litcrypt_negative_clean_binaries():
     assert extract_litcrypt_strings(p64) == []
 
 
-def test_litcrypt_heuristics():
-    assert looks_like_text(b"canary::alpha::7f3c-config-endpoint")
-    assert looks_like_text(b"https://c2.example.com/api/v1")
-    assert looks_like_text(b"/opt/app/resources/data.bin")
-    assert not looks_like_text(b"\x01\x02\x03\x04\x05")
-    assert not looks_like_text(b"ZZZZZZZZZZZZ")
-    assert english_score("canary-config-endpoint") > 0.1
+def test_litcrypt_printable_utf8():
+    assert is_printable_utf8(b"canary::alpha::7f3c-config-endpoint")
+    assert is_printable_utf8(b"https://c2.example.com/api/v1")
+    assert is_printable_utf8(b"/opt/app/resources/data.bin")
+    assert is_printable_utf8(b"random-base64-token-12345!@#$")
+    assert not is_printable_utf8(b"\x01\x02\x03\x04\x05")
+    assert not is_printable_utf8(b"abc", min_length=4)
