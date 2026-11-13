@@ -70,5 +70,24 @@ def _render_dict(data: dict) -> str:
     return json.dumps(top, cls=FlossJSONEncoder, sort_keys=False)
 
 
-def render(doc: ResultDocument) -> str:
-    return _render_dict(dataclasses.asdict(doc))
+def render(
+    doc: ResultDocument,
+    *,
+    omit_static_strings: bool = False,
+    omit_layout: bool = False,
+) -> str:
+    """Serialize a results document to JSON.
+
+    ``omit_static_strings`` drops the flat static string view when the layout
+    tree is present, because it is derived from the tree. ``omit_layout`` drops
+    the layout tree instead. At most one view may be omitted.
+    """
+    if omit_static_strings and omit_layout:
+        raise ValueError("cannot omit both static_strings and layout")
+
+    data = dataclasses.asdict(doc)
+    if omit_static_strings and data["layout"] is not None:
+        data["strings"]["static_strings"] = []
+    if omit_layout:
+        data["layout"] = None
+    return _render_dict(data)

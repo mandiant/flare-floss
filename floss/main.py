@@ -36,6 +36,7 @@ from floss.cli import (
     set_log_config,
 )
 from floss.utils import FileType, detect_file_type, expand_string_types, is_string_type_enabled
+from floss.enrich import static_strings_from_layout
 from floss.results import Analysis, load
 from floss.pipeline import Options, PipelineError, analyze
 from floss.render.filter import LayoutFilter
@@ -162,6 +163,11 @@ def main(argv=None) -> int:
                 parser.error("--summary only covers static strings and does not take --string-type/--no-string-type")
         if args.json and args.html:
             parser.error("--json and --html cannot be combined")
+        if args.json_omit:
+            if not args.json:
+                parser.error("--json-omit requires --json")
+            if len(set(args.json_omit)) > 1:
+                parser.error("--json-omit accepts at most one view")
         if args.max_strings is not None and args.max_strings <= 0:
             parser.error("--max-strings must be a positive integer")
         for pattern in args.queries:
@@ -269,8 +275,15 @@ def main(argv=None) -> int:
                 logger.error("%s", e)
             return -1
 
+        if results.layout is not None and results.analysis.enable_static_strings and not results.strings.static_strings:
+            results.strings.static_strings = static_strings_from_layout(results.layout)
+
         if args.json:
-            r = floss.render.json.render(results)
+            r = floss.render.json.render(
+                results,
+                omit_static_strings="static_strings" in args.json_omit,
+                omit_layout="layout" in args.json_omit,
+            )
         elif args.html:
             r = floss.render.html.render(results)
         else:
@@ -308,7 +321,11 @@ def main(argv=None) -> int:
         return e.exit_code
 
     if args.json:
-        r = floss.render.json.render(analysis_results)
+        r = floss.render.json.render(
+            analysis_results,
+            omit_static_strings="static_strings" in args.json_omit,
+            omit_layout="layout" in args.json_omit,
+        )
     elif args.html:
         r = floss.render.html.render(analysis_results)
     else:

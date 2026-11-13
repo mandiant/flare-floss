@@ -196,6 +196,16 @@ Write FLOSS results to `stdout` structured in JSON to make it easy to ingest by 
 
     floss.exe -j malware.exe > malware_strings.json
 
+When layout analysis succeeds, the JSON contains the static strings twice: as
+the flat `strings.static_strings` list and in the `layout` tree. To emit only one
+of those views and roughly halve the output:
+
+    floss.exe -j --json-omit static_strings malware.exe > malware_layout.json
+    floss.exe -j --json-omit layout malware.exe > malware_static.json
+
+See [results_document.md](results_document.md) for the relationship between the
+two views.
+
 The easiest way to explore this output is the hosted
 [web viewer](https://mandiant.github.io/flare-floss/): upload the JSON file, then
 filter by tag, structure, or search term, and copy the strings you keep. See

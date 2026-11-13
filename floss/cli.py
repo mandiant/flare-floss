@@ -160,6 +160,9 @@ def make_parser():
           emit a concise summary instead of the full listing
             floss --summary suspicious.exe
 
+          emit JSON with the layout tree only, omitting the derived flat static strings
+            floss -j --json-omit static_strings suspicious.exe > results.json
+
           emit a standalone HTML report
             floss --html suspicious.exe > report.html
 
@@ -370,6 +373,16 @@ def make_parser():
 
     output_group = parser.add_argument_group("rendering arguments")
     output_group.add_argument("-j", "--json", action="store_true", help="emit JSON instead of text")
+    output_group.add_argument(
+        "--json-omit",
+        dest="json_omit",
+        action="append",
+        choices=("static_strings", "layout"),
+        default=[],
+        metavar="VIEW",
+        help="omit one view from JSON output: static_strings (derived from the layout tree when layout "
+        "analysis succeeds) or layout (the section-aware tree); at most one may be omitted",
+    )
     output_group.add_argument(
         "--html",
         action="store_true",

@@ -128,6 +128,23 @@ analysis is disabled. A node is:
   `section header`, or `string table`. It is the empty string `""`, never
   `null`, when the string is not part of a known structure.
 
+When layout analysis succeeds, `strings.static_strings` is derived from the
+layout tree: both contain the same `(string, offset)` pairs, with `section` in
+the flat view and `size` in the tree. The two views are therefore redundant for
+consumers that only need one of them. Use `--json-omit` to leave one out of the
+JSON output:
+
+```
+floss -j --json-omit static_strings sample.exe > layout-only.json
+floss -j --json-omit layout sample.exe > flat-static-only.json
+```
+
+`--json-omit static_strings` only applies when a layout tree is present;
+otherwise the flat strings are kept. The omitted field is emitted as an empty
+list (`strings.static_strings`) or `null` (`layout`), so the document shape is
+unchanged and it can still be loaded by FLOSS. `--json-omit` requires `--json`
+and accepts at most one view.
+
 ## Stability
 
 The document carries `metadata.version`. While FLOSS is under active

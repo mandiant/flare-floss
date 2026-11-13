@@ -118,6 +118,39 @@ def test_main_without_static_strings_still_deobfuscates(scfile, capsys):
     assert "Invalid data received!" in {s["string"] for s in doc["strings"]["stack_strings"]}
 
 
+@pytest.mark.parametrize("view", ["static_strings", "layout"])
+def test_main_json_omit_view(exefile, capsys, view):
+    args = [exefile, "-j", "-q", "--string-type", "static", "--language", "none", "--json-omit", view]
+    assert floss.main.main(args) == 0
+    doc = json.loads(capsys.readouterr().out)
+
+    if view == "static_strings":
+        assert doc["layout"] is not None
+        assert doc["strings"]["static_strings"] == []
+    else:
+        assert doc["layout"] is None
+        assert doc["strings"]["static_strings"]
+
+
+def test_main_json_omit_static_strings_reloads_from_layout(exefile, tmp_path, capsys):
+    args = [exefile, "-j", "-q", "--string-type", "static", "--language", "none", "--json-omit", "static_strings"]
+    assert floss.main.main(args) == 0
+
+    results = tmp_path / "layout-only.json"
+    results.write_text(capsys.readouterr().out)
+
+    assert floss.main.main([str(results), "-q", "--plain"]) == 0
+    assert "This program cannot be run in DOS mode." in capsys.readouterr().out
+
+
+def test_main_json_omit_requires_json(exefile):
+    assert floss.main.main([exefile, "--json-omit", "static_strings"]) == -1
+
+
+def test_main_json_omit_rejects_multiple_views(exefile):
+    assert floss.main.main([exefile, "-j", "--json-omit", "static_strings", "--json-omit", "layout"]) == -1
+
+
 def test_analyze_does_not_mutate_caller_analysis(empty_file):
     analysis = Analysis()
     analyze(Options(sample=empty_file, min_length=4, analysis=analysis))
