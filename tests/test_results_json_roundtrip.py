@@ -19,6 +19,8 @@ import tempfile
 import dataclasses
 from pathlib import Path
 
+import pytest
+
 import floss.utils
 import floss.render.json
 from floss.results import (
@@ -155,6 +157,78 @@ def test_rendered_document_is_detectable(tmp_path):
     p.write_text(floss.render.json.render(doc))
 
     assert floss.utils.detect_file_type(p) is floss.utils.FileType.RESULTS
+
+
+def make_view_doc(layout_present=True):
+    layout = None
+    if layout_present:
+        layout = ResultLayout(
+            name="pe",
+            offset=0,
+            length=0x1000,
+            strings=[
+                ResultString(
+                    string="kernel32.dll",
+                    offset=0x100,
+                    size=12,
+                    encoding="ascii",
+                    tags=["#winapi"],
+                    structure="import table",
+                )
+            ],
+        )
+    return ResultDocument(
+        metadata=Metadata(file_path="sample.exe", min_length=4),
+        analysis=Analysis(enable_layout=layout_present, enable_tags=True),
+        strings=Strings(
+            static_strings=[
+                StaticString(
+                    string="kernel32.dll",
+                    offset=0x100,
+                    encoding=StringEncoding.ASCII,
+                    tags=["#winapi"],
+                    section="pe",
+                    structure="import table",
+                )
+            ]
+        ),
+        layout=layout,
+    )
+
+
+def test_json_render_omit_static_strings_when_layout_present():
+    doc = make_view_doc(layout_present=True)
+
+    data = json.loads(floss.render.json.render(doc, omit_static_strings=True))
+
+    assert data["strings"]["static_strings"] == []
+    assert data["layout"]["name"] == "pe"
+    assert data["layout"]["strings"][0]["string"] == "kernel32.dll"
+
+
+def test_json_render_omit_static_strings_keeps_only_view_without_layout():
+    doc = make_view_doc(layout_present=False)
+
+    data = json.loads(floss.render.json.render(doc, omit_static_strings=True))
+
+    assert data["layout"] is None
+    assert data["strings"]["static_strings"][0]["string"] == "kernel32.dll"
+
+
+def test_json_render_omit_layout():
+    doc = make_view_doc(layout_present=True)
+
+    data = json.loads(floss.render.json.render(doc, omit_layout=True))
+
+    assert data["layout"] is None
+    assert data["strings"]["static_strings"][0]["string"] == "kernel32.dll"
+
+
+def test_json_render_rejects_omitting_both_views():
+    doc = make_view_doc(layout_present=True)
+
+    with pytest.raises(ValueError, match="cannot omit both"):
+        floss.render.json.render(doc, omit_static_strings=True, omit_layout=True)
 
 
 def test_json_render_keeps_extra_top_level_keys():
