@@ -41,6 +41,7 @@ import floss.logging_
 import floss.language.utils
 import floss.language.go.extract
 import floss.language.rust.extract
+import floss.language.dotnet.extract
 from floss.cli import WorkspaceLoadError
 from floss.const import (
     MAX_FILE_SIZE,
@@ -450,10 +451,7 @@ def analyze(options: Options) -> ResultDocument:
             )
 
     elif results.metadata.language == Language.DOTNET.value:
-        logger.warning(".NET language-specific string extraction is not supported yet")
         logger.warning("FLOSS does NOT attempt to deobfuscate any strings from .NET binaries")
-        # enable .NET strings once we can extract them
-        # results.metadata.language = Language.DOTNET.value
         # TODO for pure .NET binaries our deobfuscation algorithms do nothing, but for mixed-mode assemblies they may
         analysis.enable_stack_strings = False
         analysis.enable_tight_strings = False
@@ -494,7 +492,7 @@ def analyze(options: Options) -> ResultDocument:
     if (
         sample_buf
         and analysis.enable_language_strings
-        and results.metadata.language in (Language.GO.value, Language.RUST.value)
+        and results.metadata.language in (Language.GO.value, Language.RUST.value, Language.DOTNET.value)
     ):
         # one offset index for both language_strings and language_strings_missed
         layout_offset_index = None
@@ -505,6 +503,10 @@ def analyze(options: Options) -> ResultDocument:
             logger.info("extracting language-specific Go strings")
             extractor = floss.language.go.extract.extract_go_strings
             range_strings = floss.language.go.extract.get_static_strings_from_blob_range
+        elif results.metadata.language == Language.DOTNET.value:
+            logger.info("extracting language-specific .NET strings")
+            extractor = floss.language.dotnet.extract.extract_dotnet_strings
+            range_strings = floss.language.dotnet.extract.get_static_strings_from_us_heap
         else:
             logger.info("extracting language-specific Rust strings")
             extractor = floss.language.rust.extract.extract_rust_strings
