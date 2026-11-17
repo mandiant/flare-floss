@@ -460,6 +460,13 @@ def set_log_config(debug, quiet):
     else:
         logging.getLogger("goblin").setLevel(logging.DEBUG)
 
+    # dnfile warns for every malformed #US heap entry, common even in benign framework
+    # assemblies; the .NET string extractor already skips entries it cannot decode.
+    if debug < DebugLevel.TRACE:
+        logging.getLogger("dnfile").setLevel(logging.ERROR)
+    else:
+        logging.getLogger("dnfile").setLevel(logging.DEBUG)
+
     # configure viv-utils logging
     if debug == DebugLevel.DEFAULT:
         logging.getLogger("viv_utils.emulator_drivers").setLevel(logging.DEBUG)
