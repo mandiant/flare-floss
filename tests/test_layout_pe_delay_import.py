@@ -193,3 +193,53 @@ def test_invalid_import_dll_name_keeps_pe_layout(delay):
     assert isinstance(layout, PELayout)
     assert HEADERS_SIZE + INVALID_DLL_NAME not in layout.structures_by_address
     assert layout.structures_by_address[HEADERS_SIZE + HINT_NAME + 2].name == "import table"
+
+
+# offsets within .rdata for the export test
+EXPORT_DIRECTORY = 0x00
+EXPORT_DIRECTORY_SIZE = 0x180
+EAT = 0x40
+ENPT = 0x60
+EOT = 0x80
+EXPORT_DLL_NAME = 0x100
+EXPORT_NAME_A = 0x120
+EXPORT_NAME_B = 0x130
+FORWARDER = 0x140
+FUNCTION_A = 0x1F0
+
+
+def build_export_pe() -> bytes:
+    """PE32 exporting FuncA and FuncB, where FuncB is forwarded to USER32.MessageBoxA."""
+    rdata = bytearray(RDATA_SIZE)
+    directory = struct.pack(
+        "<IIHHIIIIIII",
+        0,  # Characteristics
+        0,  # TimeDateStamp
+        0,  # MajorVersion
+        0,  # MinorVersion
+        RDATA_RVA + EXPORT_DLL_NAME,  # Name
+        1,  # Base
+        2,  # NumberOfFunctions
+        2,  # NumberOfNames
+        RDATA_RVA + EAT,  # AddressOfFunctions
+        RDATA_RVA + ENPT,  # AddressOfNames
+        RDATA_RVA + EOT,  # AddressOfNameOrdinals
+    )
+    rdata[EXPORT_DIRECTORY : EXPORT_DIRECTORY + len(directory)] = directory
+    # a function RVA inside the export directory is a forwarder string
+    rdata[EAT : EAT + 8] = struct.pack("<II", RDATA_RVA + FUNCTION_A, RDATA_RVA + FORWARDER)
+    rdata[ENPT : ENPT + 8] = struct.pack("<II", RDATA_RVA + EXPORT_NAME_A, RDATA_RVA + EXPORT_NAME_B)
+    rdata[EOT : EOT + 4] = struct.pack("<HH", 0, 1)
+    rdata[EXPORT_DLL_NAME : EXPORT_DLL_NAME + 9] = b"TEST.dll\x00"
+    rdata[EXPORT_NAME_A : EXPORT_NAME_A + 6] = b"FuncA\x00"
+    rdata[EXPORT_NAME_B : EXPORT_NAME_B + 6] = b"FuncB\x00"
+    rdata[FORWARDER : FORWARDER + 19] = b"USER32.MessageBoxA\x00"
+
+    return build_pe(bytes(rdata), {0: (RDATA_RVA + EXPORT_DIRECTORY, EXPORT_DIRECTORY_SIZE)})
+
+
+def test_export_names_and_forwarders_are_marked_as_export_table():
+    layout = compute_layout(build_export_pe(), 4)
+    assert isinstance(layout, PELayout)
+    for offset in (EXPORT_DLL_NAME, EXPORT_NAME_A, EXPORT_NAME_B, FORWARDER):
+        assert layout.structures_by_address[HEADERS_SIZE + offset].name == "export table"

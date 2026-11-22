@@ -265,6 +265,29 @@ def _get_code_ranges(
     return code_ranges
 
 
+def get_export_name_rvas(pe: pefile.PE) -> Dict[bytes, int]:
+    """
+    Map export names to the RVAs of their strings, read from the AddressOfNames table.
+
+    pefile's ExportData keeps only name_offset, which pefile computes with get_offset_from_rva:
+    that rounds PointerToRawData down to FileAlignment and does not check SizeOfRawData.
+    """
+    ret: Dict[bytes, int] = {}
+
+    exp = pe.DIRECTORY_ENTRY_EXPORT.struct
+    for i in range(exp.NumberOfNames):
+        try:
+            name_rva = pe.get_dword_at_rva(exp.AddressOfNames + 4 * i)
+            if name_rva is None:
+                break
+            name = pe.get_string_at_rva(name_rva, pefile.MAX_SYMBOL_NAME_LENGTH)
+        except pefile.PEFormatError:
+            break
+        ret.setdefault(name, name_rva)
+
+    return ret
+
+
 def collect_pe_structures(slice_: Slice, pe: pefile.PE) -> Sequence[Structure]:
     structures = []
 
@@ -307,7 +330,7 @@ def collect_pe_structures(slice_: Slice, pe: pefile.PE) -> Sequence[Structure]:
             if entry.name is None:
                 continue
 
-            if entry.name_offset is None:
+            if entry.hint_name_table_rva is None:
                 continue
 
             try:
@@ -315,7 +338,15 @@ def collect_pe_structures(slice_: Slice, pe: pefile.PE) -> Sequence[Structure]:
             except UnicodeDecodeError:
                 continue
 
-            offset = entry.name_offset
+            # the name follows the 2-byte hint in the hint/name table entry.
+            # map it like the DLL name, not via pefile's name_offset (see get_export_name_rvas).
+            rva = entry.hint_name_table_rva + 2
+            try:
+                offset = get_physical_offset_from_rva(pe, rva)
+            except pefile.PEFormatError as e:
+                logger.warning("failed to get offset for import name RVA 0x%x: %s", rva, e)
+                continue
+
             size = len(symbol_name)
             if not slice_.contains_range(offset, size):
                 continue
@@ -346,11 +377,15 @@ def collect_pe_structures(slice_: Slice, pe: pefile.PE) -> Sequence[Structure]:
                 logger.warning("failed to parse export table DLL name: %s", e)
 
         if hasattr(exp, "symbols"):
+            # map names and forwarders like the DLL name, not via pefile's name_offset and forwarder_offset
+            name_rvas = get_export_name_rvas(pe)
+
             for entry in exp.symbols:
                 if entry.name is None:
                     continue
 
-                if entry.name_offset is None:
+                rva = name_rvas.get(entry.name)
+                if rva is None:
                     continue
 
                 try:
@@ -358,29 +393,42 @@ def collect_pe_structures(slice_: Slice, pe: pefile.PE) -> Sequence[Structure]:
                 except UnicodeDecodeError:
                     continue
 
-                offset = entry.name_offset
+                try:
+                    offset = get_physical_offset_from_rva(pe, rva)
+                except pefile.PEFormatError as e:
+                    logger.warning("failed to get offset for export name RVA 0x%x: %s", rva, e)
+                    continue
+
                 size = len(symbol_name)
-
-                structures.append(
-                    Structure(
-                        slice=slice_.slice(offset, size),
-                        name="export table",
-                    )
-                )
-
-                if entry.forwarder:
-                    try:
-                        forwarder_name = entry.forwarder.decode("ascii")
-                    except UnicodeDecodeError:
-                        continue
-                    offset = entry.forwarder_offset
-                    size = len(forwarder_name)
+                if slice_.contains_range(offset, size):
                     structures.append(
                         Structure(
                             slice=slice_.slice(offset, size),
                             name="export table",
                         )
                     )
+
+                if entry.forwarder:
+                    try:
+                        forwarder_name = entry.forwarder.decode("ascii")
+                    except UnicodeDecodeError:
+                        continue
+
+                    # for a forwarded export, the function RVA points to the forwarder string
+                    try:
+                        offset = get_physical_offset_from_rva(pe, entry.address)
+                    except pefile.PEFormatError as e:
+                        logger.warning("failed to get offset for export forwarder RVA 0x%x: %s", entry.address, e)
+                        continue
+
+                    size = len(forwarder_name)
+                    if slice_.contains_range(offset, size):
+                        structures.append(
+                            Structure(
+                                slice=slice_.slice(offset, size),
+                                name="export table",
+                            )
+                        )
 
     if hasattr(pe, "RICH_HEADER") and pe.RICH_HEADER:
         key_bytes = pe.RICH_HEADER.key

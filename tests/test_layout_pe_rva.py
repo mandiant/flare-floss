@@ -63,3 +63,18 @@ def test_section_nodes_and_header_follow_raw_pointer(unaligned):
     assert (header.offset, header.end) == (0, 0x210)
     assert (text.offset, text.end) == (0x210, 0x610)
     assert not any(child.name == "gap" for child in layout.children)
+
+
+def test_import_names_follow_raw_pointer(unaligned):
+    pe = pefile.PE(data=unaligned)
+    entry = pe.DIRECTORY_ENTRY_IMPORT[0].imports[0]
+    assert entry.name == b"_CorExeMain"
+    # pefile computes name_offset from the rounded-down pointer: 0x200 + 0x396
+    assert entry.name_offset == 0x596
+
+    layout = compute_layout(Slice.from_bytes(bytes(unaligned)))
+    assert isinstance(layout, PELayout)
+    # the import name follows the raw pointer, like the DLL name and the section node: 0x210 + 0x396
+    assert layout.structures_by_address[0x5A6].name == "import table"
+    assert layout.structures_by_address[0x5B2].name == "import table"
+    assert 0x596 not in layout.structures_by_address
