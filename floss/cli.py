@@ -319,7 +319,13 @@ def make_parser():
     advanced_group.add_argument(
         "--language",
         type=str,
-        choices=[Language.AUTO.value, Language.GO.value, Language.RUST.value, Language.DISABLED.value],
+        choices=[
+            Language.AUTO.value,
+            Language.GO.value,
+            Language.RUST.value,
+            Language.DOTNET.value,
+            Language.DISABLED.value,
+        ],
         default=Language.AUTO.value,
         help="use language-specific string extraction, auto-detect language by default, disable using 'none'",
     )
@@ -459,6 +465,13 @@ def set_log_config(debug, quiet):
         logging.getLogger("goblin").setLevel(logging.ERROR)
     else:
         logging.getLogger("goblin").setLevel(logging.DEBUG)
+
+    # dnfile warns for every malformed #US heap entry, common even in benign framework
+    # assemblies; the .NET string extractor already skips entries it cannot decode.
+    if debug < DebugLevel.TRACE:
+        logging.getLogger("dnfile").setLevel(logging.ERROR)
+    else:
+        logging.getLogger("dnfile").setLevel(logging.DEBUG)
 
     # configure viv-utils logging
     if debug == DebugLevel.DEFAULT:
