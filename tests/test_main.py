@@ -101,7 +101,7 @@ def test_main_empty_file_document_round_trips(empty_file, tmp_path, capsys):
     assert floss.main.main([str(results)]) == 0
 
 
-@pytest.mark.parametrize("language", ["go", "rust"])
+@pytest.mark.parametrize("language", ["go", "rust", "dotnet"])
 def test_main_empty_file_with_forced_language(empty_file, language, capsys):
     assert floss.main.main([str(empty_file), "-j", "--language", language]) == 0
     doc = json.loads(capsys.readouterr().out)

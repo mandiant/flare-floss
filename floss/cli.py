@@ -319,7 +319,13 @@ def make_parser():
     advanced_group.add_argument(
         "--language",
         type=str,
-        choices=[Language.AUTO.value, Language.GO.value, Language.RUST.value, Language.DISABLED.value],
+        choices=[
+            Language.AUTO.value,
+            Language.GO.value,
+            Language.RUST.value,
+            Language.DOTNET.value,
+            Language.DISABLED.value,
+        ],
         default=Language.AUTO.value,
         help="use language-specific string extraction, auto-detect language by default, disable using 'none'",
     )

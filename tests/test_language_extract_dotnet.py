@@ -63,9 +63,10 @@ def test_static_strings_from_us_heap(offset, inside):
     assert get_static_strings_from_us_heap(DOTNET_HELLO, [s]) == ([s] if inside else [])
 
 
-def test_main_reports_dotnet_strings(capsys, monkeypatch):
+@pytest.mark.parametrize("args", [[], ["--language", "dotnet"]])
+def test_main_reports_dotnet_strings(args, capsys, monkeypatch):
     monkeypatch.setenv("FLOSS_CACHE_ENABLE", "0")
-    assert floss.main.main([str(DOTNET_HELLO), "-j"]) == 0
+    assert floss.main.main([str(DOTNET_HELLO), "-j", *args]) == 0
     doc = json.loads(capsys.readouterr().out)
     assert doc["metadata"]["language"] == "dotnet"
     assert "Hello World!" in [s["string"] for s in doc["strings"]["language_strings"]]
